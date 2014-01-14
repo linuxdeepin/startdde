@@ -4,12 +4,6 @@ import "os/exec"
 import "time"
 
 func main() {
-	defer func() {
-		if err := recover(); err != nil {
-			print(err, "\n")
-		}
-	}()
-
 	go exec.Command("/usr/bin/compiz").Run()
 	<-time.After(time.Millisecond * 200)
 
@@ -36,7 +30,7 @@ func main() {
 	go exec.Command("/usr/bin/skype").Run()
 
         // Session Manager
-        go StartSession()
+        startSession()
 
 	for {
 		<-time.After(time.Millisecond * 1000)
