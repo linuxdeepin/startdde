@@ -1,7 +1,12 @@
+try
+    dbus_power = DCore.DBus.session_object("com.deepin.startDDE","com/deepin/startDDE/Session","com.deepin.startDDE.Session")
+catch e
+    echo e
+
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
+    if not dbus_power? then return
     document.body.style.cursor = "wait"
-    dbus_power = DCore.DBus.session("com.deepin.daemon.ShutdownManager")
     echo "Warning: The system will request ----#{power}----"
     switch power
         when "lock" then dbus_power.RequestLock()
@@ -12,8 +17,8 @@ power_request = (power) ->
         else return
 
 power_can = (power) ->
+    if not dbus_power? then return
     result = true
-    dbus_power = DCore.DBus.session("com.deepin.daemon.ShutdownManager")
     switch power
         when "lock" then result = true
         when "suspend" then result = dbus_power.CanSuspend_sync()
@@ -26,10 +31,10 @@ power_can = (power) ->
     return result
 
 power_force = (power) ->
+    if not dbus_power? then return
     # option = ["lock","suspend","logout","restart","shutdown"]
     document.body.style.cursor = "wait"
     echo "Warning: The system will ----#{power}---- Force!!"
-    dbus_power = DCore.DBus.session("com.deepin.daemon.ShutdownManager")
     switch power
         when "lock" then dbus_power.RequestLock()
         when "suspend" then dbus_power.RequestSuspend()
