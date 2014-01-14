@@ -14,7 +14,7 @@ type SessionManager struct{}
 
 const (
 	_LOCK_EXEC        = "/usr/bin/dlock"
-	_SHUTDOWN_CMD     = "/usr/lib/deepin-daemon/dpowerchoose"
+	_SHUTDOWN_CMD     = "/usr/lib/deepin-daemon/dshutdown"
 	_REBOOT_ARG       = "--reboot"
 	_LOGOUT_ARG       = "--logout"
 	_SHUTDOWN_ARG     = "--shutdown"
