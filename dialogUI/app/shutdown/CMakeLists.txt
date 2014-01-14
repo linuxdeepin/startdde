@@ -2,10 +2,6 @@ SET(NAME "shutdown")
 
 GEN_JSC_SOURCE2(JSC_GEN "jsc" "shutdown" "shutdown.cfg" "dbus.cfg")
 
-pkg_check_modules(LIGHTDM REQUIRED liblightdm-gobject-1)
-pkg_check_modules(OPENCV REQUIRED opencv)
-pkg_check_modules(GST REQUIRED gstreamer-0.10)
-
 include_directories(${DWEBVIEW_INCLUDE_DIRS} ${LIGHTDM_INCLUDE_DIRS}
     ${OPENCV_INCLUDE_DIRES} ${GST_INCLUDE_DIRS})
 

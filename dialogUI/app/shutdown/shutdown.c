@@ -23,7 +23,6 @@
 #include <cairo-xlib.h>
 #include <gdk/gdkx.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
-#include <lightdm.h>
 #include <unistd.h>
 #include <glib.h>
 #include <stdlib.h>
