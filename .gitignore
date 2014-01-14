@@ -1,0 +1,22 @@
+/*.gitignore*/
+
+.tag*
+tags
+cscope*
+dialogUI/build/
+dialogUI/resources/shutdown/js/desktop.js
+*.sw[po]
+*.log
+*~
+*.orig
+core
+*.pyc
+try/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+install_manifest.txt
+*.js
