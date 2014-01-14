@@ -13,14 +13,14 @@ macro(GEN_JSC_SOURCE2 JSC_GEN_SRC CFG_DIR OUTPUT)
     AUX_SOURCE_DIRECTORY(${OUT} ${JSC_GEN_SRC})
 endmacro()
 
-macro(GEN_DBUS_SOURCE DBUS_GEN CFG_FILE PREFIX)
-    execute_process(
+#macro(GEN_DBUS_SOURCE DBUS_GEN CFG_FILE PREFIX)
+    #execute_process(
         #COMMAND env GOPATH=${GOPATH} go run "${CMAKE_CURRENT_SOURCE_DIR}/${CFG_FILE}" -prefix=DBUS_${PREFIX}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        )
-    AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_BINARY_DIR} ${DBUS_GEN})
-    include_directories(${CMAKE_CURRENT_BINARY_DIR})
-endmacro()
+        #WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        #)
+    #AUX_SOURCE_DIRECTORY(${CMAKE_CURRENT_BINARY_DIR} ${DBUS_GEN})
+    #include_directories(${CMAKE_CURRENT_BINARY_DIR})
+#endmacro()
 
 macro(GEN_JSC_SOURCE JSC_GEN CFG_DIR)
     execute_process(
