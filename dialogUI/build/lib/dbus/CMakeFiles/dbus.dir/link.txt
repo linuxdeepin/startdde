@@ -1,2 +1,0 @@
-/usr/bin/ar cr libdbus.a  CMakeFiles/dbus.dir/dbus_introspect.c.o CMakeFiles/dbus.dir/dbus_object_info.c.o CMakeFiles/dbus.dir/dbus_js_convert.c.o CMakeFiles/dbus.dir/dbus.c.o
-/usr/bin/ranlib libdbus.a
