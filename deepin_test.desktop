@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Deepin
+Name=Deepin-Test
 Comment=Deepin Desktop Environment
 Exec=/usr/bin/startdde
 TryExec=/usr/bin/startdde
