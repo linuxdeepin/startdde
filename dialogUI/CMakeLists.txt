@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 option(DEVELOP "enable develop mode (use src's resource)" false)
-#option(DEBUG "enable CMAKE_BUILD_TYPE" false)
+option(DEBUG "enable CMAKE_BUILD_TYPE" false)
 #option(TEST "enable test mode (run project's test code)" false)
 #set(GOPATH "${CMAKE_CURRENT_SOURCE_DIR}/golang" CACHE PATH "set the golang path")
 
@@ -56,6 +56,11 @@ else()
     SET(RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}/share/startdde/dialogUI/resources/")
     add_definitions("-DDATA_DIR=\"${CMAKE_INSTALL_PREFIX}/share/startdde/dialogUI/data\"")
 endif()
+
+#if (DEBUG)
+    ##option(CMAKE_BUILD_TYPE "for DEBUG" "DEBUG")
+    #SET(CMAKE_BUILD_TYPE "DEBUG")
+#endif()
 
 #if (TEST)
     #add_definitions("-D__DUI_DEBUG=1")

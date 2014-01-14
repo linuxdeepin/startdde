@@ -2,15 +2,13 @@ SET(NAME "shutdown")
 
 GEN_JSC_SOURCE2(JSC_GEN "jsc" "shutdown" "shutdown.cfg" "dbus.cfg")
 
-include_directories(${DWEBVIEW_INCLUDE_DIRS} ${LIGHTDM_INCLUDE_DIRS}
-    ${OPENCV_INCLUDE_DIRES} ${GST_INCLUDE_DIRS})
+include_directories(${DWEBVIEW_INCLUDE_DIRS})
 
 SET(SRC_LIST  ${JSC_GEN} )
 
 add_executable(dshutdown ${SRC_LIST} shutdown.c)
 
-set(OPENCV_LIBS opencv_core opencv_imgproc opencv_objdetect)
-target_link_libraries(dshutdown dcom dbus ${DWEBVIEW_LIBRARIES} ${OPENCV_LIBS} ${GST_LIBRARIES})
+target_link_libraries(dshutdown dcom dbus ${DWEBVIEW_LIBRARIES})
 
 
 execute_process(
