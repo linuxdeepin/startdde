@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 option(DEVELOP "enable develop mode (use src's resource)" false)
+option(DEBUG "enable CMAKE_BUILD_TYPE" false)
 #option(TEST "enable test mode (run project's test code)" false)
 #set(GOPATH "${CMAKE_CURRENT_SOURCE_DIR}/golang" CACHE PATH "set the golang path")
 
@@ -52,8 +53,8 @@ if (DEVELOP)
     SET(RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/resources/")
     add_definitions("-DDATA_DIR=\"../data\"")
 else()
-    SET(RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}/share/dde/resources/")
-    add_definitions("-DDATA_DIR=\"${CMAKE_INSTALL_PREFIX}/share/dde/data\"")
+    SET(RESOURCE_DIR "${CMAKE_INSTALL_PREFIX}/share/startdde/dialogUI/resources/")
+    add_definitions("-DDATA_DIR=\"${CMAKE_INSTALL_PREFIX}/share/startdde/dialogUI/data\"")
 endif()
 
 #if (TEST)
@@ -85,11 +86,11 @@ add_subdirectory(app)
 add_subdirectory(po)
 #add_subdirectory(test)
 
+#install(
+    #DIRECTORY ${PROJECT_SOURCE_DIR}/schemas
+    #DESTINATION ${CMAKE_INSTALL_PREFIX}/share/glib-2.0
+#)
 install(
-    DIRECTORY ${PROJECT_SOURCE_DIR}/schemas
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/glib-2.0
-)
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/data
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/resources
     DESTINATION ${CMAKE_INSTALL_PREFIX}/share/startdde/dialogUI
     )
