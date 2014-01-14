@@ -4,7 +4,7 @@
 tags
 cscope*
 dialogUI/build/
-dialogUI/resources/shutdown/js/desktop.js
+dialogUI/resources/shutdown/js/*.js
 *.sw[po]
 *.log
 *~
