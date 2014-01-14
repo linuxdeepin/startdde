@@ -1,0 +1,632 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Wang Dianjin <wangdianjin@linuxdeepin.com>, 2013
+# freddy <freddy4212@gmail.com>, 2013
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.1 \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-01-14 10:25+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Wang Dianjin <wangdianjin@linuxdeepin.com>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:27
+msgid "Lock"
+msgstr "鎖定"
+
+#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:27
+msgid "Suspend"
+msgstr "暫停"
+
+#: ../resources/shutdown/js/utils.coffee:26
+msgid "Log out"
+msgstr "登出"
+
+#: ../resources/shutdown/js/utils.coffee:26
+msgid "Restart"
+msgstr "重新啟動"
+
+#: ../resources/shutdown/js/utils.coffee:26
+msgid "Shut down"
+msgstr "關機"
+
+#: ../resources/shutdown/js/utils.coffee:27
+#, fuzzy
+msgid "Force Log out"
+msgstr "強制登出"
+
+#: ../resources/shutdown/js/utils.coffee:27
+#, fuzzy
+msgid "Force Restart"
+msgstr "強制重新啟動"
+
+#: ../resources/shutdown/js/utils.coffee:27
+#, fuzzy
+msgid "Force Shut down"
+msgstr "強制關機"
+
+#: ../resources/shutdown/js/utils.coffee:29
+msgid "The system will be locked in %1 seconds."
+msgstr "系統將在 %1 後鎖定"
+
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "The system will be suspended in %1 seconds."
+msgstr "系統將在 %1 秒後暫停"
+
+#: ../resources/shutdown/js/utils.coffee:31
+msgid "You will be automatically logged out in %1 seconds."
+msgstr "系統將在 %1 秒後登出當前使用者"
+
+#: ../resources/shutdown/js/utils.coffee:32
+msgid "The system will restart in %1 seconds."
+msgstr "系統將在 %1 秒後重新啟動"
+
+#: ../resources/shutdown/js/utils.coffee:33
+msgid "The system will shut down in %1 seconds."
+msgstr "系統將在 %1 秒後關閉"
+
+#: ../resources/shutdown/js/confirmdialog.coffee:60
+msgid "Cancel"
+msgstr "取消"
+
+#: ../lib/dentry/entry.c:745
+#, c-format
+msgid ""
+"This *.desktop file cannot be changed to the name \"%s\".You may not have "
+"such permission"
+msgstr "無法將該桌面檔案重新命名為「%s」。您可能沒有權限"
+
+#: ../lib/dentry/entry.c:751
+#, c-format
+msgid ""
+"The name \"%s\" is already used in this folder. Please use a different name."
+msgstr "名稱「%s」已存在於該資料夾。請使用其他名稱。"
+
+#: ../lib/dentry/entry.c:757
+msgid "The Item could not be renamed"
+msgstr "該項目無法重命名"
+
+#: ../lib/dentry/entry.c:827 ../lib/dentry/fileops.c:809
+msgid "copy"
+msgstr "複製"
+
+#: ../lib/dentry/entry.c:1410
+msgid "App Group"
+msgstr "程式啟動組"
+
+#: ../lib/dentry/fileops.c:403
+msgid "Untitled"
+msgstr "無標題"
+
+#: ../lib/dentry/fileops.c:568
+msgid "move"
+msgstr "移動"
+
+#: ../lib/dentry/fileops.c:776
+msgid "Copy"
+msgstr "複製"
+
+#: ../lib/dentry/fileops_delete.c:29
+msgid "Delete File"
+msgstr "刪除檔案"
+
+#: ../lib/dentry/fileops_delete.c:32
+msgid "Are you sure you want to permanently delete the files?"
+msgstr "您確定要永久刪除檔案嗎？"
+
+#: ../lib/dentry/fileops_delete.c:33
+msgid "If you delete an item, it will be permanently lost"
+msgstr "如果您要刪除某項目，它將永久消失"
+
+#: ../lib/dentry/fileops_delete.c:36
+msgid "Delete"
+msgstr "刪除"
+
+#: ../lib/dentry/fileops_error_dialog.c:63
+msgid "File conflict"
+msgstr "檔案衝突"
+
+#: ../lib/dentry/fileops_error_dialog.c:107
+msgid "_Select a new name for the destination"
+msgstr "為目標選擇新的名稱(_S)"
+
+#: ../lib/dentry/fileops_error_dialog.c:118
+msgid "Reset"
+msgstr "重設"
+
+#: ../lib/dentry/fileops_error_dialog.c:127
+msgid "Apply this action to all files"
+msgstr "將該動作套用到全部檔案"
+
+#: ../lib/dentry/fileops_error_dialog.c:134
+msgid "_Skip"
+msgstr "略過(_S)"
+
+#: ../lib/dentry/fileops_error_dialog.c:137
+msgid "Re_name"
+msgstr "重新命名(_N)"
+
+#: ../lib/dentry/fileops_error_dialog.c:142
+msgid "Replace"
+msgstr "取代"
+
+#: ../lib/dentry/fileops_error_dialog.c:220
+#, c-format
+msgid "Merge folder \"%s\"?"
+msgstr "合併資料夾「%s」？"
+
+#: ../lib/dentry/fileops_error_dialog.c:222
+msgid ""
+"Merging will ask for confirmation before replacing any files in the folder "
+"that conflict with the files being copied."
+msgstr "合併將會在替換衝突檔案時請求確認。"
+
+#: ../lib/dentry/fileops_error_dialog.c:226
+#, c-format
+msgid "An older folder with the same name already exists in \"%s\"."
+msgstr "在「%s」中有相同名稱的一個較舊資料夾已存在。"
+
+#: ../lib/dentry/fileops_error_dialog.c:230
+#, c-format
+msgid "A newer folder with the same name already exists in \"%s\"."
+msgstr "在「%s」中有相同名稱的一個較新資料夾已存在。"
+
+#: ../lib/dentry/fileops_error_dialog.c:234
+#, c-format
+msgid "Another folder with the same name already exists in \"%s\"."
+msgstr "在「%s」中有相同名稱的一個資料夾已存在。"
+
+#: ../lib/dentry/fileops_error_dialog.c:240
+msgid "Replacing it will remove all files in the folder."
+msgstr "替換將移除資料夾中的所有檔案。"
+
+#: ../lib/dentry/fileops_error_dialog.c:242
+#, c-format
+msgid "Replace folder \"%s\"?"
+msgstr "替換資料夾「%s」？"
+
+#: ../lib/dentry/fileops_error_dialog.c:244
+#, c-format
+msgid "A folder with the same name already exists in \"%s\"."
+msgstr "在「%s」中已存在相同檔案名的資料夾。"
+
+#: ../lib/dentry/fileops_error_dialog.c:250
+#, c-format
+msgid "Replace file \"%s\"?"
+msgstr "替換檔案「%s」？"
+
+#: ../lib/dentry/fileops_error_dialog.c:251
+msgid "Replacing it will overwrite its content."
+msgstr "取代將覆蓋它的內容。"
+
+#: ../lib/dentry/fileops_error_dialog.c:253
+#, c-format
+msgid "An older file with the same name already exists in \"%s\"."
+msgstr "在「%s」中已存在較舊的相同名稱的檔案。"
+
+#: ../lib/dentry/fileops_error_dialog.c:257
+#, c-format
+msgid "A newer file with the same name already exists in \"%s\"."
+msgstr "在「%s」中已存在更新的相同檔案名的檔案。"
+
+#: ../lib/dentry/fileops_error_dialog.c:261
+#, c-format
+msgid "Another file with the same name already exists in \"%s\"."
+msgstr "在「%s」中已存在相同檔案名的檔案。"
+
+#: ../lib/dentry/fileops_error_dialog.c:333
+msgid "Original file"
+msgstr "原始檔案"
+
+#: ../lib/dentry/fileops_error_dialog.c:334
+#: ../lib/dentry/fileops_error_dialog.c:362
+msgid "Size:"
+msgstr "大小："
+
+#: ../lib/dentry/fileops_error_dialog.c:338
+#: ../lib/dentry/fileops_error_dialog.c:366
+msgid "Type:"
+msgstr "類型："
+
+#: ../lib/dentry/fileops_error_dialog.c:342
+#: ../lib/dentry/fileops_error_dialog.c:370
+msgid "Last modified:"
+msgstr "修改日期："
+
+#: ../lib/dentry/fileops_error_dialog.c:361
+msgid "Replace with"
+msgstr "取代為"
+
+#: ../lib/dentry/fileops_error_dialog.c:387
+msgid "Merge"
+msgstr "合併"
+
+#: ../lib/dentry/fileops_error_reporting.c:106
+#: ../lib/dentry/fileops_error_reporting.c:193
+#, c-format
+msgid "Error while %s files"
+msgstr "當%s檔案時出錯"
+
+#: ../lib/dentry/fileops_trash.c:58
+msgid "Empty Trash"
+msgstr "清理回收筒"
+
+#: ../lib/dentry/fileops_trash.c:67
+msgid "Empty all items from Trash?"
+msgstr "清理回收筒中的全部項目嗎？"
+
+#: ../lib/dentry/fileops_trash.c:68
+msgid "All items in the Trash will be permanently deleted."
+msgstr "回收筒中的全部項目將被永久刪除。"
+
+#: ../lib/dentry/fileops_trash.c:71
+msgid "Empty _Trash"
+msgstr "清理回收筒(_T)"
+
+#: ../lib/dentry/mime_actions.c:198
+#, c-format
+msgid "Do you want to run \"%s\", or display its contents?"
+msgstr "您想要執行“%s”，還是顯示其內容？"
+
+#: ../lib/dentry/mime_actions.c:199
+#, c-format
+msgid "\"%s\" is an executable text file."
+msgstr "「%s」是一個可執行的文字文件。"
+
+#: ../lib/dentry/mime_actions.c:210
+msgid "Run in _Terminal"
+msgstr "在終端機中打開(_T)"
+
+#: ../lib/dentry/mime_actions.c:211
+msgid "_Display"
+msgstr "顯示(_D)"
+
+#: ../lib/dentry/mime_actions.c:213
+msgid "_Run"
+msgstr "執行(_R)"
+
+#: ../lib/category.c:45
+msgid "all"
+msgstr "全部"
+
+#: ../lib/category.c:46
+msgid "internet"
+msgstr "網路應用"
+
+#: ../lib/category.c:47
+msgid "multimedia"
+msgstr "影音播放"
+
+#: ../lib/category.c:48
+msgid "games"
+msgstr "遊戲娛樂"
+
+#: ../lib/category.c:49
+msgid "graphics"
+msgstr "美工繪圖"
+
+#: ../lib/category.c:50
+msgid "productivity"
+msgstr "辦公軟體"
+
+#: ../lib/category.c:51
+msgid "industry"
+msgstr "行業軟體"
+
+#: ../lib/category.c:52
+msgid "education"
+msgstr "科學教育"
+
+#: ../lib/category.c:53
+msgid "development"
+msgstr "編程開發"
+
+#: ../lib/category.c:54
+msgid "system"
+msgstr "系統管理"
+
+#: ../lib/category.c:55
+msgid "utilities"
+msgstr "公用程式"
+
+#: ../lib/category.c:56
+msgid "other"
+msgstr "其他"
+
+#~ msgid "Type to search..."
+#~ msgstr "鍵入要搜尋的關鍵字..."
+
+#~ msgid "_Hide hidden icons"
+#~ msgstr "隱藏已隱藏圖示(_H)"
+
+#~ msgid "_Display hidden icons"
+#~ msgstr "顯示已隱藏圖示(_D)"
+
+#~ msgid "_Hide this icon"
+#~ msgstr "隱藏該圖示(_H)"
+
+#~ msgid "_Display this icon"
+#~ msgstr "顯示該圖示(_D)"
+
+#~ msgid "_Add to autostart"
+#~ msgstr "加入到「自動啟動」(_A)"
+
+#~ msgid "_Remove from autostart"
+#~ msgstr "從「自動啟動」中移除(_R)"
+
+#~ msgid "Sort By _Frequency"
+#~ msgstr "依使用頻率排序(_F)"
+
+#~ msgid "Sort By _Name"
+#~ msgstr "依名稱排序(_N)"
+
+#~ msgid "_Open"
+#~ msgstr "開啟(_O)"
+
+#~ msgid "Send to d_esktop"
+#~ msgstr "發送到桌面(_E)"
+
+#~ msgid "Send to do_ck"
+#~ msgstr "添加到 Dock(_C)"
+
+#~ msgid "Jan"
+#~ msgstr "一月"
+
+#~ msgid "Feb"
+#~ msgstr "二月"
+
+#~ msgid "Mar"
+#~ msgstr "三月"
+
+#~ msgid "Apr"
+#~ msgstr "四月"
+
+#~ msgid "May"
+#~ msgstr "五月"
+
+#~ msgid "Jun"
+#~ msgstr "六月"
+
+#~ msgid "Jul"
+#~ msgstr "七月"
+
+#~ msgid "Aug"
+#~ msgstr "八月"
+
+#~ msgid "Sep"
+#~ msgstr "九月"
+
+#~ msgid "Oct"
+#~ msgstr "十月"
+
+#~ msgid "Nov"
+#~ msgstr "十一月"
+
+#~ msgid "Dec"
+#~ msgstr "十二月"
+
+#~ msgid "Sun"
+#~ msgstr "星期日"
+
+#~ msgid "Mon"
+#~ msgstr "星期一"
+
+#~ msgid "Tue"
+#~ msgstr "星期二"
+
+#~ msgid "Wed"
+#~ msgstr "星期三"
+
+#~ msgid "Thu"
+#~ msgstr "星期四"
+
+#~ msgid "Fri"
+#~ msgstr "星期五"
+
+#~ msgid "Sat"
+#~ msgstr "星期六"
+
+#~ msgid "Administrator"
+#~ msgstr "管理員"
+
+#~ msgid "Standard user"
+#~ msgstr "標準使用者"
+
+#~ msgid "guest"
+#~ msgstr "訪客"
+
+#~ msgid "Log In"
+#~ msgstr "登入"
+
+#~ msgid "Unlock"
+#~ msgstr "解鎖"
+
+#~ msgid "Welcome"
+#~ msgstr "歡迎"
+
+#~ msgid "ShutDown"
+#~ msgstr "關機"
+
+#~ msgid "suspend"
+#~ msgstr "暫停"
+
+#~ msgid "restart"
+#~ msgstr "重新啟動"
+
+#, fuzzy
+#~ msgid "shutdown"
+#~ msgstr "關機"
+
+#~ msgid "_Undock"
+#~ msgstr "移除停駐(_U)"
+
+#~ msgid "_Clean up"
+#~ msgstr "清理(_C)"
+
+#~ msgid "_Close"
+#~ msgstr "關閉(_C)"
+
+#~ msgid "Can not open this file."
+#~ msgstr "無法打開此檔案。"
+
+#~ msgid "Warning"
+#~ msgstr "警告"
+
+#~ msgid "_View as analog"
+#~ msgstr "顯示模擬時鍾"
+
+#~ msgid "_Time settings"
+#~ msgstr "时间設定(_D)"
+
+#~ msgid "_View as digit"
+#~ msgstr "顯示數字時鍾"
+
+#~ msgid "Launcher"
+#~ msgstr "啟動器"
+
+#~ msgid "Show/Hide Desktop"
+#~ msgstr "顯示/隱藏桌面"
+
+#~ msgid "Trash"
+#~ msgstr "回收筒"
+
+#~ msgid "_New Window"
+#~ msgstr "新建视窗(_N)"
+
+#~ msgid "Close _All"
+#~ msgstr "關閉全部(_A)"
+
+#~ msgid "_Dock me"
+#~ msgstr "停駐(_D)"
+
+#~ msgid "The item is invalid. Do you want to remove it from the dock panel?"
+#~ msgstr "該項目無效。您要把它從 Dock 刪除嗎？"
+
+#~ msgid "Computer"
+#~ msgstr "電腦"
+
+#~ msgid "_Properties"
+#~ msgstr "屬性(_P)"
+
+#~ msgid "Home"
+#~ msgstr "家目錄"
+
+#~ msgid "_Clean up %1 items"
+#~ msgstr "清理%1個項目(_C)"
+
+#~ msgid "_Clean up 1 item"
+#~ msgstr "清理1個項目(_C)"
+
+#~ msgid "Software Center"
+#~ msgstr "軟體中心"
+
+#~ msgid "_Delete"
+#~ msgstr "删除(_D)"
+
+#~ msgid "The link has expired. Do you want to delete it?"
+#~ msgstr "該連結已經失效，是否要刪除？"
+
+#~ msgid "_Folder"
+#~ msgstr "資料夾(_F)"
+
+#~ msgid "_Text document"
+#~ msgstr "文字文件(_T)"
+
+#~ msgid "_Sort by"
+#~ msgstr "排序方式(_S)"
+
+#~ msgid "_Name"
+#~ msgstr "名稱(_N)"
+
+#~ msgid "Last modified _time"
+#~ msgstr "最近修改時間(_T)"
+
+#~ msgid "_New"
+#~ msgstr "新增(_N)"
+
+#~ msgid "Open in _terminal"
+#~ msgstr "在終端機中打開(_T)"
+
+#~ msgid "_Paste"
+#~ msgstr "貼上(_P)"
+
+#~ msgid "_Display settings"
+#~ msgstr "顯示設定(_D)"
+
+#~ msgid "D_esktop settings"
+#~ msgstr "桌面設定(_E)"
+
+#~ msgid "Pe_rsonalize"
+#~ msgstr "個人化(_R)"
+
+#~ msgid "Cu_t"
+#~ msgstr "剪下(_T)"
+
+#~ msgid "_Copy"
+#~ msgstr "複製(_C)"
+
+#~ msgid "_Rename"
+#~ msgstr "重新命名(_R)"
+
+#~ msgid "Co_mpress"
+#~ msgstr "壓縮(_M)"
+
+#~ msgid "_Extract"
+#~ msgstr "解開(_E)"
+
+#~ msgid "Extract _Here"
+#~ msgstr "在此解壓縮(_H)"
+
+#~ msgid "_Ungroup"
+#~ msgstr "取消群組(_U)"
+
+#~ msgid "another instance of launcher is running...\n"
+#~ msgstr "已有一個應用程式啟動器例程正在運行...\n"
+
+#~ msgid "Invalid Password"
+#~ msgstr "密碼錯誤"
+
+#~ msgid "Oops...I can't recognize your face. "
+#~ msgstr "糟糕～無法識別您的面部信息"
+
+#~ msgid "Please login with your password or click your picture to retry."
+#~ msgstr "請使用密碼登入或點擊頭像重試"
+
+#~ msgid "%sRetry automatically in %ds"
+#~ msgstr "%s%d秒後自動重試"
+
+#~ msgid "%a, %b %d, %Y"
+#~ msgstr "%Y年%b%d日 %A"
+
+#~ msgid "another instance of dock is running...\n"
+#~ msgstr "已有一個應用程式Dock例程正在運行...\n"
+
+#~ msgid "Dock failed to start, because the plugin of compiz is not enabled"
+#~ msgstr "無法啟用Dock，因為Compiz附加元件尚未啟用"
+
+#~ msgid "New file"
+#~ msgstr "新增檔案"
+
+#~ msgid "New directory"
+#~ msgstr "新增資料夾"
+
+#~ msgid "another systray is already running..."
+#~ msgstr "另一個託盤程式正在運行..."
+
+#~ msgid "Session"
+#~ msgstr "作業階段"
+
+#~ msgid "hibernate"
+#~ msgstr "休眠"
+
+#~ msgid "Switch User"
+#~ msgstr "切換使用者"

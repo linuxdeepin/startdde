@@ -1,0 +1,83 @@
+
+@-webkit-keyframes show_confirm{
+    to{opacity:1.0;}
+}
+
+
+
+
+.ConfirmDialog{
+    background-color:rgba(0,0,0,0.85);
+    width:100%;
+    height:100%;
+    display:-webkit-box;
+    -webkit-box-pack:center;
+    -webkit-box-align:center;
+}
+
+.frame_confirm{
+    /*background-color:rgba(122,122,100,0.2);*/
+    display:-webkit-box;
+    /*margin-bottom:135px;*/
+}
+
+.left{
+}
+.img_confirm{
+    width:80px;
+    height:80px;
+}
+.right{
+    opacity:0.0;
+    margin-left:50px;
+    margin-top:10px;
+}
+.message_confirm{
+    /*margin-top:5px;*/
+    text-align:center;
+    color: #FFF;
+    
+    font-size:13px;
+    word-wrap:break-word;
+    white-space:pre;
+    overflow:visible;
+    text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+}
+
+.button_confirm{
+    margin-top:20px;
+    width:100%;
+    display:-webkit-box;
+    -webkit-box-pack:end;
+    -webkit-box-align:end;
+    
+    font-size:14px;
+}
+
+
+.button_cancel{
+    width:70px;
+    height:30px;
+    cursor:pointer;
+    text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+    color:rgba(255,255,255,0.5)
+}
+.button_cancel:hover{
+    color:rgba(0,193,255,1.0)
+    cursor:pointer;
+}
+
+
+.button_ok{
+    width:70x;
+    height:30px;
+    margin-left:40px;
+    cursor:pointer;
+    text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+    color:rgba(255,255,255,1.0)
+}
+.button_ok:hover{
+    color:rgba(0,193,255,1.0)
+    cursor:pointer;
+}
+

@@ -1,0 +1,102 @@
+/**
+ * Copyright (c) 2011 ~ 2012 Deepin, Inc.
+ *               2011 ~ 2012 snyh
+ *
+ * Author:       snyh <snyh@snyh.org>
+ * Maintainer:   Cole <phcourage@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ **/
+
+body{
+    cursor:default;
+    overflow:hidden;
+    
+    background-image: url(/usr/share/backgrounds/default_background.jpg);
+    
+    background-origin:padding-box;
+    background-clip:border-box;
+    background-position:center;
+    background-size:cover;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+}
+
+.PowerChoose{
+    background-color:rgba(0,0,0,0.85);
+    width:100%;
+    height:100%;
+    display:-webkit-box;
+    -webkit-box-pack:center;
+    -webkit-box-align:center;
+}
+130
+.frame{
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+}
+
+.button{
+    display:-webkit-box;
+    -webkit-box-orient:horizontal;
+}
+
+
+.opt{
+    position:relative;
+    cursor: pointer;
+    margin:0 10px 0 10px;
+    width:100px;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-box-pack:center;
+    -webkit-box-align:center;
+}
+.opt:hover{
+    cursor: pointer;
+}
+
+.opt_img{
+    width:80px;
+    height:80px;
+}
+
+.opt_text{
+    width:80px;
+    height:30px;
+    text-align:center;
+    color: #FFF;
+    font-size:14px;
+    text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+
+}
+
+@-webkit-keyframes fade_animation0{
+    to{left:120px;opacity:0.0;}
+}
+
+@-webkit-keyframes fade_animation1{
+    to{right:0px;opacity:0.0;}
+}
+
+@-webkit-keyframes fade_animation2{
+    to{right:120px;opacity:0.0;}
+}
+
+@-webkit-keyframes fade_animation3{
+    to{right:240px;opacity:0.0;}
+}
+@-webkit-keyframes fade_animation4{
+    to{right:360px;opacity:0.0;}
+}

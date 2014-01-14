@@ -1,0 +1,51 @@
+#!/usr/bin/python
+
+import glob
+import os
+
+
+lang = ["zh_CN", "zh_TW","es","pt_BR"]
+
+coffee_files = []
+c_files = []
+except_dirs = ["dbus_test", "memory_test", "dominant_color"]
+
+
+def get_files():
+    global coffee_files, c_files
+    for d in os.listdir("../resources"):
+        if d != "common" and d not in except_dirs:
+            coffee_files += glob.glob("../resources/%s/js/*.coffee" % d)
+
+    for d in os.listdir("../app"):
+        if d not in except_dirs:
+            c_files += glob.glob("../app/%s/*.c" % d);
+            c_files += glob.glob("../app/%s/*.h" % d);
+
+    c_files += [
+            "../lib/dentry/*.c",
+            "../lib/dentry/*.h",
+            "../lib/category.c",
+            ]
+
+
+def scan():
+    global coffee_files, c_files, lang
+    os.system("rm dde.pot")
+    for l in lang:
+        os.system("touch dde.pot")
+        os.system("touch %s.po" % l)
+
+        cmd= "xgettext --from-code=utf-8 -L python -j -o dde.pot " + " ".join(coffee_files)
+        os.system(cmd)
+
+        cmd = "xgettext --from-code=utf-8 -k_ -j -o dde.pot " + " ".join(c_files)
+        os.system(cmd)
+
+        os.system("msgmerge %s.po dde.pot > new_%s.po" % (l, l))
+
+        os.system("mv new_%s.po %s.po" % (l, l))
+
+if __name__ == '__main__':
+    get_files()
+    scan()

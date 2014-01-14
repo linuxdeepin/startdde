@@ -1,0 +1,4 @@
+/home/ycl/project/startdde/dialogUI/build/lib/dbus/CMakeFiles/dbus.dir
+/home/ycl/project/startdde/dialogUI/build/lib/CMakeFiles/dcom.dir
+/home/ycl/project/startdde/dialogUI/build/lib/dentry/CMakeFiles/dentry.dir
+/home/ycl/project/startdde/dialogUI/build/app/shutdown/CMakeFiles/dpowerchoose.dir
