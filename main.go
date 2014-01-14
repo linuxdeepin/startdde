@@ -4,6 +4,12 @@ import "os/exec"
 import "time"
 
 func main() {
+	defer func() {
+		if err := recover(); err != nil {
+			print(err, "\n")
+		}
+	}()
+
 	go exec.Command("/usr/bin/compiz").Run()
 	<-time.After(time.Millisecond * 200)
 
@@ -11,6 +17,7 @@ func main() {
 	<-time.After(time.Millisecond * 100)
 
 	go exec.Command("/usr/lib/deepin-daemon/binding-manager").Run()
+	go exec.Command("/usr/lib/deepin-daemon/individuate").Run()
 	go exec.Command("/usr/lib/deepin-daemon/display").Run()
 	<-time.After(time.Millisecond * 20)
 
@@ -27,6 +34,9 @@ func main() {
 
 	<-time.After(time.Millisecond * 3000)
 	go exec.Command("/usr/bin/skype").Run()
+
+        // Session Manager
+        go StartSession()
 
 	for {
 		<-time.After(time.Millisecond * 1000)
