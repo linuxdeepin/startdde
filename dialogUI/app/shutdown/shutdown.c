@@ -41,7 +41,7 @@
 #include "dwebview.h"
 #include "i18n.h"
 #include "utils.h"
-#include "DBUS_shutdown.h"
+/*#include "DBUS_shutdown.h"*/
 
 
 #define SHUTDOWN_ID_NAME "desktop.app.shutdown"
