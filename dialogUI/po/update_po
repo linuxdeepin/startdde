@@ -31,18 +31,18 @@ def get_files():
 
 def scan():
     global coffee_files, c_files, lang
-    os.system("rm dde.pot")
+    os.system("rm startdde.pot")
     for l in lang:
-        os.system("touch dde.pot")
+        os.system("touch startdde.pot")
         os.system("touch %s.po" % l)
 
-        cmd= "xgettext --from-code=utf-8 -L python -j -o dde.pot " + " ".join(coffee_files)
+        cmd= "xgettext --from-code=utf-8 -L python -j -o startdde.pot " + " ".join(coffee_files)
         os.system(cmd)
 
-        cmd = "xgettext --from-code=utf-8 -k_ -j -o dde.pot " + " ".join(c_files)
+        cmd = "xgettext --from-code=utf-8 -k_ -j -o startdde.pot " + " ".join(c_files)
         os.system(cmd)
 
-        os.system("msgmerge %s.po dde.pot > new_%s.po" % (l, l))
+        os.system("msgmerge %s.po startdde.pot > new_%s.po" % (l, l))
 
         os.system("mv new_%s.po %s.po" % (l, l))
 
