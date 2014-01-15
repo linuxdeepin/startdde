@@ -10,8 +10,8 @@ func main() {
 	go exec.Command("/usr/bin/gnome-settings-daemon").Run()
 	<-time.After(time.Millisecond * 100)
 
-	go exec.Command("/usr/lib/deepin-daemon/binding-manager").Run()
-	go exec.Command("/usr/lib/deepin-daemon/individuate").Run()
+	go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
+	go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 	go exec.Command("/usr/lib/deepin-daemon/display").Run()
 	<-time.After(time.Millisecond * 20)
 
