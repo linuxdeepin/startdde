@@ -1,9 +1,31 @@
 package main
 
-import "os/exec"
-import "time"
+import (
+	"os/exec"
+	"time"
+
+	"dlib"
+)
+
+func testStartManager() {
+	startStartManager()
+	// args := make([]*gio.File, 0)
+	// for _, name := range m.AutostartList() {
+	// 	fmt.Println("launch", name)
+	// 	m.Launch(name, args)
+	// }
+	dlib.StartLoop()
+}
+
+func test() {
+	testStartManager()
+	testCopyFile()
+}
 
 func main() {
+	// test()
+	// return
+
 	go exec.Command("/usr/bin/compiz").Run()
 	<-time.After(time.Millisecond * 200)
 
@@ -23,14 +45,11 @@ func main() {
 	go exec.Command("/usr/bin/desktop").Run()
 	<-time.After(time.Millisecond * 3000)
 
-	go exec.Command("/usr/bin/dss").Run()
-	go exec.Command("/usr/bin/launcher", "-H").Run()
-
 	<-time.After(time.Millisecond * 3000)
-	go exec.Command("/usr/bin/skype").Run()
 
-        // Session Manager
-        startSession()
+	// Session Manager
+	startSession()
+	startStartManager()
 
 	for {
 		<-time.After(time.Millisecond * 1000)
