@@ -277,4 +277,7 @@ func startStartManager() {
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
 	}
+	for _, name := range m.AutostartList() {
+		m.Launch(name)
+	}
 }
