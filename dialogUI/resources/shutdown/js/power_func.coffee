@@ -1,5 +1,5 @@
 try
-    dbus_power = DCore.DBus.session_object("com.deepin.startDDE","com/deepin/startDDE/Session","com.deepin.startDDE.Session")
+    dbus_power = DCore.DBus.session_object("com.deepin.dde.SessionManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
 catch e
     echo e
 
