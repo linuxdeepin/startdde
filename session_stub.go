@@ -26,9 +26,9 @@ import (
 )
 
 const (
-	START_DDE_DEST = "com.deepin.StartDDE"
-	SHUTDOWN_PATH  = "/com/deepin/StartDDE/Session"
-	SHUTDOWN_IFC   = "com.deepin.StartDDE.Session"
+	START_DDE_DEST = "com.deepin.dde.SessionManager"
+	SHUTDOWN_PATH  = "/com/deepin/dde/SessionManager"
+	SHUTDOWN_IFC   = "com.deepin.dde.SessionManager"
 )
 
 func (m *SessionManager) GetDBusInfo() dbus.DBusInfo {
