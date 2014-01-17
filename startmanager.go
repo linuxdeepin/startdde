@@ -134,16 +134,17 @@ func findExec(_path, cmd string, exist chan bool) {
 		recover()
 	}()
 
+	found := false
 	filepath.Walk(
 		_path,
 		func(_path string, info os.FileInfo, err error) error {
 			if info.Name() == cmd {
-				exist <- true
+				found = true
 				return errors.New("Found it")
 			}
 			return nil
 		})
-	exist <- false
+	exist <- found
 }
 
 func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
@@ -179,11 +180,8 @@ func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
 		}
 
 		for _ = range paths {
-			select {
-			case t := <-exist:
-				if t {
-					return true
-				}
+			if t := <-exist; t {
+				return true
 			}
 		}
 
@@ -360,8 +358,9 @@ func startStartManager() {
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
 	}
-	// return
 	for _, name := range m.AutostartList() {
+		fmt.Println(name)
+		continue
 		m.Launch(name)
 	}
 }
