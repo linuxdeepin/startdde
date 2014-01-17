@@ -3,51 +3,63 @@ package main
 import (
 	"fmt"
 	"os"
+	"testing"
 )
 
-func testCopyNotKeepSymlink() {
+func testCopyFileInit() {
+	os.Remove("/tmp/test")
+	os.Remove("/tmp/test2")
+	os.Remove("/tmp/ls")
+	os.Symlink("/bin/ls", "/tmp/test")
+}
+
+func Test_CopyFile_NotKeepSymlink(t *testing.T) {
+	testCopyFileInit()
 	if err := CopyFile("/bin/ls", "/tmp/ls", CopyFileNotKeepSymlink); err != nil {
-		fmt.Println(err)
+		t.Fatal(err)
 	} else {
 		s, err := os.Stat("/tmp/ls")
 		if (s.Mode() & os.ModeSymlink) != os.ModeSymlink {
-			fmt.Println("pass copy a file with CopyFileNotKeepSymlink")
+			t.Log("pass copy a file with CopyFileNotKeepSymlink")
 		} else {
-			fmt.Println(err)
+			t.Error(err)
 		}
 	}
 
 	if err := CopyFile("/tmp/test", "/tmp/test2", CopyFileNotKeepSymlink); err != nil {
-		fmt.Println(err)
+		t.Fatal(err)
 	} else {
 		s, err := os.Stat("/tmp/test2")
 		if err != nil && s.Mode().IsRegular() {
-			fmt.Println(err)
+			t.Fatal(err)
 		} else {
-			fmt.Println("pass copy a symlink with CopyFileNotKeepSymlink")
+			t.Log("pass copy a symlink with CopyFileNotKeepSymlink")
 		}
 	}
 }
-func testCopyFileNone() {
+func Test_CopyFile_CopyFileNone(t *testing.T) {
+	testCopyFileInit()
+	os.Symlink("/bin/ls", "/tmp/ls")
 	if err := CopyFile("/tmp/test", "/tmp/ls", CopyFileNone); err != nil {
-		fmt.Println("pass CopyFileKeepNone")
+		t.Log("pass CopyFileKeepNone")
 	} else {
-		fmt.Println("overwrite existed file, copy file none failed")
+		t.Error("overwrite existed file, copy file none failed")
 	}
 }
 
-func testCopyFileOverWrite() {
+func Test_CopyFile_OverWrite(t *testing.T) {
+	testCopyFileInit()
 	if err := CopyFile("/tmp/test", "/tmp/ls", CopyFileOverWrite); err != nil {
-		fmt.Println("failed,", err)
+		t.Error("failed,", err)
 	} else {
 		s, err := os.Lstat("/tmp/ls")
 		if err != nil {
-			fmt.Println("failed,", err)
+			t.Error("failed,", err)
 		} else {
 			if (s.Mode() & os.ModeSymlink) == os.ModeSymlink {
-				fmt.Println("pass CopyFileOverWrite")
+				t.Log("pass CopyFileOverWrite")
 			} else {
-				fmt.Println("failed, dst is not symlink")
+				t.Error("failed, dst is not symlink")
 			}
 		}
 	}
@@ -58,27 +70,13 @@ func testCopyFileOverWrite() {
 	} else {
 		s, err := os.Stat("/tmp/ls")
 		if err != nil {
-			fmt.Println("failed,", err)
+			t.Error("failed,", err)
 		} else {
 			if s.Mode().IsRegular() {
-				fmt.Println("pass CopyFileNotKeepSymlink|CopyFileOverWrite")
+				t.Log("pass CopyFileNotKeepSymlink|CopyFileOverWrite")
 			} else {
-				fmt.Println("failed, dst is not a regular file")
+				t.Error("failed, dst is not a regular file")
 			}
 		}
 	}
-}
-
-func testCopyFileInit() {
-	os.Remove("/tmp/test")
-	os.Remove("/tmp/test2")
-	os.Remove("/tmp/ls")
-	os.Symlink("/bin/ls", "/tmp/test")
-}
-
-func testCopyFile() {
-	testCopyFileInit()
-	testCopyNotKeepSymlink()
-	testCopyFileNone()
-	testCopyFileOverWrite()
 }

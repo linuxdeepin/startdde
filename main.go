@@ -19,7 +19,6 @@ func testStartManager() {
 
 func test() {
 	testStartManager()
-	testCopyFile()
 }
 
 func main() {
