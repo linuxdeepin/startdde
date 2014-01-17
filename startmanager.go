@@ -21,8 +21,12 @@ const (
 )
 
 const (
-	_AUTOSTART              = "autostart"
-	GNOME_AUTOSTART_ENABLED = "X-GNOME-Autostart-enabled"
+	_AUTOSTART    = "autostart"
+	DESKTOP_ENV   = "Deepin"
+	HiddenKey     = "Hidden"
+	OnlyShowInKey = "OnlyShowIn"
+	NotShowInKey  = "NotShowIn"
+	TryExecKey    = "TryExec"
 )
 
 type StartManager struct {
@@ -96,26 +100,105 @@ func (m *StartManager) isUserAutostart(name string) bool {
 	return path.Dir(path.Clean(name)) == m.getUserAutostartDir()
 }
 
-func (m *StartManager) readXGnomeAutostartEnabled(name string) (bool, error) {
-	file := gio.NewDesktopAppInfoFromFilename(name)
-	if file == nil {
-		return false, errors.New("Load failed")
-	}
-	defer file.Unref()
+func (m *StartManager) isHidden(file *gio.DesktopAppInfo) bool {
+	return file.HasKey(HiddenKey) && file.GetBoolean(HiddenKey)
+}
 
-	if !file.HasKey(GNOME_AUTOSTART_ENABLED) {
-		return false, errors.New("Not found key")
+func showInDeepinAux(file *gio.DesktopAppInfo, keyname string) bool {
+	s := file.GetString(keyname)
+	if s == "" {
+		return false
 	}
 
-	return file.GetBoolean(GNOME_AUTOSTART_ENABLED), nil
+	for _, env := range strings.Split(s, ";") {
+		if strings.ToLower(env) == strings.ToLower(DESKTOP_ENV) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *StartManager) showInDeepin(file *gio.DesktopAppInfo) bool {
+	if file.HasKey(NotShowInKey) {
+		return !showInDeepinAux(file, NotShowInKey)
+	} else if file.HasKey(OnlyShowInKey) {
+		return showInDeepinAux(file, OnlyShowInKey)
+	}
+
+	return true
+}
+
+func findExec(_path, cmd string, exist chan bool) {
+	defer func() {
+		recover()
+	}()
+
+	filepath.Walk(
+		_path,
+		func(_path string, info os.FileInfo, err error) error {
+			if info.Name() == cmd {
+				exist <- true
+				return errors.New("Found it")
+			}
+			return nil
+		})
+	exist <- false
+}
+
+func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
+	// name := file.GetFilename()
+	if !file.HasKey(TryExecKey) {
+		// fmt.Println(name, "No TryExec Key")
+		return true
+	}
+
+	cmd := file.GetString(TryExecKey)
+	if cmd == "" {
+		// fmt.Println(name, "TryExecKey is empty")
+		return true
+	}
+
+	if path.IsAbs(cmd) {
+		// fmt.Println(cmd, "is exist?", Exist(cmd))
+		if !Exist(cmd) {
+			return false
+		}
+
+		stat, err := os.Lstat(cmd)
+		if err != nil {
+			return false
+		}
+
+		return (stat.Mode().Perm() & 0111) != 0
+	} else {
+		paths := strings.Split(os.Getenv("PATH"), ":")
+		exist := make(chan bool)
+		for _, _path := range paths {
+			go findExec(_path, cmd, exist)
+		}
+
+		for _ = range paths {
+			select {
+			case t := <-exist:
+				if t {
+					return true
+				}
+			}
+		}
+
+		return false
+	}
 }
 
 func (m *StartManager) isAutostartAux(name string) bool {
-	autostart, err := m.readXGnomeAutostartEnabled(name)
-	if err != nil {
-		return true
+	file := gio.NewDesktopAppInfoFromFilename(name)
+	if file == nil {
+		return false
 	}
-	return autostart
+	defer file.Unref()
+
+	return m.hasValidTryExecKey(file) && !m.isHidden(file) && m.showInDeepin(file)
 }
 
 func lowerBaseName(name string) string {
@@ -213,8 +296,8 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 	fmt.Println("set autostart to", autostart)
 	file.SetBoolean(
 		glib.KeyFileDesktopGroup,
-		GNOME_AUTOSTART_ENABLED,
-		autostart,
+		HiddenKey,
+		!autostart,
 	)
 
 	_, content, err := file.ToData()
@@ -277,6 +360,7 @@ func startStartManager() {
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
 	}
+	// return
 	for _, name := range m.AutostartList() {
 		m.Launch(name)
 	}
