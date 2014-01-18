@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	START_DDE_DEST = "com.deepin.dde.SessionManager"
+	START_DDE_DEST = "com.deepin.StartManager"
 	SHUTDOWN_PATH  = "/com/deepin/dde/SessionManager"
 	SHUTDOWN_IFC   = "com.deepin.dde.SessionManager"
 )
