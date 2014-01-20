@@ -24,7 +24,7 @@ const (
 	CopyFileOverWrite
 )
 
-func copyFile(src, dst string, copyFlag CopyFlag) error {
+func copyFileAux(src, dst string, copyFlag CopyFlag) error {
 	srcStat, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("Error os.Lstat src %s: %s", src, err)
@@ -76,7 +76,7 @@ func copyFile(src, dst string, copyFlag CopyFlag) error {
 	return nil
 }
 
-func CopyFile(src, dst string, copyFlag CopyFlag) error {
+func copyFile(src, dst string, copyFlag CopyFlag) error {
 	srcStat, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("error os.Stat src %s: %s", src, err)
@@ -101,10 +101,10 @@ func CopyFile(src, dst string, copyFlag CopyFlag) error {
 		}
 	}
 
-	return copyFile(src, dst, copyFlag)
+	return copyFileAux(src, dst, copyFlag)
 }
 
-func Launch(name interface{}, list interface{}) error {
+func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
 		fmt.Println("string")

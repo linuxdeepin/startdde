@@ -113,7 +113,7 @@ Name=GoAgent
 		"TryExec=./lssssss",
 		false}}
 
-func Test_isAutostartAux(t *testing.T) {
+func TestIsAutostartAux(t *testing.T) {
 	m := StartManager{}
 	for i, c := range d {
 		p := fmt.Sprintf("/tmp/test%d.desktop", i)

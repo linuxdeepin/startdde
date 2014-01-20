@@ -39,7 +39,7 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 
 func (m *StartManager) Launch(name string) bool {
 	list := make([]*gio.File, 0)
-	err := Launch(name, list)
+	err := launch(name, list)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -326,7 +326,7 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 	if !m.isUserAutostart(name) {
 		fmt.Println("not user")
 		dst = m.getUserStart(name)
-		err := CopyFile(name, dst, CopyFileNotKeepSymlink)
+		err := copyFile(name, dst, CopyFileNotKeepSymlink)
 		if err != nil {
 			return err
 		}
