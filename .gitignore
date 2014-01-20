@@ -5,7 +5,10 @@ startdde
 tags
 cscope*
 dialogUI/build/
-dialogUI/resources/shutdown/js/*.js
+dialogUI/resources/shutdown/js/powerchoosedialog.js
+dialogUI/resources/shutdown/js/shutdowndialog.js
+dialogUI/resources/shutdown/js/rebootdialog.js
+dialogUI/resources/shutdown/js/logoutdialog.js
 *.sw[po]
 *.log
 *~
