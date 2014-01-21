@@ -359,8 +359,8 @@ func startStartManager() {
 		fmt.Println("Install StartManager Failed:", err)
 	}
 	for _, name := range m.AutostartList() {
-		fmt.Println(name)
-		continue
+		// fmt.Println(name)
+		// continue
 		m.Launch(name)
 	}
 }
