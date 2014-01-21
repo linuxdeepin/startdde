@@ -1,5 +1,6 @@
 try
     dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
+    echo dbus_power
 catch e
     echo e
 
@@ -33,6 +34,7 @@ power_can = (power) ->
 power_force = (power) ->
     if not dbus_power? then return
     # option = ["lock","suspend","logout","restart","shutdown"]
+    echo dbus_power
     document.body.style.cursor = "wait"
     echo "Warning: The system will ----#{power}---- Force!!"
     switch power
