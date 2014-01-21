@@ -1,11 +1,11 @@
-try
-    dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
-    echo dbus_power
-catch e
-    echo "dbus_power error:#{e}"
 
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
+    try
+        dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
+        echo dbus_power
+    catch e
+        echo "dbus_power error:#{e}"
     if not dbus_power? then return
     document.body.style.cursor = "wait"
     echo "Warning: The system will request ----#{power}----"
@@ -18,6 +18,11 @@ power_request = (power) ->
         else return
 
 power_can = (power) ->
+    try
+        dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
+        echo dbus_power
+    catch e
+        echo "dbus_power error:#{e}"
     if not dbus_power? then return
     result = true
     switch power
@@ -32,6 +37,11 @@ power_can = (power) ->
     return result
 
 power_force = (power) ->
+    try
+        dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
+        echo dbus_power
+    catch e
+        echo "dbus_power error:#{e}"
     if not dbus_power? then return
     # option = ["lock","suspend","logout","restart","shutdown"]
     echo dbus_power
