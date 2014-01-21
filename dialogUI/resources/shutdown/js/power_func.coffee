@@ -2,7 +2,7 @@ try
     dbus_power = DCore.DBus.session_object("com.deepin.StartManager","com/deepin/dde/SessionManager","com.deepin.dde.SessionManager")
     echo dbus_power
 catch e
-    echo e
+    echo "dbus_power error:#{e}"
 
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
