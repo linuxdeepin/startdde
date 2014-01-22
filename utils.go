@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
 	"dlib/gio-2.0"
+	"dlib/glib-2.0"
 )
 
 func Exist(name string) bool {
@@ -104,6 +106,24 @@ func copyFile(src, dst string, copyFlag CopyFlag) error {
 	return copyFileAux(src, dst, copyFlag)
 }
 
+func saveKeyFile(file *glib.KeyFile, path string) error {
+	_, content, err := file.ToData()
+	if err != nil {
+		return err
+	}
+
+	stat, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(path, []byte(content), stat.Mode())
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
@@ -122,7 +142,41 @@ func launch(name interface{}, list interface{}) error {
 			}
 			defer app.Unref()
 
+			startupWmClass := app.GetStartupWmClass()
+			if startupWmClass != "" {
+				f := glib.NewKeyFile()
+				defer f.Free()
+
+				homePath := os.Getenv("HOME")
+				filterPath := path.Join(
+					homePath,
+					"/.config/dock/filter.ini",
+				)
+				if ok, err := f.LoadFromFile(
+					filterPath,
+					glib.KeyFileFlagsNone,
+				); !ok {
+					return fmt.Errorf("Launcher failed: %s", err)
+				}
+
+				basename := path.Base(o)
+				dot := strings.LastIndex(
+					basename,
+					path.Ext(o),
+				)
+				appid := strings.Replace(
+					basename[:dot],
+					"_",
+					"-",
+					-1,
+				)
+				f.SetString(startupWmClass, "appid", appid)
+				f.SetString(startupWmClass, "path", o)
+				saveKeyFile(f, filterPath)
+			}
+
 			// TODO: read delay field
+			// TODO: launch context???
 			_, err := app.Launch(list.([]*gio.File), nil)
 			return err
 		} else {
