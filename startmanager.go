@@ -4,9 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
+
+	"github.com/howeyc/fsnotify"
 
 	"dlib/dbus"
 	"dlib/gio-2.0"
@@ -28,8 +33,13 @@ const (
 	TryExecKey    = "TryExec"
 )
 
+var (
+	c chan os.Signal
+)
+
 type StartManager struct {
 	userAutostartPath string
+	AutostartChanged  func(string, string)
 }
 
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
@@ -43,6 +53,115 @@ func (m *StartManager) Launch(name string) bool {
 		fmt.Println(err)
 	}
 	return err == nil
+}
+
+func (m *StartManager) emitAutostartChanged(
+	ev *fsnotify.FileEvent,
+	name string,
+	renamed,
+	created,
+	notRenamed,
+	notCreated chan bool) {
+	// fmt.Println(ev)
+	if ev.IsRename() {
+		select {
+		case <-renamed:
+		default:
+		}
+		renamed <- true
+		go func() {
+			select {
+			case <-notRenamed:
+				return
+			case <-time.After(time.Second):
+				<-renamed
+				m.AutostartChanged("deleted", name)
+				// fmt.Println("deleted")
+			}
+		}()
+	} else if ev.IsCreate() {
+		created <- true
+		go func() {
+			select {
+			case <-renamed:
+				notRenamed <- true
+				renamed <- true
+			default:
+			}
+			select {
+			case <-notCreated:
+				return
+			case <-time.After(time.Second):
+				<-created
+				m.AutostartChanged("added", name)
+				// fmt.Println("create added")
+			}
+		}()
+	} else if ev.IsModify() && !ev.IsAttrib() {
+		go func() {
+			select {
+			case <-created:
+				notCreated <- true
+			}
+			select {
+			case <-renamed:
+				// fmt.Println("modified")
+				m.AutostartChanged("modified", name)
+			default:
+				m.AutostartChanged("added", name)
+				// fmt.Println("modify added")
+			}
+		}()
+	} else if ev.IsAttrib() {
+		go func() {
+			select {
+			case <-renamed:
+				<-created
+				notCreated <- true
+			default:
+			}
+		}()
+	} else if ev.IsDelete() {
+		m.AutostartChanged("deleted", name)
+		// fmt.Println("deleted")
+	}
+}
+
+func (m *StartManager) autostartHandler(watcher *fsnotify.Watcher) {
+	renamed := make(chan bool, 1)
+	created := make(chan bool, 1)
+	notRenamed := make(chan bool, 1)
+	notCreated := make(chan bool, 1)
+	for {
+		select {
+		case ev := <-watcher.Event:
+			name := path.Clean(ev.Name)
+			basename := path.Base(name)
+			matched, _ := path.Match(`[^#.]*.desktop`, basename)
+			if matched {
+				m.emitAutostartChanged(
+					ev,
+					name,
+					renamed,
+					created,
+					notRenamed,
+					notCreated,
+				)
+			}
+		}
+	}
+}
+
+func (m *StartManager) listenAutostart() {
+	watcher, _ := fsnotify.NewWatcher()
+	for _, dir := range m.autostartDirs() {
+		watcher.Watch(dir)
+	}
+	go m.autostartHandler(watcher)
+
+	c = make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, os.Kill)
+	go func() { <-c; watcher.Close() }()
 }
 
 type ActionGroup struct {
@@ -259,9 +378,9 @@ func (m *StartManager) getUserAutostartDir() string {
 func (m *StartManager) autostartDirs() []string {
 	dirs := make([]string, 0)
 
-	if Exist(m.getUserAutostartDir()) {
-		dirs = append(dirs, m.getUserAutostartDir())
-	}
+	// if Exist(m.getUserAutostartDir()) {
+	dirs = append(dirs, m.getUserAutostartDir())
+	// }
 
 	for _, configPath := range glib.GetSystemConfigDirs() {
 		_path := path.Join(configPath, _AUTOSTART)
@@ -277,7 +396,9 @@ func (m *StartManager) AutostartList() []string {
 	apps := make([]string, 0)
 	dirs := m.autostartDirs()
 	for _, dir := range dirs {
-		apps = append(apps, m.getAutostartApps(dir)...)
+		if Exist(dir) {
+			apps = append(apps, m.getAutostartApps(dir)...)
+		}
 	}
 	return apps
 }
@@ -308,7 +429,7 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 
 	dst := name
 	if !m.isUserAutostart(name) {
-		fmt.Println("not user")
+		fmt.Println("not user's")
 		dst = m.getUserStart(name)
 		err := copyFile(name, dst, CopyFileNotKeepSymlink)
 		if err != nil {
@@ -342,6 +463,7 @@ func startStartManager() {
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
 	}
+	m.listenAutostart()
 	for _, name := range m.AutostartList() {
 		// fmt.Println(name)
 		// continue
