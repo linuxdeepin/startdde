@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -298,22 +297,7 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 		!autostart,
 	)
 
-	_, content, err := file.ToData()
-	if err != nil {
-		return err
-	}
-
-	stat, err := os.Lstat(name)
-	if err != nil {
-		return err
-	}
-
-	err = ioutil.WriteFile(name, []byte(content), stat.Mode())
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return saveKeyFile(file, name)
 }
 
 func (m *StartManager) setAutostart(name string, autostart bool) error {
