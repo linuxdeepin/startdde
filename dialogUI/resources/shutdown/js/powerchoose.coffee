@@ -20,12 +20,15 @@
 
 class PowerChoose extends Widget
     opt = []
-    img_url = []
     opt_img = []
     opt_text = []
     choose_num = -1
     select_state_confirm = false
 
+    img_url_normal = []
+    img_url_hover = []
+    img_url_click = []
+    
     constructor: ()->
         super
         confirmdialog = null
@@ -33,7 +36,14 @@ class PowerChoose extends Widget
     destory:->
         document.body.removeChild(@element)
 
+    img_url_build:->
+        for i of option
+            img_url_normal.push("img/#{option[i]}_normal.png")
+            img_url_hover.push("img/#{option[i]}_hover.png")
+            img_url_click.push("img/#{option[i]}_press.png")
+
     frame_build:->
+        @img_url_build()
         frame = create_element("div", "frame", @element)
         button = create_element("div","button",frame)
        
@@ -46,8 +56,7 @@ class PowerChoose extends Widget
             opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
             opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
             opt[i].value = i
-            img_url[i] = "img/normal/#{option[i]}.png"
-            opt_img[i] = create_img("opt_img",img_url[i],opt[i])
+            opt_img[i] = create_img("opt_img",img_url_normal[i],opt[i])
             opt_text[i] = create_element("div","opt_text",opt[i])
             opt_text[i].textContent = option_text[i]
 
@@ -62,18 +71,18 @@ class PowerChoose extends Widget
             #normal
             opt[i].addEventListener("mouseout",->
                 i = this.value
-                opt_img[i].src = "img/normal/#{option[i]}.png"
+                opt_img[i].src = img_url_normal[i]
             )
 
             #click
             opt[i].addEventListener("mousedown",->
                 i = this.value
-                opt_img[i].src = "img/click/#{option[i]}.png"
+                opt_img[i].src = img_url_click[i]
             )
             opt[i].addEventListener("click",->
                 i = this.value
                 frame_click = true
-                opt_img[i].src = "img/click/#{option[i]}.png"
+                opt_img[i].src = img_url_click[i]
                 if 2 <= i <= 4 then that.fade(i)
                 else if 0 <= i <= 1 then confirm_ok(option[i])
                 
@@ -112,8 +121,8 @@ class PowerChoose extends Widget
         choose_num = i
         if select_state_confirm then @select_state(i)
         for tmp,j in opt_img
-            if j == i then tmp.src = "img/hover/#{option[i]}.png"
-            else tmp.src = "img/normal/#{option[j]}.png"
+            if j == i then tmp.src = img_url_hover[i]
+            else tmp.src = img_url_normal[j]
    
     select_state:(i)->
         select_state_confirm = true

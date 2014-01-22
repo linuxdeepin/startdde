@@ -889,13 +889,11 @@
   })(Widget);
 
   PowerChoose = (function(_super) {
-    var choose_num, img_url, opt, opt_img, opt_text, select_state_confirm;
+    var choose_num, img_url_click, img_url_hover, img_url_normal, opt, opt_img, opt_text, select_state_confirm;
 
     __extends(PowerChoose, _super);
 
     opt = [];
-
-    img_url = [];
 
     opt_img = [];
 
@@ -904,6 +902,12 @@
     choose_num = -1;
 
     select_state_confirm = false;
+
+    img_url_normal = [];
+
+    img_url_hover = [];
+
+    img_url_click = [];
 
     function PowerChoose() {
       PowerChoose.__super__.constructor.apply(this, arguments);
@@ -914,8 +918,20 @@
       return document.body.removeChild(this.element);
     };
 
+    PowerChoose.prototype.img_url_build = function() {
+      var i, _results;
+      _results = [];
+      for (i in option) {
+        img_url_normal.push("img/" + option[i] + "_normal.png");
+        img_url_hover.push("img/" + option[i] + "_hover.png");
+        _results.push(img_url_click.push("img/" + option[i] + "_press.png"));
+      }
+      return _results;
+    };
+
     PowerChoose.prototype.frame_build = function() {
       var button, frame, i, that, tmp, _i, _len, _results;
+      this.img_url_build();
       frame = create_element("div", "frame", this.element);
       button = create_element("div", "button", frame);
       frame.addEventListener("click", function() {
@@ -928,8 +944,7 @@
         opt[i].style.backgroundColor = "rgba(255,255,255,0.0)";
         opt[i].style.border = "1px solid rgba(255,255,255,0.0)";
         opt[i].value = i;
-        img_url[i] = "img/normal/" + option[i] + ".png";
-        opt_img[i] = create_img("opt_img", img_url[i], opt[i]);
+        opt_img[i] = create_img("opt_img", img_url_normal[i], opt[i]);
         opt_text[i] = create_element("div", "opt_text", opt[i]);
         opt_text[i].textContent = option_text[i];
         that = this;
@@ -940,16 +955,16 @@
         });
         opt[i].addEventListener("mouseout", function() {
           i = this.value;
-          return opt_img[i].src = "img/normal/" + option[i] + ".png";
+          return opt_img[i].src = img_url_normal[i];
         });
         opt[i].addEventListener("mousedown", function() {
           i = this.value;
-          return opt_img[i].src = "img/click/" + option[i] + ".png";
+          return opt_img[i].src = img_url_click[i];
         });
         _results.push(opt[i].addEventListener("click", function() {
           i = this.value;
           frame_click = true;
-          opt_img[i].src = "img/click/" + option[i] + ".png";
+          opt_img[i].src = img_url_click[i];
           if ((2 <= i && i <= 4)) {
             return that.fade(i);
           } else if ((0 <= i && i <= 1)) {
@@ -1005,9 +1020,9 @@
       for (j = _i = 0, _len = opt_img.length; _i < _len; j = ++_i) {
         tmp = opt_img[j];
         if (j === i) {
-          _results.push(tmp.src = "img/hover/" + option[i] + ".png");
+          _results.push(tmp.src = img_url_hover[i]);
         } else {
-          _results.push(tmp.src = "img/normal/" + option[j] + ".png");
+          _results.push(tmp.src = img_url_normal[j]);
         }
       }
       return _results;
