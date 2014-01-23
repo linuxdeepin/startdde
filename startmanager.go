@@ -55,83 +55,86 @@ func (m *StartManager) Launch(name string) bool {
 	return err == nil
 }
 
-func (m *StartManager) emitAutostartChanged(
-	ev *fsnotify.FileEvent,
-	name string,
-	renamed,
-	created,
-	notRenamed,
-	notCreated chan bool) {
+type AutostartInfo struct {
+	renamed    chan bool
+	created    chan bool
+	notRenamed chan bool
+	notCreated chan bool
+}
+
+func (m *StartManager) emitAutostartChanged(name, sigName string, info map[string]AutostartInfo) {
+	m.AutostartChanged(sigName, name)
+	delete(info, name)
+}
+
+func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
 	// fmt.Println(ev)
 	if ev.IsRename() {
 		select {
-		case <-renamed:
+		case <-info[name].renamed:
 		default:
 		}
-		renamed <- true
+		info[name].renamed <- true
 		go func() {
 			select {
-			case <-notRenamed:
+			case <-info[name].notRenamed:
 				return
 			case <-time.After(time.Second):
-				<-renamed
-				m.AutostartChanged("deleted", name)
+				<-info[name].renamed
+				m.emitAutostartChanged("delete", name, info)
 				// fmt.Println("deleted")
 			}
 		}()
 	} else if ev.IsCreate() {
-		created <- true
+		info[name].created <- true
 		go func() {
 			select {
-			case <-renamed:
-				notRenamed <- true
-				renamed <- true
+			case <-info[name].renamed:
+				info[name].notRenamed <- true
+				info[name].renamed <- true
 			default:
 			}
 			select {
-			case <-notCreated:
+			case <-info[name].notCreated:
 				return
 			case <-time.After(time.Second):
-				<-created
-				m.AutostartChanged("added", name)
+				<-info[name].created
+				m.emitAutostartChanged("added", name, info)
 				// fmt.Println("create added")
 			}
 		}()
 	} else if ev.IsModify() && !ev.IsAttrib() {
 		go func() {
 			select {
-			case <-created:
-				notCreated <- true
+			case <-info[name].created:
+				info[name].notCreated <- true
 			}
 			select {
-			case <-renamed:
+			case <-info[name].renamed:
 				// fmt.Println("modified")
-				m.AutostartChanged("modified", name)
+				m.emitAutostartChanged("modified", name, info)
 			default:
-				m.AutostartChanged("added", name)
+				m.emitAutostartChanged("added", name, info)
 				// fmt.Println("modify added")
 			}
 		}()
 	} else if ev.IsAttrib() {
 		go func() {
 			select {
-			case <-renamed:
-				<-created
-				notCreated <- true
+			case <-info[name].renamed:
+				<-info[name].created
+				info[name].notCreated <- true
 			default:
 			}
 		}()
 	} else if ev.IsDelete() {
-		m.AutostartChanged("deleted", name)
+		m.emitAutostartChanged("deleted", name, info)
 		// fmt.Println("deleted")
 	}
 }
 
-func (m *StartManager) autostartHandler(watcher *fsnotify.Watcher) {
-	renamed := make(chan bool, 1)
-	created := make(chan bool, 1)
-	notRenamed := make(chan bool, 1)
-	notCreated := make(chan bool, 1)
+func (m *StartManager) eventHandler(watcher *fsnotify.Watcher) {
+	info := map[string]AutostartInfo{}
 	for {
 		select {
 		case ev := <-watcher.Event:
@@ -139,15 +142,17 @@ func (m *StartManager) autostartHandler(watcher *fsnotify.Watcher) {
 			basename := path.Base(name)
 			matched, _ := path.Match(`[^#.]*.desktop`, basename)
 			if matched {
-				m.emitAutostartChanged(
-					ev,
-					name,
-					renamed,
-					created,
-					notRenamed,
-					notCreated,
-				)
+				if _, ok := info[name]; !ok {
+					info[name] = AutostartInfo{
+						make(chan bool, 1),
+						make(chan bool, 1),
+						make(chan bool, 1),
+						make(chan bool, 1),
+					}
+				}
+				m.autostartHandler(ev, name, info)
 			}
+		case <-watcher.Error:
 		}
 	}
 }
@@ -157,7 +162,7 @@ func (m *StartManager) listenAutostart() {
 	for _, dir := range m.autostartDirs() {
 		watcher.Watch(dir)
 	}
-	go m.autostartHandler(watcher)
+	go m.eventHandler(watcher)
 
 	c = make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM, os.Kill)
@@ -466,7 +471,7 @@ func startStartManager() {
 	m.listenAutostart()
 	for _, name := range m.AutostartList() {
 		// fmt.Println(name)
-		// continue
+		continue
 		m.Launch(name)
 	}
 }
