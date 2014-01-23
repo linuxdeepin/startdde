@@ -24,6 +24,10 @@ class ConfirmDialog extends Widget
     OK = 1
     choose_num = OK
 
+    img_url_normal = []
+    img_url_hover = []
+    img_url_click = []
+    
     constructor: (opt)->
         super
         i = null
@@ -40,8 +44,15 @@ class ConfirmDialog extends Widget
     destory:->
         document.body.removeChild(@element)
 
+    img_url_build:->
+        for i of option
+            img_url_normal.push("img/#{option[i]}_normal.png")
+            img_url_hover.push("img/#{option[i]}_hover.png")
+            img_url_click.push("img/#{option[i]}_press.png")
+
 
     frame_build:->
+        @img_url_build()
         i = @i
         frame_confirm = create_element("div", "frame_confirm", @element)
         frame_confirm.addEventListener("click",->
@@ -49,7 +60,7 @@ class ConfirmDialog extends Widget
         )
         
         left = create_element("div","left",frame_confirm)
-        @img_confirm = create_img("img_confirm","img/normal/#{option[i]}.png",left)
+        @img_confirm = create_img("img_confirm",img_url_normal[i],left)
         
         right = create_element("div","right",frame_confirm)
         @message_confirm = create_element("div","message_confirm",right)
@@ -97,14 +108,14 @@ class ConfirmDialog extends Widget
     style_for_direct:->
         echo "style_for_direct:power_can true!"
         i = @i
-        @img_confirm.src = "img/normal/#{option[i]}.png"
+        @img_confirm.src = img_url_normal[i]
         @message_confirm.textContent = message_text[i].args(60)
         @button_ok.textContent = option_text[i]
 
     style_for_force:->
         echo "style_for_force:power_can false!"
         i = @i
-        @img_confirm.src = "img/normal/#{option[i]}.png"
+        @img_confirm.src = img_url_normal[i]
         @message_confirm.textContent = message_text[i].args(60)
         @button_ok.textContent = option_text_force[i]
         @button_ok.style.color = "rgba(255,128,114,1.0)"
