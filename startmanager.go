@@ -4,9 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
+
+	"github.com/howeyc/fsnotify"
 
 	"dlib/dbus"
 	"dlib/gio-2.0"
@@ -28,8 +33,13 @@ const (
 	TryExecKey    = "TryExec"
 )
 
+var (
+	c chan os.Signal
+)
+
 type StartManager struct {
 	userAutostartPath string
+	AutostartChanged  func(string, string)
 }
 
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
@@ -43,6 +53,120 @@ func (m *StartManager) Launch(name string) bool {
 		fmt.Println(err)
 	}
 	return err == nil
+}
+
+type AutostartInfo struct {
+	renamed    chan bool
+	created    chan bool
+	notRenamed chan bool
+	notCreated chan bool
+}
+
+func (m *StartManager) emitAutostartChanged(name, sigName string, info map[string]AutostartInfo) {
+	m.AutostartChanged(sigName, name)
+	delete(info, name)
+}
+
+func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
+	// fmt.Println(ev)
+	if ev.IsRename() {
+		select {
+		case <-info[name].renamed:
+		default:
+		}
+		info[name].renamed <- true
+		go func() {
+			select {
+			case <-info[name].notRenamed:
+				return
+			case <-time.After(time.Second):
+				<-info[name].renamed
+				m.emitAutostartChanged("delete", name, info)
+				// fmt.Println("deleted")
+			}
+		}()
+	} else if ev.IsCreate() {
+		info[name].created <- true
+		go func() {
+			select {
+			case <-info[name].renamed:
+				info[name].notRenamed <- true
+				info[name].renamed <- true
+			default:
+			}
+			select {
+			case <-info[name].notCreated:
+				return
+			case <-time.After(time.Second):
+				<-info[name].created
+				m.emitAutostartChanged("added", name, info)
+				// fmt.Println("create added")
+			}
+		}()
+	} else if ev.IsModify() && !ev.IsAttrib() {
+		go func() {
+			select {
+			case <-info[name].created:
+				info[name].notCreated <- true
+			}
+			select {
+			case <-info[name].renamed:
+				// fmt.Println("modified")
+				m.emitAutostartChanged("modified", name, info)
+			default:
+				m.emitAutostartChanged("added", name, info)
+				// fmt.Println("modify added")
+			}
+		}()
+	} else if ev.IsAttrib() {
+		go func() {
+			select {
+			case <-info[name].renamed:
+				<-info[name].created
+				info[name].notCreated <- true
+			default:
+			}
+		}()
+	} else if ev.IsDelete() {
+		m.emitAutostartChanged("deleted", name, info)
+		// fmt.Println("deleted")
+	}
+}
+
+func (m *StartManager) eventHandler(watcher *fsnotify.Watcher) {
+	info := map[string]AutostartInfo{}
+	for {
+		select {
+		case ev := <-watcher.Event:
+			name := path.Clean(ev.Name)
+			basename := path.Base(name)
+			matched, _ := path.Match(`[^#.]*.desktop`, basename)
+			if matched {
+				if _, ok := info[name]; !ok {
+					info[name] = AutostartInfo{
+						make(chan bool, 1),
+						make(chan bool, 1),
+						make(chan bool, 1),
+						make(chan bool, 1),
+					}
+				}
+				m.autostartHandler(ev, name, info)
+			}
+		case <-watcher.Error:
+		}
+	}
+}
+
+func (m *StartManager) listenAutostart() {
+	watcher, _ := fsnotify.NewWatcher()
+	for _, dir := range m.autostartDirs() {
+		watcher.Watch(dir)
+	}
+	go m.eventHandler(watcher)
+
+	c = make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, os.Kill)
+	go func() { <-c; watcher.Close() }()
 }
 
 type ActionGroup struct {
@@ -259,9 +383,9 @@ func (m *StartManager) getUserAutostartDir() string {
 func (m *StartManager) autostartDirs() []string {
 	dirs := make([]string, 0)
 
-	if Exist(m.getUserAutostartDir()) {
-		dirs = append(dirs, m.getUserAutostartDir())
-	}
+	// if Exist(m.getUserAutostartDir()) {
+	dirs = append(dirs, m.getUserAutostartDir())
+	// }
 
 	for _, configPath := range glib.GetSystemConfigDirs() {
 		_path := path.Join(configPath, _AUTOSTART)
@@ -277,7 +401,9 @@ func (m *StartManager) AutostartList() []string {
 	apps := make([]string, 0)
 	dirs := m.autostartDirs()
 	for _, dir := range dirs {
-		apps = append(apps, m.getAutostartApps(dir)...)
+		if Exist(dir) {
+			apps = append(apps, m.getAutostartApps(dir)...)
+		}
 	}
 	return apps
 }
@@ -308,7 +434,7 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 
 	dst := name
 	if !m.isUserAutostart(name) {
-		fmt.Println("not user")
+		fmt.Println("not user's")
 		dst = m.getUserStart(name)
 		err := copyFile(name, dst, CopyFileNotKeepSymlink)
 		if err != nil {
@@ -342,9 +468,10 @@ func startStartManager() {
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
 	}
+	m.listenAutostart()
 	for _, name := range m.AutostartList() {
 		// fmt.Println(name)
-		// continue
+		continue
 		m.Launch(name)
 	}
 }
