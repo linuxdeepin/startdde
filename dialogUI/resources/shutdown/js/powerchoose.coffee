@@ -42,6 +42,7 @@ class PowerChoose extends Widget
             img_url_hover.push("img/#{option[i]}_hover.png")
             img_url_click.push("img/#{option[i]}_press.png")
 
+
     frame_build:->
         @img_url_build()
         frame = create_element("div", "frame", @element)
