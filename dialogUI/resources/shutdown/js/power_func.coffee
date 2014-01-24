@@ -7,7 +7,7 @@ power_request = (power) ->
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
-    document.body.style.cursor = "wait"
+    document.body.style.cursor = "wait" if power isnt "suspend" and power isnt "lock"
     echo "Warning: The system will request ----#{power}----"
     switch power
         when "lock" then dbus_power.RequestLock()
@@ -45,7 +45,7 @@ power_force = (power) ->
     if not dbus_power? then return
     # option = ["lock","suspend","logout","restart","shutdown"]
     echo dbus_power
-    document.body.style.cursor = "wait"
+    document.body.style.cursor = "wait" if power isnt "suspend" and power isnt "lock"
     echo "Warning: The system will ----#{power}---- Force!!"
     switch power
         when "lock" then dbus_power.RequestLock()
