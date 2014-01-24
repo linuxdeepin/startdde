@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/howeyc/fsnotify"
@@ -163,10 +161,6 @@ func (m *StartManager) listenAutostart() {
 		watcher.Watch(dir)
 	}
 	go m.eventHandler(watcher)
-
-	c = make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM, os.Kill)
-	go func() { <-c; watcher.Close() }()
 }
 
 type ActionGroup struct {
@@ -471,7 +465,9 @@ func startStartManager() {
 	m.listenAutostart()
 	for _, name := range m.AutostartList() {
 		// fmt.Println(name)
-		continue
+		if debug {
+			continue
+		}
 		m.Launch(name)
 	}
 }

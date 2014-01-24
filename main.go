@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"os/exec"
 	"time"
 
@@ -19,6 +21,15 @@ func testStartManager() {
 
 func test() {
 	testStartManager()
+}
+
+var debug bool = false
+
+func init() {
+	flag.BoolVar(&debug, "d", false, "debug")
+	flag.Parse()
+
+	fmt.Println("debug:", debug)
 }
 
 func main() {
