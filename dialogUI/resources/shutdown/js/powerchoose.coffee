@@ -111,8 +111,8 @@ class PowerChoose extends Widget
         echo "--------------fade:#{option[i]}---------------"
         if power_can(option[i])
             #confirm_ok(option[i])
-            echo "power_can true ,power_request"
-            power_request(option[i])
+            echo "power_can true ,power_force"
+            power_force(option[i])
         else
             echo "power_can false ,switchToConfirmDialog"
             @switchToConfirmDialog(i)

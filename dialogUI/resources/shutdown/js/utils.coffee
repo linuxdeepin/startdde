@@ -46,8 +46,7 @@ confirm_ok = (power)->
     switch power
         when "lock" then destory_all()
         when "suspend" then destory_all()
-    if power_can(power) and timeId == 0 then power_request(power)
-    else power_force(power)
+    power_force(power)
     clearInterval(timeId) if timeId
 
 document.body.style.height = window.innerHeight
