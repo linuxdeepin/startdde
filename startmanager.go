@@ -19,7 +19,7 @@ import (
 const (
 	_OBJECT = "com.deepin.SessionManager"
 	_PATH   = "/com/deepin/StartManager"
-	_INTER  = _OBJECT
+	_INTER  = "com.deepin.StartManager"
 )
 
 const (
@@ -60,8 +60,8 @@ type AutostartInfo struct {
 	notCreated chan bool
 }
 
-func (m *StartManager) emitAutostartChanged(name, sigName string, info map[string]AutostartInfo) {
-	m.AutostartChanged(sigName, name)
+func (m *StartManager) emitAutostartChanged(name, status string, info map[string]AutostartInfo) {
+	m.AutostartChanged(status, name)
 	delete(info, name)
 }
 
@@ -79,7 +79,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				return
 			case <-time.After(time.Second):
 				<-info[name].renamed
-				m.emitAutostartChanged("delete", name, info)
+				m.emitAutostartChanged(name, "delete", info)
 				// fmt.Println("deleted")
 			}
 		}()
@@ -97,7 +97,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				return
 			case <-time.After(time.Second):
 				<-info[name].created
-				m.emitAutostartChanged("added", name, info)
+				m.emitAutostartChanged(name, "added", info)
 				// fmt.Println("create added")
 			}
 		}()
@@ -110,9 +110,9 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			select {
 			case <-info[name].renamed:
 				// fmt.Println("modified")
-				m.emitAutostartChanged("modified", name, info)
+				m.emitAutostartChanged(name, "modified", info)
 			default:
-				m.emitAutostartChanged("added", name, info)
+				m.emitAutostartChanged(name, "added", info)
 				// fmt.Println("modify added")
 			}
 		}()
@@ -126,7 +126,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			}
 		}()
 	} else if ev.IsDelete() {
-		m.emitAutostartChanged("deleted", name, info)
+		m.emitAutostartChanged(name, "deleted", info)
 		// fmt.Println("deleted")
 	}
 }
