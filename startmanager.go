@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	_OBJECT = "com.deepin.StartManager"
+	_OBJECT = "com.deepin.SessionManager"
 	_PATH   = "/com/deepin/StartManager"
 	_INTER  = _OBJECT
 )
