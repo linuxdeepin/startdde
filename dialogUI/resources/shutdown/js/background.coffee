@@ -60,7 +60,7 @@ class Background extends Widget
             userid = new String()
             userid = @get_user_id(user)
             echo "current user #{user}'s userid:#{userid}"
-            Dbus_Account_deepin = DCore.DBus.sys("com.deepin.api.Accounts")
+            Dbus_Account_deepin = DCore.DBus.sys("com.deepin.api.Image")
             path = Dbus_Account_deepin.BackgroundBlurPictPath_sync(userid.toString(),"")
             if path[0]
                 BackgroundBlurPictPath = path[1]
