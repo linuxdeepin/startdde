@@ -430,9 +430,11 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 	if !m.isUserAutostart(name) {
 		fmt.Println("not user's")
 		dst = m.getUserStart(name)
-		err := copyFile(name, dst, CopyFileNotKeepSymlink)
-		if err != nil {
-			return err
+		if !Exist(dst) {
+			err := copyFile(name, dst, CopyFileNotKeepSymlink)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -449,7 +451,13 @@ func (m *StartManager) AddAutostart(name string) bool {
 }
 
 func (m *StartManager) RemoveAutostart(name string) bool {
-	err := m.setAutostart(name, false)
+	full := name
+	if !path.IsAbs(name) {
+		file := gio.NewDesktopAppInfo(name)
+		full = file.GetFilename()
+		file.Unref()
+	}
+	err := m.setAutostart(full, false)
 	if err != nil {
 		fmt.Println(err)
 		return false
