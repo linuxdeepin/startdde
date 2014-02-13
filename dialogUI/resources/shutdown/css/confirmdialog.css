@@ -3,6 +3,21 @@
     to{opacity:1.0;}
 }
 
+body{
+    cursor:default;
+    overflow:hidden;
+    
+    background-image: url(/usr/share/backgrounds/default_background.jpg);
+    
+    background-origin:padding-box;
+    background-clip:border-box;
+    background-position:center;
+    background-size:cover;
+    background-repeat:no-repeat;
+    background-attachment:fixed;
+}
+
+
 
 
 
