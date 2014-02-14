@@ -306,7 +306,7 @@ int main (int argc, char **argv)
 
     g_option_context_free(ctx);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
-#ifndef NDEBUG
+#ifdef NDEBUG
     g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
     g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
@@ -319,7 +319,7 @@ int main (int argc, char **argv)
     gdk_window_set_skip_taskbar_hint (gdkwindow, TRUE);
     gdk_window_set_cursor (gdkwindow, gdk_cursor_new(GDK_LEFT_PTR));
 
-#ifndef NDEBUG
+#ifdef NDEBUG
     gdk_window_set_override_redirect (gdkwindow, TRUE);
     select_popup_events ();
     gdk_window_add_filter (NULL, (GdkFilterFunc)xevent_filter, gdkwindow);
