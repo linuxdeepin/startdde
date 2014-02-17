@@ -31,6 +31,7 @@ body{
     background-size:cover;
     background-repeat:no-repeat;
     background-attachment:fixed;
+    font-size:62.5%;
 }
 
 .PowerChoose{
@@ -44,6 +45,7 @@ body{
 
 .frame{
     display:-webkit-box;
+    margin-bottom:15em;
     -webkit-box-orient:vertical;
 }
 
