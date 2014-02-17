@@ -44,8 +44,9 @@ body{
 }
 
 .frame{
+    position:relative;
+    bottom:8em;
     display:-webkit-box;
-    margin-bottom:15em;
     -webkit-box-orient:vertical;
 }
 

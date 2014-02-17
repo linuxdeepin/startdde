@@ -32,6 +32,8 @@ body{
 
 .frame_confirm{
     /*background-color:rgba(122,122,100,0.2);*/
+    position:relative;
+    bottom:5em;
     display:-webkit-box;
     /*margin-bottom:135px;*/
 }
