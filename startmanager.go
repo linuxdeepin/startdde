@@ -67,12 +67,19 @@ func (m *StartManager) emitAutostartChanged(name, status string, info map[string
 
 func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
 	// fmt.Println(ev)
+	if _, ok := info[name]; !ok {
+		info[name] = AutostartInfo{
+			make(chan bool),
+			make(chan bool),
+			make(chan bool),
+			make(chan bool),
+		}
+	}
 	if ev.IsRename() {
 		select {
 		case <-info[name].renamed:
 		default:
 		}
-		info[name].renamed <- true
 		go func() {
 			select {
 			case <-info[name].notRenamed:
@@ -83,8 +90,8 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				// fmt.Println("deleted")
 			}
 		}()
+		info[name].renamed <- true
 	} else if ev.IsCreate() {
-		info[name].created <- true
 		go func() {
 			select {
 			case <-info[name].renamed:
@@ -101,6 +108,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				// fmt.Println("create added")
 			}
 		}()
+		info[name].created <- true
 	} else if ev.IsModify() && !ev.IsAttrib() {
 		go func() {
 			select {
