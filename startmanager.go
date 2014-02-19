@@ -429,6 +429,11 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 }
 
 func (m *StartManager) setAutostart(name string, autostart bool) error {
+	if !path.IsAbs(name) {
+		file := gio.NewDesktopAppInfo(name)
+		name = file.GetFilename()
+		file.Unref()
+	}
 	if autostart == m.isAutostart(name) {
 		fmt.Println("is already done")
 		return nil
@@ -459,18 +464,25 @@ func (m *StartManager) AddAutostart(name string) bool {
 }
 
 func (m *StartManager) RemoveAutostart(name string) bool {
-	full := name
-	if !path.IsAbs(name) {
-		file := gio.NewDesktopAppInfo(name)
-		full = file.GetFilename()
-		file.Unref()
-	}
 	err := m.setAutostart(full, false)
 	if err != nil {
 		fmt.Println(err)
 		return false
 	}
 	return true
+}
+
+func (m *StartManager) IsAutostart(name string) bool {
+	if !path.IsAbs(name) {
+		file := gio.NewDesktopAppInfo(name)
+		if file == nil {
+			fmt.Println(name, "is not a vaild desktop file.")
+			return false
+		}
+		name = file.GetFilename()
+		file.Unref()
+	}
+	return m.isAutostart(name)
 }
 
 func startStartManager() {
