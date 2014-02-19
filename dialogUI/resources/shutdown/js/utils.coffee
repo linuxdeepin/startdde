@@ -22,15 +22,15 @@ confirmdialog = null
 powerchoose = null
 
 frame_click = false
-option = ["lock","suspend","logout","restart","shutdown"]
-option_text = [_("Lock"),_("Suspend"),_("Log out"),_("Restart"),_("Shut down")]
-option_text_force = [_("Lock"),_("Suspend"),_("Force Log out"),_("Force Restart"),_("Force Shut down")]
+option = ["logout","shutdown","restart","suspend","lock"]
+option_text = [_("Log out"),_("Shut down"),_("Restart"),_("Suspend"),_("Lock")]
+option_text_force = [_("Force Log out"),_("Force Shut down"),_("Force Restart"),_("Suspend"),_("Lock")]
 message_text = [
-    _("The system will be locked in %1 seconds."),
-    _("The system will be suspended in %1 seconds."),
     _("You will be automatically logged out in %1 seconds."),
+    _("The system will shut down in %1 seconds."),
     _("The system will restart in %1 seconds."),
-    _("The system will shut down in %1 seconds.")
+    _("The system will be suspended in %1 seconds."),
+    _("The system will be locked in %1 seconds.")
 ]
 
 timeId = null
@@ -41,7 +41,6 @@ destory_all = ->
 
 
 confirm_ok = (power)->
-    #destory_all()
     echo "--------------confirm_ok(#{power})-------------"
     switch power
         when "lock" then destory_all()

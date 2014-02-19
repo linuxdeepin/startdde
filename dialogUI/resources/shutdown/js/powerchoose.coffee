@@ -59,7 +59,17 @@ class PowerChoose extends Widget
             opt_img[i] = create_img("opt_img",img_url_normal[i],opt[i])
             opt_text[i] = create_element("div","opt_text",opt[i])
             opt_text[i].textContent = option_text[i]
-
+            
+            
+            #this key must get From system
+            GetinFromKey = false
+            if tmp is "logout"
+                if GetinFromKey
+                    @select_state(i)
+                else
+                    @hover_state(i)
+                opt[i].focus()
+            
             that = @
             #hover
             opt[i].addEventListener("mouseover",->
@@ -83,9 +93,7 @@ class PowerChoose extends Widget
                 i = this.value
                 frame_click = true
                 opt_img[i].src = img_url_click[i]
-                if 2 <= i <= 4 then that.fade(i)
-                else if 0 <= i <= 1 then confirm_ok(option[i])
-                
+                that.fade(i)
             )
     
     timefunc:(i) ->
@@ -110,9 +118,9 @@ class PowerChoose extends Widget
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"
         if power_can(option[i])
-            #confirm_ok(option[i])
             echo "power_can true ,power_force"
-            power_force(option[i])
+            confirm_ok(option[i])
+            #power_force(option[i])
         else
             echo "power_can false ,switchToConfirmDialog"
             @switchToConfirmDialog(i)
@@ -136,22 +144,20 @@ class PowerChoose extends Widget
                 tmp.style.backgroundColor = "rgba(255,255,255,0.0)"
                 tmp.style.border = "1px solid rgba(255,255,255,0.0)"
                 tmp.style.borderRadius = null
-
-    
+ 
     keydown:(keyCode)->
         switch keyCode
             when LEFT_ARROW
                 choose_num--
-                if choose_num == -1 then choose_num = 4
+                if choose_num == -1 then choose_num = option.length - 1
                 @select_state(choose_num)
             when RIGHT_ARROW
                 choose_num++
-                if choose_num == 5 then choose_num = 0
+                if choose_num == option.length then choose_num = 0
                 @select_state(choose_num)
             when ENTER_KEY
                 i = choose_num
-                if 2 <= i <= 4 then @fade(i)
-                else if 0 <= i <= 1 then confirm_ok(option[i])
+                @fade(i)
             when ESC_KEY
                 destory_all()
 
