@@ -383,7 +383,7 @@ func (m *StartManager) getUserAutostartDir() string {
 	}
 
 	if !Exist(m.userAutostartPath) {
-		err := os.MkdirAll(m.getUserAutostartDir(), 0775)
+		err := os.MkdirAll(m.userAutostartPath, 0775)
 		if err != nil {
 			fmt.Println(fmt.Errorf("create user autostart dir failed: %s", err))
 		}
