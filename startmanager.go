@@ -329,6 +329,9 @@ func lowerBaseName(name string) string {
 }
 
 func (m *StartManager) getUserStart(sys string) (userPath string) {
+	if !Exist(m.getUserAutostartDir()) {
+		return
+	}
 	filepath.Walk(
 		m.getUserAutostartDir(),
 		func(_path string, info os.FileInfo, err error) error {
@@ -379,15 +382,20 @@ func (m *StartManager) getUserAutostartDir() string {
 		m.userAutostartPath = path.Join(configPath, _AUTOSTART)
 	}
 
+	if !Exist(m.getUserAutostartDir()) {
+		err := os.MkdirAll(m.getUserAutostartDir(), 0775)
+		if err != nil {
+			fmt.Println(fmt.Errorf("create user autostart dir failed: %s", err))
+		}
+	}
+
 	return m.userAutostartPath
 }
 
 func (m *StartManager) autostartDirs() []string {
 	dirs := make([]string, 0)
 
-	// if Exist(m.getUserAutostartDir()) {
 	dirs = append(dirs, m.getUserAutostartDir())
-	// }
 
 	for _, configPath := range glib.GetSystemConfigDirs() {
 		_path := path.Join(configPath, _AUTOSTART)
@@ -429,11 +437,6 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 }
 
 func (m *StartManager) setAutostart(name string, autostart bool) error {
-	if !path.IsAbs(name) {
-		file := gio.NewDesktopAppInfo(name)
-		name = file.GetFilename()
-		file.Unref()
-	}
 	if autostart == m.isAutostart(name) {
 		fmt.Println("is already done")
 		return nil
@@ -464,7 +467,15 @@ func (m *StartManager) AddAutostart(name string) bool {
 }
 
 func (m *StartManager) RemoveAutostart(name string) bool {
-	err := m.setAutostart(full, false)
+	if !path.IsAbs(name) {
+		file := gio.NewDesktopAppInfo(name)
+		if file == nil {
+			return false
+		}
+		name = file.GetFilename()
+		file.Unref()
+	}
+	err := m.setAutostart(name, false)
 	if err != nil {
 		fmt.Println(err)
 		return false

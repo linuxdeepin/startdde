@@ -113,7 +113,7 @@ Name=GoAgent
 		"TryExec=./lssssss",
 		false}}
 
-func TestIsAutostartAux(t *testing.T) {
+func _TestIsAutostartAux(t *testing.T) {
 	m := StartManager{}
 	for i, c := range d {
 		p := fmt.Sprintf("/tmp/test%d.desktop", i)
@@ -124,5 +124,15 @@ func TestIsAutostartAux(t *testing.T) {
 			t.Errorf("Failed %s\n", c.D)
 		}
 		os.Remove(p)
+	}
+}
+
+func TestSetAutostart(t *testing.T) {
+	m := StartManager{}
+	if err := m.setAutostart("dropbox.desktop", true); err != nil {
+		fmt.Println(err)
+	}
+	if err := m.setAutostart("dropbox.desktop", false); err != nil {
+		fmt.Println(err)
 	}
 }
