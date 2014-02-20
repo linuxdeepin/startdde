@@ -60,13 +60,17 @@ class Background extends Widget
             userid = new String()
             userid = @get_user_id(user)
             echo "current user #{user}'s userid:#{userid}"
-            Dbus_Account_deepin = DCore.DBus.session("com.deepin.api.Graph")
-            path = Dbus_Account_deepin.BackgroundBlurPictPath_sync(userid.toString(),"")
-            if path[0]
-                BackgroundBlurPictPath = path[1]
-            else
-                # here should getPath by other methods!
-                BackgroundBlurPictPath = path[1]
+            try
+                Dbus_Account_deepin = DCore.DBus.session("com.deepin.api.Graph")
+                path = Dbus_Account_deepin.BackgroundBlurPictPath_sync(userid.toString(),"")
+                if path[0]
+                    BackgroundBlurPictPath = path[1]
+                else
+                    # here should getPath by other methods!
+                    BackgroundBlurPictPath = path[1]
+            catch error
+                echo error
+                BackgroundBlurPictPath = "/usr/share/backgrounds/default_background.jpg"
         echo "BackgroundBlurPictPath:#{BackgroundBlurPictPath}"
         localStorage.setItem("BackgroundBlurPictPath",BackgroundBlurPictPath)
         if !is_greeter
