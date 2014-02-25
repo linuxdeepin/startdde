@@ -23,42 +23,47 @@ func test() {
 	testStartManager()
 }
 
-var debug bool = false
-
-func init() {
-	flag.BoolVar(&debug, "d", false, "debug")
-	flag.Parse()
-
-	fmt.Println("debug:", debug)
-}
+var (
+	debug           bool = false
+	notStartInitPro bool = false
+)
 
 func main() {
 	// test()
 	// return
 
-	go exec.Command("/usr/bin/compiz").Run()
-	<-time.After(time.Millisecond * 200)
+	flag.BoolVar(&debug, "d", false, "debug")
+	flag.BoolVar(&notStartInitPro, "n", false, "not start")
 
-	go exec.Command("/usr/bin/gnome-settings-daemon").Run()
-	<-time.After(time.Millisecond * 100)
+	flag.Parse()
+	fmt.Println("debug:", debug)
+	fmt.Println("notStartInitPro:", notStartInitPro)
 
-	go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
-	go exec.Command("/usr/lib/deepin-daemon/themes").Run()
-	go exec.Command("/usr/lib/deepin-daemon/display").Run()
-	<-time.After(time.Millisecond * 20)
+	if !notStartInitPro {
+		go exec.Command("/usr/bin/compiz").Run()
+		<-time.After(time.Millisecond * 200)
 
-	go exec.Command("/usr/bin/dock").Run()
-	<-time.After(time.Millisecond * 200)
-	go exec.Command("/usr/bin/dapptray").Run()
-	<-time.After(time.Millisecond * 20)
+		go exec.Command("/usr/bin/gnome-settings-daemon").Run()
+		<-time.After(time.Millisecond * 100)
 
-	go exec.Command("/usr/bin/desktop").Run()
-	<-time.After(time.Millisecond * 3000)
+		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
+		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
+		go exec.Command("/usr/lib/deepin-daemon/display").Run()
+		<-time.After(time.Millisecond * 20)
 
-	<-time.After(time.Millisecond * 3000)
+		go exec.Command("/usr/bin/dock").Run()
+		<-time.After(time.Millisecond * 200)
+		go exec.Command("/usr/bin/dapptray").Run()
+		<-time.After(time.Millisecond * 20)
 
-	// Session Manager
-	startSession()
+		go exec.Command("/usr/bin/desktop").Run()
+		<-time.After(time.Millisecond * 3000)
+
+		<-time.After(time.Millisecond * 3000)
+
+		// Session Manager
+		startSession()
+	}
 	startStartManager()
 
 	for {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -221,8 +220,39 @@ func (m *StartManager) LaunchAction(name, action string) bool {
 	return false
 }
 
+// filepath.Walk will walk through the whole directory tree
+func scanDir(d string, fn func(path string, info os.FileInfo) error) {
+	f, err := os.Open(d)
+	if err != nil {
+		// fmt.Println("scanDir", err)
+		return
+	}
+	infos, err := f.Readdir(0)
+	if err != nil {
+		fmt.Println("scanDir", err)
+		return
+	}
+
+	for _, info := range infos {
+		if fn(d, info) != nil {
+			break
+		}
+	}
+}
+
+func (m *StartManager) getUserAutostart(name string) string {
+	return path.Join(m.getUserAutostartDir(), path.Base(name))
+}
+
 func (m *StartManager) isUserAutostart(name string) bool {
-	return path.Dir(path.Clean(name)) == m.getUserAutostartDir()
+	if path.IsAbs(name) {
+		if !Exist(name) {
+			return false
+		}
+		return path.Dir(name) == m.getUserAutostartDir()
+	} else {
+		return Exist(path.Join(m.getUserAutostartDir(), name))
+	}
 }
 
 func (m *StartManager) isHidden(file *gio.DesktopAppInfo) bool {
@@ -254,22 +284,19 @@ func (m *StartManager) showInDeepin(file *gio.DesktopAppInfo) bool {
 	return true
 }
 
-func findExec(_path, cmd string, exist chan bool) {
-	defer func() {
-		recover()
-	}()
-
+func findExec(_path, cmd string, exist chan<- bool) {
 	found := false
-	filepath.Walk(
-		_path,
-		func(_path string, info os.FileInfo, err error) error {
-			if info.Name() == cmd {
-				found = true
-				return errors.New("Found it")
-			}
-			return nil
-		})
+
+	scanDir(_path, func(p string, info os.FileInfo) error {
+		if !info.IsDir() && info.Name() == cmd {
+			found = true
+			return errors.New("Found it")
+		}
+		return nil
+	})
+
 	exist <- found
+	return
 }
 
 func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
@@ -328,21 +355,47 @@ func lowerBaseName(name string) string {
 	return strings.ToLower(path.Base(name))
 }
 
-func (m *StartManager) getUserStart(sys string) (userPath string) {
-	if !Exist(m.getUserAutostartDir()) {
-		return
-	}
-	filepath.Walk(
-		m.getUserAutostartDir(),
-		func(_path string, info os.FileInfo, err error) error {
-			if lowerBaseName(sys) == strings.ToLower(info.Name()) {
-				userPath = _path
-				return errors.New("Found it")
+func (m *StartManager) isSystemStart(name string) bool {
+	if path.IsAbs(name) {
+		if !Exist(name) {
+			return false
+		}
+		d := path.Dir(name)
+		for i, dir := range m.autostartDirs() {
+			if i == 0 {
+				continue
 			}
-			return nil
-		})
+			if d == dir {
+				return true
+			}
+		}
+		return false
+	} else {
+		return Exist(m.getSysAutostart(name))
+	}
 
-	return
+}
+func (m *StartManager) getSysAutostart(name string) string {
+	sysPath := ""
+	for i, d := range m.autostartDirs() {
+		if i == 0 {
+			continue
+		}
+		scanDir(d,
+			func(p string, info os.FileInfo) error {
+				if lowerBaseName(name) == strings.ToLower(info.Name()) {
+					sysPath = path.Join(p,
+						info.Name())
+					return errors.New("Found it")
+				}
+				return nil
+			},
+		)
+		if sysPath != "" {
+			return sysPath
+		}
+	}
+	return sysPath
 }
 
 func (m *StartManager) isAutostart(name string) bool {
@@ -350,11 +403,15 @@ func (m *StartManager) isAutostart(name string) bool {
 		return false
 	}
 
-	if !m.isUserAutostart(name) {
-		userStart := m.getUserStart(name)
-		if userStart != "" {
-			return m.isAutostartAux(userStart)
+	u := m.getUserAutostart(name)
+	if Exist(u) {
+		name = u
+	} else {
+		s := m.getSysAutostart(name)
+		if s == "" {
+			return false
 		}
+		name = s
 	}
 
 	return m.isAutostartAux(name)
@@ -362,16 +419,16 @@ func (m *StartManager) isAutostart(name string) bool {
 
 func (m *StartManager) getAutostartApps(dir string) []string {
 	apps := make([]string, 0)
-	filepath.Walk(
-		dir,
-		func(_path string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				if m.isAutostart(_path) {
-					apps = append(apps, _path)
-				}
+
+	scanDir(dir, func(p string, info os.FileInfo) error {
+		if !info.IsDir() {
+			fullpath := path.Join(p, info.Name())
+			if m.isAutostart(fullpath) {
+				apps = append(apps, fullpath)
 			}
-			return nil
-		})
+		}
+		return nil
+	})
 
 	return apps
 }
@@ -393,9 +450,10 @@ func (m *StartManager) getUserAutostartDir() string {
 }
 
 func (m *StartManager) autostartDirs() []string {
-	dirs := make([]string, 0)
-
-	dirs = append(dirs, m.getUserAutostartDir())
+	// first is user dir.
+	dirs := []string{
+		m.getUserAutostartDir(),
+	}
 
 	for _, configPath := range glib.GetSystemConfigDirs() {
 		_path := path.Join(configPath, _AUTOSTART)
@@ -426,17 +484,26 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 		return err
 	}
 
-	fmt.Println("set autostart to", autostart)
 	file.SetBoolean(
 		glib.KeyFileDesktopGroup,
 		HiddenKey,
 		!autostart,
 	)
+	fmt.Println("set autostart to", autostart)
 
 	return saveKeyFile(file, name)
 }
 
 func (m *StartManager) setAutostart(name string, autostart bool) error {
+	if !path.IsAbs(name) {
+		file := gio.NewDesktopAppInfo(name)
+		if file == nil {
+			return errors.New("cannot create desktop file")
+		}
+		name = file.GetFilename()
+		file.Unref()
+	}
+	// fmt.Println(name, "autostart:", m.isAutostart(name))
 	if autostart == m.isAutostart(name) {
 		fmt.Println("is already done")
 		return nil
@@ -444,12 +511,13 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 
 	dst := name
 	if !m.isUserAutostart(name) {
-		fmt.Println("not user's")
-		dst = m.getUserStart(name)
+		// fmt.Println("not user's")
+		dst = m.getUserAutostart(name)
+		fmt.Println(dst)
 		if !Exist(dst) {
 			err := copyFile(name, dst, CopyFileNotKeepSymlink)
 			if err != nil {
-				return err
+				return fmt.Errorf("copy file failed: %s", err)
 			}
 		}
 	}
@@ -460,21 +528,13 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 func (m *StartManager) AddAutostart(name string) bool {
 	err := m.setAutostart(name, true)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("AddAutostart", err)
 		return false
 	}
 	return true
 }
 
 func (m *StartManager) RemoveAutostart(name string) bool {
-	if !path.IsAbs(name) {
-		file := gio.NewDesktopAppInfo(name)
-		if file == nil {
-			return false
-		}
-		name = file.GetFilename()
-		file.Unref()
-	}
 	err := m.setAutostart(name, false)
 	if err != nil {
 		fmt.Println(err)
