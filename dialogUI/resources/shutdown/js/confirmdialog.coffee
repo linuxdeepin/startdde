@@ -37,7 +37,7 @@ class ConfirmDialog extends Widget
         if i is null
             echo "no this power option!"
             return
-        if i < 2 or i > 4 then return
+        echo i
         @i = i
         powerchoose = null
 
@@ -105,14 +105,14 @@ class ConfirmDialog extends Widget
             right.style.opacity = "1.0"
         ,false)
     
-    style_for_direct:->
+    style_for_direct:=>
         echo "style_for_direct:power_can true!"
         i = @i
         @img_confirm.src = img_url_normal[i]
         @message_confirm.textContent = message_text[i].args(60)
         @button_ok.textContent = option_text[i]
 
-    style_for_force:->
+    style_for_force:=>
         echo "style_for_force:power_can false!"
         i = @i
         @img_confirm.src = img_url_normal[i]
