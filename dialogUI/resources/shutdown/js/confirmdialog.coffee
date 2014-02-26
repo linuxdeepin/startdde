@@ -30,6 +30,9 @@ class ConfirmDialog extends Widget
     
     constructor: (opt)->
         super
+        if opt is "suspend" or opt is "lock"
+            destory_all()
+            return
         i = null
         @opt = opt
         for tmp,j in option
@@ -37,7 +40,6 @@ class ConfirmDialog extends Widget
         if i is null
             echo "no this power option!"
             return
-        echo i
         @i = i
         powerchoose = null
 
