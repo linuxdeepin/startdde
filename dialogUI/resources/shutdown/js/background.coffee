@@ -5,7 +5,6 @@ class Background extends Widget
     users_name = []
     users_id = []
     users_bg = []
-    is_greeter = false
     
     DAEMON_ACCOUNTS = "com.deepin.daemon.Accounts"
     ACCOUNTS_USER =
@@ -18,12 +17,6 @@ class Background extends Widget
     constructor:->
         super
         Dbus_Account = DCore.DBus.sys(DAEMON_ACCOUNTS)
-        try
-            DCore.Greeter.get_date()
-            is_greeter = true
-        catch error
-            is_greeter = false
-
 
 
     get_all_users:->
