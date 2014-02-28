@@ -91,7 +91,7 @@ func newXWindow() {
         err = xproto.CreateWindowChecked(X,
                 0,
                 wid, screen.Root, 0, 0,
-                150, 150, 0, xproto.WindowClassInputOnly,
+                1, 1, 0, xproto.WindowClassInputOnly,
                 screen.RootVisual, 0,
                 nil).Check()
         if err != nil {
