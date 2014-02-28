@@ -45,7 +45,7 @@ body{
 
 .frame{
     position:relative;
-    bottom:8em;
+    bottom:5em;
     display:-webkit-box;
     -webkit-box-orient:vertical;
 }

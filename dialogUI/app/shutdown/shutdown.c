@@ -307,8 +307,8 @@ int main (int argc, char **argv)
     g_option_context_free(ctx);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
 #ifdef NDEBUG
-    /*g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);*/
-    /*g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);*/
+    g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
+    g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
     gtk_widget_realize (container);
     gtk_widget_realize (webview);
@@ -320,9 +320,9 @@ int main (int argc, char **argv)
     gdk_window_set_cursor (gdkwindow, gdk_cursor_new(GDK_LEFT_PTR));
 
 #ifdef NDEBUG
-    /*gdk_window_set_override_redirect (gdkwindow, TRUE);*/
-    /*select_popup_events ();*/
-    /*gdk_window_add_filter (NULL, (GdkFilterFunc)xevent_filter, gdkwindow);*/
+    gdk_window_set_override_redirect (gdkwindow, TRUE);
+    select_popup_events ();
+    gdk_window_add_filter (NULL, (GdkFilterFunc)xevent_filter, gdkwindow);
 #endif
 
     grab = gs_grab_new ();
