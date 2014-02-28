@@ -39,6 +39,9 @@ func main() {
         fmt.Println("debug:", debug)
         fmt.Println("notStartInitPro:", notStartInitPro)
 
+        startXSettings()
+        startStartManager()
+
         if !notStartInitPro {
                 go exec.Command("/usr/bin/compiz").Run()
                 <-time.After(time.Millisecond * 200)
@@ -65,9 +68,6 @@ func main() {
                 // Session Manager
                 startSession()
         }
-
-        startStartManager()
-        startXSettings()
 
         for {
                 <-time.After(time.Millisecond * 1000)
