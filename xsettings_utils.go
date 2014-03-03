@@ -28,7 +28,6 @@ import (
         "github.com/BurntSushi/xgb"
         "github.com/BurntSushi/xgb/xproto"
         "strconv"
-        "strings"
         "time"
 )
 
@@ -52,14 +51,18 @@ const (
         XSETTINGS_STRING   = 1
         XSETTINGS_COLOR    = 2
 
-        XSETTINGS_SCHEMA_ID = "com.deepin.dde.xsettings"
+        XSETTINGS_STRING_ID   = "com.deepin.dde.xsettings.type-string"
+        XSETTINGS_INTERGER_ID = "com.deepin.dde.xsettings.type-interger"
+        XSETTINGS_COLOR_ID    = "com.deepin.dde.xsettings.type-color"
 )
 
 var (
         sReply    *xproto.GetSelectionOwnerReply
         byteOrder binary.ByteOrder
 
-        xsSettings = gio.NewSettings(XSETTINGS_SCHEMA_ID)
+        xStrSettings   = gio.NewSettings(XSETTINGS_STRING_ID)
+        xIntSettings   = gio.NewSettings(XSETTINGS_INTERGER_ID)
+        xColorSettings = gio.NewSettings(XSETTINGS_COLOR_ID)
 )
 
 func getAtom(X *xgb.Conn, name string) xproto.Atom {
@@ -129,52 +132,84 @@ func initSelection() {
 }
 
 func setAllXSettingsKeys() {
-        for k, _ := range xsKeyMap {
-                strs := xsSettings.GetString(k)
-                a := strings.Split(strs, ";")
-                if len(a) != 2 {
+        strList := xStrSettings.ListKeys()
+        intList := xIntSettings.ListKeys()
+        colorList := xColorSettings.ListKeys()
+
+        for _, key := range strList {
+                k, ok := xsKeyMap[key]
+                if !ok {
                         continue
                 }
-                t, _ := strconv.ParseInt(a[1], 10, 64)
-                setXSettingsKey(k, a[0], int32(t))
+                value := xStrSettings.GetString(key)
+                xsStrMap[key] = value
+                setXSettingsName(k, value)
         }
-}
 
-func setXSettingsKey(key, value string, t int32) {
-        logger.Println("type:", t)
-        v, ok := xsKeyMap[key]
-        if !ok {
-                return
-        }
-        switch t {
-        case XSETTINGS_INTERGER:
-                vInt, _ := strconv.ParseUint(value, 10, 32)
-                logger.Printf("Set: %s, Value: %d\n", v, vInt)
-                setXSettingsName(v, uint32(vInt))
-        case XSETTINGS_STRING:
-                logger.Printf("Set: %s, Value: %s\n", v, value)
-                setXSettingsName(v, value)
-        case XSETTINGS_COLOR:
-                tmps := strings.Split(value, ",")
-                bytes := []byte{}
-                for _, s := range tmps {
-                        b, _ := strconv.ParseInt(s, 10, 8)
-                        bytes = append(bytes, byte(b))
+        for _, key := range intList {
+                k, ok := xsKeyMap[key]
+                if !ok {
+                        continue
                 }
-                logger.Println("Set:", v, ", Value:", bytes)
-                setXSettingsName(v, bytes)
+                value := xIntSettings.GetUint(key)
+                xsIntMap[key] = uint32(value)
+                setXSettingsName(k, uint32(value))
+        }
+
+        for _, key := range colorList {
+                k, ok := xsKeyMap[key]
+                if !ok {
+                        continue
+                }
+                values := xColorSettings.GetStrv(key)
+                xsColorMap[key] = values
+                tmp := []byte{}
+                for _, v := range values {
+                        n, _ := strconv.ParseUint(v, 10, 16)
+                        tmp = append(tmp, byte(n))
+                }
+                setXSettingsName(k, tmp)
         }
 }
 
-func setGSettingsKey(key, value string, t int32) {
-        switch t {
-        case XSETTINGS_INTERGER:
-                xsSettings.SetString(key, value+";0")
-        case XSETTINGS_STRING:
-                xsSettings.SetString(key, value+";1")
-        case XSETTINGS_COLOR:
-                xsSettings.SetString(key, value+";2")
+func convertStrListToColor(value []string) []byte {
+        tmp := []byte{}
+
+        for _, v := range value {
+                n, _ := strconv.ParseUint(v, 10, 16)
+                tmp = append(tmp, byte(n))
         }
+
+        return tmp
+}
+
+func isStrArrayEqual(list1, list2 []string) bool {
+        l1 := len(list1)
+        l2 := len(list2)
+
+        if l1 != l2 {
+                return false
+        }
+
+        for i := 0; i < l1; i++ {
+                if list1[i] != list2[i] {
+                        return false
+                }
+        }
+
+        return true
+}
+
+func getXSettingsKey(str string) string {
+        tmp := ""
+        for k, v := range xsKeyMap {
+                if v == str {
+                        tmp = k
+                        break
+                }
+        }
+
+        return tmp
 }
 
 func getCurrentTimestamp() int64 {

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+    <schema path="/com/deepin/dde/xsettings/type-string/" id="com.deepin.dde.xsettings.type-string">
+    <key type="s" name="gtk-fontname">
+        <default>"Cantarell 11"</default>
+      <summary>Set Gtk FontName</summary>
+      <description>XSettings Key Gtk FontName</description>
+    </key>
+    <key type="s" name="gtk-modules">
+        <default>"canberra-gtk-module"</default>
+      <summary>Set Gtk Modules</summary>
+      <description>XSettings Key Gtk Modules</description>
+    </key>
+    <key type="s" name="gtk-imstatusstyle">
+        <default>"callback"</default>
+      <summary>Set Gtk IMStatusStyle</summary>
+      <description>XSettings Key Gtk IMStatusStyle</description>
+    </key>
+    <key type="s" name="gtk-cursorthemename">
+        <default>"Deepin"</default>
+      <summary>Set Gtk CursorThemeName</summary>
+      <description>XSettings Key Gtk CursorThemeName</description>
+    </key>
+    <key type="s" name="gtk-immodule">
+        <default>"fcitx"</default>
+      <summary>Set Gtk IMModule</summary>
+      <description>XSettings Key Gtk IMModule</description>
+    </key>
+    <key type="s" name="gtk-toolbarstyle">
+        <default>"both-horiz"</default>
+      <summary>Set Gtk ToolbarStyle</summary>
+      <description>XSettings Key Gtk ToolbarStyle</description>
+    </key>
+    <key type="s" name="xft-rgba">
+        <default>"none"</default>
+      <summary>Set Xft RGBA</summary>
+      <description>XSettings Key Xft RGBA</description>
+    </key>
+    <key type="s" name="gtk-colorpalette">
+        <default>"black:white:gray50:red:purple:blue:light blue:green:yellow:orange:lavender:brown:goldenrod4:dodger blue:pink:light green:gray10:gray30:gray75:gray90"</default>
+      <summary>Set Gtk ColorPalette</summary>
+      <description>XSettings Key Gtk ColorPalette</description>
+    </key>
+    <key type="s" name="xft-hintstyle">
+        <default>"hintmedium"</default>
+      <summary>Set Xft HintStyle</summary>
+      <description>XSettings Key Xft HintStyle</description>
+    </key>
+    <key type="s" name="gtk-menubaraccel">
+        <default>"F10"</default>
+      <summary>Set Gtk MenuBarAccel</summary>
+      <description>XSettings Key Gtk MenuBarAccel</description>
+    </key>
+    <key type="s" name="gtk-toolbariconsize">
+        <default>"large"</default>
+      <summary>Set Gtk ToolbarIconSize</summary>
+      <description>XSettings Key Gtk ToolbarIconSize</description>
+    </key>
+    <key type="s" name="gtk-impreeditstyle">
+        <default>"callback"</default>
+      <summary>Set Gtk IMPreeditStyle</summary>
+      <description>XSettings Key Gtk IMPreeditStyle</description>
+    </key>
+    <key type="s" name="gtk-colorscheme">
+        <default>""</default>
+      <summary>Set Gtk ColorScheme</summary>
+      <description>XSettings Key Gtk ColorScheme</description>
+    </key>
+    <key type="s" name="gtk-keythemename">
+        <default>"Default"</default>
+      <summary>Set Gtk KeyThemeName</summary>
+      <description>XSettings Key Gtk KeyThemeName</description>
+    </key>
+    <key type="s" name="net-soundthemename">
+        <default>"LinuxDeepin"</default>
+      <summary>Set Net SoundThemeName</summary>
+      <description>XSettings Key Net SoundThemeName</description>
+    </key>
+    <key type="s" name="net-themename">
+        <default>"Deepin"</default>
+      <summary>Set Net ThemeName</summary>
+      <description>XSettings Key Net ThemeName</description>
+    </key>
+    <key type="s" name="net-iconthemename">
+        <default>"Deepin"</default>
+      <summary>Set Net IconThemeName</summary>
+      <description>XSettings Key Net IconThemeName</description>
+    </key>
+    <key type="s" name="net-fallbackicontheme">
+        <default>"gnome"</default>
+      <summary>Set Net FallbackIconTheme</summary>
+      <description>XSettings Key Net FallbackIconTheme</description>
+    </key>
+  </schema>
+</schemalist>
