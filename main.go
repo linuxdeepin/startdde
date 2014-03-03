@@ -46,11 +46,7 @@ func main() {
                 go exec.Command("/usr/bin/compiz").Run()
                 <-time.After(time.Millisecond * 200)
 
-                go exec.Command("/usr/bin/gnome-settings-daemon").Run()
-                <-time.After(time.Millisecond * 100)
-
                 go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
-                go exec.Command("/usr/lib/deepin-daemon/themes").Run()
                 go exec.Command("/usr/lib/deepin-daemon/display").Run()
                 <-time.After(time.Millisecond * 20)
 
