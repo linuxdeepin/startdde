@@ -62,6 +62,9 @@ func main() {
 
 		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
 		<-time.After(time.Millisecond * 3000)
+		
+        go exec.Command("/usr/lib/deepin-daemon/audio").Run()
+		<-time.After(time.Millisecond * 3000)
 	}
 
 	startStartManager()
