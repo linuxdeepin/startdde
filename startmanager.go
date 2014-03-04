@@ -30,10 +30,6 @@ const (
 	TryExecKey    = "TryExec"
 )
 
-var (
-	c chan os.Signal
-)
-
 type StartManager struct {
 	userAutostartPath string
 	AutostartChanged  func(string, string)
@@ -58,6 +54,11 @@ type AutostartInfo struct {
 	notRenamed chan bool
 	notCreated chan bool
 }
+
+const (
+	AutostartAdded   string = "added"
+	AutostartDeleted string = "deleted"
+)
 
 func (m *StartManager) emitAutostartChanged(name, status string, info map[string]AutostartInfo) {
 	m.AutostartChanged(status, name)
@@ -85,8 +86,8 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				return
 			case <-time.After(time.Second):
 				<-info[name].renamed
-				m.emitAutostartChanged(name, "delete", info)
-				// fmt.Println("deleted")
+				m.emitAutostartChanged(name, AutostartDeleted, info)
+				// fmt.Println(AutostartDeleted)
 			}
 		}()
 		info[name].renamed <- true
@@ -103,8 +104,8 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				return
 			case <-time.After(time.Second):
 				<-info[name].created
-				m.emitAutostartChanged(name, "added", info)
-				// fmt.Println("create added")
+				m.emitAutostartChanged(name, AutostartAdded, info)
+				// fmt.Println("create", AutostartAdded)
 			}
 		}()
 		info[name].created <- true
@@ -117,10 +118,15 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			select {
 			case <-info[name].renamed:
 				// fmt.Println("modified")
-				m.emitAutostartChanged(name, "modified", info)
+				fmt.Println(name)
+				if m.isAutostart(name) {
+					m.emitAutostartChanged(name, AutostartAdded, info)
+				} else {
+					m.emitAutostartChanged(name, AutostartDeleted, info)
+				}
 			default:
-				m.emitAutostartChanged(name, "added", info)
-				// fmt.Println("modify added")
+				m.emitAutostartChanged(name, AutostartAdded, info)
+				// fmt.Println("modify", AutostartAdded)
 			}
 		}()
 	} else if ev.IsAttrib() {
@@ -133,8 +139,8 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			}
 		}()
 	} else if ev.IsDelete() {
-		m.emitAutostartChanged(name, "deleted", info)
-		// fmt.Println("deleted")
+		m.emitAutostartChanged(name, AutostartDeleted, info)
+		// fmt.Println(AutostartDeleted)
 	}
 }
 
