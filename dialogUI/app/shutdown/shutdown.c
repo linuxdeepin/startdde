@@ -287,7 +287,9 @@ int main (int argc, char **argv)
     gtk_window_set_decorated (GTK_WINDOW (container), FALSE);
     gtk_window_set_skip_taskbar_hint (GTK_WINDOW (container), TRUE);
     gtk_window_set_skip_pager_hint (GTK_WINDOW (container), TRUE);
-    /*gtk_window_set_keep_above (GTK_WINDOW (container), TRUE);*/
+#ifdef NDEBUG
+    gtk_window_set_keep_above (GTK_WINDOW (container), TRUE);
+#endif
 
     gtk_window_fullscreen (GTK_WINDOW (container));
     gtk_widget_set_events (GTK_WIDGET (container),
