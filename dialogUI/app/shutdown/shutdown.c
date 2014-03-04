@@ -1,9 +1,9 @@
 /**
- * Copyright (c) 2011 ~ 2013 Deepin, Inc.
- *               2011 ~ 2013 Long Wei
+ * Copyright (c) 2011 ~ 2014 Deepin, Inc.
+ *               2011 ~ 2014 bluth
  *
- * Author:      Long Wei <yilang2007lw@gmail.com>
- * Maintainer:  Long Wei <yilang2007lw@gamil.com>
+ * Author:      bluth <yuanchenglu001@gmail.com>
+ * Maintainer:  bluth <yuanchenglu001@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  **/
-
 #include <gtk/gtk.h>
 #include <cairo-xlib.h>
 #include <gdk/gdkx.h>

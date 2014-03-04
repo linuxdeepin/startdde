@@ -1,8 +1,8 @@
-#Copyright (c) 2012 ~ 2013 Deepin, Inc.
-#              2012 ~ 2013 bluth
+#Copyright (c) 2011 ~ 2014 Deepin, Inc.
+#              2011 ~ 2014 bluth
 #
 #encoding: utf-8
-#Author:      bluth <\yuanchenglu@linuxdeepin.com>
+#Author:      bluth <yuanchenglu@linuxdeepin.com>
 #Maintainer:  bluth <yuanchenglu@linuxdeepin.com>
 #
 #This program is free software; you can redistribute it and/or modify
@@ -17,6 +17,7 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
+
 
 power = "restart"
 confirmdialog = new ConfirmDialog(power)
