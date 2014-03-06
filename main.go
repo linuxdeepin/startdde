@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dlib/logger"
 	"flag"
 	"fmt"
 	"os/exec"
@@ -26,6 +27,8 @@ func test() {
 var (
 	debug           bool = false
 	notStartInitPro bool = false
+
+	Logger = logger.NewLogger("com.deepin.SessionManager")
 )
 
 func main() {
@@ -43,6 +46,7 @@ func main() {
 
 	// Session Manager
 	startSession()
+	background()
 
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
@@ -61,9 +65,6 @@ func main() {
 		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
-		<-time.After(time.Millisecond * 3000)
-		
-        go exec.Command("/usr/lib/deepin-daemon/audio").Run()
 		<-time.After(time.Millisecond * 3000)
 	}
 

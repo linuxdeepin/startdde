@@ -22,137 +22,136 @@
 package main
 
 import (
-        "bytes"
-        "dlib/logger"
-        "encoding/binary"
-        //"fmt"
-        "github.com/BurntSushi/xgb/xproto"
-        "io"
+	"bytes"
+	"encoding/binary"
+	//"fmt"
+	"github.com/BurntSushi/xgb/xproto"
+	"io"
 )
 
 func readInterger(buf io.Reader) uint32 {
-        body := uint32(0)
-        binary.Read(buf, byteOrder, &body)
+	body := uint32(0)
+	binary.Read(buf, byteOrder, &body)
 
-        return body
+	return body
 }
 
 func readColor(buf io.Reader) []uint16 {
-        ret := []uint16{}
-        var r uint16
+	ret := []uint16{}
+	var r uint16
 
-        binary.Read(buf, byteOrder, &r)
-        ret = append(ret, r)
-        binary.Read(buf, byteOrder, &r)
-        ret = append(ret, r)
-        binary.Read(buf, byteOrder, &r)
-        ret = append(ret, r)
-        binary.Read(buf, byteOrder, &r)
-        ret = append(ret, r)
+	binary.Read(buf, byteOrder, &r)
+	ret = append(ret, r)
+	binary.Read(buf, byteOrder, &r)
+	ret = append(ret, r)
+	binary.Read(buf, byteOrder, &r)
+	ret = append(ret, r)
+	binary.Read(buf, byteOrder, &r)
+	ret = append(ret, r)
 
-        return ret
+	return ret
 }
 
 func readString(buf io.Reader) string {
-        var nameLen uint32
-        binary.Read(buf, byteOrder, &nameLen)
-        if nameLen > 1000 {
-                logger.Println("name len to long:", nameLen)
-                panic("name len to long")
-        }
+	var nameLen uint32
+	binary.Read(buf, byteOrder, &nameLen)
+	if nameLen > 1000 {
+		Logger.Info("name len to long:", nameLen)
+		panic("name len to long")
+	}
 
-        nameBuf := make([]byte, nameLen)
-        binary.Read(buf, byteOrder, &nameBuf)
+	nameBuf := make([]byte, nameLen)
+	binary.Read(buf, byteOrder, &nameBuf)
 
-        leftPad := 3 - (nameLen+3)%4
-        buf.Read(make([]byte, leftPad))
+	leftPad := 3 - (nameLen+3)%4
+	buf.Read(make([]byte, leftPad))
 
-        return string(nameBuf)
+	return string(nameBuf)
 }
 
 func readString2(buf io.Reader) (string, uint16) {
-        var nameLen uint16
-        binary.Read(buf, byteOrder, &nameLen)
+	var nameLen uint16
+	binary.Read(buf, byteOrder, &nameLen)
 
-        nameBuf := make([]byte, nameLen)
-        binary.Read(buf, byteOrder, &nameBuf)
+	nameBuf := make([]byte, nameLen)
+	binary.Read(buf, byteOrder, &nameBuf)
 
-        leftPad := 3 - (nameLen+3)%4
-        buf.Read(make([]byte, leftPad))
+	leftPad := 3 - (nameLen+3)%4
+	buf.Read(make([]byte, leftPad))
 
-        return string(nameBuf), nameLen
+	return string(nameBuf), nameLen
 }
 
 func readHeader(buf io.Reader) (byte, uint16, string, uint32) {
-        var sType byte
-        binary.Read(buf, byteOrder, &sType)
-        buf.Read(make([]byte, 1))
+	var sType byte
+	binary.Read(buf, byteOrder, &sType)
+	buf.Read(make([]byte, 1))
 
-        name, nameLen := readString2(buf)
-        lastSerial := readInterger(buf)
+	name, nameLen := readString2(buf)
+	lastSerial := readInterger(buf)
 
-        return sType, nameLen, name, lastSerial
+	return sType, nameLen, name, lastSerial
 }
 
 func readXSettings() []*HeaderInfo {
-        reply, err := xproto.GetProperty(X, false,
-                sReply.Owner,
-                getAtom(X, XSETTINGS_SETTINGS),
-                getAtom(X, XSETTINGS_SETTINGS),
-                0, 10240).Reply()
-        if err != nil {
-                logger.Println("Get Property Failed:", err)
-                panic(err)
-        }
+	reply, err := xproto.GetProperty(X, false,
+		sReply.Owner,
+		getAtom(X, XSETTINGS_SETTINGS),
+		getAtom(X, XSETTINGS_SETTINGS),
+		0, 10240).Reply()
+	if err != nil {
+		Logger.Info("Get Property Failed:", err)
+		panic(err)
+	}
 
-        if reply.ValueLen <= 0 {
-                return nil
-        }
+	if reply.ValueLen <= 0 {
+		return nil
+	}
 
-        infos := []*HeaderInfo{}
-        data := reply.Value[:reply.ValueLen]
-        if data[0] == 1 {
-                byteOrder = binary.BigEndian
-        } else {
-                byteOrder = binary.LittleEndian
-        }
+	infos := []*HeaderInfo{}
+	data := reply.Value[:reply.ValueLen]
+	if data[0] == 1 {
+		byteOrder = binary.BigEndian
+	} else {
+		byteOrder = binary.LittleEndian
+	}
 
-        buf := bytes.NewReader(data[4:])
+	buf := bytes.NewReader(data[4:])
 
-        serial := readInterger(buf)
-        numSettings := readInterger(buf)
+	serial := readInterger(buf)
+	numSettings := readInterger(buf)
 
-        logger.Printf("serial: %d, numSettings: %d\n",
-                serial, numSettings)
+	Logger.Info("serial: %d, numSettings: %d\n",
+		serial, numSettings)
 
-        for i := uint32(0); i < numSettings; i++ {
-                sType, nameLen, name, lastSerial := readHeader(buf)
-                info := &HeaderInfo{}
-                info.vType = sType
-                info.nameLen = nameLen
-                info.name = name
-                info.lastSerial = lastSerial
-                switch sType {
-                case XSETTINGS_INTERGER:
-                        v := readInterger(buf)
-                        //logger.Printf("%s = %d\n", name, v)
-                        //fmt.Printf("\"%s\": \"%d;0\",\n",
-                        //name, v)
-                        info.value = v
-                case XSETTINGS_STRING:
-                        v := readString(buf)
-                        //fmt.Printf("\"%s\": \"%s;1\",\n",
-                        //name, v)
-                        info.value = v
-                case XSETTINGS_COLOR:
-                        v := readColor(buf)
-                        //fmt.Printf("\"%s\": \"%d,%d,%d,%d;2\",\n",
-                        //name, v[0], v[1], v[2], v[3])
-                        info.value = v
-                }
-                infos = append(infos, info)
-        }
-        print("\n")
+	for i := uint32(0); i < numSettings; i++ {
+		sType, nameLen, name, lastSerial := readHeader(buf)
+		info := &HeaderInfo{}
+		info.vType = sType
+		info.nameLen = nameLen
+		info.name = name
+		info.lastSerial = lastSerial
+		switch sType {
+		case XSETTINGS_INTERGER:
+			v := readInterger(buf)
+			//Logger.Info("%s = %d\n", name, v)
+			//fmt.Printf("\"%s\": \"%d;0\",\n",
+			//name, v)
+			info.value = v
+		case XSETTINGS_STRING:
+			v := readString(buf)
+			//fmt.Printf("\"%s\": \"%s;1\",\n",
+			//name, v)
+			info.value = v
+		case XSETTINGS_COLOR:
+			v := readColor(buf)
+			//fmt.Printf("\"%s\": \"%d,%d,%d,%d;2\",\n",
+			//name, v[0], v[1], v[2], v[3])
+			info.value = v
+		}
+		infos = append(infos, info)
+	}
+	print("\n")
 
-        return infos
+	return infos
 }

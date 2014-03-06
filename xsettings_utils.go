@@ -22,198 +22,197 @@
 package main
 
 import (
-        "dlib/gio-2.0"
-        "dlib/logger"
-        "encoding/binary"
-        "github.com/BurntSushi/xgb"
-        "github.com/BurntSushi/xgb/xproto"
-        "strconv"
-        "time"
+	"dlib/gio-2.0"
+	"encoding/binary"
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xproto"
+	"strconv"
+	"time"
 )
 
 type HeaderInfo struct {
-        vType      byte
-        nameLen    uint16
-        name       string
-        lastSerial uint32
-        value      interface{}
+	vType      byte
+	nameLen    uint16
+	name       string
+	lastSerial uint32
+	value      interface{}
 }
 
 const (
-        XSETTINGS_S0       = "_XSETTINGS_S0"
-        XSETTINGS_SETTINGS = "_XSETTINGS_SETTINGS"
+	XSETTINGS_S0       = "_XSETTINGS_S0"
+	XSETTINGS_SETTINGS = "_XSETTINGS_SETTINGS"
 
-        XSETTINGS_FORMAT = 8
-        XSETTINGS_ORDER  = 0
-        XSETTINGS_SERIAL = 0
+	XSETTINGS_FORMAT = 8
+	XSETTINGS_ORDER  = 0
+	XSETTINGS_SERIAL = 0
 
-        XSETTINGS_INTERGER = 0
-        XSETTINGS_STRING   = 1
-        XSETTINGS_COLOR    = 2
+	XSETTINGS_INTERGER = 0
+	XSETTINGS_STRING   = 1
+	XSETTINGS_COLOR    = 2
 
-        XSETTINGS_STRING_ID   = "com.deepin.dde.xsettings.type-string"
-        XSETTINGS_INTERGER_ID = "com.deepin.dde.xsettings.type-interger"
-        XSETTINGS_COLOR_ID    = "com.deepin.dde.xsettings.type-color"
+	XSETTINGS_STRING_ID   = "com.deepin.dde.xsettings.type-string"
+	XSETTINGS_INTERGER_ID = "com.deepin.dde.xsettings.type-interger"
+	XSETTINGS_COLOR_ID    = "com.deepin.dde.xsettings.type-color"
 )
 
 var (
-        sReply    *xproto.GetSelectionOwnerReply
-        byteOrder binary.ByteOrder
+	sReply    *xproto.GetSelectionOwnerReply
+	byteOrder binary.ByteOrder
 
-        xStrSettings   = gio.NewSettings(XSETTINGS_STRING_ID)
-        xIntSettings   = gio.NewSettings(XSETTINGS_INTERGER_ID)
-        xColorSettings = gio.NewSettings(XSETTINGS_COLOR_ID)
+	xStrSettings   = gio.NewSettings(XSETTINGS_STRING_ID)
+	xIntSettings   = gio.NewSettings(XSETTINGS_INTERGER_ID)
+	xColorSettings = gio.NewSettings(XSETTINGS_COLOR_ID)
 )
 
 func getAtom(X *xgb.Conn, name string) xproto.Atom {
-        reply, err := xproto.InternAtom(X, false,
-                uint16(len(name)), name).Reply()
-        if err != nil {
-                logger.Printf("'%s' Get Xproto Atom Failed: %s\n",
-                        name, err)
-        }
+	reply, err := xproto.InternAtom(X, false,
+		uint16(len(name)), name).Reply()
+	if err != nil {
+		Logger.Info("'%s' Get Xproto Atom Failed: %s\n",
+			name, err)
+	}
 
-        return reply.Atom
+	return reply.Atom
 }
 
 func newXWindow() {
-        wid, err := xproto.NewWindowId(X)
-        if err != nil {
-                logger.Println("New Window Id Failed:", err)
-                panic(err)
-        }
-        logger.Println("New window id:", wid)
+	wid, err := xproto.NewWindowId(X)
+	if err != nil {
+		Logger.Info("New Window Id Failed:", err)
+		panic(err)
+	}
+	Logger.Info("New window id:", wid)
 
-        setupInfo := xproto.Setup(X)
-        /*
-           for _, screenInfo := setupInfo.Roots {
-           }
-        */
-        screen := setupInfo.DefaultScreen(X)
-        logger.Println("root wid:", screen.Root)
-        err = xproto.CreateWindowChecked(X,
-                0,
-                wid, screen.Root, 0, 0,
-                1, 1, 0, xproto.WindowClassInputOnly,
-                screen.RootVisual, 0,
-                nil).Check()
-        if err != nil {
-                panic(err)
-        }
-        err = xproto.SetSelectionOwnerChecked(X, wid,
-                getAtom(X, XSETTINGS_S0),
-                xproto.TimeCurrentTime).Check()
-        //xproto.Timestamp(getCurrentTimestamp())).Check()
-        if err != nil {
-                panic(err)
-        }
-        xproto.MapWindow(X, wid)
-        X.Sync()
+	setupInfo := xproto.Setup(X)
+	/*
+	   for _, screenInfo := setupInfo.Roots {
+	   }
+	*/
+	screen := setupInfo.DefaultScreen(X)
+	Logger.Info("root wid:", screen.Root)
+	err = xproto.CreateWindowChecked(X,
+		0,
+		wid, screen.Root, 0, 0,
+		1, 1, 0, xproto.WindowClassInputOnly,
+		screen.RootVisual, 0,
+		nil).Check()
+	if err != nil {
+		panic(err)
+	}
+	err = xproto.SetSelectionOwnerChecked(X, wid,
+		getAtom(X, XSETTINGS_S0),
+		xproto.TimeCurrentTime).Check()
+	//xproto.Timestamp(getCurrentTimestamp())).Check()
+	if err != nil {
+		panic(err)
+	}
+	xproto.MapWindow(X, wid)
+	X.Sync()
 }
 
 func initSelection() {
-        var err error
+	var err error
 
-        if XSETTINGS_ORDER == 1 {
-                byteOrder = binary.BigEndian
-        } else {
-                byteOrder = binary.LittleEndian
-        }
+	if XSETTINGS_ORDER == 1 {
+		byteOrder = binary.BigEndian
+	} else {
+		byteOrder = binary.LittleEndian
+	}
 
-        sReply, err = xproto.GetSelectionOwner(X,
-                getAtom(X, XSETTINGS_S0)).Reply()
-        if err != nil {
-                logger.Println("Unable to connect X server:", err)
-                panic(err)
-        }
-        logger.Println("select owner wid:", sReply.Owner)
+	sReply, err = xproto.GetSelectionOwner(X,
+		getAtom(X, XSETTINGS_S0)).Reply()
+	if err != nil {
+		Logger.Info("Unable to connect X server:", err)
+		panic(err)
+	}
+	Logger.Info("select owner wid:", sReply.Owner)
 
-        setAllXSettingsKeys()
+	setAllXSettingsKeys()
 }
 
 func setAllXSettingsKeys() {
-        strList := xStrSettings.ListKeys()
-        intList := xIntSettings.ListKeys()
-        colorList := xColorSettings.ListKeys()
+	strList := xStrSettings.ListKeys()
+	intList := xIntSettings.ListKeys()
+	colorList := xColorSettings.ListKeys()
 
-        for _, key := range strList {
-                k, ok := xsKeyMap[key]
-                if !ok {
-                        continue
-                }
-                value := xStrSettings.GetString(key)
-                xsStrMap[key] = value
-                setXSettingsName(k, value)
-        }
+	for _, key := range strList {
+		k, ok := xsKeyMap[key]
+		if !ok {
+			continue
+		}
+		value := xStrSettings.GetString(key)
+		xsStrMap[key] = value
+		setXSettingsName(k, value)
+	}
 
-        for _, key := range intList {
-                k, ok := xsKeyMap[key]
-                if !ok {
-                        continue
-                }
-                value := xIntSettings.GetUint(key)
-                xsIntMap[key] = uint32(value)
-                setXSettingsName(k, uint32(value))
-        }
+	for _, key := range intList {
+		k, ok := xsKeyMap[key]
+		if !ok {
+			continue
+		}
+		value := xIntSettings.GetUint(key)
+		xsIntMap[key] = uint32(value)
+		setXSettingsName(k, uint32(value))
+	}
 
-        for _, key := range colorList {
-                k, ok := xsKeyMap[key]
-                if !ok {
-                        continue
-                }
-                values := xColorSettings.GetStrv(key)
-                xsColorMap[key] = values
-                tmp := []byte{}
-                for _, v := range values {
-                        n, _ := strconv.ParseUint(v, 10, 16)
-                        tmp = append(tmp, byte(n))
-                }
-                setXSettingsName(k, tmp)
-        }
+	for _, key := range colorList {
+		k, ok := xsKeyMap[key]
+		if !ok {
+			continue
+		}
+		values := xColorSettings.GetStrv(key)
+		xsColorMap[key] = values
+		tmp := []byte{}
+		for _, v := range values {
+			n, _ := strconv.ParseUint(v, 10, 16)
+			tmp = append(tmp, byte(n))
+		}
+		setXSettingsName(k, tmp)
+	}
 }
 
 func convertStrListToColor(value []string) []byte {
-        tmp := []byte{}
+	tmp := []byte{}
 
-        for _, v := range value {
-                n, _ := strconv.ParseUint(v, 10, 16)
-                tmp = append(tmp, byte(n))
-        }
+	for _, v := range value {
+		n, _ := strconv.ParseUint(v, 10, 16)
+		tmp = append(tmp, byte(n))
+	}
 
-        return tmp
+	return tmp
 }
 
 func isStrArrayEqual(list1, list2 []string) bool {
-        l1 := len(list1)
-        l2 := len(list2)
+	l1 := len(list1)
+	l2 := len(list2)
 
-        if l1 != l2 {
-                return false
-        }
+	if l1 != l2 {
+		return false
+	}
 
-        for i := 0; i < l1; i++ {
-                if list1[i] != list2[i] {
-                        return false
-                }
-        }
+	for i := 0; i < l1; i++ {
+		if list1[i] != list2[i] {
+			return false
+		}
+	}
 
-        return true
+	return true
 }
 
 func getXSettingsKey(str string) string {
-        tmp := ""
-        for k, v := range xsKeyMap {
-                if v == str {
-                        tmp = k
-                        break
-                }
-        }
+	tmp := ""
+	for k, v := range xsKeyMap {
+		if v == str {
+			tmp = k
+			break
+		}
+	}
 
-        return tmp
+	return tmp
 }
 
 func getCurrentTimestamp() int64 {
-        t := time.Now().Unix()
-        logger.Println("Timestamp:", t)
-        return t
+	t := time.Now().Unix()
+	Logger.Info("Timestamp:", t)
+	return t
 }
