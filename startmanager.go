@@ -118,7 +118,6 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			select {
 			case <-info[name].renamed:
 				// fmt.Println("modified")
-				fmt.Println(name)
 				if m.isAutostart(name) {
 					m.emitAutostartChanged(name, AutostartAdded, info)
 				} else {
@@ -563,6 +562,7 @@ func (m *StartManager) IsAutostart(name string) bool {
 }
 
 func startStartManager() {
+	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
 	m := StartManager{}
 	if err := dbus.InstallOnSession(&m); err != nil {
 		fmt.Println("Install StartManager Failed:", err)
@@ -573,6 +573,7 @@ func startStartManager() {
 		if debug {
 			continue
 		}
-		m.Launch(name)
+		go m.Launch(name)
+		<-time.After(20 * time.Millisecond)
 	}
 }
