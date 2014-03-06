@@ -10,10 +10,6 @@ import (
 
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
-	"github.com/BurntSushi/xgbutil/icccm"
-	"github.com/BurntSushi/xgbutil/keybind"
-	"github.com/BurntSushi/xgbutil/mousebind"
-	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 )
@@ -26,6 +22,7 @@ func background() {
 
 	// Read an example gopher image into a regular png image.
 	file, err := os.Open("/usr/share/backgrounds/default_background.jpg")
+	defer file.Close()
 	/*img, _, err := image.Decode(bytes.NewBuffer(gopher.GopherPng()))*/
 	img, _, err := image.Decode(file)
 	if err != nil {
@@ -39,7 +36,7 @@ func background() {
 	// We set the window title and tell the program to quit gracefully when
 	// the window is closed.
 	// There is also a convenience method, XShow, that requires no parameters.
-	win := showImage(ximg, "The Go Gopher!", true)
+	win := showImage(ximg, "Deepin Background", true)
 	ewmh.WmWindowTypeSet(win.X, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 }
 
@@ -60,26 +57,6 @@ func showImage(im *xgraphics.Image, name string, quit bool) *xwindow.Window {
 
 	// Create a very simple window with dimensions equal to the image.
 	win.Create(im.X.RootWin(), 0, 0, w, h, 0)
-
-	// Make this window close gracefully.
-	win.WMGracefulClose(func(w *xwindow.Window) {
-		xevent.Detach(w.X, w.Id)
-		keybind.Detach(w.X, w.Id)
-		mousebind.Detach(w.X, w.Id)
-		w.Destroy()
-
-		if quit {
-			xevent.Quit(w.X)
-		}
-	})
-
-	// Set WM_STATE so it is interpreted as a top-level window.
-	err = icccm.WmStateSet(im.X, win.Id, &icccm.WmState{
-		State: icccm.StateNormal,
-	})
-	if err != nil { // not a fatal error
-		xgbutil.Logger.Printf("Could not set WM_STATE: %s", err)
-	}
 
 	// Set _NET_WM_NAME so it looks nice.
 	err = ewmh.WmNameSet(im.X, win.Id, name)
