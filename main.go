@@ -66,6 +66,9 @@ func main() {
 
 		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
 		<-time.After(time.Millisecond * 3000)
+		
+        go exec.Command("/usr/lib/deepin-daemon/osd").Run()
+		<-time.After(time.Millisecond * 3000)
 	}
 
 	startStartManager()
