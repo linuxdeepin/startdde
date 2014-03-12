@@ -22,193 +22,193 @@
 package main
 
 import (
-	"bytes"
-	"encoding/binary"
-	"github.com/BurntSushi/xgb/xproto"
+        "bytes"
+        "encoding/binary"
+        "github.com/BurntSushi/xgb/xproto"
 )
 
 func writeInterger(value uint32, datas *[]byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, byteOrder, value)
-	tmp := buf.Bytes()
+        buf := bytes.NewBuffer([]byte{})
+        binary.Write(buf, byteOrder, value)
+        tmp := buf.Bytes()
 
-	l := len(tmp)
-	for i := 0; i < l; i++ {
-		*datas = append(*datas, tmp[i])
-	}
+        l := len(tmp)
+        for i := 0; i < l; i++ {
+                *datas = append(*datas, tmp[i])
+        }
 }
 
 func writeInterger2(value uint16, datas *[]byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	buf := bytes.NewBuffer([]byte{})
-	binary.Write(buf, byteOrder, value)
-	tmp := buf.Bytes()
+        buf := bytes.NewBuffer([]byte{})
+        binary.Write(buf, byteOrder, value)
+        tmp := buf.Bytes()
 
-	l := len(tmp)
-	for i := 0; i < l; i++ {
-		*datas = append(*datas, tmp[i])
-	}
+        l := len(tmp)
+        for i := 0; i < l; i++ {
+                *datas = append(*datas, tmp[i])
+        }
 }
 
 func writeString(value string, datas *[]byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	tmp := []byte(value)
-	l := len(tmp)
+        tmp := []byte(value)
+        l := len(tmp)
 
-	for i := 0; i < l; i++ {
-		*datas = append(*datas, tmp[i])
-	}
+        for i := 0; i < l; i++ {
+                *datas = append(*datas, tmp[i])
+        }
 }
 
 func writeBytes(values []byte, datas *[]byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	l := len(values)
-	for i := 0; i < l; i++ {
-		*datas = append(*datas, values[i])
-	}
+        l := len(values)
+        for i := 0; i < l; i++ {
+                *datas = append(*datas, values[i])
+        }
 }
 
 func writeHeader(info *HeaderInfo, datas *[]byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	*datas = append(*datas, info.vType)
-	*datas = append(*datas, 0)
-	writeInterger2(info.nameLen, datas)
-	writeString(info.name, datas)
+        *datas = append(*datas, info.vType)
+        *datas = append(*datas, 0)
+        writeInterger2(info.nameLen, datas)
+        writeString(info.name, datas)
 
-	leftPad := 3 - (info.nameLen+3)%4
-	for i := uint16(0); i < leftPad; i++ {
-		*datas = append(*datas, 0)
-	}
+        leftPad := 3 - (info.nameLen+3)%4
+        for i := uint16(0); i < leftPad; i++ {
+                *datas = append(*datas, 0)
+        }
 
-	writeInterger(info.lastSerial, datas)
-	switch info.vType {
-	case XSETTINGS_INTERGER:
-		writeInterger(info.value.(uint32), datas)
-	case XSETTINGS_STRING:
-		name := info.value.(string)
-		l := uint32(len(name))
-		writeInterger(l, datas)
-		writeString(name, datas)
-		leftPad := 3 - (l+3)%4
-		for i := uint32(0); i < leftPad; i++ {
-			*datas = append(*datas, 0)
-		}
-	case XSETTINGS_COLOR:
-		writeBytes(info.value.([]byte), datas)
-	}
+        writeInterger(info.lastSerial, datas)
+        switch info.vType {
+        case XSETTINGS_INTERGER:
+                writeInterger(info.value.(uint32), datas)
+        case XSETTINGS_STRING:
+                name := info.value.(string)
+                l := uint32(len(name))
+                writeInterger(l, datas)
+                writeString(name, datas)
+                leftPad := 3 - (l+3)%4
+                for i := uint32(0); i < leftPad; i++ {
+                        *datas = append(*datas, 0)
+                }
+        case XSETTINGS_COLOR:
+                writeBytes(info.value.([]byte), datas)
+        }
 }
 
 func changeXSettingsProperty(datas []byte) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	err := xproto.ChangePropertyChecked(X, xproto.PropModeReplace,
-		sReply.Owner,
-		getAtom(X, XSETTINGS_SETTINGS),
-		getAtom(X, XSETTINGS_SETTINGS),
-		XSETTINGS_FORMAT, uint32(len(datas)), datas).Check()
-	if err != nil {
-		Logger.Error("Change Property '%s' Failed: %s\n",
-			XSETTINGS_SETTINGS, err)
-		panic(err)
-	}
+        err := xproto.ChangePropertyChecked(X, xproto.PropModeReplace,
+                sReply.Owner,
+                getAtom(X, XSETTINGS_SETTINGS),
+                getAtom(X, XSETTINGS_SETTINGS),
+                XSETTINGS_FORMAT, uint32(len(datas)), datas).Check()
+        if err != nil {
+                Logger.Error("Change Property '%s' Failed: %s\n",
+                        XSETTINGS_SETTINGS, err)
+                panic(err)
+        }
 }
 
 func setXSettingsName(name string, value interface{}) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	//logger.Println("read xsettings start...")
-	infos := readXSettings()
+        //logger.Println("read xsettings start...")
+        infos := readXSettings()
 
-	isExist := false
-	for _, v := range infos {
-		if v.name == name {
-			isExist = true
-			v.value = value
-		}
-	}
-	if !isExist {
-		info := newHeaderInfo(name, value)
-		infos = append(infos, info)
-	}
+        isExist := false
+        for _, v := range infos {
+                if v.name == name {
+                        isExist = true
+                        v.value = value
+                }
+        }
+        if !isExist {
+                info := newHeaderInfo(name, value)
+                infos = append(infos, info)
+        }
 
-	writeXSettingsData(infos)
+        writeXSettingsData(infos)
 }
 
 func writeXSettingsData(infos []*HeaderInfo) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("recover err:", err)
-		}
-	}()
+        defer func() {
+                if err := recover(); err != nil {
+                        Logger.Error("recover err:", err)
+                }
+        }()
 
-	datas := []byte{}
+        datas := []byte{}
 
-	datas = append(datas, XSETTINGS_ORDER)
-	for i := 0; i < 3; i++ {
-		datas = append(datas, 0)
-	}
-	writeInterger(XSETTINGS_SERIAL, &datas)
-	l := uint32(len(infos))
-	writeInterger(l, &datas)
+        datas = append(datas, XSETTINGS_ORDER)
+        for i := 0; i < 3; i++ {
+                datas = append(datas, 0)
+        }
+        writeInterger(XSETTINGS_SERIAL, &datas)
+        l := uint32(len(infos))
+        writeInterger(l, &datas)
 
-	for _, v := range infos {
-		writeHeader(v, &datas)
-	}
+        for _, v := range infos {
+                writeHeader(v, &datas)
+        }
 
-	changeXSettingsProperty(datas)
+        changeXSettingsProperty(datas)
 }
 
 func newHeaderInfo(name string, value interface{}) *HeaderInfo {
-	info := &HeaderInfo{}
-	switch value.(type) {
-	case uint32:
-		info.vType = XSETTINGS_INTERGER
-	case string:
-		info.vType = XSETTINGS_STRING
-	case []byte:
-		info.vType = XSETTINGS_COLOR
-	default:
-		panic("type invalid")
-	}
+        info := &HeaderInfo{}
+        switch value.(type) {
+        case uint32, int32:
+                info.vType = XSETTINGS_INTERGER
+        case string:
+                info.vType = XSETTINGS_STRING
+        case []byte:
+                info.vType = XSETTINGS_COLOR
+        default:
+                panic("type invalid")
+        }
 
-	info.name = name
-	info.lastSerial = XSETTINGS_SERIAL
-	info.nameLen = uint16(len(name))
-	info.value = value
+        info.name = name
+        info.lastSerial = XSETTINGS_SERIAL
+        info.nameLen = uint16(len(name))
+        info.value = value
 
-	return info
+        return info
 }
