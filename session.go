@@ -110,12 +110,12 @@ func execCommand(cmd string, arg string) {
 func initSession() {
 	var err error
 
-	dConsole, err = consolekit.NewManager("/org/freedesktop/ConsoleKit/Manager")
+	dConsole, err = consolekit.NewManager("org.freedesktop.ConsoleKit", "/org/freedesktop/ConsoleKit/Manager")
 	if err != nil {
 		panic(fmt.Sprintln("consolekit: New Manager Failed:", err))
 	}
 
-	dPower, err = upower.NewUpower("/org/freedesktop/UPower")
+	dPower, err = upower.NewUpower("org.freedesktop.UPower", "/org/freedesktop/UPower")
 	if err != nil {
 		panic(fmt.Sprintln("upower: New Upower Failed:", err))
 	}
@@ -124,8 +124,8 @@ func initSession() {
 func startSession() {
 	defer func() {
 		if err := recover(); err != nil {
-                        fmt.Printf("StartSession recover: %s\n", err)
-                        return
+			fmt.Printf("StartSession recover: %s\n", err)
+			return
 		}
 	}()
 
