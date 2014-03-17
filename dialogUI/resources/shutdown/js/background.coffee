@@ -32,7 +32,7 @@ class Background extends Widget
         path: "/com/deepin/daemon/Accounts/User1000"
         interface: "com.deepin.daemon.Accounts.User"
     DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
-    API_GRAPH = "com.deepin.api.Graph"
+    API_GRAPH = "com.deepin.api.Graphic"
     
     constructor:->
         super
@@ -119,6 +119,8 @@ class Background extends Widget
             try
                 dbus = DCore.DBus.session(API_GRAPH)
                 path = dbus.BackgroundBlurPictPath_sync(userbg,"",30,1)
+                echo "--------------------------"
+                echo path
                 if path[0]
                     echo "BackgroundBlurPictPath_sync:true,#{path[1]}--"
                     BackgroundBlurPictPath = path[1]
