@@ -133,8 +133,10 @@ func launch(name interface{}, list interface{}) error {
 			// maybe use AppInfoCreateFromCommandline with
 			// AppInfoCreateFlagsSupportsStartupNotification flag
 			if path.IsAbs(o) {
+				fmt.Println("the path to launch is abs")
 				app = gio.NewDesktopAppInfoFromFilename(o)
 			} else {
+				fmt.Println("the path to launch is not abs")
 				app = gio.NewDesktopAppInfo(o)
 			}
 			if app == nil {
@@ -144,6 +146,7 @@ func launch(name interface{}, list interface{}) error {
 
 			startupWmClass := app.GetStartupWmClass()
 			if startupWmClass != "" {
+				fmt.Println("startupWMClass")
 				f := glib.NewKeyFile()
 				defer f.Free()
 
@@ -152,11 +155,18 @@ func launch(name interface{}, list interface{}) error {
 					homePath,
 					"/.config/dock/filter.ini",
 				)
+				if !Exist(filterPath) {
+					f, err := os.Create(filterPath)
+					if err != nil {
+						return fmt.Errorf("Launcher create config failedfailed: %s", err)
+					}
+					f.Close()
+				}
 				if ok, err := f.LoadFromFile(
 					filterPath,
 					glib.KeyFileFlagsNone,
 				); !ok {
-					return fmt.Errorf("Launcher failed: %s", err)
+					return fmt.Errorf("Launcher load config failed: %s", err)
 				}
 
 				basename := path.Base(o)
