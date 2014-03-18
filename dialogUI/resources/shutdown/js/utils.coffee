@@ -60,10 +60,45 @@ confirm_ok = (power)->
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
 background = new Background()
-background.set_current_user_blur_background()
+bg_url = background.get_current_user_blur_background()
+bg_el = create_img("bg_el","",document.body)
+try
+    #document.body.style.backgroundImage = bg_url
+    bg_el.src = bg_url
+    bg_el.style.display = "block"
+catch e
+    bg_el.style.display = "none"
+    echo "#{e}"
 
+TIME_SHOW = 5500
+showAnimation =(el,t)->
+    #apply_animation(document.body,"show",t)
+    
+    t_first = 300
+    t_second = 200
+    document.body.style.opacity = "0.0"
+    bg_el.style.opacity = "0.0"
+    el.style.opacity = "0.0"
+    
+    jQuery(document.body).animate(
+        {opacity:'0.5';},t_first
+    )
+    jQuery(bg_el).animate(
+        {opacity:'0.5';},
+        t_first,
+        "linear",=>
+            jQuery(document.body).animate(
+                {opacity:'1.0';},t_second
+            )
+            jQuery(bg_el).animate(
+                {opacity:'1.0';},t_second
+            )
+            jQuery(el).animate(
+                {opacity:'1.0';},t_second
+            )
+            echo "showAnimation end"
+    )
 
-#showAnimation =(el)->
 
 #DCore.signal_connect("draw_background", (info)->
     #echo "draw_background:url(#{info.path})"

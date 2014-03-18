@@ -19,23 +19,40 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  **/
 
+@-webkit-keyframes show{
+    from{opacity:0.0;}
+    to{opacity:1.0;}
+}
+
 body{
     cursor:default;
     overflow:hidden;
     
-    background-image: url(/usr/share/backgrounds/default_background.jpg);
+    /*background-image: url(/usr/share/backgrounds/default_background.jpg);*/
+    background-color:rgba(0,0,0,0.0);
     
-    background-origin:padding-box;
-    background-clip:border-box;
-    background-position:center;
-    background-size:cover;
-    background-repeat:no-repeat;
-    background-attachment:fixed;
+    /*background-origin:padding-box;*/
+    /*background-clip:border-box;*/
+    /*background-position:center;*/
+    /*background-size:cover;*/
+    /*background-repeat:no-repeat;*/
+    /*background-attachment:fixed;*/
     font-size:62.5%;
+}
+
+.bg_el{
+    position:absolute;
+    left:0;
+    top:0;
+    width:100%;
+    height:100%;
 }
 
 .PowerChoose{
     background-color:rgba(0,0,0,0.85);
+    position:absolute;
+    left:0;
+    top:0;
     width:100%;
     height:100%;
     display:-webkit-box;

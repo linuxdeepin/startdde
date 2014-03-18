@@ -102,11 +102,8 @@ class ConfirmDialog extends Widget
         @button_ok.addEventListener("mouseout",=>
             @normal_state(OK)
         )
-
-        apply_animation(right,"show_confirm","0.3s")
-        right.addEventListener("webkitAnimationEnd",=>
-            right.style.opacity = "1.0"
-        ,false)
+        
+        showAnimation(@element,TIME_SHOW)
     
     style_for_direct:=>
         echo "style_for_direct:power_can true!"

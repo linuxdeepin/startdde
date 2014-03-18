@@ -108,7 +108,7 @@ class Background extends Widget
             bg = DEFAULT_BG
         return bg
 
-    set_blur_background:(user)->
+    get_blur_background:(user)->
         #BackgroundBlurPictPath = localStorage.getItem("BackgroundBlurPictPath")
         BackgroundBlurPictPath = null
         if not BackgroundBlurPictPath?
@@ -129,20 +129,13 @@ class Background extends Widget
                     # here should getPath by other methods!
                     BackgroundBlurPictPath = path[1]
                     BackgroundBlurPictPath = DEFAULT_BG if not BackgroundBlurPictPath?
-            catch error
-                echo "bg:" + error
+            catch e
+                echo "bg:#{e}"
                 BackgroundBlurPictPath = DEFAULT_BG
                 echo "BackgroundBlurPictPath:#{BackgroundBlurPictPath}"
-        user_info[userid].BgBlur = BackgroundBlurPictPath
-        localStorage.setObject("user_info",user_info)
         localStorage.setItem("BackgroundBlurPictPath",BackgroundBlurPictPath)
-        if !is_greeter
-            try
-                document.body.style.backgroundImage = "url(#{BackgroundBlurPictPath})"
-            catch e
-                echo e
-                document.body.style.backgroundImage = "url(#{DEFAULT_BG})"
-
-    set_current_user_blur_background:->
+        return BackgroundBlurPictPath
+    
+    get_current_user_blur_background:->
         current_user = @get_default_username()
-        @set_blur_background(current_user)
+        return @get_blur_background(current_user)

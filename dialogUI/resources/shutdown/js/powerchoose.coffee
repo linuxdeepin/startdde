@@ -95,6 +95,7 @@ class PowerChoose extends Widget
                 opt_img[i].src = img_url_click[i]
                 that.fade(i)
             )
+        showAnimation(@element,TIME_SHOW)
     
     timefunc:(i) ->
         @destory()
