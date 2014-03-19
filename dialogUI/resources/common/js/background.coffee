@@ -29,8 +29,7 @@ class Background
     APP = null
 
     constructor:(@id)->
-        super
-        APP = @id
+        APP = @id#APP_NAME for DCore[APP]
 
         @users_name = []
         @users_id_dbus = []
@@ -68,7 +67,6 @@ class Background
         if not id? then id = "1000"
         return id
 
-
     get_user_bg:(uid)->
         bg = null
         try
@@ -78,14 +76,13 @@ class Background
         return bg
 
     get_blur_background:(uid)->
-        bg= @get_user_bg(uid)
-        echo "get_blur_background #{user},userbg:#{bg}"
+        bg = @get_user_bg(uid)
+        echo "get_blur_background #{uid},userbg:#{bg}"
 
         BackgroundBlurPictPath = null
         PATH_MSG = null
         try
             path = @Dbus_Graphic.BackgroundBlurPictPath_sync(bg,"",30.0,1.0)
-            echo path
             switch path[0]
                 when -1 then PATH_MSG = "failed"
                 when 0 then PATH_MSG = "return_bg"
@@ -107,6 +104,11 @@ class Background
         catch e
             echo "get_default_username:#{e}"
         return @_default_username
+    
+    get_current_user_background:->
+        @_current_username = @get_default_username()
+        @_current_userid = @get_user_id(@_current_username)
+        return @get_user_bg(uid)
     
     get_current_user_blur_background:->
         @_current_username = @get_default_username()
