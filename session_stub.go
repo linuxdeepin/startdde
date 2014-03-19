@@ -22,19 +22,32 @@
 package main
 
 import (
-	"dlib/dbus"
+        "dlib/dbus"
+        "os/user"
 )
 
 const (
-	START_DDE_DEST = "com.deepin.SessionManager"
-	SHUTDOWN_PATH  = "/com/deepin/SessionManager"
-	SHUTDOWN_IFC   = "com.deepin.SessionManager"
+        START_DDE_DEST = "com.deepin.SessionManager"
+        SHUTDOWN_PATH  = "/com/deepin/SessionManager"
+        SHUTDOWN_IFC   = "com.deepin.SessionManager"
 )
 
 func (m *SessionManager) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		START_DDE_DEST,
-		SHUTDOWN_PATH,
-		SHUTDOWN_IFC,
-	}
+        return dbus.DBusInfo{
+                START_DDE_DEST,
+                SHUTDOWN_PATH,
+                SHUTDOWN_IFC,
+        }
+}
+
+func (op *SessionManager) setPropName(name string) {
+        switch name {
+        case "CurrentUid":
+                info, err := user.Current()
+                if err != nil {
+                        Logger.Info("Get Current User Info Failed: %v", err)
+                        return
+                }
+                op.CurrentUid = info.Uid
+        }
 }
