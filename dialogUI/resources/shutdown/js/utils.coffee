@@ -18,14 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-
-is_greeter = false
-try
-    DCore.Greeter.get_date()
-    is_greeter = true
-catch error
-    is_greeter = false
-
+APP_NAME = "Shutdown"
 
 confirmdialog = null
 powerchoose = null
@@ -59,7 +52,7 @@ confirm_ok = (power)->
 
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
-background = new Background()
+background = new Background(APP_NAME)
 bg_url = background.get_current_user_blur_background()
 
 DEBUG_ANIMATION = false

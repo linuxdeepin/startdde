@@ -18,124 +18,97 @@
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-class Background extends Widget
-    Dbus_Account = null
-    user_info = []
-    users_path = []
-    users_name = []
-    users_id = []
-    users_bg = []
-    
-    DAEMON_ACCOUNTS = "com.deepin.daemon.Accounts"
+class Background
+    ACCOUNTS_DAEMON = "com.deepin.daemon.Accounts"
     ACCOUNTS_USER =
-        obj: DAEMON_ACCOUNTS
+        obj: ACCOUNTS_DAEMON
         path: "/com/deepin/daemon/Accounts/User1000"
         interface: "com.deepin.daemon.Accounts.User"
-    DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
-    API_GRAPH = "com.deepin.api.Graphic"
     
-    constructor:->
+    GRAPHIC = "com.deepin.api.Graphic"
+    APP = null
+
+    constructor:(@id)->
         super
-        Dbus_Account = DCore.DBus.sys(DAEMON_ACCOUNTS)
+        APP = @id
 
+        @users_name = []
+        @users_id_dbus = []
+        @users_name_dbus = []
+    
+        @getDBus()
 
-    get_all_users:->
-        if is_greeter
-            users_name = DCore.Greeter.get_users()
-        else
-            users_path = Dbus_Account.UserList
-            for path in users_path
+    getDBus:->
+        try
+            @Dbus_Account = DCore.DBus.sys(ACCOUNTS_DAEMON)
+            for path in @Dbus_Account.UserList
                 ACCOUNTS_USER.path = path
                 user_dbus = DCore.DBus.sys_object(
                     ACCOUNTS_USER.obj,
                     ACCOUNTS_USER.path,
                     ACCOUNTS_USER.interface
                 )
-                name = user_dbus.UserName
-                id = user_dbus.Uid
-                bg = user_dbus.BackgroundFile
-                if not bg? then bg = DEFAULT_BG
-                users_name.push(name)
-                users_id.push(id)
-                users_bg.push(bg)
-                
-                user = user_dbus
-                info =
-                    Uid:user.Uid,
-                    UserName:user.UserName,
-                    BackgroundFile:user.BackgroundFile,
-                    IconFile:user.IconFile,
-                    LoginTime:user.LoginTime,
-                    BgBlur:null
+                @users_name.push(user_dbus.UserName)
+                @users_id_dbus[user_dbus.Uid] = user_dbus
+                @users_name_dbus[user_dbus.UserName] = user_dbus
+        catch e
+            echo "Dbus_Account #{ACCOUNTS_DAEMON} ERROR: #{e}"
 
-                user_info[user.Uid] = info
-        
-        echo user_info[users_id[0]]
-        echo user_info.length
-        echo users_name
-        return users_name
-
-
-    get_default_username:->
-        if is_greeter
-            _default_username = DCore.Greeter.get_default_user()
-        else
-            try
-                _default_username = DCore.Lock.get_username()
-            catch e
-                _default_username = DCore.Shutdown.get_username()
-        return _default_username
+        try
+            @Dbus_Graphic = DCore.DBus.session(GRAPHIC)
+        catch e
+            echo "#{GRAPHIC} dbus ERROR: #{e}"
 
     get_user_id:(user)->
-        if users_id.length == 0 or users_name.length == 0 then @get_all_users()
         id = null
-        for tmp,j in users_name
-            if user is tmp
-                id = users_id[j]
-        if not id?
-            id = users_id[0]
-        if not id?
-            id = "1000"
+        try
+            id = @users_name_dbus[user].Uid
+        catch e
+            echo "get_user_id #{e}"
+        if not id? then id = "1000"
         return id
-    
-    get_user_bg:(user)->
-        if users_bg.length == 0 or users_name.length == 0 then @get_all_users()
+
+
+    get_user_bg:(uid)->
         bg = null
-        for tmp,j in users_name
-            if user is tmp
-                bg = users_bg[j]
-        if not bg?
-            bg = DEFAULT_BG
+        try
+            bg = @users_id_dbus[uid].BackgroundFile
+        catch e
+            echo "get_user_bg #{e}"
         return bg
 
-    get_blur_background:(user)->
-        #BackgroundBlurPictPath = localStorage.getItem("BackgroundBlurPictPath")
+    get_blur_background:(uid)->
+        bg= @get_user_bg(uid)
+        echo "get_blur_background #{user},userbg:#{bg}"
+
         BackgroundBlurPictPath = null
-        if not BackgroundBlurPictPath?
-            userid = new String()
-            userid = @get_user_id(user)
-            userbg= @get_user_bg(user)
-            echo "current user #{user},userid:#{userid},userbg:#{userbg}"
-            try
-                dbus = DCore.DBus.session(API_GRAPH)
-                path = dbus.BackgroundBlurPictPath_sync(userbg,"",30,1)
-                echo "--------------------------"
-                echo path
-                if path[0]
-                    echo "BackgroundBlurPictPath_sync:true,#{path[1]}--"
-                    BackgroundBlurPictPath = path[1]
-                else
-                    echo "BackgroundBlurPictPath_sync:false,#{path[1]}--"
-                    # here should getPath by other methods!
-                    BackgroundBlurPictPath = path[1]
-                    BackgroundBlurPictPath = DEFAULT_BG if not BackgroundBlurPictPath?
-            catch e
-                echo "bg:#{e}"
-                BackgroundBlurPictPath = DEFAULT_BG
-                echo "BackgroundBlurPictPath:#{BackgroundBlurPictPath}"
-        localStorage.setItem("BackgroundBlurPictPath",BackgroundBlurPictPath)
+        PATH_MSG = null
+        try
+            path = @Dbus_Graphic.BackgroundBlurPictPath_sync(bg,"",30.0,1.0)
+            echo path
+            switch path[0]
+                when -1 then PATH_MSG = "failed"
+                when 0 then PATH_MSG = "return_bg"
+                when 1 then PATH_MSG = "succeed"
+            echo "BackgroundBlurPictPath_sync: #{path[0]}: #{PATH_MSG}-----#{path[1]}-----"
+            BackgroundBlurPictPath = path[1]
+        catch e
+            echo "bg:#{e}"
+        BackgroundBlurPictPath = DEFAULT_BG if not BackgroundBlurPictPath?
+        echo "BackgroundBlurPictPath final:#{BackgroundBlurPictPath}"
         return BackgroundBlurPictPath
     
+    get_default_username:->
+        try
+            if APP is "Greeter"
+                @_default_username = DCore[APP].get_default_user()
+            else
+                @_default_username = DCore[APP].get_username()
+        catch e
+            echo "get_default_username:#{e}"
+        return @_default_username
+    
     get_current_user_blur_background:->
-        current_user = @get_default_username()
-        return @get_blur_background(current_user)
+        @_current_username = @get_default_username()
+        @_current_userid = @get_user_id(@_current_username)
+        return @get_blur_background(@_current_userid)
