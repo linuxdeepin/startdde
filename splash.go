@@ -1,3 +1,24 @@
+/**
+ * Copyright (c) 2014 Deepin, Inc.
+ *               2014 Xu FaSheng
+ *
+ * Author:      Xu FaSheng <fasheng.xu@gmail.com>
+ * Maintainer:  Xu FaSheng <fasheng.xu@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <http://www.gnu.org/licenses/>.
+ **/
+
 // Example fullscreen shows how to make a window showing the Go Gopher go
 // fullscreen and back using keybindings and EWMH.
 package main
@@ -8,20 +29,28 @@ import (
 	"log"
 	"os"
 
+	"dlib/gio-2.0"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 )
 
-func background() {
+const (
+	personalizationID     = "com.deepin.dde.personalization"
+	gkeyCurrentBackground = "current-picture"
+)
+
+var personSettings = gio.NewSettings(personalizationID)
+
+func drawBackground() {
 	X, err := xgbutil.NewConn()
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Read an example gopher image into a regular png image.
-	file, err := os.Open("/usr/share/backgrounds/default_background.jpg")
+	file, err := os.Open(getBackgroundFile())
 	defer file.Close()
 	/*img, _, err := image.Decode(bytes.NewBuffer(gopher.GopherPng()))*/
 	img, _, err := image.Decode(file)
@@ -38,6 +67,16 @@ func background() {
 	// There is also a convenience method, XShow, that requires no parameters.
 	win := showImage(ximg, "Deepin Background", true)
 	ewmh.WmWindowTypeSet(win.X, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
+}
+
+func getBackgroundFile() string {
+	uri := personSettings.GetString(gkeyCurrentBackground)
+	path, ok, err := utils.URIToPath(uri)
+	if !ok {
+		Logger.Error("get background file failed: %v", err)
+		return "/usr/share/backgrounds/default_background.jpg"
+	}
+	return path
 }
 
 // This is a slightly modified version of xgraphics.XShowExtra that does

@@ -7,7 +7,9 @@ import (
 	"os/exec"
 	"time"
 
+	apiutils "dbus/com/deepin/api/utils"
 	"dlib"
+	"os"
 )
 
 func testStartManager() {
@@ -28,6 +30,7 @@ var (
 	debug           bool = false
 	notStartInitPro bool = false
 
+	utils  *apiutils.Utils
 	Logger = logger.NewLogger("com.deepin.SessionManager")
 )
 
@@ -42,11 +45,18 @@ func main() {
 	fmt.Println("debug:", debug)
 	fmt.Println("notStartInitPro:", notStartInitPro)
 
+	var err error
+	utils, err = apiutils.NewUtils("com.deepin.api.Utils", "/com/deepin/api/Utils")
+	if err != nil {
+		Logger.Error("New dde-api/utils object failed: %v", err)
+		os.Exit(1)
+	}
+
 	startXSettings()
 
 	// Session Manager
 	startSession()
-	background()
+	drawBackground()
 
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
