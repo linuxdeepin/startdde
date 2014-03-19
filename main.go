@@ -56,7 +56,12 @@ func main() {
 
 	// Session Manager
 	startSession()
+
+	// background
+	bgwin = createBgWindow()
 	drawBackground()
+	listenBackgroundChanged()
+	go dlib.StartLoop()
 
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()

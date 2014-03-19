@@ -25,8 +25,8 @@ package main
 
 import (
 	"image"
+	_ "image/jpeg"
 	_ "image/png"
-	"log"
 	"os"
 
 	"dlib/gio-2.0"
@@ -41,12 +41,16 @@ const (
 	gkeyCurrentBackground = "current-picture"
 )
 
-var personSettings = gio.NewSettings(personalizationID)
+var (
+	personSettings = gio.NewSettings(personalizationID)
+	bgwin          *xwindow.Window
+)
 
 func drawBackground() {
 	X, err := xgbutil.NewConn()
 	if err != nil {
-		log.Fatal(err)
+		Logger.Error("could not create a new XUtil: %v", err)
+		return
 	}
 
 	// Read an example gopher image into a regular png image.
@@ -55,7 +59,8 @@ func drawBackground() {
 	/*img, _, err := image.Decode(bytes.NewBuffer(gopher.GopherPng()))*/
 	img, _, err := image.Decode(file)
 	if err != nil {
-		log.Fatal(err)
+		Logger.Error("decode image failed: %v", err)
+		return
 	}
 
 	// Now convert it into an X image.
@@ -65,42 +70,41 @@ func drawBackground() {
 	// We set the window title and tell the program to quit gracefully when
 	// the window is closed.
 	// There is also a convenience method, XShow, that requires no parameters.
-	win := showImage(ximg, "Deepin Background", true)
-	ewmh.WmWindowTypeSet(win.X, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
+	showImage(bgwin, ximg, "Deepin Background", true)
+	ewmh.WmWindowTypeSet(bgwin.X, bgwin.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 }
 
-func getBackgroundFile() string {
-	uri := personSettings.GetString(gkeyCurrentBackground)
-	path, ok, err := utils.URIToPath(uri)
-	if !ok {
-		Logger.Error("get background file failed: %v", err)
-		return "/usr/share/backgrounds/default_background.jpg"
+func createBgWindow() *xwindow.Window {
+	X, err := xgbutil.NewConn()
+	if err != nil {
+		Logger.Error("could not create a new XUtil: %v", err)
+		return nil
 	}
-	return path
+	win, err := xwindow.Generate(X)
+	if err != nil {
+		Logger.Error("could not generate new window id: %v", err)
+		return nil
+	}
+	return win
 }
 
 // This is a slightly modified version of xgraphics.XShowExtra that does
 // not set any resize constraints on the window (so that it can go
 // fullscreen).
-func showImage(im *xgraphics.Image, name string, quit bool) *xwindow.Window {
-	if len(name) == 0 {
-		name = "xgbutil Image Window"
-	}
-	w, h := im.Rect.Dx(), im.Rect.Dy()
-
-	win, err := xwindow.Generate(im.X)
-	if err != nil {
-		xgbutil.Logger.Printf("Could not generate new window id: %s", err)
-		return nil
-	}
+func showImage(win *xwindow.Window, im *xgraphics.Image, name string, quit bool) {
 
 	// Create a very simple window with dimensions equal to the image.
+	w, h := im.Rect.Dx(), im.Rect.Dy()
+	if !win.Destroyed {
+		win.Destroy()
+	}
 	win.Create(im.X.RootWin(), 0, 0, w, h, 0)
 
 	// Set _NET_WM_NAME so it looks nice.
-	err = ewmh.WmNameSet(im.X, win.Id, name)
-	if err != nil { // not a fatal error
-		xgbutil.Logger.Printf("Could not set _NET_WM_NAME: %s", err)
+	err := ewmh.WmNameSet(im.X, win.Id, name)
+	if err != nil {
+		// not a fatal error
+		Logger.Warning("Could not set _NET_WM_NAME: %v", err)
 	}
 
 	// Paint our image before mapping.
@@ -111,6 +115,24 @@ func showImage(im *xgraphics.Image, name string, quit bool) *xwindow.Window {
 	// Now we can map, since we've set all our properties.
 	// (The initial map is when the window manager starts managing.)
 	win.Map()
+}
 
-	return win
+func getBackgroundFile() string {
+	uri := personSettings.GetString(gkeyCurrentBackground)
+	path, ok, err := utils.URIToPath(uri)
+	if !ok {
+		Logger.Warning("get background file failed: %v", err)
+		return "/usr/share/backgrounds/default_background.jpg"
+	}
+	return path
+}
+
+func listenBackgroundChanged() {
+	personSettings.Connect("changed", func(s *gio.Settings, key string) {
+		Logger.Debug("Background changed: ", key)
+		switch key {
+		case gkeyCurrentBackground:
+			drawBackground()
+		}
+	})
 }
