@@ -70,10 +70,13 @@ else
 TIME_SHOW = 500
 showAnimation =(el,t)->
     if !DEBUG_ANIMATION
-        document.body.style.opacity = "0.0"
-        jQuery(document.body).animate(
-            {opacity:'1.0';},t
-        )
+        document.body.style.display = "none"
+        jQuery(document.body).fadeIn(t)
+        
+        #document.body.style.opacity = "0.0"
+#        jQuery(document.body).animate(
+            #{opacity:'1.0';},t
+        #)
         return
     
     t_first = 300
