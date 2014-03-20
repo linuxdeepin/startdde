@@ -58,7 +58,7 @@ func main() {
 	startSession()
 
 	// background
-	bgwin = createBgWindow()
+	bgwin = createBgWindow("Deepin Background", true)
 	drawBackground()
 	listenBackgroundChanged()
 	go dlib.StartLoop()

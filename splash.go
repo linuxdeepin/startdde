@@ -19,26 +19,32 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  **/
 
-// Example fullscreen shows how to make a window showing the Go Gopher go
-// fullscreen and back using keybindings and EWMH.
 package main
 
 import (
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
-	"os"
 
+	"code.google.com/p/graphics-go/graphics"
 	"dlib/gio-2.0"
+	"dlib/graphic"
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/randr"
+	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
+	"github.com/BurntSushi/xgbutil/keybind"
+	"github.com/BurntSushi/xgbutil/mousebind"
+	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
+	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
 )
 
 const (
-	personalizationID     = "com.deepin.dde.personalization"
-	gkeyCurrentBackground = "current-picture"
+	personalizationID          = "com.deepin.dde.personalization"
+	gkeyCurrentBackground      = "current-picture"
+	deepinBackgroundWindowProp = "DEEPIN_BACKGROUND_WINDOW"
+	defaultBackgroundFile      = "/usr/share/backgrounds/default_background.jpg"
 )
 
 var (
@@ -47,92 +53,164 @@ var (
 )
 
 func drawBackground() {
-	X, err := xgbutil.NewConn()
+	XU, err := xgbutil.NewConn()
 	if err != nil {
-		Logger.Error("could not create a new XUtil: %v", err)
+		Logger.Error("could not create a new XUtil: ", err)
 		return
 	}
 
-	// Read an example gopher image into a regular png image.
-	file, err := os.Open(getBackgroundFile())
-	defer file.Close()
-	/*img, _, err := image.Decode(bytes.NewBuffer(gopher.GopherPng()))*/
-	img, _, err := image.Decode(file)
+	// load background
+	img, err := graphic.LoadImage(getBackgroundFile())
 	if err != nil {
-		Logger.Error("decode image failed: %v", err)
+		Logger.Error("load background failed: ", err)
 		return
 	}
 
-	// Now convert it into an X image.
-	ximg := xgraphics.NewConvert(X, img)
+	// TODO fix background, clip and resize
+	// screenWidth, screenHeight := 1024, 768
+	screenWidth, screenHeight := getPrimaryScreenBestResolution()
+	// fixedimg := graphic.ImplFillImage(img, int(screenWidth), int(screenHeight), graphic.FillScaleStretch)
+	x0, y0, x1, y1 := graphic.GetScaleRectInImage(int(screenWidth), int(screenHeight),
+		img.Bounds().Max.X, img.Bounds().Max.Y)
+	clipimg := graphic.ImplClipImage(img, x0, y0, x1, y1)
+	fixedimg := image.NewRGBA(image.Rect(0, 0, int(screenWidth), int(screenHeight)))
+	graphics.Scale(fixedimg, clipimg)
 
-	// Now show it in a new window.
-	// We set the window title and tell the program to quit gracefully when
-	// the window is closed.
-	// There is also a convenience method, XShow, that requires no parameters.
-	showImage(bgwin, ximg, "Deepin Background", true)
-	ewmh.WmWindowTypeSet(bgwin.X, bgwin.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
+	// convert it into an XU image.
+	ximg := xgraphics.NewConvert(XU, fixedimg)
+
+	// show it in a new window
+	if bgwin != nil {
+		showImage(bgwin, ximg)
+	}
 }
 
-func createBgWindow() *xwindow.Window {
-	X, err := xgbutil.NewConn()
+func createBgWindow(title string, quit bool) *xwindow.Window {
+	XU, err := xgbutil.NewConn()
 	if err != nil {
-		Logger.Error("could not create a new XUtil: %v", err)
+		Logger.Error("could not create a new XUtil: ", err)
 		return nil
 	}
-	win, err := xwindow.Generate(X)
+	win, err := xwindow.Generate(XU)
 	if err != nil {
-		Logger.Error("could not generate new window id: %v", err)
+		Logger.Error("could not generate new window id: ", err)
 		return nil
 	}
+	win.Create(XU.RootWin(), 0, 0, 100, 100, 0)
+
+	// make this window close gracefully
+	win.WMGracefulClose(func(w *xwindow.Window) {
+		xevent.Detach(w.X, w.Id)
+		keybind.Detach(w.X, w.Id)
+		mousebind.Detach(w.X, w.Id)
+		w.Destroy()
+
+		if quit {
+			xevent.Quit(w.X)
+		}
+	})
+
+	// set _NET_WM_NAME so it looks nice
+	err = ewmh.WmNameSet(XU, win.Id, title)
+	if err != nil {
+		// not a fatal error
+		Logger.Error("Could not set _NET_WM_NAME: ", err)
+	}
+
+	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
+	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
+
+	// set root window property
+	xprop.ChangeProp32(XU, XU.RootWin(), deepinBackgroundWindowProp, "WINDOW", uint(win.Id))
+
+	Logger.Info("background window id: ", win.Id)
 	return win
 }
 
 // This is a slightly modified version of xgraphics.XShowExtra that does
 // not set any resize constraints on the window (so that it can go
 // fullscreen).
-func showImage(win *xwindow.Window, im *xgraphics.Image, name string, quit bool) {
-
-	// Create a very simple window with dimensions equal to the image.
+func showImage(win *xwindow.Window, im *xgraphics.Image) {
+	// resize window with dimensions equal to the image
 	w, h := im.Rect.Dx(), im.Rect.Dy()
-	if !win.Destroyed {
-		win.Destroy()
-	}
-	win.Create(im.X.RootWin(), 0, 0, w, h, 0)
+	win.MoveResize(0, 0, w, h)
 
-	// Set _NET_WM_NAME so it looks nice.
-	err := ewmh.WmNameSet(im.X, win.Id, name)
-	if err != nil {
-		// not a fatal error
-		Logger.Warning("Could not set _NET_WM_NAME: %v", err)
-	}
-
-	// Paint our image before mapping.
+	// paint our image before mapping
 	im.XSurfaceSet(win.Id)
 	im.XDraw()
 	im.XPaint(win.Id)
 
-	// Now we can map, since we've set all our properties.
+	// now we can map, since we've set all our properties.
 	// (The initial map is when the window manager starts managing.)
 	win.Map()
 }
 
 func getBackgroundFile() string {
 	uri := personSettings.GetString(gkeyCurrentBackground)
+	Logger.Debug("background uri: ", uri)
 	path, ok, err := utils.URIToPath(uri)
 	if !ok {
-		Logger.Warning("get background file failed: %v", err)
-		return "/usr/share/backgrounds/default_background.jpg"
+		Logger.Warning("get background file failed: ", err)
+		return defaultBackgroundFile
 	}
 	return path
 }
 
 func listenBackgroundChanged() {
 	personSettings.Connect("changed", func(s *gio.Settings, key string) {
-		Logger.Debug("Background changed: ", key)
 		switch key {
 		case gkeyCurrentBackground:
+			Logger.Debug("background value in gsettings changed: ", key)
 			drawBackground()
 		}
 	})
+}
+
+// TODO Get all screen's best resolution and choose a smaller one for there
+// is no screen is primary.
+func getPrimaryScreenBestResolution() (w uint16, h uint16) {
+	w, h = 1024, 768 // default value
+
+	X, err := xgb.NewConn()
+	if err != nil {
+		return
+	}
+	err = randr.Init(X)
+	if err != nil {
+		return
+	}
+	_, err = randr.QueryVersion(X, 1, 4).Reply()
+	if err != nil {
+		return
+	}
+	Root := xproto.Setup(X).DefaultScreen(X).Root
+	resources, err := randr.GetScreenResources(X, Root).Reply()
+	if err != nil {
+		return
+	}
+
+	bestModes := make([]uint32, 0)
+	for _, output := range resources.Outputs {
+		reply, err := randr.GetOutputInfo(X, output, 0).Reply()
+		if err == nil && reply.NumModes > 1 {
+			bestModes = append(bestModes, uint32(reply.Modes[0]))
+		}
+	}
+
+	w, h = 0, 0
+	for _, m := range resources.Modes {
+		for _, id := range bestModes {
+			if id == m.Id {
+				bw, bh := m.Width, m.Height
+				if w*h == 0 {
+					w, h = bw, bh
+				} else if bw*bh < w*h {
+					w, h = bw, bh
+				}
+			}
+		}
+	}
+
+	Logger.Infof("primary screen's best resolution is %dx%d", w, h)
+	return
 }
