@@ -23,11 +23,12 @@ package main
 
 import (
 	"image"
+    "os"
 
 	"code.google.com/p/graphics-go/graphics"
 	"dlib/gio-2.0"
 	"dlib/graphic"
-	"github.com/BurntSushi/xgb"
+	//"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
@@ -149,11 +150,19 @@ func getBackgroundFile() string {
 	uri := personSettings.GetString(gkeyCurrentBackground)
 	Logger.Debug("background uri: ", uri)
 	path, ok, err := utils.URIToPath(uri)
-	if !ok {
+	if !ok || !isFileExists(path) {
 		Logger.Warning("get background file failed: ", err)
+		Logger.Warning("use default background: ", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path
+}
+
+func isFileExists(file string) bool {
+	if _, err := os.Stat(file); err == nil {
+		return true
+	}
+	return false
 }
 
 func listenBackgroundChanged() {
@@ -171,16 +180,17 @@ func listenBackgroundChanged() {
 func getPrimaryScreenBestResolution() (w uint16, h uint16) {
 	w, h = 1024, 768 // default value
 
-	X, err := xgb.NewConn()
+	// X, err := xgb.NewConn()
+	// if err != nil {
+	// 	return
+	// }
+	// err = randr.Init(X)
+	// if err != nil {
+	// 	return
+	// }
+	_, err := randr.QueryVersion(X, 1, 4).Reply()
 	if err != nil {
-		return
-	}
-	err = randr.Init(X)
-	if err != nil {
-		return
-	}
-	_, err = randr.QueryVersion(X, 1, 4).Reply()
-	if err != nil {
+		Logger.Error("query randr failed: ", err)
 		return
 	}
 	Root := xproto.Setup(X).DefaultScreen(X).Root
@@ -211,6 +221,6 @@ func getPrimaryScreenBestResolution() (w uint16, h uint16) {
 		}
 	}
 
-	Logger.Infof("primary screen's best resolution is %dx%d", w, h)
+	Logger.Debugf("primary screen's best resolution is %dx%d", w, h)
 	return
 }

@@ -9,6 +9,7 @@ import (
 
 	apiutils "dbus/com/deepin/api/utils"
 	"dlib"
+	"github.com/BurntSushi/xgb/randr"
 	"os"
 )
 
@@ -58,6 +59,7 @@ func main() {
 	startSession()
 
 	// background
+	randr.Init(X) // TODO
 	bgwin = createBgWindow("Deepin Background", true)
 	drawBackground()
 	listenBackgroundChanged()
