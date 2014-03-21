@@ -23,7 +23,7 @@ package main
 
 import (
 	"image"
-    "os"
+	"os"
 
 	"code.google.com/p/graphics-go/graphics"
 	"dlib/gio-2.0"
@@ -180,14 +180,6 @@ func listenBackgroundChanged() {
 func getPrimaryScreenBestResolution() (w uint16, h uint16) {
 	w, h = 1024, 768 // default value
 
-	// X, err := xgb.NewConn()
-	// if err != nil {
-	// 	return
-	// }
-	// err = randr.Init(X)
-	// if err != nil {
-	// 	return
-	// }
 	_, err := randr.QueryVersion(X, 1, 4).Reply()
 	if err != nil {
 		Logger.Error("query randr failed: ", err)
@@ -214,7 +206,7 @@ func getPrimaryScreenBestResolution() (w uint16, h uint16) {
 				bw, bh := m.Width, m.Height
 				if w*h == 0 {
 					w, h = bw, bh
-				} else if bw*bh < w*h {
+				} else if bw*bh > w*h {
 					w, h = bw, bh
 				}
 			}
