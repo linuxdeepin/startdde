@@ -23,93 +23,108 @@ package main
 
 import (
 	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"os"
 
-	"code.google.com/p/graphics-go/graphics"
 	"dlib/gio-2.0"
-	"dlib/graphic"
-	//"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
+	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
-	"github.com/BurntSushi/xgbutil/keybind"
-	"github.com/BurntSushi/xgbutil/mousebind"
-	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"strings"
+	"sync"
+	"time"
 )
 
 const (
-	personalizationID          = "com.deepin.dde.personalization"
-	gkeyCurrentBackground      = "current-picture"
-	deepinBackgroundWindowProp = "DEEPIN_BACKGROUND_WINDOW"
-	defaultBackgroundFile      = "/usr/share/backgrounds/default_background.jpg"
+	personalizationID           = "com.deepin.dde.personalization"
+	gkeyCurrentBackground       = "current-picture"
+	deepinBackgroundWindowProp  = "DEEPIN_BACKGROUND_WINDOW"
+	deepinBackgroundPixmapProp  = "DEEPIN_BACKGROUND_PIXMAP"
+	deepinBackgroundWindowTitle = "Deepin Background"
+	defaultBackgroundFile       = "/usr/share/backgrounds/default_background.jpg"
 )
 
 var (
-	personSettings = gio.NewSettings(personalizationID)
-	bgwin          *xwindow.Window
+	personSettings                = gio.NewSettings(personalizationID)
+	XU, _                         = xgbutil.NewConn()
+	picFormat24, picFormat32      render.Pictformat
+	filterNearest, filterBilinear xproto.Str
+	bgwin                         *xwindow.Window
+	bgimg                         *xgraphics.Image
+	bgimgWidth, bgimgHeight       int
+	srcpid, _                     = render.NewPictureId(XU.Conn())
+	dstpid, _                     = render.NewPictureId(XU.Conn())
+	crtcInfos                     = make(map[randr.Crtc]*crtcInfo)
+	srcpidLock                    = sync.Mutex{}
+	crtcInfosLock                 = sync.Mutex{}
 )
 
-func drawBackground() {
-	XU, err := xgbutil.NewConn()
-	if err != nil {
-		Logger.Error("could not create a new XUtil: ", err)
-		return
-	}
-
-	// load background
-	img, err := graphic.LoadImage(getBackgroundFile())
-	if err != nil {
-		Logger.Error("load background failed: ", err)
-		return
-	}
-
-	// TODO fix background, clip and resize
-	// screenWidth, screenHeight := 1024, 768
-	screenWidth, screenHeight := getPrimaryScreenBestResolution()
-	// fixedimg := graphic.ImplFillImage(img, int(screenWidth), int(screenHeight), graphic.FillScaleStretch)
-	x0, y0, x1, y1 := graphic.GetScaleRectInImage(int(screenWidth), int(screenHeight),
-		img.Bounds().Max.X, img.Bounds().Max.Y)
-	clipimg := graphic.ImplClipImage(img, x0, y0, x1, y1)
-	fixedimg := image.NewRGBA(image.Rect(0, 0, int(screenWidth), int(screenHeight)))
-	graphics.Scale(fixedimg, clipimg)
-
-	// convert it into an XU image.
-	ximg := xgraphics.NewConvert(XU, fixedimg)
-
-	// show it in a new window
-	if bgwin != nil {
-		showImage(bgwin, ximg)
-	}
+type crtcInfo struct {
+	x      int16
+	y      int16
+	width  uint16
+	height uint16
 }
 
-func createBgWindow(title string, quit bool) *xwindow.Window {
-	XU, err := xgbutil.NewConn()
+func initBackground() {
+	randr.Init(XU.Conn())
+	randr.QueryVersion(XU.Conn(), 1, 4)
+	render.Init(XU.Conn())
+	render.QueryVersion(XU.Conn(), 0, 11)
+
+	bgwin = createBgWindow(deepinBackgroundWindowTitle)
+	queryRender(xproto.Drawable(bgwin.Id))
+
+	// bind picture id to background window
+	err := render.CreatePictureChecked(XU.Conn(), dstpid, xproto.Drawable(bgwin.Id), picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("could not create a new XUtil: ", err)
-		return nil
+		Logger.Error("create render picture failed: ", err)
 	}
+
+	updateBackground()
+	listenBackgroundChanged()
+	go listenDisplayChanged()
+}
+
+func queryRender(d xproto.Drawable) {
+	// get picture formats
+	formats, _ := render.QueryPictFormats(XU.Conn()).Reply()
+	for _, f := range formats.Formats {
+		if f.Depth == 24 && f.Type == render.PictTypeDirect {
+			picFormat24 = f.Id
+		} else if f.Depth == 32 && f.Type == render.PictTypeDirect {
+			picFormat32 = f.Id
+		}
+	}
+	Logger.Debugf("picture format32=%d, format24=%d", picFormat32, picFormat24)
+
+	// get image filters
+	filters, _ := render.QueryFilters(XU.Conn(), d).Reply()
+	for _, f := range filters.Filters {
+		if f.Name == "nearest" {
+			filterNearest = f
+		} else if f.Name == "bilinear" {
+			filterBilinear = f
+		}
+	}
+	Logger.Debugf("nearest filter=", filterNearest)
+	Logger.Debugf("bilinear filter=", filterBilinear)
+}
+
+func createBgWindow(title string) *xwindow.Window {
 	win, err := xwindow.Generate(XU)
 	if err != nil {
 		Logger.Error("could not generate new window id: ", err)
 		return nil
 	}
-	win.Create(XU.RootWin(), 0, 0, 100, 100, 0)
-
-	// make this window close gracefully
-	win.WMGracefulClose(func(w *xwindow.Window) {
-		xevent.Detach(w.X, w.Id)
-		keybind.Detach(w.X, w.Id)
-		mousebind.Detach(w.X, w.Id)
-		w.Destroy()
-
-		if quit {
-			xevent.Quit(w.X)
-		}
-	})
+	w, h := getScreenResolution()
+	win.Create(XU.RootWin(), 0, 0, int(w), int(h), 0)
 
 	// set _NET_WM_NAME so it looks nice
 	err = ewmh.WmNameSet(XU, win.Id, title)
@@ -121,41 +136,257 @@ func createBgWindow(title string, quit bool) *xwindow.Window {
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
 	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 
-	// set root window property
+	// save background window id to root window property
 	xprop.ChangeProp32(XU, XU.RootWin(), deepinBackgroundWindowProp, "WINDOW", uint(win.Id))
+	Logger.Debug("background window id: ", win.Id)
 
-	Logger.Info("background window id: ", win.Id)
+	win.Map()
 	return win
 }
 
-// This is a slightly modified version of xgraphics.XShowExtra that does
-// not set any resize constraints on the window (so that it can go
-// fullscreen).
-func showImage(win *xwindow.Window, im *xgraphics.Image) {
-	// resize window with dimensions equal to the image
-	w, h := im.Rect.Dx(), im.Rect.Dy()
-	win.MoveResize(0, 0, w, h)
+func getScreenResolution() (w, h uint16) {
+	w, h = 1024, 768 // default value
+	screen := xproto.Setup(XU.Conn()).DefaultScreen(XU.Conn())
+	return screen.WidthInPixels, screen.HeightInPixels
+}
 
-	// paint our image before mapping
-	im.XSurfaceSet(win.Id)
-	im.XDraw()
-	im.XPaint(win.Id)
+func updateBackground() {
+	// load background file
+	file, err := os.Open(getBackgroundFile())
+	if err != nil {
+		Logger.Error("open background failed: ", err)
+		return
+	}
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		Logger.Error("load background failed: ", err)
+		return
+	}
+	bgimgWidth = img.Bounds().Max.X
+	bgimgHeight = img.Bounds().Max.Y
+	Logger.Debugf("bgimgWidth=%d, bgimgHeight=%d", bgimgWidth, bgimgHeight)
 
-	// now we can map, since we've set all our properties.
-	// (The initial map is when the window manager starts managing.)
-	win.Map()
+	// convert into an XU image and save pixmap id to root window property
+	if bgimg != nil {
+		bgimg.Destroy()
+	}
+	bgimg = xgraphics.NewConvert(XU, img)
+	bgimg.CreatePixmap()
+	bgimg.XDraw()
+	xprop.ChangeProp32(XU, XU.RootWin(), deepinBackgroundPixmapProp, "PIXMAP", uint(bgimg.Pixmap))
+
+	// rebind picture id to background pixmap
+	Logger.Debugf("srcpid=%d, dstpid=%d", srcpid, dstpid)
+	srcpidLock.Lock()
+	render.FreePicture(XU.Conn(), srcpid)
+	err = render.CreatePictureChecked(XU.Conn(), srcpid, xproto.Drawable(bgimg.Pixmap), picFormat24, 0, nil).Check()
+	if err != nil {
+		Logger.Error("create render picture failed: ", err)
+		return
+	}
+
+	// setup image filter
+	err = render.SetPictureFilterChecked(XU.Conn(), srcpid, uint16(filterBilinear.NameLen), filterBilinear.Name, nil).Check()
+	if err != nil {
+		Logger.Error("set picture filter failed: ", err)
+	}
+	srcpidLock.Unlock()
+
+	updateAllScreens()
+}
+
+func updateAllScreens() {
+	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
+	if err != nil {
+		Logger.Error("get scrren resources failed: ", err)
+		return
+	}
+
+	for _, output := range resources.Outputs {
+		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
+		if err != nil {
+			Logger.Warningf("get output info failed: ", err)
+			continue
+		}
+		if reply.Connection != randr.ConnectionConnected {
+			continue
+		}
+		crtcReply, err := randr.GetCrtcInfo(XU.Conn(), reply.Crtc, 0).Reply()
+		if err != nil {
+			Logger.Warningf("get crtc info failed: id %d, %v", reply.Crtc, err)
+			continue
+		}
+		updateScreen(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height, true)
+	}
+}
+
+func resizeBgWindow(w, h int) {
+	// resize window with dimensions equal to the screen
+	bgwin.Map()
+	bgwin.MoveResize(0, 0, w, h)
+}
+
+func updateScreen(crtc randr.Crtc, x, y int16, width, height uint16, updateBackground bool) {
+	crtcInfosLock.Lock()
+	needRedraw := false
+	if i, ok := crtcInfos[crtc]; ok {
+		// current crtc info has been saved,
+		// redraw background only when crtc information changed
+		if i.x != x || i.y != y || i.width != width || i.height != height {
+			// update crtc info and redraw background
+			Logger.Debug("update crtc info, old: ", crtcInfos[crtc])
+			i.x = x
+			i.y = y
+			i.width = width
+			i.height = height
+			needRedraw = true
+			Logger.Debug("update crtc info, new: ", crtcInfos[crtc])
+		}
+	} else {
+		// current crtc info is out of save
+		crtcInfos[crtc] = &crtcInfo{
+			x:      x,
+			y:      y,
+			width:  width,
+			height: height,
+		}
+		needRedraw = true
+		Logger.Debug("add crtc info: ", crtcInfos[crtc])
+	}
+	crtcInfosLock.Unlock()
+
+	if updateBackground {
+		renderDrawBackground(srcpid, dstpid, crtc)
+	} else if needRedraw {
+		go func() {
+			// sleep 1s to ensure window resize event effected
+			time.Sleep(1 * time.Second)
+			renderDrawBackground(srcpid, dstpid, crtc)
+
+			// sleep 5s and redraw background
+			time.Sleep(5 * time.Second)
+			renderDrawBackground(srcpid, dstpid, crtc)
+		}()
+	}
+}
+
+func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("draw background failed: ", err)
+		}
+	}()
+
+	srcpidLock.Lock()
+	crtcInfosLock.Lock()
+
+	var x, y int16
+	var width, height uint16
+	if i, ok := crtcInfos[crtc]; ok {
+		x = i.x
+		y = i.y
+		width = i.width
+		height = i.height
+	} else {
+		Logger.Error("target crtc info is out of save: id=", crtc)
+		return
+	}
+	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
+
+	// get clip rectangle
+	rect := getClipRect(int(width), int(height), bgimgWidth, bgimgHeight)
+
+	// scale source image and clip rectangle
+	sx := float32(width) / float32(rect.Width)
+	sy := float32(height) / float32(rect.Height)
+	rect.X = int16(float32(rect.X) * sx)
+	rect.Y = int16(float32(rect.Y) * sy)
+	rect.Width = uint16(float32(rect.Width) * sx)
+	rect.Height = uint16(float32(rect.Height) * sx)
+	t := getScaleTransform(sx, sy)
+	Logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
+	err := render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
+	if err != nil {
+		Logger.Error("render transform picture failed: ", err)
+	}
+
+	// draw to background window
+	err = render.CompositeChecked(XU.Conn(), render.PictOpSrc, srcpid, 0, dstpid,
+		rect.X, rect.Y, 0, 0, x, y, width, height).Check()
+	if err != nil {
+		Logger.Error("render composite picture failed: ", err)
+	}
+
+	// restore source image
+	t = getScaleTransform(1/sx, 1/sy)
+	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
+	if err != nil {
+		Logger.Error("render transform picture failed: ", err)
+	}
+
+	srcpidLock.Unlock()
+	crtcInfosLock.Unlock()
+}
+
+func getScaleTransform(x, y float32) render.Transform {
+	return render.Transform{
+		float32ToFixed(1 / x), 0, 0,
+		0, float32ToFixed(1 / y), 0,
+		0, 0, float32ToFixed(1),
+	}
+}
+
+// convert float32 value to matrix fixed value
+func float32ToFixed(f float32) render.Fixed {
+	return render.Fixed(f * 65536)
+}
+
+// convert matrix fixed value to float32
+func fixedToFloat32(f render.Fixed) float32 {
+	return float32(f) / 65536
+}
+
+// get rectangle in image which with the same scale to reference
+// width/heigh, and the rectangle will placed in center.
+func getClipRect(refWidth, refHeight, imgWidth, imgHeight int) (rect xproto.Rectangle) {
+	scale := float32(refWidth) / float32(refHeight)
+	w := imgWidth
+	h := int(float32(w) / scale)
+	if h < imgHeight {
+		offsetY := (imgHeight - h) / 2
+		rect.X = int16(0)
+		rect.Y = int16(0 + offsetY)
+	} else {
+		h = imgHeight
+		w = int(float32(h) * scale)
+		offsetX := (imgWidth - w) / 2
+		rect.X = int16(0 + offsetX)
+		rect.Y = int16(0)
+	}
+	rect.Width = uint16(w)
+	rect.Height = uint16(h)
+	return
 }
 
 func getBackgroundFile() string {
 	uri := personSettings.GetString(gkeyCurrentBackground)
 	Logger.Debug("background uri: ", uri)
-	path, ok, err := utils.URIToPath(uri)
+	path, ok := uriToPath(uri)
 	if !ok || !isFileExists(path) {
-		Logger.Warning("get background file failed: ", err)
+		Logger.Warning("background file is not exists")
 		Logger.Warning("use default background: ", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path
+}
+
+func uriToPath(uri string) (string, bool) {
+	tmp := strings.TrimLeft(uri, " ")
+	if strings.HasPrefix(tmp, "file://") {
+		return tmp[7:], true
+	}
+	return "", false
 }
 
 func isFileExists(file string) bool {
@@ -170,49 +401,38 @@ func listenBackgroundChanged() {
 		switch key {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed: ", key)
-			drawBackground()
+			updateBackground()
 		}
 	})
 }
 
-// TODO Get all screen's best resolution and choose a smaller one for there
-// is no screen is primary.
-func getPrimaryScreenBestResolution() (w uint16, h uint16) {
-	w, h = 1024, 768 // default value
-
-	_, err := randr.QueryVersion(X, 1, 4).Reply()
-	if err != nil {
-		Logger.Error("query randr failed: ", err)
-		return
-	}
-	Root := xproto.Setup(X).DefaultScreen(X).Root
-	resources, err := randr.GetScreenResources(X, Root).Reply()
-	if err != nil {
-		return
-	}
-
-	bestModes := make([]uint32, 0)
-	for _, output := range resources.Outputs {
-		reply, err := randr.GetOutputInfo(X, output, 0).Reply()
-		if err == nil && reply.NumModes > 1 {
-			bestModes = append(bestModes, uint32(reply.Modes[0]))
+func listenDisplayChanged() {
+	randr.SelectInput(XU.Conn(), XU.RootWin(), randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
+	for {
+		event, err := XU.Conn().WaitForEvent()
+		if err != nil {
+			continue
 		}
-	}
-
-	w, h = 0, 0
-	for _, m := range resources.Modes {
-		for _, id := range bestModes {
-			if id == m.Id {
-				bw, bh := m.Width, m.Height
-				if w*h == 0 {
-					w, h = bw, bh
-				} else if bw*bh > w*h {
-					w, h = bw, bh
+		switch eventType := event.(type) {
+		case randr.NotifyEvent:
+			switch eventType.SubCode {
+			case randr.NotifyCrtcChange:
+				info := eventType.U.Cc
+				if info.Mode != 0 {
+					Logger.Debugf("NotifyCrtcChange: id=%d, (%d,%d,%d,%d)",
+						info.Crtc, info.X, info.Y, info.Width, info.Height)
+					updateScreen(info.Crtc, info.X, info.Y, info.Width, info.Height, false)
 				}
 			}
+		case randr.ScreenChangeNotifyEvent:
+			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", eventType.Width, eventType.Height)
+
+			// FIXME skip invalid event for window manager issue
+			if eventType.Width < 480 && eventType.Height < 640 {
+				continue
+			}
+
+			resizeBgWindow(int(eventType.Width), int(eventType.Height))
 		}
 	}
-
-	Logger.Debugf("primary screen's best resolution is %dx%d", w, h)
-	return
 }
