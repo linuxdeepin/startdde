@@ -51,6 +51,7 @@ func main() {
 
 	// Background
 	initBackground()
+	updateBackground(true)
 	go dlib.StartLoop()
 
 	if !notStartInitPro {

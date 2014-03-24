@@ -63,7 +63,6 @@ var (
 	crtcInfos                     = make(map[randr.Crtc]*crtcInfo)
 	srcpidLock                    = sync.Mutex{}
 	crtcInfosLock                 = sync.Mutex{}
-	drawBackgroundFirstTime       = true
 )
 
 type crtcInfo struct {
@@ -150,7 +149,7 @@ func getScreenResolution() (w, h uint16) {
 	return screen.WidthInPixels, screen.HeightInPixels
 }
 
-func updateBackground() {
+func updateBackground(delay bool) {
 	// load background file
 	file, err := os.Open(getBackgroundFile())
 	if err != nil {
@@ -193,7 +192,7 @@ func updateBackground() {
 	}
 	srcpidLock.Unlock()
 
-	updateAllScreens(false)
+	updateAllScreens(delay)
 }
 
 func updateAllScreens(delay bool) {
@@ -223,10 +222,14 @@ func updateAllScreens(delay bool) {
 }
 
 func resizeBgWindow(w, h int) {
-	// resize window with dimensions equal to the screen
-	bgwin.Map()
+	geom, _ := bgwin.Geometry()
+	if geom.Width() == w && geom.Height() == h {
+		return
+	}
+	Logger.Debugf("background window before resizing, %dx%d", geom.Width(), geom.Height())
 	bgwin.MoveResize(0, 0, w, h)
-	Logger.Debugf("background window was resized, %dx%d", w, h)
+	geom, _ = bgwin.Geometry()
+	Logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
 }
 
 func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRedraw bool) {
@@ -413,7 +416,7 @@ func listenBackgroundChanged() {
 		switch key {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed: ", key)
-			go updateBackground()
+			go updateBackground(false)
 		}
 	})
 }
@@ -452,11 +455,6 @@ func listenDisplayChanged() {
 			}
 
 			resizeBgWindow(int(eventType.Width), int(eventType.Height))
-
-			if drawBackgroundFirstTime {
-				updateBackground()
-				drawBackgroundFirstTime = false
-			}
 		}
 	}
 }
