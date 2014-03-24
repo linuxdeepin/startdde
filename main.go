@@ -40,6 +40,9 @@ func main() {
 	flag.Parse()
 	fmt.Println("debug:", debug)
 	fmt.Println("notStartInitPro:", notStartInitPro)
+	if debug {
+		Logger.SetLogLevel(logger.LEVEL_DEBUG)
+	}
 
 	startXSettings()
 
