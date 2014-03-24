@@ -63,6 +63,7 @@ var (
 	crtcInfos                     = make(map[randr.Crtc]*crtcInfo)
 	srcpidLock                    = sync.Mutex{}
 	crtcInfosLock                 = sync.Mutex{}
+	drawBackgroundFirstTime       = true
 )
 
 type crtcInfo struct {
@@ -89,10 +90,6 @@ func initBackground() {
 
 	listenBackgroundChanged()
 	go listenDisplayChanged()
-	go func() {
-		time.Sleep(1 * time.Second)
-		updateBackground()
-	}()
 }
 
 func queryRender(d xproto.Drawable) {
@@ -455,6 +452,11 @@ func listenDisplayChanged() {
 			}
 
 			resizeBgWindow(int(eventType.Width), int(eventType.Height))
+
+			if drawBackgroundFirstTime {
+				updateBackground()
+				drawBackgroundFirstTime = false
+			}
 		}
 	}
 }
