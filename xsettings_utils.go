@@ -58,7 +58,7 @@ func getAtom(X *xgb.Conn, name string) xproto.Atom {
         reply, err := xproto.InternAtom(X, false,
                 uint16(len(name)), name).Reply()
         if err != nil {
-                Logger.Info("'%s' Get Xproto Atom Failed: %s\n",
+                Logger.Infof("'%s' Get Xproto Atom Failed: %s\n",
                         name, err)
         }
 
@@ -68,10 +68,10 @@ func getAtom(X *xgb.Conn, name string) xproto.Atom {
 func newXWindow() {
         wid, err := xproto.NewWindowId(X)
         if err != nil {
-                Logger.Info("New Window Id Failed: %v\n", err)
+                Logger.Infof("New Window Id Failed: %v\n", err)
                 panic(err)
         }
-        Logger.Info("New window id: %v\n", wid)
+        Logger.Infof("New window id: %v\n", wid)
 
         setupInfo := xproto.Setup(X)
         /*
@@ -79,7 +79,7 @@ func newXWindow() {
            }
         */
         screen := setupInfo.DefaultScreen(X)
-        Logger.Info("root wid: %v\n", screen.Root)
+        Logger.Infof("root wid: %v\n", screen.Root)
         err = xproto.CreateWindowChecked(X,
                 0,
                 wid, screen.Root, 0, 0,
@@ -112,10 +112,10 @@ func initSelection() {
         sReply, err = xproto.GetSelectionOwner(X,
                 getAtom(X, XSETTINGS_S0)).Reply()
         if err != nil {
-                Logger.Info("Unable to connect X server: %v\n", err)
+                Logger.Infof("Unable to connect X server: %v\n", err)
                 panic(err)
         }
-        Logger.Info("select owner wid: %v\n", sReply.Owner)
+        Logger.Infof("select owner wid: %v\n", sReply.Owner)
 }
 
 /*
