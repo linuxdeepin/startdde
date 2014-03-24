@@ -87,9 +87,12 @@ func initBackground() {
 		Logger.Error("create render picture failed: ", err)
 	}
 
-	updateBackground()
 	listenBackgroundChanged()
 	go listenDisplayChanged()
+	go func() {
+		time.Sleep(1 * time.Second)
+		updateBackground()
+	}()
 }
 
 func queryRender(d xproto.Drawable) {
@@ -113,8 +116,8 @@ func queryRender(d xproto.Drawable) {
 			filterBilinear = f
 		}
 	}
-	Logger.Debugf("nearest filter=", filterNearest)
-	Logger.Debugf("bilinear filter=", filterBilinear)
+	Logger.Debug("nearest filter=", filterNearest)
+	Logger.Debug("bilinear filter=", filterBilinear)
 }
 
 func createBgWindow(title string) *xwindow.Window {
@@ -193,10 +196,10 @@ func updateBackground() {
 	}
 	srcpidLock.Unlock()
 
-	updateAllScreens()
+	updateAllScreens(false)
 }
 
-func updateAllScreens() {
+func updateAllScreens(delay bool) {
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
 		Logger.Error("get scrren resources failed: ", err)
@@ -217,7 +220,8 @@ func updateAllScreens() {
 			Logger.Warningf("get crtc info failed: id %d, %v", reply.Crtc, err)
 			continue
 		}
-		updateScreen(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height, true)
+		updateCrtcInfos(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height)
+		updateScreen(reply.Crtc, delay)
 	}
 }
 
@@ -225,11 +229,13 @@ func resizeBgWindow(w, h int) {
 	// resize window with dimensions equal to the screen
 	bgwin.Map()
 	bgwin.MoveResize(0, 0, w, h)
+	Logger.Debugf("background window was resized, %dx%d", w, h)
 }
 
-func updateScreen(crtc randr.Crtc, x, y int16, width, height uint16, updateBackground bool) {
+func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRedraw bool) {
 	crtcInfosLock.Lock()
-	needRedraw := false
+	defer crtcInfosLock.Unlock()
+	needRedraw = false
 	if i, ok := crtcInfos[crtc]; ok {
 		// current crtc info has been saved,
 		// redraw background only when crtc information changed
@@ -254,11 +260,21 @@ func updateScreen(crtc randr.Crtc, x, y int16, width, height uint16, updateBackg
 		needRedraw = true
 		Logger.Debug("add crtc info: ", crtcInfos[crtc])
 	}
-	crtcInfosLock.Unlock()
+	return
+}
 
-	if updateBackground {
-		renderDrawBackground(srcpid, dstpid, crtc)
-	} else if needRedraw {
+func removeCrtcInfos(crtc randr.Crtc) {
+	crtcInfosLock.Lock()
+	defer crtcInfosLock.Unlock()
+	Logger.Debug("remove crtc info: ", crtcInfos[crtc])
+	delete(crtcInfos, crtc)
+}
+
+// func updateScreen(crtc randr.Crtc, x, y int16, width, height uint16, forceUpdate bool, delay bool) {
+func updateScreen(crtc randr.Crtc, delay bool) {
+	if !delay {
+		go renderDrawBackground(srcpid, dstpid, crtc)
+	} else {
 		go func() {
 			// sleep 1s to ensure window resize event effected
 			time.Sleep(1 * time.Second)
@@ -280,6 +296,8 @@ func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 
 	srcpidLock.Lock()
 	crtcInfosLock.Lock()
+	defer srcpidLock.Unlock()
+	defer crtcInfosLock.Unlock()
 
 	var x, y int16
 	var width, height uint16
@@ -324,9 +342,6 @@ func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 	if err != nil {
 		Logger.Error("render transform picture failed: ", err)
 	}
-
-	srcpidLock.Unlock()
-	crtcInfosLock.Unlock()
 }
 
 func getScaleTransform(x, y float32) render.Transform {
@@ -401,7 +416,7 @@ func listenBackgroundChanged() {
 		switch key {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed: ", key)
-			updateBackground()
+			go updateBackground()
 		}
 	})
 }
@@ -419,9 +434,16 @@ func listenDisplayChanged() {
 			case randr.NotifyCrtcChange:
 				info := eventType.U.Cc
 				if info.Mode != 0 {
-					Logger.Debugf("NotifyCrtcChange: id=%d, (%d,%d,%d,%d)",
+					Logger.Debugf("NotifyCrtcChange: update, id=%d, (%d,%d,%d,%d)",
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
-					updateScreen(info.Crtc, info.X, info.Y, info.Width, info.Height, false)
+					needRedraw := updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
+					if needRedraw {
+						updateScreen(info.Crtc, true)
+					}
+				} else {
+					Logger.Debugf("NotifyCrtcChange: remove, id=%d, (%d,%d,%d,%d)",
+						info.Crtc, info.X, info.Y, info.Width, info.Height)
+					removeCrtcInfos(info.Crtc)
 				}
 			}
 		case randr.ScreenChangeNotifyEvent:
