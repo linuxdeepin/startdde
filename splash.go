@@ -28,6 +28,7 @@ import (
 	"os"
 
 	"dlib/gio-2.0"
+	"fmt"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
@@ -63,6 +64,7 @@ var (
 	crtcInfos                     = make(map[randr.Crtc]*crtcInfo)
 	srcpidLock                    = sync.Mutex{}
 	crtcInfosLock                 = sync.Mutex{}
+	drawBgFirstTime               = true
 )
 
 type crtcInfo struct {
@@ -112,8 +114,8 @@ func queryRender(d xproto.Drawable) {
 			filterBilinear = f
 		}
 	}
-	Logger.Debug("nearest filter=", filterNearest)
-	Logger.Debug("bilinear filter=", filterBilinear)
+	Logger.Debug("nearest filter: ", filterNearest)
+	Logger.Debug("bilinear filter: ", filterBilinear)
 }
 
 func createBgWindow(title string) *xwindow.Window {
@@ -143,10 +145,30 @@ func createBgWindow(title string) *xwindow.Window {
 	return win
 }
 
+// draw background directly instead of through xrender, for that maybe
+// issue with desktop manager after login
+func drawBackgroundDirectly() {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("drawBackgroundDirectly failed: ", err)
+		}
+	}()
+	// TODO
+}
+
 func getScreenResolution() (w, h uint16) {
-	w, h = 1024, 768 // default value
 	screen := xproto.Setup(XU.Conn()).DefaultScreen(XU.Conn())
-	return screen.WidthInPixels, screen.HeightInPixels
+	w, h = screen.WidthInPixels, screen.HeightInPixels
+	if w*h == 0 {
+		// get root window geometry
+		rootRect := xwindow.RootGeometry(XU)
+		w, h = uint16(rootRect.Width()), uint16(rootRect.Height())
+	}
+	if w*h == 0 {
+		w, h = 1024, 768 // default value
+		Logger.Warningf("get screen resolution failed, use default value: %dx%d", w, h)
+	}
+	return
 }
 
 func updateBackground(delay bool) {
@@ -270,27 +292,26 @@ func removeCrtcInfos(crtc randr.Crtc) {
 	delete(crtcInfos, crtc)
 }
 
-// func updateScreen(crtc randr.Crtc, x, y int16, width, height uint16, forceUpdate bool, delay bool) {
 func updateScreen(crtc randr.Crtc, delay bool) {
 	if !delay {
-		go renderDrawBackground(srcpid, dstpid, crtc)
+		go drawBackgroundByRender(srcpid, dstpid, crtc)
 	} else {
 		go func() {
 			// sleep 1s to ensure window resize event effected
 			time.Sleep(1 * time.Second)
-			renderDrawBackground(srcpid, dstpid, crtc)
+			drawBackgroundByRender(srcpid, dstpid, crtc)
 
 			// sleep 5s and redraw background
 			time.Sleep(5 * time.Second)
-			renderDrawBackground(srcpid, dstpid, crtc)
+			drawBackgroundByRender(srcpid, dstpid, crtc)
 		}()
 	}
 }
 
-func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
+func drawBackgroundByRender(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("draw background failed: ", err)
+			Logger.Error("drawBackgroundByRender() failed: ", err)
 		}
 	}()
 
@@ -313,7 +334,10 @@ func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
-	rect := getClipRect(int(width), int(height), bgimgWidth, bgimgHeight)
+	rect, err := getClipRect(width, height, uint16(bgimgWidth), uint16(bgimgHeight))
+	if err != nil {
+		panic(err)
+	}
 
 	// scale source image and clip rectangle
 	sx := float32(width) / float32(rect.Width)
@@ -324,23 +348,23 @@ func renderDrawBackground(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 	rect.Height = uint16(float32(rect.Height) * sx)
 	t := getScaleTransform(sx, sy)
 	Logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
-	err := render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
+	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
-		Logger.Error("render transform picture failed: ", err)
+		panic(err)
 	}
 
 	// draw to background window
 	err = render.CompositeChecked(XU.Conn(), render.PictOpSrc, srcpid, 0, dstpid,
 		rect.X, rect.Y, 0, 0, x, y, width, height).Check()
 	if err != nil {
-		Logger.Error("render composite picture failed: ", err)
+		panic(err)
 	}
 
 	// restore source image
 	t = getScaleTransform(1/sx, 1/sy)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
-		Logger.Error("render transform picture failed: ", err)
+		panic(err)
 	}
 }
 
@@ -364,23 +388,27 @@ func fixedToFloat32(f render.Fixed) float32 {
 
 // get rectangle in image which with the same scale to reference
 // width/heigh, and the rectangle will placed in center.
-func getClipRect(refWidth, refHeight, imgWidth, imgHeight int) (rect xproto.Rectangle) {
+func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.Rectangle, err error) {
+	if refWidth*refHeight == 0 || imgWidth*imgHeight == 0 {
+		err = fmt.Errorf("argument is invalid: ", refWidth, refHeight, imgWidth, imgHeight)
+		return
+	}
 	scale := float32(refWidth) / float32(refHeight)
 	w := imgWidth
-	h := int(float32(w) / scale)
+	h := uint16(float32(w) / scale)
 	if h < imgHeight {
 		offsetY := (imgHeight - h) / 2
 		rect.X = int16(0)
 		rect.Y = int16(0 + offsetY)
 	} else {
 		h = imgHeight
-		w = int(float32(h) * scale)
+		w = uint16(float32(h) * scale)
 		offsetX := (imgWidth - w) / 2
 		rect.X = int16(0 + offsetX)
 		rect.Y = int16(0)
 	}
-	rect.Width = uint16(w)
-	rect.Height = uint16(h)
+	rect.Width = w
+	rect.Height = h
 	return
 }
 
@@ -440,11 +468,15 @@ func listenDisplayChanged() {
 					if needRedraw {
 						updateScreen(info.Crtc, true)
 					}
+					// TODO
+					// updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
+					// updateScreen(info.Crtc, true)
 				} else {
 					Logger.Debugf("NotifyCrtcChange: remove, id=%d, (%d,%d,%d,%d)",
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
 					removeCrtcInfos(info.Crtc)
 				}
+				// updateAllScreens(true)
 			}
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", eventType.Width, eventType.Height)
