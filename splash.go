@@ -145,17 +145,6 @@ func createBgWindow(title string) *xwindow.Window {
 	return win
 }
 
-// draw background directly instead of through xrender, for that maybe
-// issue with desktop manager after login
-func drawBackgroundDirectly() {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("drawBackgroundDirectly failed: ", err)
-		}
-	}()
-	// TODO
-}
-
 func getScreenResolution() (w, h uint16) {
 	screen := xproto.Setup(XU.Conn()).DefaultScreen(XU.Conn())
 	w, h = screen.WidthInPixels, screen.HeightInPixels
@@ -306,6 +295,17 @@ func updateScreen(crtc randr.Crtc, delay bool) {
 			drawBackgroundByRender(srcpid, dstpid, crtc)
 		}()
 	}
+}
+
+// draw background directly instead of through xrender, for that maybe
+// issue with desktop manager after login
+func drawBackgroundDirectly() {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("drawBackgroundDirectly failed: ", err)
+		}
+	}()
+	// TODO
 }
 
 func drawBackgroundByRender(srcpid, dstpid render.Picture, crtc randr.Crtc) {
