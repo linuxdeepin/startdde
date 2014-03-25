@@ -64,7 +64,7 @@ var (
 	crtcInfos                     = make(map[randr.Crtc]*crtcInfo)
 	srcpidLock                    = sync.Mutex{}
 	crtcInfosLock                 = sync.Mutex{}
-	drawBgFirstTime               = true
+	drawBgFirstTime               = false // TODO
 )
 
 type crtcInfo struct {
@@ -213,6 +213,11 @@ func updateAllScreens(delay bool) {
 		return
 	}
 
+	drawDirectly := false
+	if drawBgFirstTime {
+		drawBgFirstTime = false
+		drawDirectly = true
+	}
 	for _, output := range resources.Outputs {
 		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
 		if err != nil {
@@ -228,7 +233,7 @@ func updateAllScreens(delay bool) {
 			continue
 		}
 		updateCrtcInfos(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height)
-		updateScreen(reply.Crtc, delay)
+		updateScreen(reply.Crtc, delay, drawDirectly)
 	}
 }
 
@@ -281,31 +286,71 @@ func removeCrtcInfos(crtc randr.Crtc) {
 	delete(crtcInfos, crtc)
 }
 
-func updateScreen(crtc randr.Crtc, delay bool) {
-	if !delay {
-		go drawBackgroundByRender(srcpid, dstpid, crtc)
+func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
+	if drawDirectly {
+		go drawBackgroundDirectly(srcpid, crtc)
 	} else {
-		go func() {
-			// sleep 1s to ensure window resize event effected
-			time.Sleep(1 * time.Second)
-			drawBackgroundByRender(srcpid, dstpid, crtc)
+		if !delay {
+			go drawBackgroundByRender(srcpid, dstpid, crtc)
+		} else {
+			go func() {
+				// sleep 1s to ensure window resize event effected
+				time.Sleep(1 * time.Second)
+				drawBackgroundByRender(srcpid, dstpid, crtc)
 
-			// sleep 5s and redraw background
-			time.Sleep(5 * time.Second)
-			drawBackgroundByRender(srcpid, dstpid, crtc)
-		}()
+				// sleep 5s and redraw background
+				time.Sleep(5 * time.Second)
+				drawBackgroundByRender(srcpid, dstpid, crtc)
+			}()
+		}
 	}
 }
 
 // draw background directly instead of through xrender, for that maybe
 // issue with desktop manager after login
-func drawBackgroundDirectly() {
+func drawBackgroundDirectly(srcpid render.Picture, crtc randr.Crtc) {
 	defer func() {
 		if err := recover(); err != nil {
 			Logger.Error("drawBackgroundDirectly failed: ", err)
 		}
 	}()
-	// TODO
+
+	var x, y int16
+	var width, height uint16
+	if i, ok := crtcInfos[crtc]; ok {
+		x = i.x
+		y = i.y
+		width = i.width
+		height = i.height
+	} else {
+		panic(fmt.Errorf("target crtc info is out of save: id=%d", crtc))
+	}
+
+	Logger.Debugf("draw background directly: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
+
+	// create temporary ximage
+	ximg := xgraphics.New(XU, image.Rect(0, 0, int(width), int(height)))
+	ximg.CreatePixmap()
+	ximg.XDraw()
+
+	// bind ximage to picture
+	ximgpid, _ := render.NewPictureId(XU.Conn())
+	err := render.CreatePictureChecked(XU.Conn(), ximgpid, xproto.Drawable(ximg.Pixmap), picFormat24, 0, nil).Check()
+	if err != nil {
+		panic(err)
+	}
+
+	// draw background to ximage through xrender
+	drawBackgroundByRender(srcpid, ximgpid, crtc)
+
+	// draw ximage to background window
+	ximg.XSurfaceSet(bgwin.Id)
+	ximg.XDraw()
+	ximg.XPaint(bgwin.Id)
+
+	// free resource
+	render.FreePicture(XU.Conn(), ximgpid)
+	ximg.Destroy()
 }
 
 func drawBackgroundByRender(srcpid, dstpid render.Picture, crtc randr.Crtc) {
@@ -328,9 +373,9 @@ func drawBackgroundByRender(srcpid, dstpid render.Picture, crtc randr.Crtc) {
 		width = i.width
 		height = i.height
 	} else {
-		Logger.Error("target crtc info is out of save: id=", crtc)
-		return
+		panic(fmt.Errorf("target crtc info is out of save: id=%d", crtc))
 	}
+
 	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
@@ -466,11 +511,11 @@ func listenDisplayChanged() {
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
 					needRedraw := updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
 					if needRedraw {
-						updateScreen(info.Crtc, true)
+						updateScreen(info.Crtc, true, false)
 					}
 					// TODO
 					// updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
-					// updateScreen(info.Crtc, true)
+					// updateScreen(info.Crtc, true, false)
 				} else {
 					Logger.Debugf("NotifyCrtcChange: remove, id=%d, (%d,%d,%d,%d)",
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
