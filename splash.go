@@ -306,7 +306,7 @@ func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
 	}
 }
 
-// draw background directly instead of through xrender, for that maybe
+// TODO draw background directly instead of through xrender, for that maybe
 // issue with desktop manager after login
 func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 	defer func() {
