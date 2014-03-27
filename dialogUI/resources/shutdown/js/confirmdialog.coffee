@@ -129,7 +129,7 @@ class ConfirmDialog extends Widget
             that.message_confirm.textContent = message_text[i].args(time)
             if time == 0
                 clearInterval(timeId)
-                if 2 <= i <= 4 then confirm_ok(option[i])
+                confirm_ok(option[i])
         ,1000)
 
     hover_state: (choose_num)->
@@ -154,15 +154,17 @@ class ConfirmDialog extends Widget
     
     keydown:(keyCode)->
         change_choose =->
+            echo "change_choose"
             if choose_num == OK then choose_num = CANCEL
             else choose_num = OK
             return choose_num
 
         choose_enter = =>
+            echo "choose_enter :#{choose_num}"
             i = @i
             switch choose_num
                 when OK
-                    if 2 <= i <= 4 then confirm_ok(option[i])
+                    confirm_ok(option[i])
                 when CANCEL
                     destory_all()
                 else return
