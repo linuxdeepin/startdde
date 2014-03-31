@@ -161,6 +161,12 @@ func getScreenResolution() (w, h uint16) {
 }
 
 func updateBackground(delay bool) {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("updateBackground failed: ", err)
+		}
+	}()
+
 	// load background file
 	file, err := os.Open(getBackgroundFile())
 	if err != nil {
