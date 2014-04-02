@@ -66,8 +66,6 @@ func main() {
 
 		go exec.Command("/usr/bin/dock").Run()
 		<-time.After(time.Millisecond * 200)
-		go exec.Command("/usr/bin/dapptray").Run()
-		<-time.After(time.Millisecond * 20)
 
 		go exec.Command("/usr/bin/desktop").Run()
 		<-time.After(time.Millisecond * 3000)
