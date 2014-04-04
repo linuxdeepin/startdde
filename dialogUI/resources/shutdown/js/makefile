@@ -1,7 +1,7 @@
 com_dir = ../../common/js
-com_coffee = ${com_dir}/utils.coffee ${com_dir}/config.coffee ${com_dir}/animation.coffee ${com_dir}/module.coffee ${com_dir}/widget.coffee ${com_dir}/background.coffee 
+com_coffee = ${com_dir}/utils.coffee ${com_dir}/config.coffee ${com_dir}/animation.coffee ${com_dir}/module.coffee ${com_dir}/widget.coffee 
 
-common_coffee = ${com_coffee} power_func.coffee utils.coffee confirmdialog.coffee 
+common_coffee = ${com_coffee} power_func.coffee background.coffee utils.coffee confirmdialog.coffee
 
 powerchoose_coffee = ${common_coffee} powerchoose.coffee PowerChooseDialog.coffee
 

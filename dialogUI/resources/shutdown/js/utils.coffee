@@ -53,7 +53,7 @@ confirm_ok = (power)->
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
 background = new Background(APP_NAME)
-bg_url = background.get_current_user_blur_background()
+bg_url = background.get_current_user_background()
 
 DEBUG_ANIMATION = false
 if DEBUG_ANIMATION

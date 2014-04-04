@@ -30,4 +30,5 @@ install(
     FILES ${PROJECT_SOURCE_DIR}/app/shutdown/com.deepin.dde.shutdown.service
     DESTINATION /usr/share/dbus-1/services/
     )
-
+ 
+GEN_JS_FILE(${NAME})
