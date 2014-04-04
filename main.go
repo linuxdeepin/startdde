@@ -45,7 +45,6 @@ func main() {
                 Logger.SetLogLevel(logger.LEVEL_DEBUG)
         }
 
-        os.Setenv("BROWSER", "/usr/bin/gvfs-open")
         startXSettings()
 
         // Session Manager
@@ -54,6 +53,7 @@ func main() {
         // Background
         initBackground()
         go dlib.StartLoop()
+        go os.Setenv("BROWSER", "/usr/bin/gvfs-open")
 
         if !notStartInitPro {
                 go exec.Command("/usr/bin/compiz").Run()
