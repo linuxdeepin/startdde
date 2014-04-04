@@ -19,6 +19,7 @@
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 APP_NAME = "Shutdown"
+DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
 
 confirmdialog = null
 powerchoose = null
@@ -52,8 +53,10 @@ confirm_ok = (power)->
 
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
-background = new Background(APP_NAME)
-bg_url = background.get_current_user_background()
+#background = new Background(APP_NAME)
+#bg_url = background.get_current_user_background()
+bg_url = DEFAULT_BG
+document.body.style.backgroundImage = "url(#{bg_url})"
 
 DEBUG_ANIMATION = false
 if DEBUG_ANIMATION
