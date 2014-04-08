@@ -66,8 +66,8 @@ func main() {
 		go exec.Command("/usr/lib/deepin-daemon/display").Run()
 		<-time.After(time.Millisecond * 20)
 
-		go exec.Command("/usr/lib/deepin-daemon/dock-daemon").Run()
-		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder").Run()
+		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
+		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
 		<-time.After(time.Millisecond * 30)
 
 		go exec.Command("/usr/bin/dock").Run()
