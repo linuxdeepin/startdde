@@ -1,5 +1,5 @@
 [Desktop Entry]
 Name=Deepin-Test
 Comment=Deepin Desktop Environment
-Exec=env BROWSER=xdg-open /usr/bin/startdde
+Exec=/usr/bin/startdde
 TryExec=/usr/bin/startdde
