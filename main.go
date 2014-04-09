@@ -1,89 +1,90 @@
 package main
 
 import (
-	"dlib"
-	"dlib/logger"
-	"flag"
-	"fmt"
-	"os/exec"
-	"time"
+        "dlib"
+        "dlib/logger"
+        "flag"
+        "fmt"
+        "os/exec"
+        "time"
 )
 
 func testStartManager() {
-	startStartManager()
-	// args := make([]*gio.File, 0)
-	// for _, name := range m.AutostartList() {
-	// 	fmt.Println("launch", name)
-	// 	m.Launch(name, args)
-	// }
-	dlib.StartLoop()
+        startStartManager()
+        // args := make([]*gio.File, 0)
+        // for _, name := range m.AutostartList() {
+        // 	fmt.Println("launch", name)
+        // 	m.Launch(name, args)
+        // }
+        dlib.StartLoop()
 }
 
 func test() {
-	testStartManager()
+        testStartManager()
 }
 
 var (
-	debug           bool = false
-	notStartInitPro bool = false
+        debug           bool    = false
+        notStartInitPro bool    = false
 
-	Logger = logger.NewLogger("com.deepin.SessionManager")
+        Logger  = logger.NewLogger("com.deepin.SessionManager")
 )
 
 func main() {
-	// test()
-	// return
+        // test()
+        // return
 
-	flag.BoolVar(&debug, "d", false, "debug")
-	flag.BoolVar(&notStartInitPro, "n", false, "not start")
+        flag.BoolVar(&debug, "d", false, "debug")
+        flag.BoolVar(&notStartInitPro, "n", false, "not start")
 
-	flag.Parse()
-	fmt.Println("debug:", debug)
-	fmt.Println("notStartInitPro:", notStartInitPro)
-	if debug {
-		Logger.SetLogLevel(logger.LEVEL_DEBUG)
-	}
+        flag.Parse()
+        fmt.Println("debug:", debug)
+        fmt.Println("notStartInitPro:", notStartInitPro)
+        if debug {
+                Logger.SetLogLevel(logger.LEVEL_DEBUG)
+        }
 
-	startXSettings()
+        startXSettings()
 
-	// Session Manager
-	startSession()
+        // Session Manager
+        startSession()
 
-	// Background
-	initBackground()
+        // Background
+        initBackground()
 
-	if !notStartInitPro {
-		go exec.Command("/usr/bin/compiz").Run()
-		<-time.After(time.Millisecond * 200)
+        if !notStartInitPro {
+                go exec.Command("/usr/bin/compiz").Run()
+                <-time.After(time.Millisecond * 200)
 
-		updateBackground(false) // TODO
+                updateBackground(false) // TODO
 
-		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
-		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
-		go exec.Command("/usr/lib/deepin-daemon/display").Run()
-		go exec.Command("/usr/lib/deepin-daemon/power").Run()
-		<-time.After(time.Millisecond * 20)
+                go exec.Command("/usr/lib/deepin-daemon/themes").Run()
+                go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
+                go exec.Command("/usr/lib/deepin-daemon/display").Run()
+                go exec.Command("/usr/lib/deepin-daemon/power").Run()
+                <-time.After(time.Millisecond * 20)
 
-		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
-		<-time.After(time.Millisecond * 30)
-		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
-		<-time.After(time.Millisecond * 30)
+                go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
+                <-time.After(time.Millisecond * 30)
+                go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
+                <-time.After(time.Millisecond * 30)
 
-		go exec.Command("/usr/bin/dock").Run()
-		<-time.After(time.Millisecond * 200)
+                go exec.Command("/usr/bin/dock").Run()
+                <-time.After(time.Millisecond * 200)
 
-		go exec.Command("/usr/bin/desktop").Run()
-		<-time.After(time.Millisecond * 3000)
+                go exec.Command("/usr/bin/desktop").Run()
+                <-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
-		<-time.After(time.Millisecond * 3000)
+                go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
+                <-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/zone-settings").Run()
-		<-time.After(time.Millisecond * 3000)
+                go exec.Command("/usr/lib/deepin-daemon/zone-settings").Run()
+                go exec.Command("/usr/lib/deepin-daemon/deepin-daemon").Run()
+                <-time.After(time.Millisecond * 3000)
 
-	}
+        }
 
-	startStartManager()
+        startStartManager()
 
-	dlib.StartLoop()
+        dlib.StartLoop()
 }
