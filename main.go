@@ -52,8 +52,6 @@ func main() {
 
 	// Background
 	initBackground()
-	go dlib.StartLoop()
-	go os.Setenv("BROWSER", "/usr/bin/gvfs-open")
 
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
@@ -64,6 +62,7 @@ func main() {
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
 		go exec.Command("/usr/lib/deepin-daemon/display").Run()
+		go exec.Command("/usr/lib/deepin-daemon/power").Run()
 		<-time.After(time.Millisecond * 20)
 
 		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
@@ -87,7 +86,5 @@ func main() {
 
 	startStartManager()
 
-	for {
-		<-time.After(time.Millisecond * 1000)
-	}
+	dlib.StartLoop()
 }
