@@ -5,7 +5,6 @@ import (
 	"dlib/logger"
 	"flag"
 	"fmt"
-	"os"
 	"os/exec"
 	"time"
 )
