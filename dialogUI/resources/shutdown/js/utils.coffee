@@ -26,7 +26,7 @@ powerchoose = null
 
 frame_click = false
 option = ["logout","shutdown","restart","suspend","lock"]
-option_text = [_("Logout"),_("Shutdown"),_("Restart"),_("Suspend"),_("Lock")]
+option_text = [_("Log out"),_("Shut down"),_("Restart"),_("Suspend"),_("Lock")]
 option_text_force = [_("Force Log out"),_("Force Shut down"),_("Force Restart"),_("Suspend"),_("Lock")]
 message_text = [
     _("You will be automatically logged out in %1 seconds."),
