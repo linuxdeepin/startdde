@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-01-14 11:09+0800\n"
+"POT-Creation-Date: 2014-04-10 17:24+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Wang Dianjin <wangdianjin@linuxdeepin.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,64 +17,64 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../resources/shutdown/js/utils.coffee:26
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Lock"
-msgstr "锁定"
-
-#: ../resources/shutdown/js/utils.coffee:26
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Suspend"
-msgstr "待机"
-
-#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:29
 msgid "Log out"
 msgstr "注销"
 
-#: ../resources/shutdown/js/utils.coffee:26
-msgid "Restart"
-msgstr "重启"
-
-#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:29
 msgid "Shut down"
 msgstr "关机"
 
-#: ../resources/shutdown/js/utils.coffee:27
+#: ../resources/shutdown/js/utils.coffee:29
+msgid "Restart"
+msgstr "重启"
+
+#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Suspend"
+msgstr "待机"
+
+#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Lock"
+msgstr "锁定"
+
+#: ../resources/shutdown/js/utils.coffee:30
 #, fuzzy
 msgid "Force Log out"
 msgstr "强制注销"
 
-#: ../resources/shutdown/js/utils.coffee:27
-#, fuzzy
-msgid "Force Restart"
-msgstr "强制重启"
-
-#: ../resources/shutdown/js/utils.coffee:27
+#: ../resources/shutdown/js/utils.coffee:30
 #, fuzzy
 msgid "Force Shut down"
 msgstr "强制关机"
 
-#: ../resources/shutdown/js/utils.coffee:29
-msgid "The system will be locked in %1 seconds."
-msgstr "系统将在 %1 秒后锁定"
-
 #: ../resources/shutdown/js/utils.coffee:30
-msgid "The system will be suspended in %1 seconds."
-msgstr "系统将在 %1 秒后待机"
-
-#: ../resources/shutdown/js/utils.coffee:31
-msgid "You will be automatically logged out in %1 seconds."
-msgstr "系统将在 %1 秒后注销当前用户"
+#, fuzzy
+msgid "Force Restart"
+msgstr "强制重启"
 
 #: ../resources/shutdown/js/utils.coffee:32
-msgid "The system will restart in %1 seconds."
-msgstr "系统将在 %1 秒后重新启动"
+msgid "You will be automatically logged out in %1 seconds."
+msgstr "系统将在 %1 秒后注销当前用户"
 
 #: ../resources/shutdown/js/utils.coffee:33
 msgid "The system will shut down in %1 seconds."
 msgstr "系统将在 %1 秒后关闭"
 
-#: ../resources/shutdown/js/confirmdialog.coffee:60
+#: ../resources/shutdown/js/utils.coffee:34
+msgid "The system will restart in %1 seconds."
+msgstr "系统将在 %1 秒后重新启动"
+
+#: ../resources/shutdown/js/utils.coffee:35
+msgid "The system will be suspended in %1 seconds."
+msgstr "系统将在 %1 秒后待机"
+
+#: ../resources/shutdown/js/utils.coffee:36
+msgid "The system will be locked in %1 seconds."
+msgstr "系统将在 %1 秒后锁定"
+
+#: ../resources/shutdown/js/confirmdialog.coffee:74
 msgid "Cancel"
 msgstr "取消"
 
