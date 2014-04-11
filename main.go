@@ -52,6 +52,7 @@ func main() {
 
 	// Session Manager
 	startSession()
+	startStartManager()
 
 	// Background
 	initBackground()
@@ -87,7 +88,7 @@ func main() {
 
 	}
 
-	startStartManager()
+	startAutostartProgram()
 
 	dlib.StartLoop()
 }

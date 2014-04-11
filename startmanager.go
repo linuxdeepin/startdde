@@ -35,6 +35,8 @@ type StartManager struct {
 	AutostartChanged  func(string, string)
 }
 
+var START_MANAGER StartManager
+
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
@@ -513,17 +515,20 @@ func (m *StartManager) IsAutostart(name string) bool {
 
 func startStartManager() {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
-	m := StartManager{}
-	if err := dbus.InstallOnSession(&m); err != nil {
+	START_MANAGER = StartManager{}
+	if err := dbus.InstallOnSession(&START_MANAGER); err != nil {
 		Logger.Info("Install StartManager Failed:", err)
 	}
-	m.listenAutostart()
-	for _, name := range m.AutostartList() {
+}
+
+func startAutostartProgram() {
+	START_MANAGER.listenAutostart()
+	for _, name := range START_MANAGER.AutostartList() {
 		// Logger.Info(name)
 		if debug {
 			continue
 		}
-		go m.Launch(name)
+		go START_MANAGER.Launch(name)
 		<-time.After(20 * time.Millisecond)
 	}
 }
