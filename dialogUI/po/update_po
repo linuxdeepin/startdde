@@ -23,9 +23,6 @@ def get_files():
             c_files += glob.glob("../app/%s/*.h" % d);
 
     c_files += [
-            "../lib/dentry/*.c",
-            "../lib/dentry/*.h",
-            "../lib/category.c",
             ]
 
 
