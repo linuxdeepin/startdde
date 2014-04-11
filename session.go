@@ -14,7 +14,7 @@ type SessionManager struct {
 
 const (
         _LOCK_EXEC        = "/usr/bin/dde-lock"
-        _SHUTDOWN_CMD     = "/usr/bin/dde-dshutdown"
+        _SHUTDOWN_CMD     = "/usr/bin/dde-shutdown"
         _REBOOT_ARG       = "--reboot"
         _LOGOUT_ARG       = "--logout"
         _SHUTDOWN_ARG     = "--shutdown"
