@@ -3,6 +3,6 @@
 void init_i18n()
 {
     setlocale(LC_MESSAGES, "");
-    textdomain("DDE");
+    textdomain("STARTDDE");
 }
 
