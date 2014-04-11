@@ -73,10 +73,10 @@ func main() {
 		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
 		<-time.After(time.Millisecond * 30)
 
-		go exec.Command("/usr/bin/dock").Run()
+		go exec.Command("/usr/bin/dde-dock").Run()
 		<-time.After(time.Millisecond * 200)
 
-		go exec.Command("/usr/bin/desktop").Run()
+		go exec.Command("/usr/bin/dde-desktop").Run()
 		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
