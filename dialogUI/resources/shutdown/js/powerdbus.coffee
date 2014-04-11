@@ -18,7 +18,7 @@
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-SessionManager = "com.deepin.SessionManager",
+SessionManager = "com.deepin.SessionManager"
 
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
