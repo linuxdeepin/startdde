@@ -19,7 +19,7 @@ execute_process(
 
 install(
     PROGRAMS ${PROJECT_BINARY_DIR}/${NAME}
-    DESTINATION lib/deepin-daemon
+    DESTINATION bin
     )
 
 install(
