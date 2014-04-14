@@ -25,15 +25,15 @@ confirmdialog = null
 powerchoose = null
 
 frame_click = false
-option = ["logout","shutdown","restart","suspend","lock"]
-option_text = [_("Log out"),_("Shut down"),_("Restart"),_("Suspend"),_("Lock")]
-option_text_force = [_("Force Log out"),_("Force Shut down"),_("Force Restart"),_("Suspend"),_("Lock")]
+option = ["shutdown","restart","lock","suspend","logout"]
+option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
+option_text_force = [_("Force Shut down"),_("Force Restart"),_("Lock"),_("Suspend"),_("Force Log out")]
 message_text = [
-    _("You will be automatically logged out in %1 seconds."),
     _("The system will shut down in %1 seconds."),
     _("The system will restart in %1 seconds."),
+    _("The system will be locked in %1 seconds."),
     _("The system will be suspended in %1 seconds."),
-    _("The system will be locked in %1 seconds.")
+    _("You will be automatically logged out in %1 seconds.")
 ]
 
 timeId = null
