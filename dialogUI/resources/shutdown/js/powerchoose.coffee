@@ -63,7 +63,7 @@ class PowerChoose extends Widget
             
             #this key must get From system
             GetinFromKey = false
-            if tmp is "logout"
+            if tmp is "shutdown"
                 if GetinFromKey
                     @select_state(i)
                 else
