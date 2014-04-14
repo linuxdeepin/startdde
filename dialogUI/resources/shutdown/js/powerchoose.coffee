@@ -67,6 +67,7 @@ class PowerChoose extends Widget
                 if GetinFromKey
                     @select_state(i)
                 else
+                    choose_num = i
                     @hover_state(i)
                 opt[i].focus()
             
