@@ -27,7 +27,9 @@ import (
 	_ "image/png"
 	"os"
 
+	"dbus/com/deepin/daemon/display"
 	"dlib/gio-2.0"
+	"dlib/graphic"
 	"fmt"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
@@ -46,19 +48,23 @@ const (
 	personalizationID     = "com.deepin.dde.personalization"
 	gkeyCurrentBackground = "current-picture"
 	ddeBgPixmapProp       = "_DDE_BACKGROUND_PIXMAP"
-	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLUR"
+	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLURRED"
 	ddeBgWindowTitle      = "DDE Background"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
+	tmpRootBgFile         = "/tmp/dde_bg.png"
+	tmpRootBgBlurFile     = "/tmp/dde_bg_blur.png"
 )
 
 var (
 	XU, _                           = xgbutil.NewConn()
+	Display, _                      = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
 	_gsettings                      = gio.NewSettings(personalizationID)
 	_picFormat24, _picFormat32      render.Pictformat
 	_filterNearest, _filterBilinear xproto.Str
 	_filterConvolution              xproto.Str
 	_bgwin                          *xwindow.Window
 	_bgimg                          *xgraphics.Image
+	_rootBgImg, _rootBgBlurImg      *xgraphics.Image
 	_srcpid, _                      = render.NewPictureId(XU.Conn())
 	_dstpid, _                      = render.NewPictureId(XU.Conn())
 	_crtcInfos                      = make(map[randr.Crtc]*crtcInfo)
@@ -159,6 +165,34 @@ func getScreenResolution() (w, h uint16) {
 	return
 }
 
+func getPrimaryScreenResolution() (w, h uint16) {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error(err)
+		}
+	}()
+	var value []interface{}
+	value = Display.PrimaryRect.Get()
+	if len(value) != 4 {
+		Logger.Error("get primary rect failed", value)
+		return 1024, 788
+	}
+	w, ok := value[2].(uint16)
+	if !ok {
+		Logger.Error("get primary screen resolution failed", Display)
+		return 1024, 788
+	}
+	h, ok = value[3].(uint16)
+	if !ok {
+		Logger.Error("get primary screen resolution failed", Display)
+		return 1024, 788
+	}
+	if w*h <= 0 {
+		return 1024, 788
+	}
+	return
+}
+
 func updateBackground(delay bool) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -166,40 +200,21 @@ func updateBackground(delay bool) {
 		}
 	}()
 
-	// load background file
-	file, err := os.Open(getBackgroundFile())
-	if err != nil {
-		Logger.Error("open background failed:", err)
-		return
-	}
-	defer file.Close()
-	img, _, err := image.Decode(file)
-	if err != nil {
-		Logger.Error("load background failed:", err)
-		return
-	}
-	Logger.Debugf("bgimgWidth=%d, bgimgHeight=%d", img.Bounds().Max.X, img.Bounds().Max.Y)
-
-	// convert into XU image
-	if _bgimg != nil {
-		_bgimg.Destroy()
-	}
-	_bgimg = xgraphics.NewConvert(XU, img)
-	_bgimg.CreatePixmap()
-	_bgimg.XDraw()
+	// load background file and convert into XU image
+	_bgimg = convertToXimage(getBackgroundFile(), _bgimg)
 
 	// rebind picture id to background pixmap
 	Logger.Debugf("_srcpid=%d, _dstpid=%d", _srcpid, _dstpid)
 	_srcpidLock.Lock()
 	render.FreePicture(XU.Conn(), _srcpid)
-	err = render.CreatePictureChecked(XU.Conn(), _srcpid, xproto.Drawable(_bgimg.Pixmap), _picFormat24, 0, nil).Check()
+	err := render.CreatePictureChecked(XU.Conn(), _srcpid, xproto.Drawable(_bgimg.Pixmap), _picFormat24, 0, nil).Check()
 	if err != nil {
 		Logger.Error("create render picture failed:", err)
 		return
 	}
 	// setup image filter
-	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
-	// TODO test only
+	err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
+	// TODO test only, for convolution filter
 	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, 1602*uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
@@ -209,13 +224,64 @@ func updateBackground(delay bool) {
 
 	updateAllScreens(delay)
 
-	go savePixmapToRoot()
+	go mapBackgroundToRoot()
 }
 
-// TODO
-func savePixmapToRoot() {
-	// save pixmap id to root window property
-	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
+// load image file and return image.Image object.
+func loadImage(imgfile string) (img image.Image, err error) {
+	file, err := os.Open(imgfile)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	img, _, err = image.Decode(file)
+	if err != nil {
+		Logger.Error("load image failed:", err)
+	}
+	return
+}
+
+// convert to XU image
+func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
+	img, err := loadImage(imgFile)
+	if err != nil {
+		return ximg
+	}
+	if ximg != nil {
+		ximg.Destroy()
+	}
+	ximg = xgraphics.NewConvert(XU, img)
+	ximg.CreatePixmap()
+	ximg.XDraw()
+	return ximg
+}
+
+// TODO [re-implemented through xrender]
+func mapBackgroundToRoot() {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error(err)
+		}
+	}()
+
+	// generate temporary background file, same size with primary screen
+	w, h := getPrimaryScreenResolution()
+	err := graphic.ClipImage(getBackgroundFile(), tmpRootBgFile, 0, 0, int32(w), int32(h), graphic.PNG)
+	if err != nil {
+		Logger.Error(err)
+	}
+
+	// generate temporary blurred background file
+	err = graphic.BlurImage(tmpRootBgFile, tmpRootBgBlurFile, 10, 10, graphic.PNG)
+	if err != nil {
+		Logger.Error(err)
+	}
+
+	_rootBgImg = convertToXimage(tmpRootBgFile, _rootBgImg)
+	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImg.Pixmap))
+
+	_rootBgBlurImg = convertToXimage(tmpRootBgBlurFile, _rootBgBlurImg)
+	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgBlurImg.Pixmap))
 }
 
 func updateAllScreens(delay bool) {
