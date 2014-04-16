@@ -63,10 +63,11 @@ class PowerChoose extends Widget
             
             #this key must get From system
             GetinFromKey = false
-            if tmp is "logout"
+            if tmp is "shutdown"
                 if GetinFromKey
                     @select_state(i)
                 else
+                    choose_num = i
                     @hover_state(i)
                 opt[i].focus()
             
@@ -74,7 +75,7 @@ class PowerChoose extends Widget
             #hover
             opt[i].addEventListener("mouseover",->
                 i = this.value
-                choose_num = i
+                #choose_num = i
                 that.hover_state(i)
             )
             
@@ -127,7 +128,7 @@ class PowerChoose extends Widget
             @switchToConfirmDialog(i)
 
     hover_state:(i)->
-        choose_num = i
+        #choose_num = i
         if select_state_confirm then @select_state(i)
         for tmp,j in opt_img
             if j == i then tmp.src = img_url_hover[i]

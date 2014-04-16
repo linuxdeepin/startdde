@@ -1,9 +1,7 @@
 package main
 
 import (
-        "dbus/org/freedesktop/consolekit"
-        "dbus/org/freedesktop/upower"
-        //"dbus/org/gnome/sessionmanager"
+        "dbus/org/freedesktop/login1"
         "dlib/dbus"
         "fmt"
         "os"
@@ -15,8 +13,8 @@ type SessionManager struct {
 }
 
 const (
-        _LOCK_EXEC        = "/usr/bin/dlock"
-        _SHUTDOWN_CMD     = "/usr/lib/deepin-daemon/dshutdown"
+        _LOCK_EXEC        = "/usr/bin/dde-lock"
+        _SHUTDOWN_CMD     = "/usr/bin/dde-shutdown"
         _REBOOT_ARG       = "--reboot"
         _LOGOUT_ARG       = "--logout"
         _SHUTDOWN_ARG     = "--shutdown"
@@ -24,8 +22,7 @@ const (
 )
 
 var (
-        dConsole *consolekit.Manager
-        dPower   *upower.Upower
+        objLogin *login1.Manager
 )
 
 func (m *SessionManager) CanLogout() bool {
@@ -45,7 +42,12 @@ func (m *SessionManager) ForceLogout() {
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
-        return true
+        str, _ := objLogin.CanPowerOff()
+        if str == "yes" {
+                return true
+        }
+
+        return false
 }
 
 func (m *SessionManager) Shutdown() {
@@ -53,15 +55,20 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
-        m.ForceShutdown()
+        objLogin.PowerOff(true)
 }
 
 func (m *SessionManager) ForceShutdown() {
-        dConsole.Stop()
+        objLogin.PowerOff(false)
 }
 
 func (shudown *SessionManager) CanReboot() bool {
-        return true
+        str, _ := objLogin.CanReboot()
+        if str == "yes" {
+                return true
+        }
+
+        return false
 }
 
 func (m *SessionManager) Reboot() {
@@ -69,28 +76,35 @@ func (m *SessionManager) Reboot() {
 }
 
 func (m *SessionManager) RequestReboot() {
-        m.ForceReboot()
+        objLogin.Reboot(true)
 }
 
 func (m *SessionManager) ForceReboot() {
-        dConsole.Restart()
+        objLogin.Reboot(false)
 }
 
 func (m *SessionManager) CanSuspend() bool {
-        return true
+        str, _ := objLogin.CanSuspend()
+        if str == "yes" {
+                return true
+        }
+        return false
 }
 
 func (m *SessionManager) RequestSuspend() {
-        dPower.Suspend()
+        objLogin.Suspend(false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
-        ok, _ := dPower.HibernateAllowed()
-        return ok
+        str, _ := objLogin.CanHibernate()
+        if str == "yes" {
+                return true
+        }
+        return false
 }
 
 func (m *SessionManager) RequestHibernate() {
-        dPower.Hibernate()
+        objLogin.Hibernate(false)
 }
 
 func (m *SessionManager) RequestLock() {
@@ -112,16 +126,10 @@ func execCommand(cmd string, arg string) {
 func initSession() {
         var err error
 
-        dConsole, err = consolekit.NewManager("org.freedesktop.ConsoleKit",
-                "/org/freedesktop/ConsoleKit/Manager")
+        objLogin, err = login1.NewManager("org.freedesktop.login1",
+                "/org/freedesktop/login1")
         if err != nil {
-                panic(fmt.Sprintln("consolekit: New Manager Failed:", err))
-        }
-
-        dPower, err = upower.NewUpower("org.freedesktop.UPower",
-                "/org/freedesktop/UPower")
-        if err != nil {
-                panic(fmt.Sprintln("upower: New Upower Failed:", err))
+                panic(fmt.Sprintln("New Login1 Failed: ", err))
         }
 }
 

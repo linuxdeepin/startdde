@@ -35,6 +35,8 @@ type StartManager struct {
 	AutostartChanged  func(string, string)
 }
 
+var START_MANAGER StartManager
+
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
@@ -43,7 +45,7 @@ func (m *StartManager) Launch(name string) bool {
 	list := make([]*gio.File, 0)
 	err := launch(name, list)
 	if err != nil {
-		fmt.Println(err)
+		Logger.Info(err)
 	}
 	return err == nil
 }
@@ -66,7 +68,7 @@ func (m *StartManager) emitAutostartChanged(name, status string, info map[string
 }
 
 func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
-	// fmt.Println(ev)
+	// Logger.Info(ev)
 	if _, ok := info[name]; !ok {
 		info[name] = AutostartInfo{
 			make(chan bool),
@@ -87,7 +89,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			case <-time.After(time.Second):
 				<-info[name].renamed
 				m.emitAutostartChanged(name, AutostartDeleted, info)
-				// fmt.Println(AutostartDeleted)
+				// Logger.Info(AutostartDeleted)
 			}
 		}()
 		info[name].renamed <- true
@@ -105,7 +107,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			case <-time.After(time.Second):
 				<-info[name].created
 				m.emitAutostartChanged(name, AutostartAdded, info)
-				// fmt.Println("create", AutostartAdded)
+				// Logger.Info("create", AutostartAdded)
 			}
 		}()
 		info[name].created <- true
@@ -117,7 +119,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			}
 			select {
 			case <-info[name].renamed:
-				// fmt.Println("modified")
+				// Logger.Info("modified")
 				if m.isAutostart(name) {
 					m.emitAutostartChanged(name, AutostartAdded, info)
 				} else {
@@ -125,7 +127,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				}
 			default:
 				m.emitAutostartChanged(name, AutostartAdded, info)
-				// fmt.Println("modify", AutostartAdded)
+				// Logger.Info("modify", AutostartAdded)
 			}
 		}()
 	} else if ev.IsAttrib() {
@@ -139,7 +141,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 		}()
 	} else if ev.IsDelete() {
 		m.emitAutostartChanged(name, AutostartDeleted, info)
-		// fmt.Println(AutostartDeleted)
+		// Logger.Info(AutostartDeleted)
 	}
 }
 
@@ -175,66 +177,16 @@ func (m *StartManager) listenAutostart() {
 	go m.eventHandler(watcher)
 }
 
-type ActionGroup struct {
-	Action     string
-	ActionName string
-}
-
-func (m *StartManager) ListActions(name string) []ActionGroup {
-	actions := make([]ActionGroup, 0)
-	var o *gio.DesktopAppInfo
-	if path.IsAbs(name) {
-		o = gio.NewDesktopAppInfoFromFilename(name)
-	} else {
-		o = gio.NewDesktopAppInfo(name)
-	}
-	if o == nil {
-		return actions
-	}
-	defer o.Unref()
-
-	for _, action := range o.ListActions() {
-		actionName := o.GetActionName(action)
-		// fmt.Printf("%s, \"%s\"\n", action, actionName)
-		actions = append(actions, ActionGroup{action, actionName})
-	}
-	return actions
-}
-
-func (m *StartManager) LaunchAction(name, action string) bool {
-	var o *gio.DesktopAppInfo
-	if path.IsAbs(name) {
-		o = gio.NewDesktopAppInfoFromFilename(name)
-	} else {
-		o = gio.NewDesktopAppInfo(name)
-	}
-	if o == nil {
-		fmt.Println("Create DesktopAppInfo failed")
-		return false
-	}
-	defer o.Unref()
-
-	for _, actionGroup := range m.ListActions(name) {
-		if action == actionGroup.Action {
-			o.LaunchAction(action, nil)
-			return true
-		}
-	}
-
-	fmt.Printf("Has no such a key '%s'\n", action)
-	return false
-}
-
 // filepath.Walk will walk through the whole directory tree
 func scanDir(d string, fn func(path string, info os.FileInfo) error) {
 	f, err := os.Open(d)
 	if err != nil {
-		// fmt.Println("scanDir", err)
+		// Logger.Info("scanDir", err)
 		return
 	}
 	infos, err := f.Readdir(0)
 	if err != nil {
-		fmt.Println("scanDir", err)
+		Logger.Info("scanDir", err)
 		return
 	}
 
@@ -307,18 +259,18 @@ func findExec(_path, cmd string, exist chan<- bool) {
 func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
 	// name := file.GetFilename()
 	if !file.HasKey(TryExecKey) {
-		// fmt.Println(name, "No TryExec Key")
+		// Logger.Info(name, "No TryExec Key")
 		return true
 	}
 
 	cmd := file.GetString(TryExecKey)
 	if cmd == "" {
-		// fmt.Println(name, "TryExecKey is empty")
+		// Logger.Info(name, "TryExecKey is empty")
 		return true
 	}
 
 	if path.IsAbs(cmd) {
-		// fmt.Println(cmd, "is exist?", Exist(cmd))
+		// Logger.Info(cmd, "is exist?", Exist(cmd))
 		if !Exist(cmd) {
 			return false
 		}
@@ -447,7 +399,7 @@ func (m *StartManager) getUserAutostartDir() string {
 	if !Exist(m.userAutostartPath) {
 		err := os.MkdirAll(m.userAutostartPath, 0775)
 		if err != nil {
-			fmt.Println(fmt.Errorf("create user autostart dir failed: %s", err))
+			Logger.Info(fmt.Errorf("create user autostart dir failed: %s", err))
 		}
 	}
 
@@ -485,7 +437,7 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 	file := glib.NewKeyFile()
 	defer file.Free()
 	if ok, err := file.LoadFromFile(name, glib.KeyFileFlagsNone); !ok {
-		fmt.Println(err)
+		Logger.Info(err)
 		return err
 	}
 
@@ -494,7 +446,7 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 		HiddenKey,
 		!autostart,
 	)
-	fmt.Println("set autostart to", autostart)
+	Logger.Info("set autostart to", autostart)
 
 	return saveKeyFile(file, name)
 }
@@ -508,17 +460,17 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 		name = file.GetFilename()
 		file.Unref()
 	}
-	// fmt.Println(name, "autostart:", m.isAutostart(name))
+	// Logger.Info(name, "autostart:", m.isAutostart(name))
 	if autostart == m.isAutostart(name) {
-		fmt.Println("is already done")
+		Logger.Info("is already done")
 		return nil
 	}
 
 	dst := name
 	if !m.isUserAutostart(name) {
-		// fmt.Println("not user's")
+		// Logger.Info("not user's")
 		dst = m.getUserAutostart(name)
-		fmt.Println(dst)
+		Logger.Info(dst)
 		if !Exist(dst) {
 			err := copyFile(name, dst, CopyFileNotKeepSymlink)
 			if err != nil {
@@ -533,7 +485,7 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 func (m *StartManager) AddAutostart(name string) bool {
 	err := m.setAutostart(name, true)
 	if err != nil {
-		fmt.Println("AddAutostart", err)
+		Logger.Info("AddAutostart", err)
 		return false
 	}
 	return true
@@ -542,7 +494,7 @@ func (m *StartManager) AddAutostart(name string) bool {
 func (m *StartManager) RemoveAutostart(name string) bool {
 	err := m.setAutostart(name, false)
 	if err != nil {
-		fmt.Println(err)
+		Logger.Info(err)
 		return false
 	}
 	return true
@@ -552,7 +504,7 @@ func (m *StartManager) IsAutostart(name string) bool {
 	if !path.IsAbs(name) {
 		file := gio.NewDesktopAppInfo(name)
 		if file == nil {
-			fmt.Println(name, "is not a vaild desktop file.")
+			Logger.Info(name, "is not a vaild desktop file.")
 			return false
 		}
 		name = file.GetFilename()
@@ -563,17 +515,20 @@ func (m *StartManager) IsAutostart(name string) bool {
 
 func startStartManager() {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
-	m := StartManager{}
-	if err := dbus.InstallOnSession(&m); err != nil {
-		fmt.Println("Install StartManager Failed:", err)
+	START_MANAGER = StartManager{}
+	if err := dbus.InstallOnSession(&START_MANAGER); err != nil {
+		Logger.Info("Install StartManager Failed:", err)
 	}
-	m.listenAutostart()
-	for _, name := range m.AutostartList() {
-		// fmt.Println(name)
+}
+
+func startAutostartProgram() {
+	START_MANAGER.listenAutostart()
+	for _, name := range START_MANAGER.AutostartList() {
+		// Logger.Info(name)
 		if debug {
 			continue
 		}
-		go m.Launch(name)
+		go START_MANAGER.Launch(name)
 		<-time.After(20 * time.Millisecond)
 	}
 }

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-01-14 11:09+0800\n"
+"POT-Creation-Date: 2014-04-11 13:52+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,324 +17,60 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../resources/shutdown/js/utils.coffee:26
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Lock"
-msgstr ""
-
-#: ../resources/shutdown/js/utils.coffee:26
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Suspend"
-msgstr ""
-
-#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:29
 msgid "Log out"
 msgstr ""
 
-#: ../resources/shutdown/js/utils.coffee:26
-msgid "Restart"
-msgstr ""
-
-#: ../resources/shutdown/js/utils.coffee:26
+#: ../resources/shutdown/js/utils.coffee:29
 msgid "Shut down"
 msgstr ""
 
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Force Log out"
-msgstr ""
-
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Force Restart"
-msgstr ""
-
-#: ../resources/shutdown/js/utils.coffee:27
-msgid "Force Shut down"
+#: ../resources/shutdown/js/utils.coffee:29
+msgid "Restart"
 msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:29
-msgid "The system will be locked in %1 seconds."
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Suspend"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Lock"
 msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:30
-msgid "The system will be suspended in %1 seconds."
+msgid "Force Log out"
 msgstr ""
 
-#: ../resources/shutdown/js/utils.coffee:31
-msgid "You will be automatically logged out in %1 seconds."
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Force Shut down"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:30
+msgid "Force Restart"
 msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:32
-msgid "The system will restart in %1 seconds."
+msgid "You will be automatically logged out in %1 seconds."
 msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:33
 msgid "The system will shut down in %1 seconds."
 msgstr ""
 
-#: ../resources/shutdown/js/confirmdialog.coffee:60
+#: ../resources/shutdown/js/utils.coffee:34
+msgid "The system will restart in %1 seconds."
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:35
+msgid "The system will be suspended in %1 seconds."
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:36
+msgid "The system will be locked in %1 seconds."
+msgstr ""
+
+#: ../resources/shutdown/js/confirmdialog.coffee:74
 msgid "Cancel"
-msgstr ""
-
-#: ../lib/dentry/entry.c:745
-#, c-format
-msgid ""
-"This *.desktop file cannot be changed to the name \"%s\".You may not have "
-"such permission"
-msgstr ""
-
-#: ../lib/dentry/entry.c:751
-#, c-format
-msgid ""
-"The name \"%s\" is already used in this folder. Please use a different name."
-msgstr ""
-
-#: ../lib/dentry/entry.c:757
-msgid "The Item could not be renamed"
-msgstr ""
-
-#: ../lib/dentry/entry.c:827 ../lib/dentry/fileops.c:809
-msgid "copy"
-msgstr ""
-
-#: ../lib/dentry/entry.c:1410
-msgid "App Group"
-msgstr ""
-
-#: ../lib/dentry/fileops.c:403
-msgid "Untitled"
-msgstr ""
-
-#: ../lib/dentry/fileops.c:568
-msgid "move"
-msgstr ""
-
-#: ../lib/dentry/fileops.c:776
-msgid "Copy"
-msgstr ""
-
-#: ../lib/dentry/fileops_delete.c:29
-msgid "Delete File"
-msgstr ""
-
-#: ../lib/dentry/fileops_delete.c:32
-msgid "Are you sure you want to permanently delete the files?"
-msgstr ""
-
-#: ../lib/dentry/fileops_delete.c:33
-msgid "If you delete an item, it will be permanently lost"
-msgstr ""
-
-#: ../lib/dentry/fileops_delete.c:36
-msgid "Delete"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:63
-msgid "File conflict"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:107
-msgid "_Select a new name for the destination"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:118
-msgid "Reset"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:127
-msgid "Apply this action to all files"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:134
-msgid "_Skip"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:137
-msgid "Re_name"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:142
-msgid "Replace"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:220
-#, c-format
-msgid "Merge folder \"%s\"?"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:222
-msgid ""
-"Merging will ask for confirmation before replacing any files in the folder "
-"that conflict with the files being copied."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:226
-#, c-format
-msgid "An older folder with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:230
-#, c-format
-msgid "A newer folder with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:234
-#, c-format
-msgid "Another folder with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:240
-msgid "Replacing it will remove all files in the folder."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:242
-#, c-format
-msgid "Replace folder \"%s\"?"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:244
-#, c-format
-msgid "A folder with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:250
-#, c-format
-msgid "Replace file \"%s\"?"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:251
-msgid "Replacing it will overwrite its content."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:253
-#, c-format
-msgid "An older file with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:257
-#, c-format
-msgid "A newer file with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:261
-#, c-format
-msgid "Another file with the same name already exists in \"%s\"."
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:333
-msgid "Original file"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:334
-#: ../lib/dentry/fileops_error_dialog.c:362
-msgid "Size:"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:338
-#: ../lib/dentry/fileops_error_dialog.c:366
-msgid "Type:"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:342
-#: ../lib/dentry/fileops_error_dialog.c:370
-msgid "Last modified:"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:361
-msgid "Replace with"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_dialog.c:387
-msgid "Merge"
-msgstr ""
-
-#: ../lib/dentry/fileops_error_reporting.c:106
-#: ../lib/dentry/fileops_error_reporting.c:193
-#, c-format
-msgid "Error while %s files"
-msgstr ""
-
-#: ../lib/dentry/fileops_trash.c:58
-msgid "Empty Trash"
-msgstr ""
-
-#: ../lib/dentry/fileops_trash.c:67
-msgid "Empty all items from Trash?"
-msgstr ""
-
-#: ../lib/dentry/fileops_trash.c:68
-msgid "All items in the Trash will be permanently deleted."
-msgstr ""
-
-#: ../lib/dentry/fileops_trash.c:71
-msgid "Empty _Trash"
-msgstr ""
-
-#: ../lib/dentry/mime_actions.c:198
-#, c-format
-msgid "Do you want to run \"%s\", or display its contents?"
-msgstr ""
-
-#: ../lib/dentry/mime_actions.c:199
-#, c-format
-msgid "\"%s\" is an executable text file."
-msgstr ""
-
-#: ../lib/dentry/mime_actions.c:210
-msgid "Run in _Terminal"
-msgstr ""
-
-#: ../lib/dentry/mime_actions.c:211
-msgid "_Display"
-msgstr ""
-
-#: ../lib/dentry/mime_actions.c:213
-msgid "_Run"
-msgstr ""
-
-#: ../lib/category.c:45
-msgid "all"
-msgstr ""
-
-#: ../lib/category.c:46
-msgid "internet"
-msgstr ""
-
-#: ../lib/category.c:47
-msgid "multimedia"
-msgstr ""
-
-#: ../lib/category.c:48
-msgid "games"
-msgstr ""
-
-#: ../lib/category.c:49
-msgid "graphics"
-msgstr ""
-
-#: ../lib/category.c:50
-msgid "productivity"
-msgstr ""
-
-#: ../lib/category.c:51
-msgid "industry"
-msgstr ""
-
-#: ../lib/category.c:52
-msgid "education"
-msgstr ""
-
-#: ../lib/category.c:53
-msgid "development"
-msgstr ""
-
-#: ../lib/category.c:54
-msgid "system"
-msgstr ""
-
-#: ../lib/category.c:55
-msgid "utilities"
-msgstr ""
-
-#: ../lib/category.c:56
-msgid "other"
 msgstr ""

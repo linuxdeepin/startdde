@@ -19,20 +19,21 @@
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 APP_NAME = "Shutdown"
+DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
 
 confirmdialog = null
 powerchoose = null
 
 frame_click = false
-option = ["logout","shutdown","restart","suspend","lock"]
-option_text = [_("Logout"),_("Shutdown"),_("Restart"),_("Suspend"),_("Lock")]
-option_text_force = [_("Force Log out"),_("Force Shut down"),_("Force Restart"),_("Suspend"),_("Lock")]
+option = ["shutdown","restart","lock","suspend","logout"]
+option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
+option_text_force = [_("Force Shut down"),_("Force Restart"),_("Lock"),_("Suspend"),_("Force Log out")]
 message_text = [
-    _("You will be automatically logged out in %1 seconds."),
     _("The system will shut down in %1 seconds."),
     _("The system will restart in %1 seconds."),
+    _("The system will be locked in %1 seconds."),
     _("The system will be suspended in %1 seconds."),
-    _("The system will be locked in %1 seconds.")
+    _("You will be automatically logged out in %1 seconds.")
 ]
 
 timeId = null
@@ -52,8 +53,10 @@ confirm_ok = (power)->
 
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
-background = new Background(APP_NAME)
-bg_url = background.get_current_user_blur_background()
+#background = new Background(APP_NAME)
+#bg_url = background.get_current_user_background()
+bg_url = DEFAULT_BG
+document.body.style.backgroundImage = "url(#{bg_url})"
 
 DEBUG_ANIMATION = false
 if DEBUG_ANIMATION

@@ -5,6 +5,7 @@ import (
 	"dlib/logger"
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -17,6 +18,9 @@ func testStartManager() {
 	// 	m.Launch(name, args)
 	// }
 	dlib.StartLoop()
+}
+func init() {
+	os.Setenv("DE", "DDE")
 }
 
 func test() {
@@ -48,37 +52,44 @@ func main() {
 
 	// Session Manager
 	startSession()
+	startStartManager()
 
 	// Background
 	initBackground()
-	updateBackground(true)
-	go dlib.StartLoop()
 
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
+		updateBackground(false)
+
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
 		go exec.Command("/usr/lib/deepin-daemon/display").Run()
+		go exec.Command("/usr/lib/deepin-daemon/power").Run()
 		<-time.After(time.Millisecond * 20)
 
-		go exec.Command("/usr/bin/dock").Run()
+		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
+		<-time.After(time.Millisecond * 30)
+		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
+		<-time.After(time.Millisecond * 30)
+
+		go exec.Command("/usr/bin/dde-dock").Run()
 		<-time.After(time.Millisecond * 200)
-		go exec.Command("/usr/bin/dapptray").Run()
-		<-time.After(time.Millisecond * 20)
 
-		go exec.Command("/usr/bin/desktop").Run()
+		go exec.Command("/usr/bin/dde-desktop").Run()
 		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
 		<-time.After(time.Millisecond * 3000)
 
+		go exec.Command("/usr/lib/deepin-daemon/zone-settings").Run()
+		go exec.Command("/usr/lib/deepin-daemon/deepin-daemon").Run()
+		<-time.After(time.Millisecond * 3000)
+
 	}
 
-	startStartManager()
+	startAutostartProgram()
 
-	for {
-		<-time.After(time.Millisecond * 1000)
-	}
+	dlib.StartLoop()
 }

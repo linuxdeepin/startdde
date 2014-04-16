@@ -18,10 +18,12 @@
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
+SessionManager = "com.deepin.SessionManager"
+
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
     try
-        dbus_power = DCore.DBus.session_object("com.deepin.SessionManager","/com/deepin/SessionManager","com.deepin.SessionManager")
+        dbus_power = DCore.DBus.session(SessionManager)
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
@@ -38,7 +40,7 @@ power_request = (power) ->
 
 power_can = (power) ->
     try
-        dbus_power = DCore.DBus.session_object("com.deepin.SessionManager","/com/deepin/SessionManager","com.deepin.SessionManager")
+        dbus_power = DCore.DBus.session(SessionManager)
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
@@ -57,7 +59,7 @@ power_can = (power) ->
 
 power_force = (power) ->
     try
-        dbus_power = DCore.DBus.session_object("com.deepin.SessionManager","/com/deepin/SessionManager","com.deepin.SessionManager")
+        dbus_power = DCore.DBus.session(SessionManager)
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"

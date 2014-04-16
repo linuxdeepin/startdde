@@ -41,6 +41,7 @@
 #include "utils.h"
 /*#include "DBUS_shutdown.h"*/
 
+/*#define DEBUG*/
 
 #define SHUTDOWN_ID_NAME "desktop.app.shutdown"
 
@@ -96,7 +97,7 @@ prevent_exit (GtkWidget* w, GdkEvent* e)
     return TRUE;
 }
 
-
+#ifndef DEBUG
 static void
 focus_out_cb (GtkWidget* w, GdkEvent*e, gpointer user_data)
 {
@@ -199,7 +200,7 @@ xevent_filter (GdkXEvent *xevent, GdkEvent  *event, GdkWindow *window)
 
     return GDK_FILTER_CONTINUE;
 }
-
+#endif
 
 PRIVATE
 void check_version()
@@ -271,7 +272,7 @@ int main (int argc, char **argv)
     }
 
     if (!option.is_front) {
-#ifdef NDEBUG
+#ifndef DEBUG
         close_std_stream();
 #endif
         reparent_to_init();
@@ -286,7 +287,7 @@ int main (int argc, char **argv)
     gtk_window_set_decorated (GTK_WINDOW (container), FALSE);
     gtk_window_set_skip_taskbar_hint (GTK_WINDOW (container), TRUE);
     gtk_window_set_skip_pager_hint (GTK_WINDOW (container), TRUE);
-#ifdef NDEBUG
+#ifndef DEBUG
     gtk_window_set_keep_above (GTK_WINDOW (container), TRUE);
 #endif
 
@@ -307,7 +308,7 @@ int main (int argc, char **argv)
 
     g_option_context_free(ctx);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
-#ifdef NDEBUG
+#ifndef DEBUG
     g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
     g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
@@ -320,7 +321,7 @@ int main (int argc, char **argv)
     gdk_window_set_skip_taskbar_hint (gdkwindow, TRUE);
     gdk_window_set_cursor (gdkwindow, gdk_cursor_new(GDK_LEFT_PTR));
 
-#ifdef NDEBUG
+#ifndef DEBUG
     gdk_window_set_override_redirect (gdkwindow, TRUE);
     select_popup_events ();
     gdk_window_add_filter (NULL, (GdkFilterFunc)xevent_filter, gdkwindow);

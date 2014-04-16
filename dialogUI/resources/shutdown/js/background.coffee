@@ -27,7 +27,7 @@ class Background
     
     GRAPHIC = "com.deepin.api.Graphic"
     APP = null
-
+    DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
     constructor:(@id)->
         APP = @id#APP_NAME for DCore[APP]
 
@@ -71,6 +71,7 @@ class Background
         bg = null
         try
             bg = @users_id_dbus[uid].BackgroundFile
+            echo bg
         catch e
             echo "get_user_bg #{e}"
         return bg
@@ -108,7 +109,7 @@ class Background
     get_current_user_background:->
         @_current_username = @get_default_username()
         @_current_userid = @get_user_id(@_current_username)
-        return @get_user_bg(uid)
+        return @get_user_bg(@_current_userid)
     
     get_current_user_blur_background:->
         @_current_username = @get_default_username()
