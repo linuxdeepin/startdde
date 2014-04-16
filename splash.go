@@ -45,9 +45,9 @@ import (
 const (
 	personalizationID      = "com.deepin.dde.personalization"
 	gkeyCurrentBackground  = "current-picture"
-	deepinBgWindowProp     = "DEEPIN_BACKGROUND_WINDOW"
-	deepinBgPixmapProp     = "DEEPIN_BACKGROUND_PIXMAP"
-	deepinBgPixmapBlurProp = "DEEPIN_BACKGROUND_PIXMAP_BLUR"
+	deepinBgWindowProp     = "_DDE_BACKGROUND_WINDOW"
+	deepinBgPixmapProp     = "_DDE_BACKGROUND_PIXMAP"
+	deepinBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLUR"
 	deepinBgWindowTitle    = "Deepin Background"
 	defaultBackgroundFile  = "/usr/share/backgrounds/default_background.jpg"
 )
@@ -57,6 +57,7 @@ var (
 	_gsettings                      = gio.NewSettings(personalizationID)
 	_picFormat24, _picFormat32      render.Pictformat
 	_filterNearest, _filterBilinear xproto.Str
+	_filterConvolution              xproto.Str
 	_bgwin                          *xwindow.Window
 	_bgimg                          *xgraphics.Image
 	_srcpid, _                      = render.NewPictureId(XU.Conn())
@@ -107,14 +108,18 @@ func queryRender(d xproto.Drawable) {
 	// get image filters
 	filters, _ := render.QueryFilters(XU.Conn(), d).Reply()
 	for _, f := range filters.Filters {
-		if f.Name == "nearest" {
+		switch f.Name {
+		case "nearest":
 			_filterNearest = f
-		} else if f.Name == "bilinear" {
+		case "bilinear":
 			_filterBilinear = f
+		case "convolution":
+			_filterConvolution = f
 		}
 	}
-	Logger.Debug("nearest filter: ", _filterNearest)
-	Logger.Debug("bilinear filter: ", _filterBilinear)
+	Logger.Debug("nearest filter:", _filterNearest)
+	Logger.Debug("bilinear filter:", _filterBilinear)
+	Logger.Debug("convolution filter:", _filterConvolution)
 }
 
 func createBgWindow(title string) *xwindow.Window {
@@ -197,9 +202,11 @@ func updateBackground(delay bool) {
 		Logger.Error("create render picture failed:", err)
 		return
 	}
-
 	// setup image filter
 	err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
+	// TODO test only
+	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(1602), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
 		Logger.Error("set picture filter failed:", err)
 	}
