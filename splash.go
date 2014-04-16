@@ -43,13 +43,12 @@ import (
 )
 
 const (
-	personalizationID      = "com.deepin.dde.personalization"
-	gkeyCurrentBackground  = "current-picture"
-	deepinBgWindowProp     = "_DDE_BACKGROUND_WINDOW"
-	deepinBgPixmapProp     = "_DDE_BACKGROUND_PIXMAP"
-	deepinBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLUR"
-	deepinBgWindowTitle    = "Deepin Background"
-	defaultBackgroundFile  = "/usr/share/backgrounds/default_background.jpg"
+	personalizationID     = "com.deepin.dde.personalization"
+	gkeyCurrentBackground = "current-picture"
+	ddeBgPixmapProp       = "_DDE_BACKGROUND_PIXMAP"
+	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLUR"
+	ddeBgWindowTitle      = "DDE Background"
+	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
 )
 
 var (
@@ -80,7 +79,7 @@ func initBackground() {
 	render.Init(XU.Conn())
 	render.QueryVersion(XU.Conn(), 0, 11)
 
-	_bgwin = createBgWindow(deepinBgWindowTitle)
+	_bgwin = createBgWindow(ddeBgWindowTitle)
 	queryRender(xproto.Drawable(_bgwin.Id))
 
 	// bind picture id to background window
@@ -141,10 +140,6 @@ func createBgWindow(title string) *xwindow.Window {
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
 	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 
-	// save background window id to root window property
-	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgWindowProp, "WINDOW", uint(win.Id))
-	Logger.Debug("background window id: ", win.Id)
-
 	win.Map()
 	return win
 }
@@ -203,10 +198,10 @@ func updateBackground(delay bool) {
 		return
 	}
 	// setup image filter
-	err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
 	// TODO test only
 	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
-	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(1602), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, 1602*uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
 		Logger.Error("set picture filter failed:", err)
 	}
@@ -220,7 +215,7 @@ func updateBackground(delay bool) {
 // TODO
 func savePixmapToRoot() {
 	// save pixmap id to root window property
-	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
+	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
 }
 
 func updateAllScreens(delay bool) {
