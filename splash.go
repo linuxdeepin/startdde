@@ -64,7 +64,6 @@ var (
 	_crtcInfos                      = make(map[randr.Crtc]*crtcInfo)
 	_srcpidLock                     = sync.Mutex{}
 	_crtcInfosLock                  = sync.Mutex{}
-	_drawBgFirstTime                = false // TODO
 )
 
 type crtcInfo struct {
@@ -219,11 +218,6 @@ func updateAllScreens(delay bool) {
 		return
 	}
 
-	drawDirectly := false
-	if _drawBgFirstTime {
-		_drawBgFirstTime = false
-		drawDirectly = true
-	}
 	for _, output := range resources.Outputs {
 		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
 		if err != nil {
@@ -239,7 +233,7 @@ func updateAllScreens(delay bool) {
 			continue
 		}
 		updateCrtcInfos(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height)
-		updateScreen(reply.Crtc, delay, drawDirectly)
+		updateScreen(reply.Crtc, delay, false)
 	}
 }
 
