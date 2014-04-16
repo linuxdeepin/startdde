@@ -169,13 +169,13 @@ func updateBackground(delay bool) {
 	// load background file
 	file, err := os.Open(getBackgroundFile())
 	if err != nil {
-		Logger.Error("open background failed: ", err)
+		Logger.Error("open background failed:", err)
 		return
 	}
 	defer file.Close()
 	img, _, err := image.Decode(file)
 	if err != nil {
-		Logger.Error("load background failed: ", err)
+		Logger.Error("load background failed:", err)
 		return
 	}
 	Logger.Debugf("bgimgWidth=%d, bgimgHeight=%d", img.Bounds().Max.X, img.Bounds().Max.Y)
@@ -194,14 +194,14 @@ func updateBackground(delay bool) {
 	render.FreePicture(XU.Conn(), _srcpid)
 	err = render.CreatePictureChecked(XU.Conn(), _srcpid, xproto.Drawable(_bgimg.Pixmap), _picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("create render picture failed: ", err)
+		Logger.Error("create render picture failed:", err)
 		return
 	}
 
 	// setup image filter
 	err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
 	if err != nil {
-		Logger.Error("set picture filter failed: ", err)
+		Logger.Error("set picture filter failed:", err)
 	}
 	_srcpidLock.Unlock()
 
@@ -219,14 +219,14 @@ func savePixmapToRoot() {
 func updateAllScreens(delay bool) {
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
-		Logger.Error("get scrren resources failed: ", err)
+		Logger.Error("get scrren resources failed:", err)
 		return
 	}
 
 	for _, output := range resources.Outputs {
 		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
 		if err != nil {
-			Logger.Warningf("get output info failed: ", err)
+			Logger.Warning("get output info failed:", err)
 			continue
 		}
 		if reply.Connection != randr.ConnectionConnected {
@@ -262,13 +262,13 @@ func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRed
 		// redraw background only when crtc information changed
 		if i.x != x || i.y != y || i.width != width || i.height != height {
 			// update crtc info and redraw background
-			Logger.Debug("update crtc info, old: ", _crtcInfos[crtc])
+			Logger.Debug("update crtc info, old:", _crtcInfos[crtc])
 			i.x = x
 			i.y = y
 			i.width = width
 			i.height = height
 			needRedraw = true
-			Logger.Debug("update crtc info, new: ", _crtcInfos[crtc])
+			Logger.Debug("update crtc info, new:", _crtcInfos[crtc])
 		}
 	} else {
 		// current crtc info is out of save
@@ -279,7 +279,7 @@ func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRed
 			height: height,
 		}
 		needRedraw = true
-		Logger.Debug("add crtc info: ", _crtcInfos[crtc])
+		Logger.Debug("add crtc info:", _crtcInfos[crtc])
 	}
 	return
 }
@@ -287,7 +287,7 @@ func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRed
 func removeCrtcInfos(crtc randr.Crtc) {
 	_crtcInfosLock.Lock()
 	defer _crtcInfosLock.Unlock()
-	Logger.Debug("remove crtc info: ", _crtcInfos[crtc])
+	Logger.Debug("remove crtc info:", _crtcInfos[crtc])
 	delete(_crtcInfos, crtc)
 }
 
@@ -316,7 +316,7 @@ func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
 func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("drawBackgroundDirectly failed: ", err)
+			Logger.Error("drawBackgroundDirectly failed:", err)
 		}
 	}()
 
@@ -361,7 +361,7 @@ func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("drawBackgroundByRender() failed: ", err)
+			Logger.Error("drawBackgroundByRender() failed:", err)
 		}
 	}()
 
