@@ -256,6 +256,21 @@ func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
 	return ximg
 }
 
+func getBgImgWidth() uint16 {
+	if _bgimg == nil {
+		Logger.Error("_bgimg is nil")
+		return 1024
+	}
+	return uint16(_bgimg.Bounds().Max.X)
+}
+func getBgImgHeight() uint16 {
+	if _bgimg == nil {
+		Logger.Error("_bgimg is nil")
+		return 768
+	}
+	return uint16(_bgimg.Bounds().Max.Y)
+}
+
 // TODO [re-implemented through xrender]
 func mapBackgroundToRoot() {
 	defer func() {
@@ -266,15 +281,15 @@ func mapBackgroundToRoot() {
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	err := graphic.ClipImage(getBackgroundFile(), tmpRootBgFile, 0, 0, int32(w), int32(h), graphic.PNG)
+	err := graphic.FillImage(getBackgroundFile(), tmpRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
-		Logger.Error(err)
+		panic(err)
 	}
 
 	// generate temporary blurred background file
 	err = graphic.BlurImage(tmpRootBgFile, tmpRootBgBlurFile, 10, 10, graphic.PNG)
 	if err != nil {
-		Logger.Error(err)
+		panic(err)
 	}
 
 	_rootBgImg = convertToXimage(tmpRootBgFile, _rootBgImg)
@@ -379,7 +394,7 @@ func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
 	}
 }
 
-// TODO draw background directly instead of through xrender, for that maybe
+// TODO [remove] draw background directly instead of through xrender, for that maybe
 // issue with desktop manager after login
 func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 	defer func() {
@@ -427,12 +442,6 @@ func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 }
 
 func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("drawBackgroundByRender() failed:", err)
-		}
-	}()
-
 	_srcpidLock.Lock()
 	_crtcInfosLock.Lock()
 	defer _srcpidLock.Unlock()
@@ -446,16 +455,28 @@ func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 		width = i.width
 		height = i.height
 	} else {
-		panic(fmt.Errorf("target crtc info is out of save: id=%d", crtc))
+		Logger.Errorf("target crtc info is out of save: id=%d", crtc)
+		return
 	}
+
+	doDrawBackgroundByRender(_srcpid, _dstpid, x, y, width, height)
+}
+
+func doDrawBackgroundByRender(srcpid, dstpid render.Picture, x, y int16, width, height uint16) {
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("doDrawBackgroundByRender() failed:", err)
+		}
+	}()
 
 	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
-	rect, err := getClipRect(width, height, uint16(_bgimg.Bounds().Max.X), uint16(_bgimg.Bounds().Max.Y))
+	rect, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
 	if err != nil {
 		panic(err)
 	}
+	Logger.Debug("drawBackgroundByRender, clip rect", rect)
 
 	// scale source image and clip rectangle
 	sx := float32(width) / float32(rect.Width)
@@ -466,13 +487,13 @@ func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 	rect.Height = uint16(float32(rect.Height) * sx)
 	t := getScaleTransform(sx, sy)
 	Logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
-	err = render.SetPictureTransformChecked(XU.Conn(), _srcpid, t).Check()
+	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		panic(err)
 	}
 
 	// draw to background window
-	err = render.CompositeChecked(XU.Conn(), render.PictOpSrc, _srcpid, 0, _dstpid,
+	err = render.CompositeChecked(XU.Conn(), render.PictOpSrc, srcpid, 0, dstpid,
 		rect.X, rect.Y, 0, 0, x, y, width, height).Check()
 	if err != nil {
 		panic(err)
@@ -480,7 +501,7 @@ func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 
 	// restore source image
 	t = getScaleTransform(1/sx, 1/sy)
-	err = render.SetPictureTransformChecked(XU.Conn(), _srcpid, t).Check()
+	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		panic(err)
 	}
