@@ -507,26 +507,11 @@ func fixedToFloat32(f render.Fixed) float32 {
 // get rectangle in image which with the same scale to reference
 // width/heigh, and the rectangle will placed in center.
 func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.Rectangle, err error) {
-	if refWidth*refHeight == 0 || imgWidth*imgHeight == 0 {
-		err = fmt.Errorf("argument is invalid: ", refWidth, refHeight, imgWidth, imgHeight)
-		return
-	}
-	scale := float32(refWidth) / float32(refHeight)
-	w := imgWidth
-	h := uint16(float32(w) / scale)
-	if h < imgHeight {
-		offsetY := (imgHeight - h) / 2
-		rect.X = int16(0)
-		rect.Y = int16(0 + offsetY)
-	} else {
-		h = imgHeight
-		w = uint16(float32(h) * scale)
-		offsetX := (imgWidth - w) / 2
-		rect.X = int16(0 + offsetX)
-		rect.Y = int16(0)
-	}
-	rect.Width = w
-	rect.Height = h
+	x, y, w, h, err := graphic.GetProportionCenterScaleRect(int(refWidth), int(refHeight), int(imgWidth), int(imgHeight))
+	rect.X = int16(x)
+	rect.Y = int16(y)
+	rect.Width = uint16(w)
+	rect.Height = uint16(h)
 	return
 }
 
