@@ -43,12 +43,13 @@ import (
 )
 
 const (
-	personalizationID     = "com.deepin.dde.personalization"
-	gkeyCurrentBackground = "current-picture"
-	deepinBgWindowProp    = "DEEPIN_BACKGROUND_WINDOW"
-	deepinBgPixmapProp    = "DEEPIN_BACKGROUND_PIXMAP"
-	deepinBgWindowTitle   = "Deepin Background"
-	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
+	personalizationID      = "com.deepin.dde.personalization"
+	gkeyCurrentBackground  = "current-picture"
+	deepinBgWindowProp     = "DEEPIN_BACKGROUND_WINDOW"
+	deepinBgPixmapProp     = "DEEPIN_BACKGROUND_PIXMAP"
+	deepinBgPixmapBlurProp = "DEEPIN_BACKGROUND_PIXMAP_BLUR"
+	deepinBgWindowTitle    = "Deepin Background"
+	defaultBackgroundFile  = "/usr/share/backgrounds/default_background.jpg"
 )
 
 var (
@@ -58,7 +59,6 @@ var (
 	_filterNearest, _filterBilinear xproto.Str
 	_bgwin                          *xwindow.Window
 	_bgimg                          *xgraphics.Image
-	_bgimgWidth, _bgimgHeight       int
 	_srcpid, _                      = render.NewPictureId(XU.Conn())
 	_dstpid, _                      = render.NewPictureId(XU.Conn())
 	_crtcInfos                      = make(map[randr.Crtc]*crtcInfo)
@@ -178,18 +178,15 @@ func updateBackground(delay bool) {
 		Logger.Error("load background failed: ", err)
 		return
 	}
-	_bgimgWidth = img.Bounds().Max.X
-	_bgimgHeight = img.Bounds().Max.Y
-	Logger.Debugf("_bgimgWidth=%d, _bgimgHeight=%d", _bgimgWidth, _bgimgHeight)
+	Logger.Debugf("bgimgWidth=%d, bgimgHeight=%d", img.Bounds().Max.X, img.Bounds().Max.Y)
 
-	// convert into an XU image and save pixmap id to root window property
+	// convert into XU image
 	if _bgimg != nil {
 		_bgimg.Destroy()
 	}
 	_bgimg = xgraphics.NewConvert(XU, img)
 	_bgimg.CreatePixmap()
 	_bgimg.XDraw()
-	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
 
 	// rebind picture id to background pixmap
 	Logger.Debugf("_srcpid=%d, _dstpid=%d", _srcpid, _dstpid)
@@ -209,6 +206,14 @@ func updateBackground(delay bool) {
 	_srcpidLock.Unlock()
 
 	updateAllScreens(delay)
+
+	go savePixmapToRoot()
+}
+
+// TODO
+func savePixmapToRoot() {
+	// save pixmap id to root window property
+	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
 }
 
 func updateAllScreens(delay bool) {
@@ -379,7 +384,7 @@ func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
-	rect, err := getClipRect(width, height, uint16(_bgimgWidth), uint16(_bgimgHeight))
+	rect, err := getClipRect(width, height, uint16(_bgimg.Bounds().Max.X), uint16(_bgimg.Bounds().Max.Y))
 	if err != nil {
 		panic(err)
 	}
