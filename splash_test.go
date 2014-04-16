@@ -2,14 +2,13 @@ package main
 
 import (
 	"dlib"
-	"dlib/logger"
+	"testing"
+	"time"
 )
 
-var Logger = logger.NewLogger("demo/wallpaper")
-
-func main() {
+func TestSplash(t *testing.T) {
 	initBackground()
 	updateBackground(false)
 	go dlib.StartLoop()
-	select {}
+	time.Sleep(10 * time.Second)
 }

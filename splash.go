@@ -272,6 +272,7 @@ func getBgImgHeight() uint16 {
 }
 
 // TODO [re-implemented through xrender]
+// TODO FIXME [error occurred if background file is busy]
 func mapBackgroundToRoot() {
 	defer func() {
 		if err := recover(); err != nil {
