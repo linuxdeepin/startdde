@@ -43,17 +43,17 @@ import (
 )
 
 const (
-	personalizationID           = "com.deepin.dde.personalization"
-	gkeyCurrentBackground       = "current-picture"
-	deepinBackgroundWindowProp  = "DEEPIN_BACKGROUND_WINDOW"
-	deepinBackgroundPixmapProp  = "DEEPIN_BACKGROUND_PIXMAP"
-	deepinBackgroundWindowTitle = "Deepin Background"
-	defaultBackgroundFile       = "/usr/share/backgrounds/default_background.jpg"
+	personalizationID     = "com.deepin.dde.personalization"
+	gkeyCurrentBackground = "current-picture"
+	deepinBgWindowProp    = "DEEPIN_BACKGROUND_WINDOW"
+	deepinBgPixmapProp    = "DEEPIN_BACKGROUND_PIXMAP"
+	deepinBgWindowTitle   = "Deepin Background"
+	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
 )
 
 var (
-	_personSettings                 = gio.NewSettings(personalizationID)
 	XU, _                           = xgbutil.NewConn()
+	_gsettings                      = gio.NewSettings(personalizationID)
 	_picFormat24, _picFormat32      render.Pictformat
 	_filterNearest, _filterBilinear xproto.Str
 	_bgwin                          *xwindow.Window
@@ -80,7 +80,7 @@ func initBackground() {
 	render.Init(XU.Conn())
 	render.QueryVersion(XU.Conn(), 0, 11)
 
-	_bgwin = createBgWindow(deepinBackgroundWindowTitle)
+	_bgwin = createBgWindow(deepinBgWindowTitle)
 	queryRender(xproto.Drawable(_bgwin.Id))
 
 	// bind picture id to background window
@@ -138,7 +138,7 @@ func createBgWindow(title string) *xwindow.Window {
 	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 
 	// save background window id to root window property
-	xprop.ChangeProp32(XU, XU.RootWin(), deepinBackgroundWindowProp, "WINDOW", uint(win.Id))
+	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgWindowProp, "WINDOW", uint(win.Id))
 	Logger.Debug("background window id: ", win.Id)
 
 	win.Map()
@@ -190,7 +190,7 @@ func updateBackground(delay bool) {
 	_bgimg = xgraphics.NewConvert(XU, img)
 	_bgimg.CreatePixmap()
 	_bgimg.XDraw()
-	xprop.ChangeProp32(XU, XU.RootWin(), deepinBackgroundPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
+	xprop.ChangeProp32(XU, XU.RootWin(), deepinBgPixmapProp, "PIXMAP", uint(_bgimg.Pixmap))
 
 	// rebind picture id to background pixmap
 	Logger.Debugf("_srcpid=%d, _dstpid=%d", _srcpid, _dstpid)
@@ -464,7 +464,7 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 }
 
 func getBackgroundFile() string {
-	uri := _personSettings.GetString(gkeyCurrentBackground)
+	uri := _gsettings.GetString(gkeyCurrentBackground)
 	Logger.Debug("background uri: ", uri)
 	path, ok := uriToPath(uri)
 	if !ok || !isFileExists(path) {
@@ -491,7 +491,7 @@ func isFileExists(file string) bool {
 }
 
 func listenBackgroundChanged() {
-	_personSettings.Connect("changed", func(s *gio.Settings, key string) {
+	_gsettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed: ", key)
