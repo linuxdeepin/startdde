@@ -223,11 +223,6 @@ func updateAllScreens(delay bool) {
 		return
 	}
 
-	drawDirectly := false
-	if _drawBgFirstTime {
-		_drawBgFirstTime = false
-		drawDirectly = true
-	}
 	for _, output := range resources.Outputs {
 		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
 		if err != nil {
