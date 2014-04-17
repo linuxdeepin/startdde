@@ -3,12 +3,13 @@ package main
 import (
 	"dlib"
 	"testing"
-	"time"
+	// "time"
 )
 
 func TestSplash(t *testing.T) {
 	initBackground()
-	updateBackground(false)
+	updateAllScreens(false)
 	go dlib.StartLoop()
-	time.Sleep(10 * time.Second)
+	// time.Sleep(10 * time.Second)
+	select {}
 }

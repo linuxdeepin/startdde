@@ -56,20 +56,29 @@ const (
 )
 
 var (
-	XU, _                           = xgbutil.NewConn()
-	Display, _                      = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
-	_gsettings                      = gio.NewSettings(personalizationID)
-	_picFormat24, _picFormat32      render.Pictformat
-	_filterNearest, _filterBilinear xproto.Str
-	_filterConvolution              xproto.Str
-	_bgwin                          *xwindow.Window
-	_bgimg                          *xgraphics.Image
-	_rootBgImg, _rootBgBlurImg      *xgraphics.Image
-	_srcpid, _                      = render.NewPictureId(XU.Conn())
-	_dstpid, _                      = render.NewPictureId(XU.Conn())
-	_crtcInfos                      = make(map[randr.Crtc]*crtcInfo)
-	_srcpidLock                     = sync.Mutex{}
-	_crtcInfosLock                  = sync.Mutex{}
+	XU, _          = xgbutil.NewConn()
+	Display, _     = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
+	_gsettings     = gio.NewSettings(personalizationID)
+	_bgwin         *xwindow.Window
+	_bgimg         *xgraphics.Image
+	_rootBgImg     *xgraphics.Image
+	_rootBgBlurImg *xgraphics.Image
+	_srcpid, _     = render.NewPictureId(XU.Conn())
+	_dstpid, _     = render.NewPictureId(XU.Conn())
+	_crtcInfos     = make(map[randr.Crtc]*crtcInfo)
+	_srcpidLock    = sync.Mutex{} // TODO
+	_crtcInfosLock = sync.Mutex{}
+)
+
+var (
+	_picFormat24 render.Pictformat
+	_picFormat32 render.Pictformat
+)
+
+var (
+	_filterNearest     xproto.Str
+	_filterBilinear    xproto.Str
+	_filterConvolution xproto.Str
 )
 
 type crtcInfo struct {
@@ -91,10 +100,12 @@ func initBackground() {
 	// bind picture id to background window
 	err := render.CreatePictureChecked(XU.Conn(), _dstpid, xproto.Drawable(_bgwin.Id), _picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("create render picture failed: ", err)
+		Logger.Error("create render picture failed:", err)
 	}
 
-	listenBackgroundChanged()
+	loadBgFile()
+
+	listenBgFileChanged()
 	go listenDisplayChanged()
 }
 
@@ -130,7 +141,7 @@ func queryRender(d xproto.Drawable) {
 func createBgWindow(title string) *xwindow.Window {
 	win, err := xwindow.Generate(XU)
 	if err != nil {
-		Logger.Error("could not generate new window id: ", err)
+		Logger.Error("could not generate new window id:", err)
 		return nil
 	}
 	w, h := getScreenResolution()
@@ -140,7 +151,7 @@ func createBgWindow(title string) *xwindow.Window {
 	err = ewmh.WmNameSet(XU, win.Id, title)
 	if err != nil {
 		// not a fatal error
-		Logger.Error("Could not set _NET_WM_NAME: ", err)
+		Logger.Error("Could not set _NET_WM_NAME:", err)
 	}
 
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
@@ -193,19 +204,20 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	return
 }
 
-func updateBackground(delay bool) {
+func loadBgFile() {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("updateBackground failed: ", err)
+			Logger.Error("loadBgFile failed:", err)
 		}
 	}()
+
+	_srcpidLock.Lock()
 
 	// load background file and convert into XU image
 	_bgimg = convertToXimage(getBackgroundFile(), _bgimg)
 
 	// rebind picture id to background pixmap
 	Logger.Debugf("_srcpid=%d, _dstpid=%d", _srcpid, _dstpid)
-	_srcpidLock.Lock()
 	render.FreePicture(XU.Conn(), _srcpid)
 	err := render.CreatePictureChecked(XU.Conn(), _srcpid, xproto.Drawable(_bgimg.Pixmap), _picFormat24, 0, nil).Check()
 	if err != nil {
@@ -221,8 +233,6 @@ func updateBackground(delay bool) {
 		Logger.Error("set picture filter failed:", err)
 	}
 	_srcpidLock.Unlock()
-
-	updateAllScreens(delay)
 
 	go mapBackgroundToRoot()
 }
@@ -241,7 +251,7 @@ func loadImage(imgfile string) (img image.Image, err error) {
 	return
 }
 
-// convert to XU image
+// convert to XU image TODO
 func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
 	img, err := loadImage(imgFile)
 	if err != nil {
@@ -272,13 +282,17 @@ func getBgImgHeight() uint16 {
 }
 
 // TODO [re-implemented through xrender]
-// TODO FIXME [error occurred if background file is busy]
+// TODO cancel operate if background file changed
 func mapBackgroundToRoot() {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error(err)
+			// error occurred if background file is busy
+			Logger.Warning(err)
 		}
 	}()
+
+	Logger.Debug("generate background which mapped to root begin")
+	defer Logger.Debug("generate background which mapped to root end")
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
@@ -539,11 +553,11 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 
 func getBackgroundFile() string {
 	uri := _gsettings.GetString(gkeyCurrentBackground)
-	Logger.Debug("background uri: ", uri)
+	Logger.Debug("background uri:", uri)
 	path, ok := uriToPath(uri)
 	if !ok || !isFileExists(path) {
-		Logger.Warning("background file is not exists")
-		Logger.Warning("use default background: ", defaultBackgroundFile)
+		Logger.Warning("background file is not exist:", path)
+		Logger.Warning("use default background:", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path
@@ -564,17 +578,21 @@ func isFileExists(file string) bool {
 	return false
 }
 
-func listenBackgroundChanged() {
+func listenBgFileChanged() {
 	_gsettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			Logger.Debug("background value in gsettings changed: ", key)
-			go updateBackground(false)
+			Logger.Debug("background value in gsettings changed:", key)
+			go func() {
+				loadBgFile()
+				updateAllScreens(false)
+			}()
 		}
 	})
 }
 
 func listenDisplayChanged() {
+	_bgwin.Listen(xproto.EventMaskExposure)
 	randr.SelectInput(XU.Conn(), XU.RootWin(), randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 	for {
 		event, err := XU.Conn().WaitForEvent()
@@ -582,6 +600,10 @@ func listenDisplayChanged() {
 			continue
 		}
 		switch eventType := event.(type) {
+		case xproto.ExposeEvent:
+			// TODO
+			Logger.Debug("expose event", eventType)
+			updateAllScreens(false)
 		case randr.NotifyEvent:
 			switch eventType.SubCode {
 			case randr.NotifyCrtcChange:

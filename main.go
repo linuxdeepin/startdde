@@ -61,7 +61,7 @@ func main() {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		updateBackground(false)
+		// updateBackground(false) // TODO
 
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
