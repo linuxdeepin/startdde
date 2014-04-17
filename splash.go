@@ -22,15 +22,18 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
+	"sync"
+	"time"
 
 	"dbus/com/deepin/daemon/display"
 	"dlib/gio-2.0"
 	"dlib/graphic"
-	"fmt"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
@@ -39,9 +42,6 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -51,25 +51,30 @@ const (
 	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLURRED"
 	ddeBgWindowTitle      = "DDE Background"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
-	tmpRootBgFile         = "/tmp/dde_bg.png"
-	tmpRootBgBlurFile     = "/tmp/dde_bg_blur.png"
 )
 
 var (
-	XU, _                           = xgbutil.NewConn()
-	Display, _                      = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
-	_gsettings                      = gio.NewSettings(personalizationID)
-	_picFormat24, _picFormat32      render.Pictformat
-	_filterNearest, _filterBilinear xproto.Str
-	_filterConvolution              xproto.Str
-	_bgwin                          *xwindow.Window
-	_bgimg                          *xgraphics.Image
-	_rootBgImg, _rootBgBlurImg      *xgraphics.Image
-	_srcpid, _                      = render.NewPictureId(XU.Conn())
-	_dstpid, _                      = render.NewPictureId(XU.Conn())
-	_crtcInfos                      = make(map[randr.Crtc]*crtcInfo)
-	_srcpidLock                     = sync.Mutex{}
-	_crtcInfosLock                  = sync.Mutex{}
+	cacheRootBgFile     = os.Getenv("HOME") + "/.cache/dde_bg.png"
+	cacheRootBgBlurFile = os.Getenv("HOME") + "/.cache/dde_bg_blur.png"
+)
+
+var (
+	XU, _          = xgbutil.NewConn()
+	Display, _     = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
+	_bgGSettings   = gio.NewSettings(personalizationID)
+	_crtcInfos     = make(map[randr.Crtc]*crtcInfo)
+	_crtcInfosLock = sync.Mutex{}
+)
+
+var (
+	_picFormat24 render.Pictformat
+	_picFormat32 render.Pictformat
+)
+
+var (
+	_filterNearest     xproto.Str
+	_filterBilinear    xproto.Str
+	_filterConvolution xproto.Str
 )
 
 type crtcInfo struct {
@@ -79,22 +84,45 @@ type crtcInfo struct {
 	height uint16
 }
 
+// union structure
+var _bgWinInfo = struct {
+	win *xwindow.Window
+	pid render.Picture
+}{}
+var _bgImgInfo = struct {
+	img  *xgraphics.Image
+	pid  render.Picture
+	lock sync.Mutex
+}{}
+var _rootBgImgInfo = struct {
+	bgImg     *xgraphics.Image
+	bgBlurImg *xgraphics.Image
+	lock      sync.Mutex
+}{}
+
 func initBackground() {
 	randr.Init(XU.Conn())
 	randr.QueryVersion(XU.Conn(), 1, 4)
 	render.Init(XU.Conn())
 	render.QueryVersion(XU.Conn(), 0, 11)
 
-	_bgwin = createBgWindow(ddeBgWindowTitle)
-	queryRender(xproto.Drawable(_bgwin.Id))
+	// initialize structure
+	_bgWinInfo.pid, _ = render.NewPictureId(XU.Conn())
+	_bgImgInfo.pid, _ = render.NewPictureId(XU.Conn())
+
+	_bgWinInfo.win = createBgWindow(ddeBgWindowTitle)
+	queryRender(xproto.Drawable(_bgWinInfo.win.Id))
 
 	// bind picture id to background window
-	err := render.CreatePictureChecked(XU.Conn(), _dstpid, xproto.Drawable(_bgwin.Id), _picFormat24, 0, nil).Check()
+	err := render.CreatePictureChecked(XU.Conn(), _bgWinInfo.pid, xproto.Drawable(_bgWinInfo.win.Id), _picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("create render picture failed: ", err)
+		Logger.Error("create render picture failed:", err)
 	}
 
-	listenBackgroundChanged()
+	mapBgCacheToRoot()
+	loadBgFile(true)
+
+	listenBgFileChanged()
 	go listenDisplayChanged()
 }
 
@@ -122,15 +150,13 @@ func queryRender(d xproto.Drawable) {
 			_filterConvolution = f
 		}
 	}
-	Logger.Debug("nearest filter:", _filterNearest)
-	Logger.Debug("bilinear filter:", _filterBilinear)
-	Logger.Debug("convolution filter:", _filterConvolution)
+	Logger.Debug("render filter:", filters.Filters)
 }
 
 func createBgWindow(title string) *xwindow.Window {
 	win, err := xwindow.Generate(XU)
 	if err != nil {
-		Logger.Error("could not generate new window id: ", err)
+		Logger.Error("could not generate new window id:", err)
 		return nil
 	}
 	w, h := getScreenResolution()
@@ -140,7 +166,7 @@ func createBgWindow(title string) *xwindow.Window {
 	err = ewmh.WmNameSet(XU, win.Id, title)
 	if err != nil {
 		// not a fatal error
-		Logger.Error("Could not set _NET_WM_NAME: ", err)
+		Logger.Error("Could not set _NET_WM_NAME:", err)
 	}
 
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
@@ -193,38 +219,43 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	return
 }
 
-func updateBackground(delay bool) {
+func loadBgFile(delyGenCache bool) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("updateBackground failed: ", err)
+			Logger.Error("loadBgFile failed:", err)
 		}
 	}()
 
+	_bgImgInfo.lock.Lock()
+	defer _bgImgInfo.lock.Unlock()
+
 	// load background file and convert into XU image
-	_bgimg = convertToXimage(getBackgroundFile(), _bgimg)
+	_bgImgInfo.img = convertToXimage(getBackgroundFile(), _bgImgInfo.img)
 
 	// rebind picture id to background pixmap
-	Logger.Debugf("_srcpid=%d, _dstpid=%d", _srcpid, _dstpid)
-	_srcpidLock.Lock()
-	render.FreePicture(XU.Conn(), _srcpid)
-	err := render.CreatePictureChecked(XU.Conn(), _srcpid, xproto.Drawable(_bgimg.Pixmap), _picFormat24, 0, nil).Check()
+	Logger.Debugf("_bgImgInfo.pid=%d, _bgWinInfo.pid=%d", _bgImgInfo.pid, _bgWinInfo.pid)
+	render.FreePicture(XU.Conn(), _bgImgInfo.pid)
+	err := render.CreatePictureChecked(XU.Conn(), _bgImgInfo.pid, xproto.Drawable(_bgImgInfo.img.Pixmap), _picFormat24, 0, nil).Check()
 	if err != nil {
 		Logger.Error("create render picture failed:", err)
 		return
 	}
 	// setup image filter
-	err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
+	err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
 	// TODO test only, for convolution filter
-	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
-	// err = render.SetPictureFilterChecked(XU.Conn(), _srcpid, 1602*uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, 1602*uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
 		Logger.Error("set picture filter failed:", err)
 	}
-	_srcpidLock.Unlock()
 
-	updateAllScreens(delay)
-
-	go mapBackgroundToRoot()
+	go func() {
+		if delyGenCache {
+			time.Sleep(30 * time.Second)
+		}
+		genBgCacheFile()
+		mapBgCacheToRoot()
+	}()
 }
 
 // load image file and return image.Image object.
@@ -241,7 +272,7 @@ func loadImage(imgfile string) (img image.Image, err error) {
 	return
 }
 
-// convert to XU image
+// convert image file to XU image
 func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
 	img, err := loadImage(imgFile)
 	if err != nil {
@@ -257,50 +288,63 @@ func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
 }
 
 func getBgImgWidth() uint16 {
-	if _bgimg == nil {
-		Logger.Error("_bgimg is nil")
+	if _bgImgInfo.img == nil {
+		Logger.Error("_bgImgInfo.img is nil")
 		return 1024
 	}
-	return uint16(_bgimg.Bounds().Max.X)
+	return uint16(_bgImgInfo.img.Bounds().Max.X)
 }
 func getBgImgHeight() uint16 {
-	if _bgimg == nil {
-		Logger.Error("_bgimg is nil")
+	if _bgImgInfo.img == nil {
+		Logger.Error("_bgImgInfo.img is nil")
 		return 768
 	}
-	return uint16(_bgimg.Bounds().Max.Y)
+	return uint16(_bgImgInfo.img.Bounds().Max.Y)
 }
 
 // TODO [re-implemented through xrender]
-// TODO FIXME [error occurred if background file is busy]
-func mapBackgroundToRoot() {
+// TODO cancel operate if background file changed
+func genBgCacheFile() {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error(err)
+			// error occurred if background file is busy for user
+			// change background frequent
+			Logger.Warning(err)
 		}
 	}()
 
+	Logger.Debug("generate background which mapped to root begin")
+	defer Logger.Debug("generate background which mapped to root end")
+
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	err := graphic.FillImage(getBackgroundFile(), tmpRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
+	err := graphic.FillImage(getBackgroundFile(), cacheRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
 	// generate temporary blurred background file
-	err = graphic.BlurImage(tmpRootBgFile, tmpRootBgBlurFile, 10, 10, graphic.PNG)
+	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 10, 10, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
-
-	_rootBgImg = convertToXimage(tmpRootBgFile, _rootBgImg)
-	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImg.Pixmap))
-
-	_rootBgBlurImg = convertToXimage(tmpRootBgBlurFile, _rootBgBlurImg)
-	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgBlurImg.Pixmap))
 }
 
-func updateAllScreens(delay bool) {
+func mapBgCacheToRoot() {
+	_rootBgImgInfo.lock.Lock()
+	defer _rootBgImgInfo.lock.Unlock()
+
+	if !isFileExists(cacheRootBgFile) || !isFileExists(cacheRootBgBlurFile) {
+		genBgCacheFile()
+	}
+	_rootBgImgInfo.bgImg = convertToXimage(cacheRootBgFile, _rootBgImgInfo.bgImg)
+	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
+
+	_rootBgImgInfo.bgBlurImg = convertToXimage(cacheRootBgBlurFile, _rootBgImgInfo.bgBlurImg)
+	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
+}
+
+func updateAllScreensBg(delay bool) {
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
 		Logger.Error("get scrren resources failed:", err)
@@ -327,13 +371,13 @@ func updateAllScreens(delay bool) {
 }
 
 func resizeBgWindow(w, h int) {
-	geom, _ := _bgwin.Geometry()
+	geom, _ := _bgWinInfo.win.Geometry()
 	if geom.Width() == w && geom.Height() == h {
 		return
 	}
 	Logger.Debugf("background window before resizing, %dx%d", geom.Width(), geom.Height())
-	_bgwin.MoveResize(0, 0, w, h)
-	geom, _ = _bgwin.Geometry()
+	_bgWinInfo.win.MoveResize(0, 0, w, h)
+	geom, _ = _bgWinInfo.win.Geometry()
 	Logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
 }
 
@@ -377,19 +421,19 @@ func removeCrtcInfos(crtc randr.Crtc) {
 
 func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
 	if drawDirectly {
-		go drawBackgroundDirectly(_srcpid, crtc)
+		go drawBackgroundDirectly(crtc)
 	} else {
 		if !delay {
-			go drawBackgroundByRender(_srcpid, _dstpid, crtc)
+			go drawBackgroundByRender(crtc)
 		} else {
 			go func() {
 				// sleep 1s to ensure window resize event effected
 				time.Sleep(1 * time.Second)
-				drawBackgroundByRender(_srcpid, _dstpid, crtc)
+				drawBackgroundByRender(crtc)
 
 				// sleep 5s and redraw background
 				time.Sleep(5 * time.Second)
-				drawBackgroundByRender(_srcpid, _dstpid, crtc)
+				drawBackgroundByRender(crtc)
 			}()
 		}
 	}
@@ -397,12 +441,16 @@ func updateScreen(crtc randr.Crtc, delay bool, drawDirectly bool) {
 
 // TODO [remove] draw background directly instead of through xrender, for that maybe
 // issue with desktop manager after login
-func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
+func drawBackgroundDirectly(crtc randr.Crtc) {
 	defer func() {
 		if err := recover(); err != nil {
 			Logger.Error("drawBackgroundDirectly failed:", err)
 		}
 	}()
+	_bgImgInfo.lock.Lock()
+	defer _bgImgInfo.lock.Unlock()
+	_crtcInfosLock.Lock()
+	defer _crtcInfosLock.Unlock()
 
 	var x, y int16
 	var width, height uint16
@@ -430,22 +478,22 @@ func drawBackgroundDirectly(_srcpid render.Picture, crtc randr.Crtc) {
 	}
 
 	// draw background to ximage through xrender
-	drawBackgroundByRender(_srcpid, ximgpid, crtc)
+	doDrawBackgroundByRender(_bgImgInfo.pid, ximgpid, x, y, width, height)
 
 	// draw ximage to background window
-	ximg.XSurfaceSet(_bgwin.Id)
+	ximg.XSurfaceSet(_bgWinInfo.win.Id)
 	ximg.XDraw()
-	ximg.XPaint(_bgwin.Id)
+	ximg.XPaint(_bgWinInfo.win.Id)
 
 	// free resource
 	render.FreePicture(XU.Conn(), ximgpid)
 	ximg.Destroy()
 }
 
-func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
-	_srcpidLock.Lock()
+func drawBackgroundByRender(crtc randr.Crtc) {
+	_bgImgInfo.lock.Lock()
+	defer _bgImgInfo.lock.Unlock()
 	_crtcInfosLock.Lock()
-	defer _srcpidLock.Unlock()
 	defer _crtcInfosLock.Unlock()
 
 	var x, y int16
@@ -460,7 +508,7 @@ func drawBackgroundByRender(_srcpid, _dstpid render.Picture, crtc randr.Crtc) {
 		return
 	}
 
-	doDrawBackgroundByRender(_srcpid, _dstpid, x, y, width, height)
+	doDrawBackgroundByRender(_bgImgInfo.pid, _bgWinInfo.pid, x, y, width, height)
 }
 
 func doDrawBackgroundByRender(srcpid, dstpid render.Picture, x, y int16, width, height uint16) {
@@ -538,12 +586,12 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 }
 
 func getBackgroundFile() string {
-	uri := _gsettings.GetString(gkeyCurrentBackground)
-	Logger.Debug("background uri: ", uri)
+	uri := _bgGSettings.GetString(gkeyCurrentBackground)
+	Logger.Debug("background uri:", uri)
 	path, ok := uriToPath(uri)
 	if !ok || !isFileExists(path) {
-		Logger.Warning("background file is not exists")
-		Logger.Warning("use default background: ", defaultBackgroundFile)
+		Logger.Warning("background file is not exist:", path)
+		Logger.Warning("use default background:", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path
@@ -564,17 +612,21 @@ func isFileExists(file string) bool {
 	return false
 }
 
-func listenBackgroundChanged() {
-	_gsettings.Connect("changed", func(s *gio.Settings, key string) {
+func listenBgFileChanged() {
+	_bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			Logger.Debug("background value in gsettings changed: ", key)
-			go updateBackground(false)
+			Logger.Debug("background value in gsettings changed:", key)
+			go func() {
+				loadBgFile(false)
+				updateAllScreensBg(false)
+			}()
 		}
 	})
 }
 
 func listenDisplayChanged() {
+	_bgWinInfo.win.Listen(xproto.EventMaskExposure)
 	randr.SelectInput(XU.Conn(), XU.RootWin(), randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 	for {
 		event, err := XU.Conn().WaitForEvent()
@@ -582,6 +634,10 @@ func listenDisplayChanged() {
 			continue
 		}
 		switch eventType := event.(type) {
+		case xproto.ExposeEvent:
+			// TODO
+			Logger.Debug("expose event", eventType)
+			updateAllScreensBg(false)
 		case randr.NotifyEvent:
 			switch eventType.SubCode {
 			case randr.NotifyCrtcChange:
@@ -601,7 +657,7 @@ func listenDisplayChanged() {
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
 					removeCrtcInfos(info.Crtc)
 				}
-				// updateAllScreens(true)
+				// updateAllScreensBg(true)
 			}
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", eventType.Width, eventType.Height)

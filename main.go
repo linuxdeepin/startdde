@@ -61,7 +61,8 @@ func main() {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		updateBackground(false)
+		// update background again after compiz loaded
+		updateAllScreensBg(false)
 
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
