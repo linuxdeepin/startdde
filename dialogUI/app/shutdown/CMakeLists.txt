@@ -7,7 +7,7 @@ include_directories(${DWEBVIEW_INCLUDE_DIRS})
 
 SET(SRC_LIST  ${JSC_GEN} )
 
-add_executable(${NAME} ${SRC_LIST} shutdown.c)
+add_executable(${NAME} ${SRC_LIST} bg.c shutdown.c)
 
 target_link_libraries(${NAME} dcom dbus ${DWEBVIEW_LIBRARIES})
 add_dependencies(${NAME} ${NAME_SRC}_js)

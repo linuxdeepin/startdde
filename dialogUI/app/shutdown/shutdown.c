@@ -39,6 +39,7 @@
 #include "dwebview.h"
 #include "i18n.h"
 #include "utils.h"
+#include "bg.h"
 /*#include "DBUS_shutdown.h"*/
 
 /*#define DEBUG*/
@@ -314,6 +315,7 @@ int main (int argc, char **argv)
 #endif
     gtk_widget_realize (container);
     gtk_widget_realize (webview);
+    setup_background(container,webview);
 
     GdkWindow* gdkwindow = gtk_widget_get_window (container);
     GdkRGBA rgba = { 0, 0, 0, 0.85 };
