@@ -25,3 +25,4 @@ cmake_install.cmake
 install_manifest.txt
 *.js
 test_main.go
+*.test
