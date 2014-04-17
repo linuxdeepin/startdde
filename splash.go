@@ -22,15 +22,18 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
+	"strings"
+	"sync"
+	"time"
 
 	"dbus/com/deepin/daemon/display"
 	"dlib/gio-2.0"
 	"dlib/graphic"
-	"fmt"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
@@ -39,9 +42,6 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -51,8 +51,11 @@ const (
 	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLURRED"
 	ddeBgWindowTitle      = "DDE Background"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
-	tmpRootBgFile         = "/tmp/dde_bg.png"
-	tmpRootBgBlurFile     = "/tmp/dde_bg_blur.png"
+)
+
+var (
+	cacheRootBgFile     = os.Getenv("HOME") + "/.cache/dde_bg.png"
+	cacheRootBgBlurFile = os.Getenv("HOME") + "/.cache/dde_bg_blur.png"
 )
 
 var (
@@ -80,6 +83,9 @@ var (
 	_filterBilinear    xproto.Str
 	_filterConvolution xproto.Str
 )
+
+type bgImgInfo struct {
+}
 
 type crtcInfo struct {
 	x      int16
@@ -234,7 +240,7 @@ func loadBgFile() {
 	}
 	_srcpidLock.Unlock()
 
-	go mapBackgroundToRoot()
+	go mapBgToRoot()
 }
 
 // load image file and return image.Image object.
@@ -283,7 +289,7 @@ func getBgImgHeight() uint16 {
 
 // TODO [re-implemented through xrender]
 // TODO cancel operate if background file changed
-func mapBackgroundToRoot() {
+func mapBgToRoot() {
 	defer func() {
 		if err := recover(); err != nil {
 			// error occurred if background file is busy
@@ -296,21 +302,26 @@ func mapBackgroundToRoot() {
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	err := graphic.FillImage(getBackgroundFile(), tmpRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
+	err := graphic.FillImage(getBackgroundFile(), cacheRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
 	// generate temporary blurred background file
-	err = graphic.BlurImage(tmpRootBgFile, tmpRootBgBlurFile, 10, 10, graphic.PNG)
+	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 10, 10, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
-	_rootBgImg = convertToXimage(tmpRootBgFile, _rootBgImg)
+	mapCacheBgToRoot()
+}
+
+// TODO
+func mapCacheBgToRoot() {
+	_rootBgImg = convertToXimage(cacheRootBgFile, _rootBgImg)
 	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImg.Pixmap))
 
-	_rootBgBlurImg = convertToXimage(tmpRootBgBlurFile, _rootBgBlurImg)
+	_rootBgBlurImg = convertToXimage(cacheRootBgBlurFile, _rootBgBlurImg)
 	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgBlurImg.Pixmap))
 }
 
