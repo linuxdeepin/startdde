@@ -53,62 +53,9 @@ confirm_ok = (power)->
 
 document.body.style.height = window.innerHeight
 document.body.style.width = window.innerWidth
-#background = new Background(APP_NAME)
-#bg_url = background.get_current_user_background()
-bg_url = DEFAULT_BG
-document.body.style.backgroundImage = "url(#{bg_url})"
-
-DEBUG_ANIMATION = false
-if DEBUG_ANIMATION
-    bg_el = create_img("bg_el","",document.body)
-    try
-        bg_el.src = bg_url
-        bg_el.style.display = "block"
-    catch e
-        bg_el.style.display = "none"
-        echo "#{e}"
-else
-    document.body.style.backgroundImage = "url(#{bg_url})"
 
 TIME_SHOW = 500
 showAnimation =(el,t)->
-    if !DEBUG_ANIMATION
-        document.body.style.display = "none"
-        jQuery(document.body).fadeIn(t)
-        
-        #document.body.style.opacity = "0.0"
-#        jQuery(document.body).animate(
-            #{opacity:'1.0';},t
-        #)
-        return
-    
-    t_first = 300
-    t_second = 200
-    document.body.style.opacity = "0.0"
-    bg_el.style.opacity = "0.0"
-    el.style.opacity = "0.0"
-    
-    jQuery(document.body).animate(
-        {opacity:'0.5';},t_first
-    )
-    jQuery(bg_el).animate(
-        {opacity:'0.5';},
-        t_first,
-        "linear",=>
-            jQuery(document.body).animate(
-                {opacity:'1.0';},t_second
-            )
-            jQuery(bg_el).animate(
-                {opacity:'1.0';},t_second
-            )
-            jQuery(el).animate(
-                {opacity:'1.0';},t_second
-            )
-            echo "showAnimation end"
-    )
-
-
-#DCore.signal_connect("draw_background", (info)->
-    #echo "draw_background:url(#{info.path})"
-    #document.body.style.backgroundImage = "url(#{info.path})"
-#)
+    _b = document.body
+    _b.style.display = "none"
+    jQuery(_b).fadeIn(t)
