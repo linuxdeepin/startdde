@@ -119,7 +119,8 @@ func initBackground() {
 		Logger.Error("create render picture failed:", err)
 	}
 
-	loadBgFile()
+	mapBgCacheToRoot()
+	loadBgFile(true)
 
 	listenBgFileChanged()
 	go listenDisplayChanged()
@@ -218,7 +219,7 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	return
 }
 
-func loadBgFile() {
+func loadBgFile(delyGenCache bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			Logger.Error("loadBgFile failed:", err)
@@ -248,7 +249,13 @@ func loadBgFile() {
 		Logger.Error("set picture filter failed:", err)
 	}
 
-	go mapBgToRoot()
+	go func() {
+		if delyGenCache {
+			time.Sleep(30 * time.Second)
+		}
+		genBgCacheFile()
+		mapBgCacheToRoot()
+	}()
 }
 
 // load image file and return image.Image object.
@@ -265,7 +272,7 @@ func loadImage(imgfile string) (img image.Image, err error) {
 	return
 }
 
-// convert to XU image TODO
+// convert image file to XU image
 func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
 	img, err := loadImage(imgFile)
 	if err != nil {
@@ -297,10 +304,11 @@ func getBgImgHeight() uint16 {
 
 // TODO [re-implemented through xrender]
 // TODO cancel operate if background file changed
-func mapBgToRoot() {
+func genBgCacheFile() {
 	defer func() {
 		if err := recover(); err != nil {
-			// error occurred if background file is busy
+			// error occurred if background file is busy for user
+			// change background frequent
 			Logger.Warning(err)
 		}
 	}()
@@ -320,12 +328,15 @@ func mapBgToRoot() {
 	if err != nil {
 		panic(err)
 	}
-
-	mapCacheBgToRoot()
 }
 
-// TODO
-func mapCacheBgToRoot() {
+func mapBgCacheToRoot() {
+	_rootBgImgInfo.lock.Lock()
+	defer _rootBgImgInfo.lock.Unlock()
+
+	if !isFileExists(cacheRootBgFile) || !isFileExists(cacheRootBgBlurFile) {
+		genBgCacheFile()
+	}
 	_rootBgImgInfo.bgImg = convertToXimage(cacheRootBgFile, _rootBgImgInfo.bgImg)
 	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
 
@@ -333,7 +344,7 @@ func mapCacheBgToRoot() {
 	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
 }
 
-func updateAllScreens(delay bool) {
+func updateAllScreensBg(delay bool) {
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
 		Logger.Error("get scrren resources failed:", err)
@@ -607,8 +618,8 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed:", key)
 			go func() {
-				loadBgFile()
-				updateAllScreens(false)
+				loadBgFile(false)
+				updateAllScreensBg(false)
 			}()
 		}
 	})
@@ -626,7 +637,7 @@ func listenDisplayChanged() {
 		case xproto.ExposeEvent:
 			// TODO
 			Logger.Debug("expose event", eventType)
-			updateAllScreens(false)
+			updateAllScreensBg(false)
 		case randr.NotifyEvent:
 			switch eventType.SubCode {
 			case randr.NotifyCrtcChange:
@@ -646,7 +657,7 @@ func listenDisplayChanged() {
 						info.Crtc, info.X, info.Y, info.Width, info.Height)
 					removeCrtcInfos(info.Crtc)
 				}
-				// updateAllScreens(true)
+				// updateAllScreensBg(true)
 			}
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", eventType.Width, eventType.Height)
