@@ -121,7 +121,7 @@ func readXSettings() []*HeaderInfo {
 	serial := readInterger(buf)
 	numSettings := readInterger(buf)
 
-	Logger.Infof("serial: %d, numSettings: %d\n",
+	Logger.Infof("serial: %d, numSettings: %d",
 		serial, numSettings)
 
 	for i := uint32(0); i < numSettings; i++ {
@@ -134,7 +134,7 @@ func readXSettings() []*HeaderInfo {
 		switch sType {
 		case XSETTINGS_INTERGER:
 			v := readInterger(buf)
-			//Logger.Infof("%s = %d\n", name, v)
+			//Logger.Infof("%s = %d", name, v)
 			//fmt.Printf("\"%s\": \"%d;0\",\n",
 			//name, v)
 			info.value = v

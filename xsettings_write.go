@@ -137,7 +137,7 @@ func changeXSettingsProperty(datas []byte) {
                 getAtom(X, XSETTINGS_SETTINGS),
                 XSETTINGS_FORMAT, uint32(len(datas)), datas).Check()
         if err != nil {
-                Logger.Errorf("Change Property '%s' Failed: %s\n",
+                Logger.Errorf("Change Property '%s' Failed: %s",
                         XSETTINGS_SETTINGS, err)
                 panic(err)
         }
