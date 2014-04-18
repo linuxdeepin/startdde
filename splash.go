@@ -120,7 +120,15 @@ func initBackground() {
 	}
 
 	mapBgCacheToRoot()
-	loadBgFile(true)
+
+	// load background file here and screen will be update when
+	// receive window expose event
+	loadBgFile()
+	go func() {
+		time.Sleep(30 * time.Second)
+		genBgCacheFile()
+		mapBgCacheToRoot()
+	}()
 
 	listenBgFileChanged()
 	go listenDisplayChanged()
@@ -219,7 +227,10 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	return
 }
 
-func loadBgFile(delyGenCache bool) {
+func loadBgFile() {
+	Logger.Debug("loadBgFile() begin")
+	Logger.Debug("loadBgFile() end")
+
 	defer func() {
 		if err := recover(); err != nil {
 			Logger.Error("loadBgFile failed:", err)
@@ -248,14 +259,6 @@ func loadBgFile(delyGenCache bool) {
 	if err != nil {
 		Logger.Error("set picture filter failed:", err)
 	}
-
-	go func() {
-		if delyGenCache {
-			time.Sleep(30 * time.Second)
-		}
-		genBgCacheFile()
-		mapBgCacheToRoot()
-	}()
 }
 
 // load image file and return image.Image object.
@@ -305,6 +308,9 @@ func getBgImgHeight() uint16 {
 // TODO [re-implemented through xrender]
 // TODO cancel operate if background file changed
 func genBgCacheFile() {
+	Logger.Debug("genBgCacheFile() begin")
+	defer Logger.Debug("genBgCacheFile() end")
+
 	defer func() {
 		if err := recover(); err != nil {
 			// error occurred if background file is busy for user
@@ -312,9 +318,6 @@ func genBgCacheFile() {
 			Logger.Warning(err)
 		}
 	}()
-
-	Logger.Debug("generate background which mapped to root begin")
-	defer Logger.Debug("generate background which mapped to root end")
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
@@ -324,7 +327,7 @@ func genBgCacheFile() {
 	}
 
 	// generate temporary blurred background file
-	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 30, 1, graphic.PNG)
+	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 50, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
@@ -345,6 +348,9 @@ func mapBgCacheToRoot() {
 }
 
 func updateAllScreensBg(delay bool) {
+	Logger.Debug("updateAllScreensBg() begin")
+	defer Logger.Debug("updateAllScreensBg() end")
+
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
 		Logger.Error("get scrren resources failed:", err)
@@ -618,8 +624,12 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed:", key)
 			go func() {
-				loadBgFile(false)
+				loadBgFile()
 				updateAllScreensBg(false)
+			}()
+			go func() {
+				genBgCacheFile()
+				mapBgCacheToRoot()
 			}()
 		}
 	})
