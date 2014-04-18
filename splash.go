@@ -324,7 +324,7 @@ func genBgCacheFile() {
 	}
 
 	// generate temporary blurred background file
-	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 10, 10, graphic.PNG)
+	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 30, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
