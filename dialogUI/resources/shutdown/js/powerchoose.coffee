@@ -32,7 +32,20 @@ class PowerChoose extends Widget
     constructor: ()->
         super
         confirmdialog = null
-
+    
+    setPos:->
+        @element.style.display = "-webkit-box"
+        echo "clientWidth:#{@element.clientWidth}"
+        echo "clientHeight:#{@element.clientHeight}"
+        w = @element.clientWidth
+        h = @element.clientHeight
+        w = 610 if w == 0
+        h = 145 if h == 0
+        left = (screen.width  - w) / 2
+        bottom = (screen.height) / 2
+        @element.style.left = "#{left}px"
+        @element.style.bottom = "#{bottom}px"
+    
     destory:->
         document.body.removeChild(@element)
 
@@ -42,24 +55,36 @@ class PowerChoose extends Widget
             img_url_hover.push("img/#{option[i]}_hover.png")
             img_url_click.push("img/#{option[i]}_press.png")
 
+
+    showMessage:(text)->
+        @message_div.style.display = "-webkit-box"
+        @message_text_div.textContent = text
+
     frame_build:->
         @img_url_build()
-        frame = create_element("div", "frame", @element)
-        button = create_element("div","button",frame)
-       
-        frame.addEventListener("click",->
+        #frame = create_element("div", "frame", @element)
+        @element.addEventListener("click",->
             frame_click = true
         )
         
+        @message_div = create_element("div","message_div",@element)
+        @message_img_div = create_element("div","message_img_div",@message_div)
+        @message_img_div.style.backgroundImage = "url(img/waring.png)"
+        @message_text_div = create_element("div","message_text_div",@message_div)
+        @message_text_div.textContent = message_text["default"]
+        @message_div.style.display = "none"
+        @showMessage(message_text["systemUpdate"]) if isSystemUpdating
+
+        button_div = create_element("div","button_div",@element)
+       
         for tmp ,i in option
-            opt[i] = create_element("div","opt",button)
+            opt[i] = create_element("div","opt",button_div)
             opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
             opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
             opt[i].value = i
             opt_img[i] = create_img("opt_img",img_url_normal[i],opt[i])
             opt_text[i] = create_element("div","opt_text",opt[i])
             opt_text[i].textContent = option_text[i]
-            
             
             #this key must get From system
             GetinFromKey = false
@@ -96,6 +121,7 @@ class PowerChoose extends Widget
                 opt_img[i].src = img_url_click[i]
                 that.fade(i)
             )
+        @setPos()
         showAnimation(@element,TIME_SHOW)
     
     timefunc:(i) ->

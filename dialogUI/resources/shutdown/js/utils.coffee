@@ -28,20 +28,20 @@ frame_click = false
 option = ["shutdown","restart","lock","suspend","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
 option_text_force = [_("Force Shut down"),_("Force Restart"),_("Lock"),_("Suspend"),_("Force Log out")]
-message_text = [
-    _("The system will shut down in %1 seconds."),
-    _("The system will restart in %1 seconds."),
-    _("The system will be locked in %1 seconds."),
-    _("The system will be suspended in %1 seconds."),
-    _("You will be automatically logged out in %1 seconds.")
-]
+message_text = {}
+message_text["shutdown"] = _("The system will shut down in %1 seconds.")
+message_text["restart"] = _("The system will restart in %1 seconds.")
+message_text["lock"] = _("The system will be locked in %1 seconds.")
+message_text["suspend"] = _("The system will be suspended in %1 seconds.")
+message_text["logout"] = _("You will be automatically logged out in %1 seconds.")
+message_text["systemUpdate"] = _("Your system is updating.please donnot poweroff...")
+message_text["default"] = _("Are you sure to do it?")
 
 timeId = null
 
 destory_all = ->
     clearInterval(timeId) if timeId
     DCore.Shutdown.quit()
-
 
 confirm_ok = (power)->
     echo "--------------confirm_ok(#{power})-------------"
@@ -59,3 +59,6 @@ showAnimation =(el,t)->
     _b = document.body
     _b.style.display = "none"
     jQuery(_b).fadeIn(t)
+
+isSystemUpdating = false
+

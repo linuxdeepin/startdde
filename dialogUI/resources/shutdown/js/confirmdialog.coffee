@@ -43,7 +43,20 @@ class ConfirmDialog extends Widget
             return
         @i = i
         powerchoose = null
-
+    
+    setPos:->
+        @element.style.display = "-webkit-box"
+        echo "clientWidth:#{@element.clientWidth}"
+        echo "clientHeight:#{@element.clientHeight}"
+        w = @element.clientWidth
+        h = @element.clientHeight
+        w = 306 if w == 0
+        h = 80 if h == 0
+        left = (screen.width  - w) / 2
+        bottom = (screen.height) / 2
+        @element.style.left = "#{left}px"
+        @element.style.bottom = "#{bottom}px"
+ 
     destory:->
         document.body.removeChild(@element)
 
@@ -57,15 +70,15 @@ class ConfirmDialog extends Widget
     frame_build:->
         @img_url_build()
         i = @i
-        frame_confirm = create_element("div", "frame_confirm", @element)
-        frame_confirm.addEventListener("click",->
+        #frame_confirm = create_element("div", "frame_confirm", @element)
+        @element.addEventListener("click",->
             frame_click = true
         )
         
-        left = create_element("div","left",frame_confirm)
+        left = create_element("div","left",@element)
         @img_confirm = create_img("img_confirm",img_url_normal[i],left)
         
-        right = create_element("div","right",frame_confirm)
+        right = create_element("div","right",@element)
         @message_confirm = create_element("div","message_confirm",right)
 
         button_confirm = create_element("div","button_confirm",right)
@@ -103,20 +116,21 @@ class ConfirmDialog extends Widget
             @normal_state(OK)
         )
         
+        @setPos()
         showAnimation(@element,TIME_SHOW)
     
     style_for_direct:=>
         echo "style_for_direct:power_can true!"
         i = @i
         @img_confirm.src = img_url_normal[i]
-        @message_confirm.textContent = message_text[i].args(60)
+        @message_confirm.textContent = message_text[option[i]].args(60)
         @button_ok.textContent = option_text[i]
 
     style_for_force:=>
         echo "style_for_force:power_can false!"
         i = @i
         @img_confirm.src = img_url_normal[i]
-        @message_confirm.textContent = message_text[i].args(60)
+        @message_confirm.textContent = message_text[option[i]].args(60)
         @button_ok.textContent = option_text_force[i]
         @button_ok.style.color = "rgba(255,128,114,1.0)"
     
@@ -126,7 +140,7 @@ class ConfirmDialog extends Widget
         clearInterval(timeId) if timeId
         timeId = setInterval(->
             time--
-            that.message_confirm.textContent = message_text[i].args(time)
+            that.message_confirm.textContent = message_text[option[i]].args(60)
             if time == 0
                 clearInterval(timeId)
                 confirm_ok(option[i])
