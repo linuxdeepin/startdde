@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Deepin Destkop Environment\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-04-11 13:52+0800\n"
+"POT-Creation-Date: 2014-04-21 01:23+0800\n"
 "PO-Revision-Date: 2013-12-11 04:44+0000\n"
 "Last-Translator: 648trindade <rafaelgt.mbin@gmail.com>\n"
 "Language-Team: Portuguese (Brazil) (http://www.transifex.com/projects/p/"
@@ -18,9 +18,9 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: ../resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Sair"
+#: ../resources/shutdown/js/confirmdialog.coffee:87
+msgid "Cancel"
+msgstr "Cancelar"
 
 #: ../resources/shutdown/js/utils.coffee:29
 msgid "Shut down"
@@ -32,17 +32,16 @@ msgstr "Reiniciar"
 
 #: ../resources/shutdown/js/utils.coffee:29
 #: ../resources/shutdown/js/utils.coffee:30
+msgid "Lock"
+msgstr "Travar"
+
+#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:30
 msgid "Suspend"
 msgstr "Suspender"
 
 #: ../resources/shutdown/js/utils.coffee:29
-#: ../resources/shutdown/js/utils.coffee:30
-msgid "Lock"
-msgstr "Travar"
-
-#: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
-msgid "Force Log out"
+msgid "Log out"
 msgstr "Sair"
 
 #: ../resources/shutdown/js/utils.coffee:30
@@ -55,20 +54,25 @@ msgstr "Desligar"
 msgid "Force Restart"
 msgstr "Reiniciar"
 
-#: ../resources/shutdown/js/utils.coffee:32
+#: ../resources/shutdown/js/utils.coffee:30
 #, fuzzy
-msgid "You will be automatically logged out in %1 seconds."
-msgstr "Você sairá automaticamente em:"
+msgid "Force Log out"
+msgstr "Sair"
 
-#: ../resources/shutdown/js/utils.coffee:33
+#: ../resources/shutdown/js/utils.coffee:32
 #, fuzzy
 msgid "The system will shut down in %1 seconds."
 msgstr "O sistema será desligado em:"
 
-#: ../resources/shutdown/js/utils.coffee:34
+#: ../resources/shutdown/js/utils.coffee:33
 #, fuzzy
 msgid "The system will restart in %1 seconds."
 msgstr "O sistema será reiniciado em:"
+
+#: ../resources/shutdown/js/utils.coffee:34
+#, fuzzy
+msgid "The system will be locked in %1 seconds."
+msgstr "O sistema será travado em:"
 
 #: ../resources/shutdown/js/utils.coffee:35
 #, fuzzy
@@ -77,9 +81,13 @@ msgstr "O sistema será suspenso em:"
 
 #: ../resources/shutdown/js/utils.coffee:36
 #, fuzzy
-msgid "The system will be locked in %1 seconds."
-msgstr "O sistema será travado em:"
+msgid "You will be automatically logged out in %1 seconds."
+msgstr "Você sairá automaticamente em:"
 
-#: ../resources/shutdown/js/confirmdialog.coffee:74
-msgid "Cancel"
-msgstr "Cancelar"
+#: ../resources/shutdown/js/utils.coffee:37
+msgid "Your system is updating.please donnot poweroff..."
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:38
+msgid "Are you sure to do it?"
+msgstr ""
