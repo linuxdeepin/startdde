@@ -30,9 +30,6 @@ body{
 .ConfirmDialog{
     position:absolute;
     display:-webkit-box;
-    /*-webkit-box-pack:center;*/
-    /*-webkit-box-align:center;*/
-    background-color:rgba(0,100,0,0.5);
 }
 
 

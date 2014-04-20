@@ -140,7 +140,7 @@ class ConfirmDialog extends Widget
         clearInterval(timeId) if timeId
         timeId = setInterval(->
             time--
-            that.message_confirm.textContent = message_text[option[i]].args(60)
+            that.message_confirm.textContent = message_text[option[i]].args(time)
             if time == 0
                 clearInterval(timeId)
                 confirm_ok(option[i])
