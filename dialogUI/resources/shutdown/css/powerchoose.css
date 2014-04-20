@@ -60,7 +60,7 @@ body{
     -webkit-box-orient:horizontal;
     -webkit-box-pack:center;
     -webkit-box-align:center;
-    margin-bottom:10px;
+    margin-bottom:2em;
 }
 
 .message_img_div{
