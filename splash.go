@@ -111,7 +111,9 @@ func initBackground() {
 	if err != nil {
 		Logger.Error("create render picture failed:", err)
 	}
+}
 
+func initBackgroundAfterCompizLoaded() {
 	go mapBgToRoot()
 
 	loadBgFile()
@@ -119,6 +121,7 @@ func initBackground() {
 	// background will be draw after receiving window expose
 	// event, but here we update it again after a few time to
 	// solve draw fails problem when compiz not ready
+	drawBackground(false)
 	go func() {
 		time.Sleep(time.Second * 5)
 		drawBackground(false)

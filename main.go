@@ -54,11 +54,13 @@ func main() {
 	startSession()
 	startStartManager()
 
+	initBackground()
+
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		go initBackground()
+		initBackgroundAfterCompizLoaded()
 
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
