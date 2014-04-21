@@ -54,20 +54,11 @@ func main() {
 	startSession()
 	startStartManager()
 
-	// Background
-	initBackground()
-
 	if !notStartInitPro {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		// background will be draw after receiving window expose
-		// event, but here we update it again after a few time to
-		// solve draw fail problem when compiz not ready
-		go func() {
-			time.Sleep(time.Second * 5)
-			drawBackground(false)
-		}()
+		go initBackground()
 
 		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()

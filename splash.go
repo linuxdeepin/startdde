@@ -26,7 +26,6 @@ import (
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
-	"os"
 	"sync"
 	"time"
 
@@ -50,11 +49,6 @@ const (
 	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLURRED"
 	ddeBgWindowTitle      = "DDE Background"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
-)
-
-var (
-	cacheRootBgFile     = os.Getenv("HOME") + "/.cache/dde_bg.png"
-	cacheRootBgBlurFile = os.Getenv("HOME") + "/.cache/dde_bg_blur.png"
 )
 
 var (
@@ -118,15 +112,16 @@ func initBackground() {
 		Logger.Error("create render picture failed:", err)
 	}
 
-	mapBgCacheToRoot()
+	go mapBgToRoot()
 
-	// load background file here and screen will be update when
-	// receive window expose event
 	loadBgFile()
+
+	// background will be draw after receiving window expose
+	// event, but here we update it again after a few time to
+	// solve draw fails problem when compiz not ready
 	go func() {
-		time.Sleep(30 * time.Second)
-		genBgCacheFile()
-		mapBgCacheToRoot()
+		time.Sleep(time.Second * 5)
+		drawBackground(false)
 	}()
 
 	listenBgFileChanged()
@@ -385,9 +380,9 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 
 // TODO [re-implemented through xrender]
 // TODO cancel operate if background file changed
-func genBgCacheFile() {
-	Logger.Debug("genBgCacheFile() begin")
-	defer Logger.Debug("genBgCacheFile() end")
+func mapBgToRoot() {
+	Logger.Debug("mapBgToRoot() begin")
+	defer Logger.Debug("mapBgToRoot() end")
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -397,27 +392,22 @@ func genBgCacheFile() {
 		}
 	}()
 
+	_rootBgImgInfo.lock.Lock()
+	defer _rootBgImgInfo.lock.Unlock()
+
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	err := graphic.FillImage(getBackgroundFile(), cacheRootBgFile, int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
+	cacheRootBgFile, err := graphic.FillImageCache(getBackgroundFile(), int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
 	// generate temporary blurred background file
-	err = graphic.BlurImage(cacheRootBgFile, cacheRootBgBlurFile, 50, 1, graphic.PNG)
+	cacheRootBgBlurFile, err := graphic.BlurImageCache(cacheRootBgFile, 50, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
-}
 
-func mapBgCacheToRoot() {
-	_rootBgImgInfo.lock.Lock()
-	defer _rootBgImgInfo.lock.Unlock()
-
-	if !isFileExists(cacheRootBgFile) || !isFileExists(cacheRootBgBlurFile) {
-		genBgCacheFile()
-	}
 	_rootBgImgInfo.bgImg = convertToXimage(cacheRootBgFile, _rootBgImgInfo.bgImg)
 	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
 
@@ -479,10 +469,7 @@ func listenBgFileChanged() {
 		switch key {
 		case gkeyCurrentBackground:
 			Logger.Debug("background value in gsettings changed:", key)
-			go func() {
-				genBgCacheFile()
-				mapBgCacheToRoot()
-			}()
+			go mapBgToRoot()
 			go func() {
 				loadBgFile()
 				drawBackground(false)
