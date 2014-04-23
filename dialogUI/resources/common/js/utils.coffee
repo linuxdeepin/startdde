@@ -195,3 +195,39 @@ inject_css = (el,src)->
     css_element.rel = "stylesheet"
     css_element.href = src
 
+get_dbus = (type, opt, testProperty)->
+    throw "get_dbus requires 3 arguments" if not testProperty
+    type = type.toLowerCase()
+    if type == "system"
+        type = "sys"
+
+    if typeof opt == 'string'
+        # console.log "get_dbus: #{type}"
+        dbusArg = [opt]
+        func = DCore.DBus[type]
+    else
+        # console.log "get_dbus: #{type}_object"
+        dbusArg = [opt.name, opt.path, opt.interface]
+        func = DCore.DBus["#{type}_object"]
+
+    d = null
+    try
+        d = func.apply(null, dbusArg)
+    catch e
+        console.log "Get DBus \"#{opt.name} #{opt.path} #{opt.interface}\" failed: #{e}"
+        return null
+
+    if !d
+        console.log "Get DBus \"#{opt.name} #{opt.path} #{opt.interface}\" failed"
+        return null
+
+    count = 0
+    while d and not d[testProperty]
+        try
+            d = func.apply(null, dbusArg)
+            console.log "DBus \"#{opt.name} #{opt.path} #{opt.interface}\" starts incompletely"
+            count += 1
+            if count == 50
+                return null
+    d
+
