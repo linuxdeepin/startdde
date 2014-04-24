@@ -391,7 +391,7 @@ func mapBgToRoot() {
 		if err := recover(); err != nil {
 			// error occurred if background file is busy for user
 			// change background frequent
-			Logger.Warning(err)
+			Logger.Error(err)
 		}
 	}()
 
@@ -412,10 +412,16 @@ func mapBgToRoot() {
 	}
 
 	_rootBgImgInfo.bgImg = convertToXimage(cacheRootBgFile, _rootBgImgInfo.bgImg)
-	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
+	if err != nil {
+		panic(err)
+	}
 
 	_rootBgImgInfo.bgBlurImg = convertToXimage(cacheRootBgBlurFile, _rootBgImgInfo.bgBlurImg)
-	xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func resizeBgWindow(w, h int) {
