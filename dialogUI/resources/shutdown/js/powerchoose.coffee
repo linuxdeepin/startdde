@@ -73,7 +73,6 @@ class PowerChoose extends Widget
         @message_text_div = create_element("div","message_text_div",@message_div)
         @message_text_div.textContent = message_text["default"]
         @message_div.style.display = "none"
-        @showMessage(message_text["systemUpdate"]) if isSystemUpdating
 
         button_div = create_element("div","button_div",@element)
        
@@ -122,6 +121,7 @@ class PowerChoose extends Widget
                 that.fade(i)
             )
         @setPos()
+        @check_inhibit()
         showAnimation(@element,TIME_SHOW)
     
     timefunc:(i) ->
@@ -143,6 +143,21 @@ class PowerChoose extends Widget
         ,false)
  
 
+    css_inhibit:(i,enable = true)->
+        if enable is true
+            opt[i].disable = "true"
+            opt[i].disable = "disable"
+            opt[i].style.opacity = "0.3"
+            inhibit = power_get_inhibit(option[i])
+            if enable is false then @showMessage(inhibit?[2])
+        else
+            opt[i].disable = "false"
+            opt[i].style.opacity = "1.0"
+
+    check_inhibit: ->
+        for bt,i in opt
+            @css_inhibit(i,power_can(option[i]))
+
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"
         if power_can(option[i])
@@ -153,18 +168,27 @@ class PowerChoose extends Widget
             echo "power_can false ,switchToConfirmDialog"
             @switchToConfirmDialog(i)
 
-    hover_state:(i)->
+    hover_state:(i,enable = true)->
         #choose_num = i
         if select_state_confirm then @select_state(i)
+        power = option[i]
+        enable = power_can(power)
+        inhibit = power_get_inhibit(power)
+        if enable is false then @showMessage(inhibit?[2])
         for tmp,j in opt_img
-            if j == i then tmp.src = img_url_hover[i]
-            else tmp.src = img_url_normal[j]
+            if j == i and enable is true then tmp.src = img_url_hover[i]
+            else
+                tmp.src = img_url_normal[j]
    
-    select_state:(i)->
+    select_state:(i,enable = true)->
         select_state_confirm = true
+        power = option[i]
+        enable = power_can(power)
+        inhibit = power_get_inhibit(power)
+        if enable is false then @showMessage(inhibit?[2])
         choose_num = i
         for tmp,j in opt
-            if j == i
+            if j == i and enable is true
                 tmp.style.backgroundColor = "rgba(255,255,255,0.1)"
                 tmp.style.border = "1px solid rgba(255,255,255,0.15)"
                 tmp.style.borderRadius = "4px"

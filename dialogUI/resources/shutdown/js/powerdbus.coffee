@@ -40,7 +40,7 @@ power_request = (power) ->
 
 
 
-power_cannot_excute = (power) ->
+power_get_inhibit = (power) ->
     LOGIN1 =
         name:"org.freedesktop.login1"
         path:"/org/freedesktop/login1"
@@ -53,10 +53,8 @@ power_cannot_excute = (power) ->
     if not dbus_login1? then return
     
     inhibitorsList = dbus_login1.ListInhibitors_sync()
-    echo inhibitorsList
     cannot_excute = []
     for inhibit,i in inhibitorsList
-        echo inhibit
         type = inhibit[0]
         switch type
             when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
@@ -67,11 +65,19 @@ power_cannot_excute = (power) ->
                 cannot_excute.push({type:"shutdown",inhibit:inhibit})
                 cannot_excute.push({type:"logout",inhibit:inhibit})
     
-    echo cannot_excute
     if cannot_excute.length == 0 then return
     for tmp in cannot_excute
         if power is tmp.type then return tmp.inhibit
     return null
+
+power_can = (power)->
+    inhibit = power_get_inhibit(power)
+    if inhibit is null
+        echo "#power_can:#{power} true"
+        return true
+    else
+        echo "#power_can:#{power} false"
+        return false
 
 inhibit_test = ->
     LOGIN1 =
@@ -94,15 +100,11 @@ inhibit_test = ->
             "block"
         )
     power = "shutdown"
-    inhibit = power_cannot_excute(power)
-    if inhibit is null
-        echo "#{power} can excute"
-    else
-        echo inhibit
+    power_can(power)
 
 #inhibit_test()
 
-power_can = (power) ->
+power_can_from_deepin_dbus = (power) ->
     try
         dbus_power = get_dbus("session",SessionManager,"CanShutdown")
         echo dbus_power
