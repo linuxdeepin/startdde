@@ -23,7 +23,7 @@ SessionManager = "com.deepin.SessionManager"
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
     try
-        dbus_power = DCore.DBus.session(SessionManager)
+        dbus_power = get_dbus("session",SessionManager,"RequestLock")
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
@@ -38,9 +38,73 @@ power_request = (power) ->
         when "shutdown" then dbus_power.RequestShutdown()
         else return
 
+
+
+power_cannot_excute = (power) ->
+    LOGIN1 =
+        name:"org.freedesktop.login1"
+        path:"/org/freedesktop/login1"
+        interface:"org.freedesktop.login1.Manager"
+    try
+        dbus_login1 = get_dbus("system",LOGIN1,"ListInhibitors")
+        echo dbus_login1
+    catch e
+        echo "dbus_login1 error:#{e}"
+    if not dbus_login1? then return
+    
+    inhibitorsList = dbus_login1.ListInhibitors_sync()
+    echo inhibitorsList
+    cannot_excute = []
+    for inhibit,i in inhibitorsList
+        echo inhibit
+        type = inhibit[0]
+        switch type
+            when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
+            when "idle"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+            when "handle-suspend-key"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+            when "handle-power-key"
+                cannot_excute.push({type:"restart",inhibit:inhibit})
+                cannot_excute.push({type:"shutdown",inhibit:inhibit})
+                cannot_excute.push({type:"logout",inhibit:inhibit})
+    
+    echo cannot_excute
+    if cannot_excute.length == 0 then return
+    for tmp in cannot_excute
+        if power is tmp.type then return tmp.inhibit
+    return null
+
+inhibit_test = ->
+    LOGIN1 =
+        name:"org.freedesktop.login1"
+        path:"/org/freedesktop/login1"
+        interface:"org.freedesktop.login1.Manager"
+    try
+        dbus_login1 = get_dbus("system",LOGIN1,"Inhibit")
+    catch e
+        echo "dbus_login1 error:#{e}"
+    if not dbus_login1? then return
+    
+    dsc_update_inhibits = []
+    dsc_update_inhibits = ["shutdown","sleep","idle","handle-power-key","handle-suspend-key","handle-hibernate-key","handle-lid-switch"]
+    for inhibit in dsc_update_inhibits
+        dbus_login1.Inhibit_sync(
+            inhibit,
+            "DeepinSoftCenter",
+            "Please wait a moment while system update is being performed... Do not turn off your computer.",
+            "block"
+        )
+    power = "shutdown"
+    inhibit = power_cannot_excute(power)
+    if inhibit is null
+        echo "#{power} can excute"
+    else
+        echo inhibit
+
+#inhibit_test()
+
 power_can = (power) ->
     try
-        dbus_power = DCore.DBus.session(SessionManager)
+        dbus_power = get_dbus("session",SessionManager,"CanShutdown")
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
@@ -59,7 +123,7 @@ power_can = (power) ->
 
 power_force = (power) ->
     try
-        dbus_power = DCore.DBus.session(SessionManager)
+        dbus_power = get_dbus("session",SessionManager,"ForceReboot")
         echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
