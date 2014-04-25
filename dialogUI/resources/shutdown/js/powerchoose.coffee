@@ -156,7 +156,7 @@ class PowerChoose extends Widget
 
     check_inhibit: ->
         for bt,i in opt
-            @css_inhibit(i,power_can(option[i]))
+            @css_inhibit(i,!power_can(option[i]))
 
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"

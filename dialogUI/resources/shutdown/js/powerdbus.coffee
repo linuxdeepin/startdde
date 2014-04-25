@@ -77,7 +77,8 @@ power_can = (power)->
         return true
     else
         echo "#power_can:#{power} false"
-        return false
+        #return false
+        return true
 
 inhibit_test = ->
     LOGIN1 =
