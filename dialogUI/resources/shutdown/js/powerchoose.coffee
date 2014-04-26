@@ -99,7 +99,6 @@ class PowerChoose extends Widget
             #hover
             opt[i].addEventListener("mouseover",->
                 i = this.value
-                #choose_num = i
                 that.hover_state(i)
             )
             
@@ -110,15 +109,13 @@ class PowerChoose extends Widget
             )
 
             #click
-            opt[i].addEventListener("mousedown",->
-                i = this.value
-                opt_img[i].src = img_url_click[i]
-            )
             opt[i].addEventListener("click",->
                 i = this.value
                 frame_click = true
-                opt_img[i].src = img_url_click[i]
-                that.fade(i)
+                power = option[i]
+                if power_can(power)
+                    opt_img[i].src = img_url_click[i]
+                    that.fade(i)
             )
         @setPos()
         @check_inhibit()
@@ -146,7 +143,7 @@ class PowerChoose extends Widget
     css_inhibit:(i,enable = true)->
         if enable is true
             opt[i].disable = "true"
-            opt[i].disable = "disable"
+            #opt[i].disable = "disable"
             opt[i].style.opacity = "0.3"
             opt[i].style.cursor = "default"
             inhibit = power_get_inhibit(option[i])
@@ -166,10 +163,9 @@ class PowerChoose extends Widget
             echo "power_can true ,power_force"
             confirm_ok(option[i])
             #power_force(option[i])
-        else
-            echo "power_can false ,switchToConfirmDialog"
-            @switchToConfirmDialog(i)
-
+        #else
+            #@switchToConfirmDialog(i)
+    
     hover_state:(i,enable = true)->
         #choose_num = i
         if select_state_confirm then @select_state(i)

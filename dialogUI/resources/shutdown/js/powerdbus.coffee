@@ -101,7 +101,7 @@ inhibit_test = ->
             "block"
         )
 
-#inhibit_test()
+inhibit_test()
 
 power_can_from_deepin_dbus = (power) ->
     try
