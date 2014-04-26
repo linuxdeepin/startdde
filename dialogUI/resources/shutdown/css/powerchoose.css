@@ -61,6 +61,7 @@ body{
     -webkit-box-pack:center;
     -webkit-box-align:center;
     margin-bottom:2em;
+    max-width:45em;
 }
 
 .message_img_div{
@@ -68,7 +69,7 @@ body{
     height:23px;
 }
 .message_text_div{
-    margin-left:10px;
+    margin-left:1em;
     text-align:center;
     color: rgba(255,255,255,0.7);
     font-size:1.4em;
@@ -91,8 +92,6 @@ body{
     -webkit-box-orient:vertical;
     -webkit-box-pack:center;
     -webkit-box-align:center;
-}
-.opt:hover{
     cursor: pointer;
 }
 

@@ -148,11 +148,13 @@ class PowerChoose extends Widget
             opt[i].disable = "true"
             opt[i].disable = "disable"
             opt[i].style.opacity = "0.3"
+            opt[i].style.cursor = "default"
             inhibit = power_get_inhibit(option[i])
             if enable is false then @showMessage(inhibit?[2])
         else
             opt[i].disable = "false"
             opt[i].style.opacity = "1.0"
+            opt[i].style.cursor = "pointer"
 
     check_inhibit: ->
         for bt,i in opt

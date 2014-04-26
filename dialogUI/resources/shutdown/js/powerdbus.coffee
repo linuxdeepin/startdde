@@ -24,7 +24,6 @@ power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
     try
         dbus_power = get_dbus("session",SessionManager,"RequestLock")
-        echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
@@ -41,16 +40,16 @@ power_request = (power) ->
 
 
 power_get_inhibit = (power) ->
+    result = null
     LOGIN1 =
         name:"org.freedesktop.login1"
         path:"/org/freedesktop/login1"
         interface:"org.freedesktop.login1.Manager"
     try
         dbus_login1 = get_dbus("system",LOGIN1,"ListInhibitors")
-        echo dbus_login1
     catch e
         echo "dbus_login1 error:#{e}"
-    if not dbus_login1? then return
+    if not dbus_login1? then return result
     
     inhibitorsList = dbus_login1.ListInhibitors_sync()
     cannot_excute = []
@@ -65,22 +64,23 @@ power_get_inhibit = (power) ->
                 cannot_excute.push({type:"shutdown",inhibit:inhibit})
                 cannot_excute.push({type:"logout",inhibit:inhibit})
     
-    if cannot_excute.length == 0 then return
+    if cannot_excute.length == 0 then return result
     for tmp in cannot_excute
-        if power is tmp.type then return tmp.inhibit
-    return null
+        if power is tmp.type then result = tmp.inhibit
+    echo "power_get_inhibit(#{power}) result:#{result}"
+    return result
 
 power_can = (power)->
     inhibit = power_get_inhibit(power)
     if inhibit is null
-        echo "#power_can:#{power} true"
+        echo "power_can:#{power} true"
         return true
     else
-        echo "#power_can:#{power} false"
-        #return false
-        return true
+        echo "power_can:#{power} false"
+        return false
 
 inhibit_test = ->
+    echo "--------inhibit_test-------"
     LOGIN1 =
         name:"org.freedesktop.login1"
         path:"/org/freedesktop/login1"
@@ -100,15 +100,12 @@ inhibit_test = ->
             "Please wait a moment while system update is being performed... Do not turn off your computer.",
             "block"
         )
-    power = "shutdown"
-    power_can(power)
 
 #inhibit_test()
 
 power_can_from_deepin_dbus = (power) ->
     try
         dbus_power = get_dbus("session",SessionManager,"CanShutdown")
-        echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
@@ -127,12 +124,10 @@ power_can_from_deepin_dbus = (power) ->
 power_force = (power) ->
     try
         dbus_power = get_dbus("session",SessionManager,"ForceReboot")
-        echo dbus_power
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
     # option = ["lock","suspend","logout","restart","shutdown"]
-    echo dbus_power
     document.body.style.cursor = "wait" if power isnt "suspend" and power isnt "lock"
     echo "Warning: The system will ----#{power}---- Force!!"
     switch power
