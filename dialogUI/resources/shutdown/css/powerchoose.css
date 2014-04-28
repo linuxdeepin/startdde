@@ -62,6 +62,7 @@ body{
     -webkit-box-align:center;
     margin-bottom:2em;
     max-width:45em;
+    text-align:left;
 }
 
 .message_img_div{
