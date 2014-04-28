@@ -54,16 +54,16 @@ power_get_inhibit = (power) ->
     inhibitorsList = dbus_login1.ListInhibitors_sync()
     cannot_excute = []
     for inhibit,i in inhibitorsList
-        if inhibit[3] isnt "block" then break
-        type = inhibit[0]
-        switch type
-            when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
-            when "idle"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
-            when "handle-suspend-key"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
-            when "handle-power-key"
-                cannot_excute.push({type:"restart",inhibit:inhibit})
-                cannot_excute.push({type:"shutdown",inhibit:inhibit})
-                cannot_excute.push({type:"logout",inhibit:inhibit})
+        if inhibit[3] is "block"
+            type = inhibit[0]
+            switch type
+                when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
+                when "idle"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+                when "handle-suspend-key"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+                when "handle-power-key"
+                    cannot_excute.push({type:"restart",inhibit:inhibit})
+                    cannot_excute.push({type:"shutdown",inhibit:inhibit})
+                    cannot_excute.push({type:"logout",inhibit:inhibit})
     
     if cannot_excute.length == 0 then return result
     for tmp in cannot_excute
@@ -102,7 +102,7 @@ inhibit_test = ->
             "block"
         )
 
-inhibit_test()
+#inhibit_test()
 
 power_can_from_deepin_dbus = (power) ->
     try
