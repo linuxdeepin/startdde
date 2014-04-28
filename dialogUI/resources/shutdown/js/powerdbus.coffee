@@ -54,6 +54,7 @@ power_get_inhibit = (power) ->
     inhibitorsList = dbus_login1.ListInhibitors_sync()
     cannot_excute = []
     for inhibit,i in inhibitorsList
+        if inhibit[3] isnt "block" then break
         type = inhibit[0]
         switch type
             when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
