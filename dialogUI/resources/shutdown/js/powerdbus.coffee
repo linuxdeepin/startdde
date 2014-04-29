@@ -52,19 +52,27 @@ power_get_inhibit = (power) ->
     if not dbus_login1? then return result
     
     inhibitorsList = dbus_login1.ListInhibitors_sync()
+    echo "inhibitorsList.lengt:" + inhibitorsList.length
+    echo inhibitorsList
     cannot_excute = []
     for inhibit,i in inhibitorsList
-        if inhibit[3] is "block"
-            type = inhibit[0]
-            switch type
-                when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
-                when "idle"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
-                when "handle-suspend-key"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
-                when "handle-power-key"
-                    cannot_excute.push({type:"restart",inhibit:inhibit})
-                    cannot_excute.push({type:"shutdown",inhibit:inhibit})
-                    cannot_excute.push({type:"logout",inhibit:inhibit})
-    
+        if inhibit is undefined then break
+        echo inhibit
+        try
+            if inhibit[3] is "block"
+                type = inhibit[0]
+                switch type
+                    when "shutdown" then cannot_excute.push({type:"shutdown",inhibit:inhibit})
+                    when "idle"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+                    when "handle-suspend-key"  then cannot_excute.push({type:"suspend",inhibit:inhibit})
+                    when "handle-power-key"
+                        cannot_excute.push({type:"restart",inhibit:inhibit})
+                        cannot_excute.push({type:"shutdown",inhibit:inhibit})
+                        cannot_excute.push({type:"logout",inhibit:inhibit})
+        catch e
+            echo "#{e}"
+
+
     if cannot_excute.length == 0 then return result
     for tmp in cannot_excute
         if power is tmp.type then result = tmp.inhibit
