@@ -114,7 +114,10 @@ func initBackground() {
 }
 
 func initBackgroundAfterCompizLoaded() {
-	go mapBgToRoot()
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		mapBgToRoot()
+	}()
 
 	loadBgFile()
 
