@@ -60,6 +60,20 @@ class PowerChoose extends Widget
         @message_div.style.display = "-webkit-box"
         @message_text_div.textContent = text
 
+
+    setOptionDefault:(option_defalut)->
+        #this key must get From system
+        GetinFromKey = false
+        for tmp,i in option
+            if tmp is option_defalut
+                if GetinFromKey
+                    @select_state(i)
+                else
+                    choose_num = i
+                    @hover_state(i)
+                @opt[i].focus()
+
+
     frame_build:->
         @img_url_build()
         #frame = create_element("div", "frame", @element)
@@ -85,15 +99,6 @@ class PowerChoose extends Widget
             @opt_text[i] = create_element("div","opt_text",@opt[i])
             @opt_text[i].textContent = option_text[i]
             
-            #this key must get From system
-            GetinFromKey = false
-            if tmp is "shutdown"
-                if GetinFromKey
-                    @select_state(i)
-                else
-                    choose_num = i
-                    @hover_state(i)
-                @opt[i].focus()
             
             that = @
             #hover
@@ -117,6 +122,8 @@ class PowerChoose extends Widget
                     that.opt_img[i].src = that.img_url_click[i]
                     that.fade(i)
             )
+        
+        @setOptionDefault("shutdown")
         @setPos()
         @check_inhibit()
         showAnimation(@element,TIME_SHOW)
