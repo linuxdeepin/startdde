@@ -19,11 +19,15 @@
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 SessionManager = "com.deepin.SessionManager"
+LOGIN1 =
+    name:"org.freedesktop.login1"
+    path:"/org/freedesktop/login1"
+    interface:"org.freedesktop.login1.Manager"
 
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
     try
-        dbus_power = get_dbus("session",SessionManager,"RequestLock")
+        dbus_power = DCore.DBus.session(SessionManager)
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
@@ -41,23 +45,20 @@ power_request = (power) ->
 
 power_get_inhibit = (power) ->
     result = null
-    LOGIN1 =
-        name:"org.freedesktop.login1"
-        path:"/org/freedesktop/login1"
-        interface:"org.freedesktop.login1.Manager"
     try
-        dbus_login1 = get_dbus("system",LOGIN1,"ListInhibitors")
+        dbus_login1 = DCore.DBus.sys_object(
+            LOGIN1.name,
+            LOGIN1.path,
+            LOGIN1.interface
+        )
     catch e
         echo "dbus_login1 error:#{e}"
     if not dbus_login1? then return result
     
     inhibitorsList = dbus_login1.ListInhibitors_sync()
-    echo "inhibitorsList.lengt:" + inhibitorsList.length
-    echo inhibitorsList
     cannot_excute = []
     for inhibit,i in inhibitorsList
         if inhibit is undefined then break
-        echo inhibit
         try
             if inhibit[3] is "block"
                 type = inhibit[0]
@@ -90,12 +91,12 @@ power_can = (power)->
 
 inhibit_test = ->
     echo "--------inhibit_test-------"
-    LOGIN1 =
-        name:"org.freedesktop.login1"
-        path:"/org/freedesktop/login1"
-        interface:"org.freedesktop.login1.Manager"
     try
-        dbus_login1 = get_dbus("system",LOGIN1,"Inhibit")
+        dbus_login1 = DCore.DBus.sys_object(
+            LOGIN1.name,
+            LOGIN1.path,
+            LOGIN1.interface
+        )
     catch e
         echo "dbus_login1 error:#{e}"
     if not dbus_login1? then return
@@ -114,7 +115,7 @@ inhibit_test = ->
 
 power_can_from_deepin_dbus = (power) ->
     try
-        dbus_power = get_dbus("session",SessionManager,"CanShutdown")
+        dbus_power = DCore.DBus.session(SessionManager)
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
@@ -132,7 +133,7 @@ power_can_from_deepin_dbus = (power) ->
 
 power_force = (power) ->
     try
-        dbus_power = get_dbus("session",SessionManager,"ForceReboot")
+        dbus_power = DCore.DBus.session(SessionManager)
     catch e
         echo "dbus_power error:#{e}"
     if not dbus_power? then return
