@@ -87,6 +87,24 @@ power_can = (power)->
         echo "power_can:#{power} false"
         return false
 
+inhibit_test = ->
+    echo "--------inhibit_test-------"
+    if not dbus_login1? then return
+    echo "1"
+    dsc_update_inhibits = []
+    dsc_update_inhibits = ["shutdown","sleep","idle","handle-power-key","handle-suspend-key","handle-hibernate-key","handle-lid-switch"]
+    echo "2"
+    for inhibit in dsc_update_inhibits
+        dbus_login1?.Inhibit_sync(
+            inhibit,
+            "DeepinSoftCenter",
+            "Please wait a moment while system update is being performed... Do not turn off your computer.",
+            "block"
+        )
+    echo "3"
+
+inhibit_test()
+
 
 
 power_can_from_deepin_dbus = (power) ->
