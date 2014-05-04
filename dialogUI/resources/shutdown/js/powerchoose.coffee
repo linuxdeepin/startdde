@@ -19,20 +19,20 @@
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 class PowerChoose extends Widget
-    opt = []
-    opt_img = []
-    opt_text = []
+
     choose_num = -1
     select_state_confirm = false
 
-    img_url_normal = []
-    img_url_hover = []
-    img_url_click = []
-    
     constructor: ()->
         super
         confirmdialog = null
-    
+        @opt = []
+        @opt_img = []
+        @opt_text = []
+        @img_url_normal = []
+        @img_url_hover = []
+        @img_url_click = []
+
     setPos:->
         @element.style.display = "-webkit-box"
         echo "clientWidth:#{@element.clientWidth}"
@@ -51,9 +51,9 @@ class PowerChoose extends Widget
 
     img_url_build:->
         for i of option
-            img_url_normal.push("img/#{option[i]}_normal.png")
-            img_url_hover.push("img/#{option[i]}_hover.png")
-            img_url_click.push("img/#{option[i]}_press.png")
+            @img_url_normal.push("img/#{option[i]}_normal.png")
+            @img_url_hover.push("img/#{option[i]}_hover.png")
+            @img_url_click.push("img/#{option[i]}_press.png")
 
 
     showMessage:(text)->
@@ -77,13 +77,13 @@ class PowerChoose extends Widget
         button_div = create_element("div","button_div",@element)
        
         for tmp ,i in option
-            opt[i] = create_element("div","opt",button_div)
-            opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
-            opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
-            opt[i].value = i
-            opt_img[i] = create_img("opt_img",img_url_normal[i],opt[i])
-            opt_text[i] = create_element("div","opt_text",opt[i])
-            opt_text[i].textContent = option_text[i]
+            @opt[i] = create_element("div","opt",button_div)
+            @opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
+            @opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
+            @opt[i].value = i
+            @opt_img[i] = create_img("opt_img",@img_url_normal[i],@opt[i])
+            @opt_text[i] = create_element("div","opt_text",@opt[i])
+            @opt_text[i].textContent = option_text[i]
             
             #this key must get From system
             GetinFromKey = false
@@ -93,28 +93,28 @@ class PowerChoose extends Widget
                 else
                     choose_num = i
                     @hover_state(i)
-                opt[i].focus()
+                @opt[i].focus()
             
             that = @
             #hover
-            opt[i].addEventListener("mouseover",->
+            @opt[i].addEventListener("mouseover",->
                 i = this.value
                 that.hover_state(i)
             )
             
             #normal
-            opt[i].addEventListener("mouseout",->
+            @opt[i].addEventListener("mouseout",->
                 i = this.value
-                opt_img[i].src = img_url_normal[i]
+                that.opt_img[i].src = that.img_url_normal[i]
             )
 
             #click
-            opt[i].addEventListener("click",->
+            @opt[i].addEventListener("click",->
                 i = this.value
                 frame_click = true
                 power = option[i]
                 if power_can(power)
-                    opt_img[i].src = img_url_click[i]
+                    that.opt_img[i].src = that.img_url_click[i]
                     that.fade(i)
             )
         @setPos()
@@ -129,32 +129,32 @@ class PowerChoose extends Widget
         confirmdialog.interval(60)
     
     switchToConfirmDialog:(i)->
-        opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
-        opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
-        opt[i].style.borderRadius = null
+        @opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
+        @opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
+        @opt[i].style.borderRadius = null
         time = 0.5
         for el,j in opt
             apply_animation(el,"fade_animation#{j}","#{time}s")
-        opt[i].addEventListener("webkitAnimationEnd",=>
+        @opt[i].addEventListener("webkitAnimationEnd",=>
             @timefunc(i)
         ,false)
  
 
     css_inhibit:(i,enable = true)->
         if enable is true
-            opt[i].disable = "true"
-            #opt[i].disable = "disable"
-            opt[i].style.opacity = "0.3"
-            opt[i].style.cursor = "default"
+            @opt[i].disable = "true"
+            #@opt[i].disable = "disable"
+            @opt[i].style.opacity = "0.3"
+            @opt[i].style.cursor = "default"
             inhibit = power_get_inhibit(option[i])
             if enable is false then @showMessage(inhibit?[2])
         else
-            opt[i].disable = "false"
-            opt[i].style.opacity = "1.0"
-            opt[i].style.cursor = "pointer"
+            @opt[i].disable = "false"
+            @opt[i].style.opacity = "1.0"
+            @opt[i].style.cursor = "pointer"
 
     check_inhibit: ->
-        for bt,i in opt
+        for bt,i in @opt
             @css_inhibit(i,!power_can(option[i]))
 
     fade:(i)->
@@ -173,10 +173,10 @@ class PowerChoose extends Widget
         enable = power_can(power)
         inhibit = power_get_inhibit(power)
         if enable is false then @showMessage(inhibit?[2])
-        for tmp,j in opt_img
-            if j == i and enable is true then tmp.src = img_url_hover[i]
+        for tmp,j in @opt_img
+            if j == i and enable is true then tmp.src = @img_url_hover[i]
             else
-                tmp.src = img_url_normal[j]
+                tmp.src = @img_url_normal[j]
    
     select_state:(i,enable = true)->
         select_state_confirm = true
@@ -185,7 +185,7 @@ class PowerChoose extends Widget
         inhibit = power_get_inhibit(power)
         if enable is false then @showMessage(inhibit?[2])
         choose_num = i
-        for tmp,j in opt
+        for tmp,j in @opt
             if j == i and enable is true
                 tmp.style.backgroundColor = "rgba(255,255,255,0.1)"
                 tmp.style.border = "1px solid rgba(255,255,255,0.15)"
