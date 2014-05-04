@@ -103,7 +103,7 @@ inhibit_test = ->
         )
     echo "3"
 
-inhibit_test()
+#inhibit_test()
 
 
 
