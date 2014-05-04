@@ -17,12 +17,19 @@
 #
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
-
 SessionManager = "com.deepin.SessionManager"
 LOGIN1 =
     name:"org.freedesktop.login1"
     path:"/org/freedesktop/login1"
     interface:"org.freedesktop.login1.Manager"
+try
+    dbus_login1 = DCore.DBus.sys_object(
+        LOGIN1.name,
+        LOGIN1.path,
+        LOGIN1.interface
+    )
+catch e
+    echo "dbus_login1 error:#{e}"
 
 power_request = (power) ->
     # option = ["lock","suspend","logout","restart","shutdown"]
@@ -45,14 +52,6 @@ power_request = (power) ->
 
 power_get_inhibit = (power) ->
     result = null
-    try
-        dbus_login1 = DCore.DBus.sys_object(
-            LOGIN1.name,
-            LOGIN1.path,
-            LOGIN1.interface
-        )
-    catch e
-        echo "dbus_login1 error:#{e}"
     if not dbus_login1? then return result
     
     inhibitorsList = dbus_login1.ListInhibitors_sync()
@@ -72,7 +71,6 @@ power_get_inhibit = (power) ->
                         cannot_excute.push({type:"logout",inhibit:inhibit})
         catch e
             echo "#{e}"
-
 
     if cannot_excute.length == 0 then return result
     for tmp in cannot_excute
