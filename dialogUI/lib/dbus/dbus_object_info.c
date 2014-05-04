@@ -1,5 +1,3 @@
-#include <dbus/dbus-glib.h>
-#include <dbus/dbus-glib-lowlevel.h>
 #include <string.h>
 #include <glib.h>
 
@@ -251,41 +249,48 @@ void build_current_object_info(const char* xml, const char* interface)
 }
 
 
-struct DBusObjectInfo* build_object_info(
-        DBusGConnection* con,
-        const char *server, const char* path,
-        const char *interface)
+struct DBusObjectInfo* build_object_info( GDBusConnection* con, const char *name, const char* path, const char *interface)
 {
     struct DBusObjectInfo *obj_info = g_new(struct DBusObjectInfo, 1);
+
     c_obj_info = obj_info;
-    obj_info->connection = dbus_g_connection_get_connection(con);
-    obj_info->methods = g_hash_table_new_full(g_str_hash, g_str_equal,
-          NULL, method_free);
-    obj_info->properties = g_hash_table_new_full(g_str_hash, g_str_equal,
-          NULL, property_free);
-    obj_info->signals = g_hash_table_new_full(g_str_hash, g_str_equal,
-          NULL, signal_free);
-    obj_info->server = g_strdup(server);
+    obj_info->connection = con;
+    obj_info->methods = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, method_free);
+    obj_info->properties = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, property_free);
+    obj_info->signals = g_hash_table_new_full(g_str_hash, g_str_equal, NULL, signal_free);
+    obj_info->name = g_strdup(name);
     obj_info->path = g_strdup(path);
     obj_info->iface = g_strdup(interface);
 
 
-    char* info_xml = NULL;
-    DBusGProxy *proxy = dbus_g_proxy_new_for_name(con,
-            server, path,
-            "org.freedesktop.DBus.Introspectable");
-    if (!dbus_g_proxy_call(proxy, "Introspect", NULL, G_TYPE_INVALID,
-            G_TYPE_STRING, &info_xml, G_TYPE_INVALID)) {
-        g_warning("Error When fetcho introspectable infomation.");
+    GError* error = NULL;
+    GDBusProxy* proxy = g_dbus_proxy_new_sync(con, G_DBUS_PROXY_FLAGS_NONE, NULL, name, path, "org.freedesktop.DBus.Introspectable", NULL, &error);
+    if (error != NULL) {
+	g_warning("build_object_info create proxy:%s\n", error->message);
+	g_error_free(error);
+	return NULL;
     }
+    g_assert(G_IS_DBUS_PROXY(proxy));
+
+    GVariant* args = g_dbus_proxy_call_sync(proxy, "Introspect", NULL, G_DBUS_PROXY_FLAGS_NONE, -1, NULL, &error); 
+    g_assert(G_IS_DBUS_PROXY(proxy));
+
+    if (error != NULL) {
+	g_warning("build_object_info: call Introspect: %s\n", error->message);
+	g_error_free(error);
+	return NULL;
+    }
+
+    GVariant* r = g_variant_get_child_value(args, 0);
+    const char* info_xml = g_variant_get_string(r, NULL);
+    build_current_object_info(info_xml, interface);
+    c_obj_info = NULL;
+    g_variant_unref(r);
+    g_variant_unref(args);
+
+
     g_object_unref(proxy);
 
-    if (info_xml == NULL)
-        return NULL;
-
-    build_current_object_info(info_xml, interface);
-    g_free(info_xml);
-    c_obj_info = NULL;
     return obj_info;
 }
 
@@ -293,7 +298,7 @@ void dbus_object_info_free(struct DBusObjectInfo* info)
 {
     /*JSClassRelease(info->klass);*/
     //TOOD free jsobjec?
-    g_free(info->server);
+    g_free(info->name);
     g_free(info->path);
     g_free(info->iface);
     g_hash_table_unref(info->methods);
@@ -301,4 +306,3 @@ void dbus_object_info_free(struct DBusObjectInfo* info)
     g_hash_table_unref(info->signals);
     g_free(info);
 }
-

@@ -93,3 +93,23 @@ gboolean jsvalue_instanceof(JSContextRef ctx, JSValueRef test, const char *klass
   return JSValueIsInstanceOfConstructor(ctx, test, ctor, NULL);
 }
 
+
+PRIVATE gboolean _js_value_unprotect(JSValueRef v)
+{
+    JSValueUnprotect(get_global_context(), v);
+    return FALSE;
+}
+void js_value_unprotect(JSValueRef v)
+{
+    g_main_context_invoke(NULL, (GSourceFunc)_js_value_unprotect, (gpointer)v);
+}
+PRIVATE gboolean _js_value_protect(JSValueRef v)
+{
+    JSValueProtect(get_global_context(), v);
+    return FALSE;
+}
+void js_value_protect(JSValueRef v)
+{
+    g_main_context_invoke(NULL, (GSourceFunc)_js_value_protect, (gpointer)v);
+}
+

@@ -17,14 +17,15 @@ int binding(int server_sockfd, const char* path)
     server_addr.sun_family = AF_UNIX;
     server_len = 1 + path_size + offsetof(struct sockaddr_un, sun_path);
 
-    const int reuse = 1;
-    socklen_t val_len = sizeof reuse;
-    setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&reuse, val_len);
+    socklen_t val_len = 0;
+    // const int reuse = 1;
+    // val_len = sizeof reuse;
+    // setsockopt(server_sockfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&reuse, val_len);
 
-    // force quit
-    /* const struct linger linger_val = {1, 0}; */
-    /* val_len = sizeof linger_val; */
-    /* setsockopt(server_sockfd, SOL_SOCKET, SO_LINGER, (const void*)&linger_val, val_len); */
+    // not wait timeout, force quit
+    const struct linger linger_val = {1, 0};
+    val_len = sizeof linger_val;
+    setsockopt(server_sockfd, SOL_SOCKET, SO_LINGER, (const void*)&linger_val, val_len);
 
     return bind(server_sockfd, (struct sockaddr *)&server_addr, server_len);
 }
@@ -48,8 +49,12 @@ void singleton(const char* name)
     if (sd != 0)
         return;
 
+    int duration = 30;
     sd = socket(AF_UNIX, SOCK_STREAM, 0);
-    while (0 != binding(sd, name))
+    while (0 != binding(sd, name) && duration < 300) {
         g_debug("binding failed");
+        g_usleep(duration);
+        duration += 10;
+    }
 }
 

@@ -72,7 +72,7 @@ char* icon_name_to_path(const char* name, int size)
     g_return_val_if_fail(name != NULL, NULL);
 
     int pic_name_len = strlen(name);
-    char* ext = strchr(name, '.');
+    char* ext = strrchr(name, '.');
     if (ext != NULL) {
         if (g_ascii_strcasecmp(ext+1, "png") == 0 || g_ascii_strcasecmp(ext+1, "svg") == 0 || g_ascii_strcasecmp(ext+1, "jpg") == 0) {
             pic_name_len = ext - name;
@@ -148,3 +148,4 @@ gboolean change_desktop_entry_name(const char* path, const char* name)
         }
     }
 }
+

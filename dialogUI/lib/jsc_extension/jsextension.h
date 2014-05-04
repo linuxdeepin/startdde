@@ -35,6 +35,8 @@ typedef struct _ArrayContainer {
 } ArrayContainer;
 
 
+void js_value_protect(JSValueRef v);
+void js_value_unprotect(JSValueRef v);
 
 void init_js_extension(JSGlobalContextRef context, void* webview);
 void destroy_js_extension();
