@@ -67,6 +67,7 @@ var (
 var (
 	_filterNearest     xproto.Str
 	_filterBilinear    xproto.Str
+	_filterBest        xproto.Str
 	_filterConvolution xproto.Str
 )
 
@@ -154,6 +155,8 @@ func queryRender(d xproto.Drawable) {
 			_filterNearest = f
 		case "bilinear":
 			_filterBilinear = f
+		case "best":
+			_filterBest = f
 		case "convolution":
 			_filterConvolution = f
 		}
@@ -210,7 +213,10 @@ func loadBgFile() {
 	}
 	// setup image filter
 	err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterBilinear.NameLen), _filterBilinear.Name, nil).Check()
-	// TODO test only, for convolution filter
+	// TODO: choose a better fileter
+	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterNearest.NameLen), _filterNearest.Name, nil).Check()
+	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterBest.NameLen), _filterBest.Name, nil).Check()
+	// TODO: test only, for convolution filter
 	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	// err = render.SetPictureFilterChecked(XU.Conn(), _bgImgInfo.pid, 1602*uint16(_filterConvolution.NameLen), _filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {

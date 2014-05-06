@@ -33,6 +33,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"net/url"
 )
 
 func getBgImgWidth() uint16 {
@@ -75,20 +76,20 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	value = Display.PrimaryRect.Get()
 	if len(value) != 4 {
 		Logger.Error("get primary rect failed", value)
-		return 1024, 788
+		return 1024, 768
 	}
 	w, ok := value[2].(uint16)
 	if !ok {
 		Logger.Error("get primary screen resolution failed", Display)
-		return 1024, 788
+		return 1024, 768
 	}
 	h, ok = value[3].(uint16)
 	if !ok {
 		Logger.Error("get primary screen resolution failed", Display)
-		return 1024, 788
+		return 1024, 768
 	}
 	if w*h <= 0 {
-		return 1024, 788
+		return 1024, 768
 	}
 	return
 }
@@ -154,8 +155,18 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 func getBackgroundFile() string {
 	uri := _bgGSettings.GetString(gkeyCurrentBackground)
 	Logger.Debug("background uri:", uri)
-	path, ok := uriToPath(uri)
-	if !ok || !isFileExists(path) {
+
+	// decode url path, from
+	// "file:///home/user/%E5%9B%BE%E7%89%87/Wallpapers/time%201.jpg"
+	// to "/home/fsh/图片/Wallpapers/time 1.jpg"
+	u, err := url.Parse(uri)
+	if err != nil {
+		Logger.Error(err)
+		return defaultBackgroundFile
+	}
+	path := u.Path
+
+	if !isFileExists(path) {
 		Logger.Warning("background file is not exist:", path)
 		Logger.Warning("use default background:", defaultBackgroundFile)
 		return defaultBackgroundFile
@@ -163,12 +174,10 @@ func getBackgroundFile() string {
 	return path
 }
 
-func uriToPath(uri string) (string, bool) {
-	tmp := strings.TrimLeft(uri, " ")
-	if strings.HasPrefix(tmp, "file://") {
-		return tmp[7:], true
-	}
-	return "", false
+func uriToPath(uri string) string {
+	uri = strings.TrimLeft(uri, " ")
+	uri = strings.TrimPrefix(uri, "file://")
+	return uri
 }
 
 func isFileExists(file string) bool {
