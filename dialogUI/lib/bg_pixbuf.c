@@ -1,5 +1,6 @@
 /* GdkPixbuf RGBA C-Source image dump 1-byte-run-length-encoded */
 
+#include <glib.h>
 #ifdef __SUNPRO_C
 #pragma align 4 (my_pixbuf)
 #endif
