@@ -309,29 +309,48 @@ func mapBgToRoot() {
 		}
 	}()
 
-	_rootBgImgInfo.lock.Lock()
-	defer _rootBgImgInfo.lock.Unlock()
-
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	cacheRootBgFile, err := graphic.FillImageCache(getBackgroundFile(), int32(w), int32(h), graphic.FillProportionCenterScale, graphic.PNG)
+	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int32(w), int32(h),
+		graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
 	// generate temporary blurred background file
-	cacheRootBgBlurFile, err := graphic.BlurImageCache(cacheRootBgFile, 50, 1, graphic.PNG)
+	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
 
-	_rootBgImgInfo.bgImg = convertToXimage(cacheRootBgFile, _rootBgImgInfo.bgImg)
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
+	// set root window properties
+	doMapBgToRoot(rootBgFile, rootBgBlurFile)
+
+	// if use cache file, keep it update to time
+	if useCacheRootBg || useCacheRootBgBlue {
+		if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int32(w), int32(h),
+			graphic.FillProportionCenterScale, graphic.PNG); err != nil {
+			if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
+				// set root window properties again
+				doMapBgToRoot(rootBgFile, rootBgBlurFile)
+			}
+		}
+	}
+}
+func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
+	Logger.Info("doMapBgToRoot() begin")
+	defer Logger.Info("doMapBgToRoot() end")
+
+	_rootBgImgInfo.lock.Lock()
+	defer _rootBgImgInfo.lock.Unlock()
+
+	_rootBgImgInfo.bgImg = convertToXimage(rootBgFile, _rootBgImgInfo.bgImg)
+	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
 	if err != nil {
 		panic(err)
 	}
 
-	_rootBgImgInfo.bgBlurImg = convertToXimage(cacheRootBgBlurFile, _rootBgImgInfo.bgBlurImg)
+	_rootBgImgInfo.bgBlurImg = convertToXimage(rootBgBlurFile, _rootBgImgInfo.bgBlurImg)
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
 	if err != nil {
 		panic(err)
