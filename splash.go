@@ -393,8 +393,8 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 // TODO [re-implemented through xrender]
 // TODO cancel operate if background file changed
 func mapBgToRoot() {
-	Logger.Debug("mapBgToRoot() begin")
-	defer Logger.Debug("mapBgToRoot() end")
+	Logger.Info("mapBgToRoot() begin")
+	defer Logger.Info("mapBgToRoot() end")
 
 	defer func() {
 		if err := recover(); err != nil {
