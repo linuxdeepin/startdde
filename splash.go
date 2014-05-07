@@ -22,8 +22,6 @@
 package main
 
 import (
-	"fmt"
-	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"sync"
@@ -125,10 +123,10 @@ func initBackgroundAfterCompizLoaded() {
 	// background will be draw after receiving window expose
 	// event, but here we update it again after a few time to
 	// solve draw fails problem when compiz not ready
-	drawBackground(false)
+	drawBackground()
 	go func() {
 		time.Sleep(time.Second * 5)
-		drawBackground(false)
+		drawBackground()
 	}()
 
 	listenBgFileChanged()
@@ -224,7 +222,7 @@ func loadBgFile() {
 	}
 }
 
-func drawBackground(delay bool) {
+func drawBackground() {
 	Logger.Debug("drawBackground() begin")
 	defer Logger.Debug("drawBackground() end")
 
@@ -243,106 +241,13 @@ func drawBackground(delay bool) {
 		if reply.Connection != randr.ConnectionConnected {
 			continue
 		}
-		crtcReply, err := randr.GetCrtcInfo(XU.Conn(), reply.Crtc, 0).Reply()
+		cinfo, err := randr.GetCrtcInfo(XU.Conn(), reply.Crtc, 0).Reply()
 		if err != nil {
 			Logger.Warningf("get crtc info failed: id %d, %v", reply.Crtc, err)
 			continue
 		}
-		updateCrtcInfos(reply.Crtc, crtcReply.X, crtcReply.Y, crtcReply.Width, crtcReply.Height)
-		drawScreenBg(reply.Crtc, delay, false)
+		doDrawBgByRender(_bgImgInfo.pid, _bgWinInfo.pid, cinfo.X, cinfo.Y, cinfo.Width, cinfo.Height)
 	}
-}
-
-func drawScreenBg(crtc randr.Crtc, delay bool, drawDirectly bool) {
-	if drawDirectly {
-		go drawBgDirectly(crtc)
-	} else {
-		if !delay {
-			go drawBgByRender(crtc)
-		} else {
-			go func() {
-				// sleep 1s to ensure window resize event effected
-				time.Sleep(1 * time.Second)
-				drawBgByRender(crtc)
-
-				// sleep 5s and redraw background
-				time.Sleep(5 * time.Second)
-				drawBgByRender(crtc)
-			}()
-		}
-	}
-}
-
-// TODO [remove] draw background directly instead of through xrender, for that maybe
-// draw fail with compiz after login
-func drawBgDirectly(crtc randr.Crtc) {
-	defer func() {
-		if err := recover(); err != nil {
-			Logger.Error("drawBgDirectly failed:", err)
-		}
-	}()
-	_bgImgInfo.lock.Lock()
-	defer _bgImgInfo.lock.Unlock()
-	_crtcInfosLock.Lock()
-	defer _crtcInfosLock.Unlock()
-
-	var x, y int16
-	var width, height uint16
-	if i, ok := _crtcInfos[crtc]; ok {
-		x = i.x
-		y = i.y
-		width = i.width
-		height = i.height
-	} else {
-		panic(fmt.Errorf("target crtc info is out of save: id=%d", crtc))
-	}
-
-	Logger.Debugf("draw background directly: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
-
-	// create temporary ximage
-	ximg := xgraphics.New(XU, image.Rect(0, 0, int(width), int(height)))
-	ximg.CreatePixmap()
-	ximg.XDraw()
-
-	// bind ximage to picture
-	ximgpid, _ := render.NewPictureId(XU.Conn())
-	err := render.CreatePictureChecked(XU.Conn(), ximgpid, xproto.Drawable(ximg.Pixmap), _picFormat24, 0, nil).Check()
-	if err != nil {
-		panic(err)
-	}
-
-	// draw background to ximage through xrender
-	doDrawBgByRender(_bgImgInfo.pid, ximgpid, x, y, width, height)
-
-	// draw ximage to background window
-	ximg.XSurfaceSet(_bgWinInfo.win.Id) // TODO need?
-	ximg.XDraw()
-	ximg.XPaint(_bgWinInfo.win.Id)
-
-	// free resource
-	render.FreePicture(XU.Conn(), ximgpid)
-	ximg.Destroy()
-}
-
-func drawBgByRender(crtc randr.Crtc) {
-	_bgImgInfo.lock.Lock()
-	defer _bgImgInfo.lock.Unlock()
-	_crtcInfosLock.Lock()
-	defer _crtcInfosLock.Unlock()
-
-	var x, y int16
-	var width, height uint16
-	if i, ok := _crtcInfos[crtc]; ok {
-		x = i.x
-		y = i.y
-		width = i.width
-		height = i.height
-	} else {
-		Logger.Errorf("target crtc info is out of save: id=%d", crtc)
-		return
-	}
-
-	doDrawBgByRender(_bgImgInfo.pid, _bgWinInfo.pid, x, y, width, height)
 }
 
 func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height uint16) {
@@ -442,6 +347,7 @@ func resizeBgWindow(w, h int) {
 	_bgWinInfo.win.MoveResize(0, 0, w, h)
 	geom, _ = _bgWinInfo.win.Geometry()
 	Logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
+	drawBackground()
 }
 
 func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRedraw bool) {
@@ -490,11 +396,13 @@ func listenBgFileChanged() {
 			go mapBgToRoot()
 			go func() {
 				loadBgFile()
-				drawBackground(false)
+				drawBackground()
 			}()
 		}
 	})
 }
+
+var XX randr.Crtc
 
 func listenDisplayChanged() {
 	_bgWinInfo.win.Listen(xproto.EventMaskExposure)
@@ -504,41 +412,24 @@ func listenDisplayChanged() {
 		if err != nil {
 			continue
 		}
-		switch eventType := event.(type) {
+		switch e := event.(type) {
 		case xproto.ExposeEvent:
 			// TODO
-			Logger.Debug("expose event", eventType)
-			drawBackground(false)
-		case randr.NotifyEvent:
-			switch eventType.SubCode {
-			case randr.NotifyCrtcChange:
-				info := eventType.U.Cc
-				if info.Mode != 0 {
-					Logger.Debugf("NotifyCrtcChange: update, id=%d, (%d,%d,%d,%d)",
-						info.Crtc, info.X, info.Y, info.Width, info.Height)
-					needRedraw := updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
-					if needRedraw {
-						drawScreenBg(info.Crtc, true, false)
-					}
-					// TODO
-					// updateCrtcInfos(info.Crtc, info.X, info.Y, info.Width, info.Height)
-					// drawScreenBg(info.Crtc, true, false)
-				} else {
-					Logger.Debugf("NotifyCrtcChange: remove, id=%d, (%d,%d,%d,%d)",
-						info.Crtc, info.X, info.Y, info.Width, info.Height)
-					removeCrtcInfos(info.Crtc)
-				}
-				// drawBack(true)
-			}
+			Logger.Debug("expose event", e)
+			drawBackground()
 		case randr.ScreenChangeNotifyEvent:
-			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", eventType.Width, eventType.Height)
+			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
 			// FIXME skip invalid event for window manager issue
-			if eventType.Width < 480 && eventType.Height < 640 {
+			if e.Width < 480 && e.Height < 640 {
 				continue
 			}
 
-			resizeBgWindow(int(eventType.Width), int(eventType.Height))
+			if e.Rotation == randr.RotationRotate90 || e.Rotation == randr.RotationRotate270 {
+				e.Width, e.Height = e.Height, e.Width
+			}
+			resizeBgWindow(int(e.Width), int(e.Height))
+
 		}
 	}
 }
