@@ -66,6 +66,7 @@ func main() {
 		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
 		go exec.Command("/usr/lib/deepin-daemon/display").Run()
 		go exec.Command("/usr/lib/deepin-daemon/power").Run()
+		go exec.Command("/usr/lib/deepin-daemon/inputdevices").Run()
 		<-time.After(time.Millisecond * 20)
 
 		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
