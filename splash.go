@@ -311,17 +311,20 @@ func mapBgToRoot() {
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
+	Logger.Info("mapBgToRoot() screen resolution:", w, h)
 	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int32(w), int32(h),
 		graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
+	Logger.Info("mapBgToRoot() generate rootBgFile end")
 
 	// generate temporary blurred background file
 	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
+	Logger.Info("mapBgToRoot() generate rootBgBlurFile end")
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
@@ -341,20 +344,33 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	Logger.Info("doMapBgToRoot() begin")
 	defer Logger.Info("doMapBgToRoot() end")
 
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error(err)
+		}
+	}()
+
 	_rootBgImgInfo.lock.Lock()
-	defer _rootBgImgInfo.lock.Unlock()
+	Logger.Info("doMapBgToRoot() lock _rootBgImgInfo")
+	defer func() {
+		// TODO test
+		_rootBgImgInfo.lock.Unlock()
+		Logger.Info("doMapBgToRoot() unlock _rootBgImgInfo")
+	}()
 
 	_rootBgImgInfo.bgImg = convertToXimage(rootBgFile, _rootBgImgInfo.bgImg)
 	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(_rootBgImgInfo.bgImg.Pixmap))
 	if err != nil {
 		panic(err)
 	}
+	Logger.Info("doMapBgToRoot() root window property: rootBgImg", uint(_rootBgImgInfo.bgImg.Pixmap))
 
 	_rootBgImgInfo.bgBlurImg = convertToXimage(rootBgBlurFile, _rootBgImgInfo.bgBlurImg)
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
 	if err != nil {
 		panic(err)
 	}
+	Logger.Info("doMapBgToRoot() root window property: rootBgBlurImg", uint(_rootBgImgInfo.bgBlurImg.Pixmap))
 }
 
 func resizeBgWindow(w, h int) {
