@@ -77,9 +77,8 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	// get Display.PrimaryRect, retry 20 times if read failed for that
 	// display daemon maybe not ready
 	var value []interface{}
-	Logger.Info("getPrimaryScreenResolution() get primary rect begin")
 	for i := 0; i < 20; i++ {
-		value = Display.PrimaryRect.Get()
+		value = getDisplayPrimaryRect()
 		if len(value) != 4 {
 			Logger.Info("getPrimaryScreenResolution() retry", i)
 			time.Sleep(200 * time.Millisecond)
@@ -107,6 +106,21 @@ func getPrimaryScreenResolution() (w, h uint16) {
 	if w == 0 || h == 0 {
 		Logger.Error("get primary screen resolution failed", w, h, Display)
 		return 1024, 768
+	}
+	return
+}
+
+func getDisplayPrimaryRect() (value []interface{}) {
+	done := make(chan int)
+	go func() {
+		value = Display.PrimaryRect.Get()
+		done <- 0
+	}()
+	select {
+	case <-time.After(200 * time.Millisecond):
+		Logger.Warning("getDisplayPrimaryRect() timeout")
+	case <-done:
+		Logger.Info("getDisplayPrimaryRect() done")
 	}
 	return
 }
