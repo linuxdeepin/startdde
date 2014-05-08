@@ -73,7 +73,9 @@ func getPrimaryScreenResolution() (w, h uint16) {
 		}
 	}()
 	var value []interface{}
+	Logger.Info("getPrimaryScreenResolution() get primary rect begin")
 	value = Display.PrimaryRect.Get()
+	Logger.Info("getPrimaryScreenResolution() get primary rect end")
 	if len(value) != 4 {
 		Logger.Error("get primary rect failed", value)
 		return 1024, 768
