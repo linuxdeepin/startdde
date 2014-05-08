@@ -8,7 +8,7 @@ import (
 
 func TestSplash(t *testing.T) {
 	initBackground()
-	initBackgroundAfterCompizLoaded()
+	initBackgroundAfterDependsLoaded()
 	go dlib.StartLoop()
 	// time.Sleep(10 * time.Second)
 	select {}

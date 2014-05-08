@@ -54,6 +54,7 @@ func main() {
 	startSession()
 	startStartManager()
 
+	// create background window and keep it empty
 	initBackground()
 
 	if !notStartInitPro {

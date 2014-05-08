@@ -53,7 +53,7 @@ var (
 	XU, _          = xgbutil.NewConn()
 	Display, _     = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
 	_bgGSettings   = gio.NewSettings(personalizationID)
-	_crtcInfos     = make(map[randr.Crtc]*crtcInfo)
+	_crtcInfos     = make(map[randr.Crtc]*crtcInfo) // TODO remove
 	_crtcInfosLock = sync.Mutex{}
 )
 
@@ -113,7 +113,11 @@ func initBackground() {
 }
 
 func initBackgroundAfterDependsLoaded() {
-	go mapBgToRoot()
+	go func() {
+		// when for display daemon loaded
+		time.Sleep(500 * time.Millisecond)
+		mapBgToRoot()
+	}()
 
 	loadBgFile()
 
@@ -448,12 +452,13 @@ func listenDisplayChanged() {
 		case xproto.ExposeEvent:
 			// TODO
 			Logger.Debug("expose event", e)
+			go mapBgToRoot()
 			drawBackground()
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
 			// FIXME skip invalid event for window manager issue
-			if e.Width < 480 && e.Height < 640 {
+			if e.Width < 640 && e.Height < 480 {
 				continue
 			}
 
@@ -461,7 +466,6 @@ func listenDisplayChanged() {
 				e.Width, e.Height = e.Height, e.Width
 			}
 			resizeBgWindow(int(e.Width), int(e.Height))
-
 		}
 	}
 }
