@@ -117,6 +117,9 @@ func initBackgroundAfterDependsLoaded() {
 		// when for display daemon loaded
 		time.Sleep(500 * time.Millisecond)
 		mapBgToRoot()
+		Display.PrimaryRect.ConnectChanged(func() {
+			mapBgToRoot()
+		})
 	}()
 
 	loadBgFile()
@@ -452,7 +455,6 @@ func listenDisplayChanged() {
 		case xproto.ExposeEvent:
 			// TODO
 			Logger.Debug("expose event", e)
-			go mapBgToRoot()
 			drawBackground()
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
