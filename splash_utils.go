@@ -34,6 +34,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"net/url"
+	"time"
 )
 
 func getBgImgWidth() uint16 {
@@ -72,14 +73,27 @@ func getPrimaryScreenResolution() (w, h uint16) {
 			Logger.Error(err)
 		}
 	}()
+
+	// get Display.PrimaryRect, retry 20 times if read failed for that
+	// display daemon maybe not ready
 	var value []interface{}
 	Logger.Info("getPrimaryScreenResolution() get primary rect begin")
-	value = Display.PrimaryRect.Get()
-	Logger.Info("getPrimaryScreenResolution() get primary rect end")
+	for i := 0; i < 20; i++ {
+		value = Display.PrimaryRect.Get()
+		if len(value) != 4 {
+			Logger.Info("getPrimaryScreenResolution() retry", i)
+			time.Sleep(200 * time.Millisecond)
+			continue
+		} else {
+			break
+		}
+	}
 	if len(value) != 4 {
 		Logger.Error("get primary rect failed", value)
 		return 1024, 768
 	}
+	Logger.Info("getPrimaryScreenResolution() get primary rect end")
+
 	w, ok := value[2].(uint16)
 	if !ok {
 		Logger.Error("get primary screen resolution failed", Display)

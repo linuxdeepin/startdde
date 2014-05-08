@@ -114,8 +114,6 @@ func initBackground() {
 
 func initBackgroundAfterDependsLoaded() {
 	go func() {
-		// when for display daemon loaded
-		time.Sleep(500 * time.Millisecond)
 		mapBgToRoot()
 		Display.PrimaryRect.ConnectChanged(func() {
 			mapBgToRoot()
