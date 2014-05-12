@@ -34,6 +34,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"net/url"
+	"time"
 )
 
 func getBgImgWidth() uint16 {
@@ -54,14 +55,14 @@ func getBgImgHeight() uint16 {
 func getScreenResolution() (w, h uint16) {
 	screen := xproto.Setup(XU.Conn()).DefaultScreen(XU.Conn())
 	w, h = screen.WidthInPixels, screen.HeightInPixels
-	if w*h == 0 {
+	if w == 0 || h == 0 {
 		// get root window geometry
 		rootRect := xwindow.RootGeometry(XU)
 		w, h = uint16(rootRect.Width()), uint16(rootRect.Height())
 	}
-	if w*h == 0 {
+	if w == 0 || h == 0 {
 		w, h = 1024, 768 // default value
-		Logger.Warningf("get screen resolution failed, use default value: %dx%d", w, h)
+		Logger.Error("get screen resolution failed, use default value: %dx%d", w, h)
 	}
 	return
 }
@@ -72,12 +73,26 @@ func getPrimaryScreenResolution() (w, h uint16) {
 			Logger.Error(err)
 		}
 	}()
+
+	// get Display.PrimaryRect, retry 20 times if read failed for that
+	// display daemon maybe not ready
 	var value []interface{}
-	value = Display.PrimaryRect.Get()
+	for i := 0; i < 20; i++ {
+		value = getDisplayPrimaryRect()
+		if len(value) != 4 {
+			Logger.Info("getPrimaryScreenResolution() retry", i)
+			time.Sleep(200 * time.Millisecond)
+			continue
+		} else {
+			break
+		}
+	}
 	if len(value) != 4 {
 		Logger.Error("get primary rect failed", value)
 		return 1024, 768
 	}
+	Logger.Info("getPrimaryScreenResolution() get primary rect end")
+
 	w, ok := value[2].(uint16)
 	if !ok {
 		Logger.Error("get primary screen resolution failed", Display)
@@ -88,8 +103,24 @@ func getPrimaryScreenResolution() (w, h uint16) {
 		Logger.Error("get primary screen resolution failed", Display)
 		return 1024, 768
 	}
-	if w*h <= 0 {
+	if w == 0 || h == 0 {
+		Logger.Error("get primary screen resolution failed", w, h, Display)
 		return 1024, 768
+	}
+	return
+}
+
+func getDisplayPrimaryRect() (value []interface{}) {
+	done := make(chan int)
+	go func() {
+		value = Display.PrimaryRect.Get()
+		done <- 0
+	}()
+	select {
+	case <-time.After(200 * time.Millisecond):
+		Logger.Warning("getDisplayPrimaryRect() timeout")
+	case <-done:
+		Logger.Info("getDisplayPrimaryRect() done")
 	}
 	return
 }
