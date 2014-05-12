@@ -1,6 +1,7 @@
 #include "background.h"
 #include <gdk/gdkx.h>
 #include <cairo/cairo-xlib.h>
+#include "X_misc.h"
 
 gboolean background_info_draw_callback(GtkWidget* w, cairo_t* cr, BackgroundInfo* info)
 {
@@ -100,6 +101,25 @@ void background_info_clear(BackgroundInfo* info)
     g_free(info);
 }
 
+
+void monitors_adaptive(GtkWidget* container, GtkWidget* child)
+{
+    ensure_fullscreen (container);
+    gtk_window_fullscreen (GTK_WINDOW (container));
+    
+    GdkScreen *screen;
+    GdkRectangle geometry;
+
+    gdk_window_set_composited(gtk_widget_get_window(child), TRUE);
+    
+    screen = gtk_window_get_screen (GTK_WINDOW (child));
+    gdk_screen_get_monitor_geometry (screen, gdk_screen_get_primary_monitor (screen), &geometry);
+    g_message("primary monitor width:%d,height:%d;",geometry.width,geometry.height);
+    gtk_window_move (GTK_WINDOW (child), geometry.x, geometry.y);
+    gtk_window_resize (GTK_WINDOW (child), geometry.width, geometry.height);
+
+}
+
 BackgroundInfo* create_background_info(GtkWidget* container, GtkWidget* child)
 {
     g_message("create_background_info");
@@ -117,3 +137,4 @@ BackgroundInfo* create_background_info(GtkWidget* container, GtkWidget* child)
 
     return info;
 }
+

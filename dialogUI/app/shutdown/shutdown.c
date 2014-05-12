@@ -39,6 +39,7 @@
 #include "dwebview.h"
 #include "i18n.h"
 #include "utils.h"
+#include "background.h"
 #include "bg.h"
 /*#include "DBUS_shutdown.h"*/
 
@@ -309,13 +310,16 @@ int main (int argc, char **argv)
 
     g_option_context_free(ctx);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
+
+    monitors_adaptive(container,webview);
+    setup_background(container,webview);
+
 #ifndef DEBUG
     g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
     g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
     gtk_widget_realize (container);
     gtk_widget_realize (webview);
-    setup_background(container,webview);
 
     GdkWindow* gdkwindow = gtk_widget_get_window (container);
     GdkRGBA rgba = { 0, 0, 0, 0.85 };
