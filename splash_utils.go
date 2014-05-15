@@ -38,18 +38,18 @@ import (
 )
 
 func getBgImgWidth() uint16 {
-	if _bgImgInfo.img == nil {
-		Logger.Error("_bgImgInfo.img is nil")
+	if bgImgInfo.img == nil {
+		Logger.Error("bgImgInfo.img is nil")
 		return 1024
 	}
-	return uint16(_bgImgInfo.img.Bounds().Max.X)
+	return uint16(bgImgInfo.img.Bounds().Max.X)
 }
 func getBgImgHeight() uint16 {
-	if _bgImgInfo.img == nil {
-		Logger.Error("_bgImgInfo.img is nil")
+	if bgImgInfo.img == nil {
+		Logger.Error("bgImgInfo.img is nil")
 		return 768
 	}
-	return uint16(_bgImgInfo.img.Bounds().Max.Y)
+	return uint16(bgImgInfo.img.Bounds().Max.Y)
 }
 
 func getScreenResolution() (w, h uint16) {
@@ -184,7 +184,7 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 }
 
 func getBackgroundFile() string {
-	uri := _bgGSettings.GetString(gkeyCurrentBackground)
+	uri := bgGSettings.GetString(gkeyCurrentBackground)
 	Logger.Debug("background uri:", uri)
 
 	// decode url path, from
