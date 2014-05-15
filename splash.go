@@ -50,11 +50,9 @@ const (
 )
 
 var (
-	XU, _          = xgbutil.NewConn()
-	Display, _     = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
-	_bgGSettings   = gio.NewSettings(personalizationID)
-	_crtcInfos     = make(map[randr.Crtc]*crtcInfo) // TODO remove
-	_crtcInfosLock = sync.Mutex{}
+	XU, _        = xgbutil.NewConn()
+	Display, _   = display.NewDisplay("com.deepin.daemon.Display", "/com/deepin/daemon/Display")
+	_bgGSettings = gio.NewSettings(personalizationID)
 )
 
 var (
@@ -297,8 +295,8 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	}
 }
 
-// TODO [re-implemented through xrender]
-// TODO cancel operate if background file changed
+// TODO: re-implemented through xrender
+// TODO: cancel operate if background file changed
 func mapBgToRoot() {
 	Logger.Info("mapBgToRoot() begin")
 	defer Logger.Info("mapBgToRoot() end")
@@ -387,44 +385,6 @@ func resizeBgWindow(w, h int) {
 	drawBackground()
 }
 
-func updateCrtcInfos(crtc randr.Crtc, x, y int16, width, height uint16) (needRedraw bool) {
-	_crtcInfosLock.Lock()
-	defer _crtcInfosLock.Unlock()
-	needRedraw = false
-	if i, ok := _crtcInfos[crtc]; ok {
-		// current crtc info has been saved,
-		// redraw background only when crtc information changed
-		if i.x != x || i.y != y || i.width != width || i.height != height {
-			// update crtc info and redraw background
-			Logger.Debug("update crtc info, old:", _crtcInfos[crtc])
-			i.x = x
-			i.y = y
-			i.width = width
-			i.height = height
-			needRedraw = true
-			Logger.Debug("update crtc info, new:", _crtcInfos[crtc])
-		}
-	} else {
-		// current crtc info is out of save
-		_crtcInfos[crtc] = &crtcInfo{
-			x:      x,
-			y:      y,
-			width:  width,
-			height: height,
-		}
-		needRedraw = true
-		Logger.Debug("add crtc info:", _crtcInfos[crtc])
-	}
-	return
-}
-
-func removeCrtcInfos(crtc randr.Crtc) {
-	_crtcInfosLock.Lock()
-	defer _crtcInfosLock.Unlock()
-	Logger.Debug("remove crtc info:", _crtcInfos[crtc])
-	delete(_crtcInfos, crtc)
-}
-
 func listenBgFileChanged() {
 	_bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
@@ -439,8 +399,6 @@ func listenBgFileChanged() {
 	})
 }
 
-var XX randr.Crtc
-
 func listenDisplayChanged() {
 	_bgWinInfo.win.Listen(xproto.EventMaskExposure)
 	randr.SelectInput(XU.Conn(), XU.RootWin(), randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
@@ -451,13 +409,12 @@ func listenDisplayChanged() {
 		}
 		switch e := event.(type) {
 		case xproto.ExposeEvent:
-			// TODO
 			Logger.Debug("expose event", e)
 			drawBackground()
 		case randr.ScreenChangeNotifyEvent:
 			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
-			// FIXME skip invalid event for window manager issue
+			// skip invalid event for window manager issue
 			if e.Width < 640 && e.Height < 480 {
 				continue
 			}
