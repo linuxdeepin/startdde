@@ -35,9 +35,9 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
-	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"runtime"
 )
 
 const (
@@ -80,14 +80,14 @@ var bgWinInfo = struct {
 	pid render.Picture
 }{}
 var bgImgInfo = struct {
-	img  *xgraphics.Image
-	pid  render.Picture
-	lock sync.Mutex
+	bgImgWidth  uint16
+	bgImgHeight uint16
+	pid         render.Picture
+	lock        sync.Mutex
 }{}
 var rootBgImgInfo = struct {
-	bgImg     *xgraphics.Image
-	bgBlurImg *xgraphics.Image
-	lock      sync.Mutex
+	// TODO refactor code
+	lock sync.Mutex
 }{}
 
 func initBackground() {
@@ -199,19 +199,24 @@ func loadBgFile() {
 	defer bgImgInfo.lock.Unlock()
 
 	// load background file and convert into XU image
-	bgImgInfo.img = convertToXimage(getBackgroundFile(), bgImgInfo.img)
+	ximg := convertToXimage(getBackgroundFile())
+	if ximg != nil {
+		bgImgInfo.bgImgWidth = uint16(ximg.Bounds().Max.X)
+		bgImgInfo.bgImgHeight = uint16(ximg.Bounds().Max.Y)
+	}
 
 	// rebind picture id to background pixmap
 	Logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d", bgImgInfo.pid, bgWinInfo.pid)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
-	err := render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(bgImgInfo.img.Pixmap), picFormat24, 0, nil).Check()
+	err := render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(ximg.Pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
 		Logger.Error("create render picture failed:", err)
 		return
 	}
+
 	// setup image filter
 	err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterBilinear.NameLen), filterBilinear.Name, nil).Check()
-	// TODO: choose a better fileter
+	// TODO: choose a better filter
 	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterNearest.NameLen), filterNearest.Name, nil).Check()
 	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterBest.NameLen), filterBest.Name, nil).Check()
 	// TODO: test only, for convolution filter
@@ -220,6 +225,8 @@ func loadBgFile() {
 	if err != nil {
 		Logger.Error("set picture filter failed:", err)
 	}
+
+	runtime.GC()
 }
 
 func drawBackground() {
@@ -328,6 +335,7 @@ func mapBgToRoot() {
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
+	runtime.GC()
 
 	// if use cache file, keep it update to time
 	if useCacheRootBg || useCacheRootBgBlue {
@@ -336,6 +344,7 @@ func mapBgToRoot() {
 			if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
 				// set root window properties again
 				doMapBgToRoot(rootBgFile, rootBgBlurFile)
+				runtime.GC()
 			}
 		}
 	}
@@ -351,26 +360,27 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	}()
 
 	rootBgImgInfo.lock.Lock()
-	Logger.Info("doMapBgToRoot() lock rootBgImgInfo")
+	Logger.Info("doMapBgToRoot() lock rootBgImgInfo") // TODO test
 	defer func() {
-		// TODO test
 		rootBgImgInfo.lock.Unlock()
-		Logger.Info("doMapBgToRoot() unlock rootBgImgInfo")
+		Logger.Info("doMapBgToRoot() unlock rootBgImgInfo") // TODO test
 	}()
 
-	rootBgImgInfo.bgImg = convertToXimage(rootBgFile, rootBgImgInfo.bgImg)
-	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(rootBgImgInfo.bgImg.Pixmap))
+	bgImg := convertToXimage(rootBgFile)
+	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgImg.Pixmap))
 	if err != nil {
 		panic(err)
 	}
-	Logger.Info("doMapBgToRoot() root window property: rootBgImg", uint(rootBgImgInfo.bgImg.Pixmap))
+	Logger.Info("doMapBgToRoot() root window property: rootBgImg", uint(bgImg.Pixmap))
+	bgImg = nil
 
-	rootBgImgInfo.bgBlurImg = convertToXimage(rootBgBlurFile, rootBgImgInfo.bgBlurImg)
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(rootBgImgInfo.bgBlurImg.Pixmap))
+	bgBlurImg := convertToXimage(rootBgBlurFile)
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurImg.Pixmap))
 	if err != nil {
 		panic(err)
 	}
-	Logger.Info("doMapBgToRoot() root window property: rootBgBlurImg", uint(rootBgImgInfo.bgBlurImg.Pixmap))
+	Logger.Info("doMapBgToRoot() root window property: rootBgBlurImg", uint(bgBlurImg.Pixmap))
+	bgBlurImg = nil
 }
 
 func resizeBgWindow(w, h int) {

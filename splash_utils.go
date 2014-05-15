@@ -38,18 +38,10 @@ import (
 )
 
 func getBgImgWidth() uint16 {
-	if bgImgInfo.img == nil {
-		Logger.Error("bgImgInfo.img is nil")
-		return 1024
-	}
-	return uint16(bgImgInfo.img.Bounds().Max.X)
+	return bgImgInfo.bgImgWidth
 }
 func getBgImgHeight() uint16 {
-	if bgImgInfo.img == nil {
-		Logger.Error("bgImgInfo.img is nil")
-		return 768
-	}
-	return uint16(bgImgInfo.img.Bounds().Max.Y)
+	return bgImgInfo.bgImgHeight
 }
 
 func getScreenResolution() (w, h uint16) {
@@ -126,18 +118,15 @@ func getDisplayPrimaryRect() (value []interface{}) {
 }
 
 // convert image file to XU image
-func convertToXimage(imgFile string, ximg *xgraphics.Image) *xgraphics.Image {
+func convertToXimage(imgFile string) (ximg *xgraphics.Image) {
 	img, err := loadImage(imgFile) // ~0.4s
 	if err != nil {
-		return ximg
-	}
-	if ximg != nil {
-		ximg.Destroy()
+		return
 	}
 	ximg = xgraphics.NewConvert(XU, img) // ~0.2s
 	ximg.CreatePixmap()
 	ximg.XDraw()
-	return ximg
+	return
 }
 
 // load image file and return image.Image object.
