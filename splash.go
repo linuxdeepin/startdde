@@ -80,10 +80,10 @@ var bgWinInfo = struct {
 	pid render.Picture
 }{}
 var bgImgInfo = struct {
-	bgImgWidth  uint16
-	bgImgHeight uint16
-	pid         render.Picture
-	lock        sync.Mutex
+	width  uint16
+	height uint16
+	pid    render.Picture
+	lock   sync.Mutex
 }{}
 var rootBgImgInfo = struct {
 	// TODO refactor code
@@ -201,8 +201,8 @@ func loadBgFile() {
 	// load background file and convert into XU image
 	ximg := convertToXimage(getBackgroundFile())
 	if ximg != nil {
-		bgImgInfo.bgImgWidth = uint16(ximg.Bounds().Max.X)
-		bgImgInfo.bgImgHeight = uint16(ximg.Bounds().Max.Y)
+		bgImgInfo.width = uint16(ximg.Bounds().Max.X)
+		bgImgInfo.height = uint16(ximg.Bounds().Max.Y)
 	}
 
 	// rebind picture id to background pixmap
@@ -335,7 +335,6 @@ func mapBgToRoot() {
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
-	runtime.GC()
 
 	// if use cache file, keep it update to time
 	if useCacheRootBg || useCacheRootBgBlue {
@@ -344,7 +343,6 @@ func mapBgToRoot() {
 			if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
 				// set root window properties again
 				doMapBgToRoot(rootBgFile, rootBgBlurFile)
-				runtime.GC()
 			}
 		}
 	}
@@ -362,19 +360,19 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	rootBgImgInfo.lock.Lock()
 	defer rootBgImgInfo.lock.Unlock()
 
-	bgImg := convertToXimage(rootBgFile)
-	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgImg.Pixmap))
+	bgPixmap := convertToPixmap(rootBgFile)
+	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgPixmap))
 	if err != nil {
 		panic(err)
 	}
-	bgImg = nil
 
-	bgBlurImg := convertToXimage(rootBgBlurFile)
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurImg.Pixmap))
+	bgBlurPixmap := convertToPixmap(rootBgBlurFile)
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurPixmap))
 	if err != nil {
 		panic(err)
 	}
-	bgBlurImg = nil
+
+	runtime.GC()
 }
 
 func resizeBgWindow(w, h int) {

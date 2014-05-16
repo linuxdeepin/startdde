@@ -38,10 +38,10 @@ import (
 )
 
 func getBgImgWidth() uint16 {
-	return bgImgInfo.bgImgWidth
+	return bgImgInfo.width
 }
 func getBgImgHeight() uint16 {
-	return bgImgInfo.bgImgHeight
+	return bgImgInfo.height
 }
 
 func getScreenResolution() (w, h uint16) {
@@ -126,6 +126,12 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image) {
 	ximg = xgraphics.NewConvert(XU, img) // ~0.2s
 	ximg.CreatePixmap()
 	ximg.XDraw()
+	return
+}
+
+func convertToPixmap(imgFile string) (pix xproto.Pixmap) {
+	ximg := convertToXimage(imgFile)
+	pix = ximg.Pixmap
 	return
 }
 
