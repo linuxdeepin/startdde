@@ -82,7 +82,7 @@ func main() {
 		go exec.Command("/usr/bin/dde-desktop").Run()
 		<-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
+		go exec.Command("/usr/lib/deepin-daemon/launcher").Run()
 		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/lib/deepin-daemon/zone-settings").Run()
