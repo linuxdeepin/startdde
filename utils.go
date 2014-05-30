@@ -11,6 +11,7 @@ import (
 
 	"dlib/gio-2.0"
 	"dlib/glib-2.0"
+	"os/exec"
 )
 
 func Exist(name string) bool {
@@ -127,16 +128,16 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
-		fmt.Println("string")
+		Logger.Info("string")
 		if strings.HasSuffix(o, ".desktop") {
 			var app *gio.DesktopAppInfo
 			// maybe use AppInfoCreateFromCommandline with
 			// AppInfoCreateFlagsSupportsStartupNotification flag
 			if path.IsAbs(o) {
-				fmt.Println("the path to launch is abs")
+				Logger.Info("the path to launch is abs")
 				app = gio.NewDesktopAppInfoFromFilename(o)
 			} else {
-				fmt.Println("the path to launch is not abs")
+				Logger.Info("the path to launch is not abs")
 				app = gio.NewDesktopAppInfo(o)
 			}
 			if app == nil {
@@ -146,7 +147,7 @@ func launch(name interface{}, list interface{}) error {
 
 			startupWmClass := app.GetStartupWmClass()
 			if startupWmClass != "" {
-				fmt.Println("startupWMClass")
+				Logger.Info("startupWMClass")
 				f := glib.NewKeyFile()
 				defer f.Free()
 
@@ -214,4 +215,12 @@ func launch(name interface{}, list interface{}) error {
 	}
 
 	return errors.New("not suport")
+}
+
+func execCommand(cmd string, arg string) {
+	err := exec.Command(cmd, arg).Run()
+	if err != nil {
+		Logger.Errorf("Exec '%s %s' Failed: %s\n",
+			cmd, arg, err)
+	}
 }

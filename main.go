@@ -4,7 +4,6 @@ import (
 	"dlib/glib-2.0"
 	"dlib/logger"
 	"flag"
-	"fmt"
 	"os"
 	"os/exec"
 	"time"
@@ -14,7 +13,7 @@ func testStartManager() {
 	startStartManager()
 	// args := make([]*gio.File, 0)
 	// for _, name := range m.AutostartList() {
-	// 	fmt.Println("launch", name)
+	// 	Logger.Debug("launch", name)
 	// 	m.Launch(name, args)
 	// }
 	glib.StartLoop()
@@ -42,8 +41,8 @@ func main() {
 	flag.BoolVar(&notStartInitPro, "n", false, "not start")
 
 	flag.Parse()
-	fmt.Println("debug:", debug)
-	fmt.Println("notStartInitPro:", notStartInitPro)
+	Logger.Info("debug:", debug)
+	Logger.Info("notStartInitPro:", notStartInitPro)
 	if debug {
 		Logger.SetLogLevel(logger.LEVEL_DEBUG)
 	}

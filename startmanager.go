@@ -517,7 +517,7 @@ func startStartManager() {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
 	START_MANAGER = StartManager{}
 	if err := dbus.InstallOnSession(&START_MANAGER); err != nil {
-		Logger.Info("Install StartManager Failed:", err)
+		Logger.Error("Install StartManager Failed:", err)
 	}
 }
 

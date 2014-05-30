@@ -1,158 +1,149 @@
 package main
 
 import (
-        "dbus/org/freedesktop/login1"
-        "dlib/dbus"
-        "fmt"
-        "os"
-        "os/exec"
+	"dbus/org/freedesktop/login1"
+	"dlib/dbus"
+	"fmt"
+	"os"
 )
 
 type SessionManager struct {
-        CurrentUid string
+	CurrentUid string
 }
 
 const (
-        _LOCK_EXEC        = "/usr/bin/dde-lock"
-        _SHUTDOWN_CMD     = "/usr/bin/dde-shutdown"
-        _REBOOT_ARG       = "--reboot"
-        _LOGOUT_ARG       = "--logout"
-        _SHUTDOWN_ARG     = "--shutdown"
-        _POWER_CHOOSE_ARG = "--choice"
+	_LOCK_EXEC        = "/usr/bin/dde-lock"
+	_SHUTDOWN_CMD     = "/usr/bin/dde-shutdown"
+	_REBOOT_ARG       = "--reboot"
+	_LOGOUT_ARG       = "--logout"
+	_SHUTDOWN_ARG     = "--shutdown"
+	_POWER_CHOOSE_ARG = "--choice"
 )
 
 var (
-        objLogin *login1.Manager
+	objLogin *login1.Manager
 )
 
 func (m *SessionManager) CanLogout() bool {
-        return true
+	return true
 }
 
 func (m *SessionManager) Logout() {
-        execCommand(_SHUTDOWN_CMD, _LOGOUT_ARG)
+	execCommand(_SHUTDOWN_CMD, _LOGOUT_ARG)
 }
 
 func (m *SessionManager) RequestLogout() {
-        os.Exit(0)
+	os.Exit(0)
 }
 
 func (m *SessionManager) ForceLogout() {
-        os.Exit(0)
+	os.Exit(0)
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
-        str, _ := objLogin.CanPowerOff()
-        if str == "yes" {
-                return true
-        }
+	str, _ := objLogin.CanPowerOff()
+	if str == "yes" {
+		return true
+	}
 
-        return false
+	return false
 }
 
 func (m *SessionManager) Shutdown() {
-        execCommand(_SHUTDOWN_CMD, _SHUTDOWN_ARG)
+	execCommand(_SHUTDOWN_CMD, _SHUTDOWN_ARG)
 }
 
 func (m *SessionManager) RequestShutdown() {
-        objLogin.PowerOff(true)
+	objLogin.PowerOff(true)
 }
 
 func (m *SessionManager) ForceShutdown() {
-        objLogin.PowerOff(false)
+	objLogin.PowerOff(false)
 }
 
 func (shudown *SessionManager) CanReboot() bool {
-        str, _ := objLogin.CanReboot()
-        if str == "yes" {
-                return true
-        }
+	str, _ := objLogin.CanReboot()
+	if str == "yes" {
+		return true
+	}
 
-        return false
+	return false
 }
 
 func (m *SessionManager) Reboot() {
-        execCommand(_SHUTDOWN_CMD, _REBOOT_ARG)
+	execCommand(_SHUTDOWN_CMD, _REBOOT_ARG)
 }
 
 func (m *SessionManager) RequestReboot() {
-        objLogin.Reboot(true)
+	objLogin.Reboot(true)
 }
 
 func (m *SessionManager) ForceReboot() {
-        objLogin.Reboot(false)
+	objLogin.Reboot(false)
 }
 
 func (m *SessionManager) CanSuspend() bool {
-        str, _ := objLogin.CanSuspend()
-        if str == "yes" {
-                return true
-        }
-        return false
+	str, _ := objLogin.CanSuspend()
+	if str == "yes" {
+		return true
+	}
+	return false
 }
 
 func (m *SessionManager) RequestSuspend() {
-        objLogin.Suspend(false)
+	objLogin.Suspend(false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
-        str, _ := objLogin.CanHibernate()
-        if str == "yes" {
-                return true
-        }
-        return false
+	str, _ := objLogin.CanHibernate()
+	if str == "yes" {
+		return true
+	}
+	return false
 }
 
 func (m *SessionManager) RequestHibernate() {
-        objLogin.Hibernate(false)
+	objLogin.Hibernate(false)
 }
 
 func (m *SessionManager) RequestLock() {
-        execCommand(_LOCK_EXEC, "")
+	execCommand(_LOCK_EXEC, "")
 }
 
 func (m *SessionManager) PowerOffChoose() {
-        execCommand(_SHUTDOWN_CMD, _POWER_CHOOSE_ARG)
-}
-
-func execCommand(cmd string, arg string) {
-        err := exec.Command(cmd, arg).Run()
-        if err != nil {
-                fmt.Printf("Exec '%s %s' Failed: %s\n",
-                        cmd, arg, err)
-        }
+	execCommand(_SHUTDOWN_CMD, _POWER_CHOOSE_ARG)
 }
 
 func initSession() {
-        var err error
+	var err error
 
-        objLogin, err = login1.NewManager("org.freedesktop.login1",
-                "/org/freedesktop/login1")
-        if err != nil {
-                panic(fmt.Sprintln("New Login1 Failed: ", err))
-        }
+	objLogin, err = login1.NewManager("org.freedesktop.login1",
+		"/org/freedesktop/login1")
+	if err != nil {
+		panic(fmt.Sprintln("New Login1 Failed: ", err))
+	}
 }
 
 func newSessionManager() *SessionManager {
-        m := &SessionManager{}
-        m.setPropName("CurrentUid")
+	m := &SessionManager{}
+	m.setPropName("CurrentUid")
 
-        return m
+	return m
 }
 
 func startSession() {
-        defer func() {
-                if err := recover(); err != nil {
-                        fmt.Printf("StartSession recover: %s\n", err)
-                        return
-                }
-        }()
+	defer func() {
+		if err := recover(); err != nil {
+			Logger.Error("StartSession recover:", err)
+			return
+		}
+	}()
 
-        initSession()
-        mShut := newSessionManager()
-        err := dbus.InstallOnSession(mShut)
-        if err != nil {
-                fmt.Println("Install Session DBus Failed:", err)
-                return
-        }
+	initSession()
+	mShut := newSessionManager()
+	err := dbus.InstallOnSession(mShut)
+	if err != nil {
+		Logger.Error("Install Session DBus Failed:", err)
+		return
+	}
 }

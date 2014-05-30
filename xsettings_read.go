@@ -24,7 +24,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	//"fmt"
 	"github.com/BurntSushi/xgb/xproto"
 	"io"
 )
@@ -135,17 +134,17 @@ func readXSettings() []*HeaderInfo {
 		case XSETTINGS_INTERGER:
 			v := readInterger(buf)
 			//Logger.Infof("%s = %d", name, v)
-			//fmt.Printf("\"%s\": \"%d;0\",\n",
+			//Logger.Debugf("\"%s\": \"%d;0\",\n",
 			//name, v)
 			info.value = v
 		case XSETTINGS_STRING:
 			v := readString(buf)
-			//fmt.Printf("\"%s\": \"%s;1\",\n",
+			//Logger.Debugf("\"%s\": \"%s;1\",\n",
 			//name, v)
 			info.value = v
 		case XSETTINGS_COLOR:
 			v := readColor(buf)
-			//fmt.Printf("\"%s\": \"%d,%d,%d,%d;2\",\n",
+			//Logger.Debugf("\"%s\": \"%d,%d,%d,%d;2\",\n",
 			//name, v[0], v[1], v[2], v[3])
 			info.value = v
 		}
