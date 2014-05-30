@@ -120,7 +120,7 @@ func initSession() {
 	objLogin, err = login1.NewManager("org.freedesktop.login1",
 		"/org/freedesktop/login1")
 	if err != nil {
-		panic(fmt.Sprintln("New Login1 Failed: ", err))
+		panic(fmt.Errorf("New Login1 Failed: %s", err))
 	}
 }
 
