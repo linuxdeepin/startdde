@@ -1,7 +1,7 @@
 package main
 
 import (
-	"dlib"
+	"dlib/glib-2.0"
 	"dlib/logger"
 	"flag"
 	"fmt"
@@ -17,7 +17,7 @@ func testStartManager() {
 	// 	fmt.Println("launch", name)
 	// 	m.Launch(name, args)
 	// }
-	dlib.StartLoop()
+	glib.StartLoop()
 }
 func init() {
 	os.Setenv("DE", "DDE")
@@ -94,5 +94,5 @@ func main() {
 
 	startAutostartProgram()
 
-	dlib.StartLoop()
+	glib.StartLoop()
 }
