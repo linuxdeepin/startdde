@@ -111,10 +111,11 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 	select {
 	case <-time.After(200 * time.Millisecond):
 		Logger.Warning("getDisplayPrimaryRect() timeout")
-		ok = false
 	case <-done:
-		Logger.Info("getDisplayPrimaryRect() success:", value)
-		ok = true
+		if len(value) == 4 {
+			Logger.Info("getDisplayPrimaryRect() success:", value)
+			ok = true
+		}
 	}
 	return
 }
