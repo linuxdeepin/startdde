@@ -57,6 +57,7 @@ func main() {
 	initBackground()
 
 	if !notStartInitPro {
+		go exec.Command("/usr/bin/gtk-window-decorator").Run()
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
