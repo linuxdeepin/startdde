@@ -60,10 +60,10 @@ func main() {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		initBackgroundAfterDependsLoaded()
+		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
 		<-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
+		initBackgroundAfterDependsLoaded()
 		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/bin/dde-dock").Run()
