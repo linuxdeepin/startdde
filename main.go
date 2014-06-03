@@ -60,21 +60,11 @@ func main() {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		go exec.Command("/usr/lib/deepin-daemon/display").Run()
-
 		initBackgroundAfterDependsLoaded()
+		<-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/themes").Run()
-		go exec.Command("/usr/lib/deepin-daemon/keybinding").Run()
-		go exec.Command("/usr/lib/deepin-daemon/power").Run()
-		go exec.Command("/usr/lib/deepin-daemon/inputdevices").Run()
-		go exec.Command("/usr/lib/deepin-daemon/clipboard").Run()
-		<-time.After(time.Millisecond * 20)
-
-		go exec.Command("/usr/lib/deepin-daemon/dock-daemon", "-d").Run()
-		<-time.After(time.Millisecond * 30)
-		go exec.Command("/usr/lib/deepin-daemon/dock-apps-builder", "-d").Run()
-		<-time.After(time.Millisecond * 30)
+		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
+		<-time.After(time.Millisecond * 3000)
 
 		go exec.Command("/usr/bin/dde-dock").Run()
 		<-time.After(time.Millisecond * 200)
@@ -82,13 +72,8 @@ func main() {
 		go exec.Command("/usr/bin/dde-desktop").Run()
 		<-time.After(time.Millisecond * 3000)
 
-		go exec.Command("/usr/lib/deepin-daemon/launcher-daemon").Run()
+		go exec.Command("/usr/lib/deepin-daemon/inputdevices").Run()
 		<-time.After(time.Millisecond * 3000)
-
-		go exec.Command("/usr/lib/deepin-daemon/zone-settings").Run()
-		go exec.Command("/usr/lib/deepin-daemon/deepin-daemon").Run()
-		<-time.After(time.Millisecond * 3000)
-
 	}
 
 	startAutostartProgram()
