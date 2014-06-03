@@ -129,6 +129,7 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image) {
 	ximg = xgraphics.NewConvert(XU, img) // ~0.2s
 	ximg.CreatePixmap()
 	ximg.XDraw()
+	ximg.Pix = nil
 	return
 }
 
