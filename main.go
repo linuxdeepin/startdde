@@ -53,6 +53,8 @@ func main() {
 	startSession()
 	startStartManager()
 
+	startDisplay()
+
 	// create background window and keep it empty
 	initBackground()
 
@@ -61,20 +63,17 @@ func main() {
 		go exec.Command("/usr/bin/compiz").Run()
 		<-time.After(time.Millisecond * 200)
 
-		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
-		<-time.After(time.Millisecond * 3000)
-
 		initBackgroundAfterDependsLoaded()
-		<-time.After(time.Millisecond * 3000)
+		<-time.After(time.Millisecond * 300)
 
-		go exec.Command("/usr/bin/dde-dock").Run()
-		<-time.After(time.Millisecond * 200)
+		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
+		<-time.After(time.Millisecond * 300)
 
 		go exec.Command("/usr/bin/dde-desktop").Run()
-		<-time.After(time.Millisecond * 3000)
+		<-time.After(time.Millisecond * 300)
 
 		go exec.Command("/usr/lib/deepin-daemon/inputdevices").Run()
-		<-time.After(time.Millisecond * 3000)
+		<-time.After(time.Millisecond * 300)
 	}
 
 	startAutostartProgram()
