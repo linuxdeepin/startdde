@@ -524,11 +524,6 @@ func startStartManager() {
 func startAutostartProgram() {
 	START_MANAGER.listenAutostart()
 	for _, name := range START_MANAGER.AutostartList() {
-		// Logger.Info(name)
-		if debug {
-			continue
-		}
 		go START_MANAGER.Launch(name)
-		<-time.After(20 * time.Millisecond)
 	}
 }
