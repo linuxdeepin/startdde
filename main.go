@@ -64,7 +64,6 @@ func main() {
 		<-time.After(time.Millisecond * 200)
 
 		initBackgroundAfterDependsLoaded()
-		<-time.After(time.Millisecond * 300)
 
 		go exec.Command("/usr/lib/deepin-daemon/dde-session-daemon").Run()
 		<-time.After(time.Millisecond * 300)
