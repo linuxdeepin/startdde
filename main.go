@@ -47,6 +47,7 @@ func main() {
 		Logger.SetLogLevel(logger.LEVEL_DEBUG)
 	}
 
+	startProxy()
 	startXSettings()
 
 	// Session Manager
