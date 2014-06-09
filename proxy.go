@@ -22,9 +22,7 @@
 package main
 
 import (
-	"dlib/dbus"
 	"dlib/gio-2.0"
-	"fmt"
 	"os"
 )
 
@@ -33,11 +31,6 @@ const (
 	envHttpsProxy = "https-proxy"
 	envFtpProxy   = "ftp-proxy"
 	envSocksProxy = "socks-proxy"
-
-	proxyTypeHttp  = "http"
-	proxyTypeHttps = "https"
-	proxyTypeFtp   = "ftp"
-	proxyTypeSocks = "socks"
 
 	gsettingsIdProxy = "com.deepin.dde.proxy"
 	gkeyHttpProxy    = envHttpProxy
@@ -51,53 +44,11 @@ var (
 )
 
 func startProxy() {
-	proxy := &Proxy{}
-	proxy.updateProxyEnvs()
-	err := dbus.InstallOnSession(proxy)
-	if err != nil {
-		Logger.Error(err)
-	}
+	updateProxyEnvs()
+	listenProxyGsettings()
 }
 
-type Proxy struct{}
-
-func (p *Proxy) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		"com.deepin.SessionManager",
-		"/com/deepin/Proxy",
-		"com.deepin.Proxy",
-	}
-}
-
-func (p *Proxy) GetProxy(proxyType string) (proxy string, err error) {
-	// TODO
-	err = p.checkProxyType(proxyType)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (p *Proxy) SetProxy(proxyType, proxy string) (ok bool, err error) {
-	// TODO
-	err = p.checkProxyType(proxyType)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (p *Proxy) checkProxyType(proxyType string) (err error) {
-	switch proxyType {
-	case proxyTypeHttp, proxyTypeHttps, proxyTypeFtp, proxyTypeSocks:
-	default:
-		err = fmt.Errorf("not a valid proxy type: %s", proxyType)
-		Logger.Error(err)
-	}
-	return
-}
-
-func (p *Proxy) updateProxyEnvs() {
+func updateProxyEnvs() {
 	httpProxy := proxySettings.GetString(gkeyHttpProxy)
 	os.Setenv(envHttpProxy, httpProxy)
 
@@ -111,9 +62,9 @@ func (p *Proxy) updateProxyEnvs() {
 	os.Setenv(envSocksProxy, socksProxy)
 }
 
-func (p *Proxy) listenGsettings() {
+func listenProxyGsettings() {
 	proxySettings.Connect("changed", func(s *gio.Settings, key string) {
 		Logger.Debug("proxy value in gsettings changed:", key, s.GetString(key))
-		p.updateProxyEnvs()
+		updateProxyEnvs()
 	})
 }
