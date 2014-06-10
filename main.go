@@ -8,8 +8,9 @@ import (
 
 var Logger = logger.NewLogger("com.deepin.SessionManager")
 
+var debug bool = false
+
 func main() {
-	var debug bool = false
 	flag.BoolVar(&debug, "d", false, "debug")
 	flag.Parse()
 
@@ -20,12 +21,6 @@ func main() {
 	startDisplay()
 
 	startSession()
-
-	startStartManager()
-
-	if !debug {
-		startAutostartProgram()
-	}
 
 	glib.StartLoop()
 }

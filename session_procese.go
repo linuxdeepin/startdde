@@ -25,14 +25,16 @@ func (m *SessionManager) launch(bin string, wait bool) bool {
 	cmd := exec.Command(bin)
 
 	if !wait {
-		cmd.Start()
+		go cmd.Run()
 		return true
 	}
 
 	cmd.Env = append(os.Environ(), fmt.Sprintf("DDE_SESSION_PROCESS_COOKIE_ID=%s", id))
 	m.cookies[id] = make(chan time.Time, 1)
 	startStamp := time.Now()
+
 	cmd.Start()
+	go cmd.Wait()
 
 	select {
 	case endStamp := <-m.cookies[id]:

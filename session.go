@@ -11,6 +11,7 @@ import (
 type SessionManager struct {
 	CurrentUid string
 	cookies    map[string]chan time.Time
+	Stage      int32
 }
 
 const (
@@ -20,6 +21,15 @@ const (
 	_LOGOUT_ARG       = "--logout"
 	_SHUTDOWN_ARG     = "--shutdown"
 	_POWER_CHOOSE_ARG = "--choice"
+)
+
+const (
+	SessionStageInitBegin int32 = iota
+	SessionStageInitEnd
+	SessionStageCoreBegin
+	SessionStageCoreEnd
+	SessionStageAppsBegin
+	SessionStageAppsEnd
 )
 
 var (
@@ -150,17 +160,42 @@ func startSession() {
 		return
 	}
 
-	// create background window and keep it empty
-	initBackground()
+	manager.setPropStage(SessionStageInitBegin)
 
+	initBackground()
 	manager.launch("/usr/bin/gtk-window-decorator", false)
 	manager.launch("/usr/bin/compiz", false)
-
 	initBackgroundAfterDependsLoaded()
+	manager.setPropStage(SessionStageInitEnd)
+
+	manager.setPropStage(SessionStageCoreBegin)
 
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
+
+	manager.ShowGuideOnce()
+
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
 	manager.launch("/usr/lib/deepin-daemon/inputdevices", true)
 	manager.launch("/usr/bin/dde-dock-applets", false)
+
+	manager.setPropStage(SessionStageCoreEnd)
+
+	manager.setPropStage(SessionStageAppsBegin)
+	startStartManager()
+	if !debug {
+		startAutostartProgram()
+	}
+	manager.setPropStage(SessionStageAppsEnd)
+}
+
+func (m *SessionManager) ShowGuideOnce() {
+	path := os.ExpandEnv("$HOME/.config/show_dde_guide")
+	_, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	os.Remove(path)
+
+	m.launch("/usr/lib/deepin-daemon/dde-guide", true)
 }
