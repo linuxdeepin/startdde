@@ -5,10 +5,12 @@ import (
 	"dlib/dbus"
 	"fmt"
 	"os"
+	"time"
 )
 
 type SessionManager struct {
 	CurrentUid string
+	cookies    map[string]chan time.Time
 }
 
 const (
@@ -126,6 +128,7 @@ func initSession() {
 
 func newSessionManager() *SessionManager {
 	m := &SessionManager{}
+	m.cookies = make(map[string]chan time.Time)
 	m.setPropName("CurrentUid")
 
 	return m
@@ -140,10 +143,24 @@ func startSession() {
 	}()
 
 	initSession()
-	mShut := newSessionManager()
-	err := dbus.InstallOnSession(mShut)
+	manager := newSessionManager()
+	err := dbus.InstallOnSession(manager)
 	if err != nil {
 		Logger.Error("Install Session DBus Failed:", err)
 		return
 	}
+
+	// create background window and keep it empty
+	initBackground()
+
+	manager.launch("/usr/bin/gtk-window-decorator", false)
+	manager.launch("/usr/bin/compiz", false)
+
+	initBackgroundAfterDependsLoaded()
+
+	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
+	manager.launch("/usr/bin/dde-desktop", true)
+	manager.launch("/usr/bin/dde-dock", true)
+	manager.launch("/usr/lib/deepin-daemon/inputdevices", true)
+	manager.launch("/usr/bin/dde-dock-applets", false)
 }
