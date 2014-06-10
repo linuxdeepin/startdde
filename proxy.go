@@ -27,16 +27,16 @@ import (
 )
 
 const (
-	envHttpProxy  = "http-proxy"
-	envHttpsProxy = "https-proxy"
-	envFtpProxy   = "ftp-proxy"
-	envSocksProxy = "socks-proxy"
+	envHttpProxy  = "http_proxy"
+	envHttpsProxy = "https_proxy"
+	envFtpProxy   = "ftp_proxy"
+	envSocksProxy = "socks_proxy"
 
 	gsettingsIdProxy = "com.deepin.dde.proxy"
-	gkeyHttpProxy    = envHttpProxy
-	gkeyHttpsProxy   = envHttpsProxy
-	gkeyFtpProxy     = envFtpProxy
-	gkeySocksProxy   = envSocksProxy
+	gkeyHttpProxy    = "http-proxy"
+	gkeyHttpsProxy   = "https-proxy"
+	gkeyFtpProxy     = "ftp-proxy"
+	gkeySocksProxy   = "socks-proxy"
 )
 
 var (
@@ -51,15 +51,19 @@ func startProxy() {
 func updateProxyEnvs() {
 	httpProxy := proxySettings.GetString(gkeyHttpProxy)
 	os.Setenv(envHttpProxy, httpProxy)
+	Logger.Debug("update proxy envs, httpProxy:", httpProxy)
 
 	httpsProxy := proxySettings.GetString(gkeyHttpsProxy)
 	os.Setenv(envHttpsProxy, httpsProxy)
+	Logger.Debug("update proxy envs, httpsProxy:", httpsProxy)
 
 	ftpProxy := proxySettings.GetString(gkeyFtpProxy)
 	os.Setenv(envFtpProxy, ftpProxy)
+	Logger.Debug("update proxy envs, ftpProxy:", ftpProxy)
 
 	socksProxy := proxySettings.GetString(gkeySocksProxy)
 	os.Setenv(envSocksProxy, socksProxy)
+	Logger.Debug("update proxy envs, socksProxy:", socksProxy)
 }
 
 func listenProxyGsettings() {
