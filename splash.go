@@ -319,7 +319,7 @@ func mapBgToRoot() {
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
 	Logger.Debug("mapBgToRoot() screen resolution:", w, h)
-	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int32(w), int32(h),
+	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int(w), int(h),
 		graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
@@ -338,7 +338,7 @@ func mapBgToRoot() {
 
 	// if use cache file, keep it update to time
 	if useCacheRootBg || useCacheRootBgBlue {
-		if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int32(w), int32(h),
+		if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int(w), int(h),
 			graphic.FillProportionCenterScale, graphic.PNG); err != nil {
 			if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
 				// set root window properties again
