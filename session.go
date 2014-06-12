@@ -172,12 +172,16 @@ func startSession() {
 
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
 
-	manager.ShowGuideOnce()
+	showGuide := manager.ShowGuideOnce()
 
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
 	manager.launch("/usr/lib/deepin-daemon/inputdevices", true)
 	manager.launch("/usr/bin/dde-dock-applets", false)
+
+	if showGuide {
+		manager.launch("/usr/bin/dde-launcher", true, "--hidden")
+	}
 
 	manager.setPropStage(SessionStageCoreEnd)
 
@@ -189,13 +193,14 @@ func startSession() {
 	manager.setPropStage(SessionStageAppsEnd)
 }
 
-func (m *SessionManager) ShowGuideOnce() {
+func (m *SessionManager) ShowGuideOnce() bool {
 	path := os.ExpandEnv("$HOME/.config/show_dde_guide")
 	_, err := os.Stat(path)
 	if err != nil {
-		return
+		return false
 	}
 	os.Remove(path)
 
 	m.launch("/usr/lib/deepin-daemon/dde-guide", true)
+	return true
 }
