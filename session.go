@@ -169,6 +169,7 @@ func startSession() {
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)
+	startStartManager()
 
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
 
@@ -186,7 +187,7 @@ func startSession() {
 	manager.setPropStage(SessionStageCoreEnd)
 
 	manager.setPropStage(SessionStageAppsBegin)
-	startStartManager()
+
 	if !debug {
 		startAutostartProgram()
 	}
