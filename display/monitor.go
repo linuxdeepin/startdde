@@ -6,6 +6,7 @@ import "fmt"
 import "strings"
 import "math"
 import "runtime"
+import "sort"
 
 const joinSeparator = "="
 
@@ -85,6 +86,7 @@ func (m *Monitor) ListModes() []Mode {
 			r = append(r, k)
 		}
 	}
+	sort.Sort(Modes(r))
 	return r
 }
 

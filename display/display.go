@@ -383,6 +383,7 @@ func (dpy *Display) ResetChanges() {
 	var monitors []*Monitor
 	for _, mcfg := range dpy.cfg.Monitors[dpy.cfg.CurrentPlanName] {
 		m := NewMonitor(dpy, mcfg)
+		m.updateInfo()
 		monitors = append(monitors, m)
 	}
 	dpy.setPropMonitors(monitors)
