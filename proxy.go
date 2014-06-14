@@ -99,3 +99,17 @@ func listenProxyGsettings() {
 		updateProxyEnvs()
 	})
 }
+
+func unsetEnv(env string) {
+	envs := os.Environ()
+	envsData := make(map[string]string)
+	for _, e := range envs {
+		if e != env {
+			envsData[e] = os.Getenv(e)
+		}
+	}
+	os.Clearenv()
+	for e, v := range envsData {
+		os.Setenv(e, v)
+	}
+}

@@ -227,13 +227,6 @@ func execCommand(cmd string, arg string) {
 	}
 }
 
-func unsetEnv(env string) {
-	_, _, err := execAndWait(5, "/usr/bin/env", "-u", env)
-	if err != nil {
-		Logger.Error(err)
-	}
-}
-
 func execAndWait(timeout int, name string, arg ...string) (stdout, stderr string, err error) {
 	cmd := exec.Command(name, arg...)
 	var bufStdout, bufStderr bytes.Buffer
@@ -265,4 +258,13 @@ func execAndWait(timeout int, name string, arg ...string) (stdout, stderr string
 		}
 	}
 	return
+}
+
+func isStringInArray(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
