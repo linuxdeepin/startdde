@@ -128,7 +128,7 @@ func startXSettings() {
         var err error
         X, err = xgb.NewConn()
         if err != nil {
-                Logger.Info("Unable to connect X server:", err)
+                logger.Info("Unable to connect X server:", err)
                 panic(err)
         }
 

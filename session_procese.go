@@ -39,10 +39,10 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	select {
 	case endStamp := <-m.cookies[id]:
 		delete(m.cookies, id)
-		Logger.Info(bin, "StartDuration:", endStamp.Sub(startStamp))
+		logger.Info(bin, "StartDuration:", endStamp.Sub(startStamp))
 		return true
 	case endStamp := <-time.After(time.Second * 10):
-		Logger.Info(bin, "timeout:", endStamp.Sub(startStamp))
+		logger.Info(bin, "timeout:", endStamp.Sub(startStamp))
 		return false
 	}
 }

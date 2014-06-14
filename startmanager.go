@@ -45,7 +45,7 @@ func (m *StartManager) Launch(name string) bool {
 	list := make([]*gio.File, 0)
 	err := launch(name, list)
 	if err != nil {
-		Logger.Info(err)
+		logger.Info(err)
 	}
 	return err == nil
 }
@@ -68,7 +68,7 @@ func (m *StartManager) emitAutostartChanged(name, status string, info map[string
 }
 
 func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
-	// Logger.Info(ev)
+	// logger.Info(ev)
 	if _, ok := info[name]; !ok {
 		info[name] = AutostartInfo{
 			make(chan bool),
@@ -89,7 +89,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			case <-time.After(time.Second):
 				<-info[name].renamed
 				m.emitAutostartChanged(name, AutostartDeleted, info)
-				// Logger.Info(AutostartDeleted)
+				// logger.Info(AutostartDeleted)
 			}
 		}()
 		info[name].renamed <- true
@@ -107,7 +107,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			case <-time.After(time.Second):
 				<-info[name].created
 				m.emitAutostartChanged(name, AutostartAdded, info)
-				// Logger.Info("create", AutostartAdded)
+				// logger.Info("create", AutostartAdded)
 			}
 		}()
 		info[name].created <- true
@@ -119,7 +119,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 			}
 			select {
 			case <-info[name].renamed:
-				// Logger.Info("modified")
+				// logger.Info("modified")
 				if m.isAutostart(name) {
 					m.emitAutostartChanged(name, AutostartAdded, info)
 				} else {
@@ -127,7 +127,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 				}
 			default:
 				m.emitAutostartChanged(name, AutostartAdded, info)
-				// Logger.Info("modify", AutostartAdded)
+				// logger.Info("modify", AutostartAdded)
 			}
 		}()
 	} else if ev.IsAttrib() {
@@ -141,7 +141,7 @@ func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, inf
 		}()
 	} else if ev.IsDelete() {
 		m.emitAutostartChanged(name, AutostartDeleted, info)
-		// Logger.Info(AutostartDeleted)
+		// logger.Info(AutostartDeleted)
 	}
 }
 
@@ -181,12 +181,12 @@ func (m *StartManager) listenAutostart() {
 func scanDir(d string, fn func(path string, info os.FileInfo) error) {
 	f, err := os.Open(d)
 	if err != nil {
-		// Logger.Info("scanDir", err)
+		// logger.Info("scanDir", err)
 		return
 	}
 	infos, err := f.Readdir(0)
 	if err != nil {
-		Logger.Info("scanDir", err)
+		logger.Info("scanDir", err)
 		return
 	}
 
@@ -259,18 +259,18 @@ func findExec(_path, cmd string, exist chan<- bool) {
 func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
 	// name := file.GetFilename()
 	if !file.HasKey(TryExecKey) {
-		// Logger.Info(name, "No TryExec Key")
+		// logger.Info(name, "No TryExec Key")
 		return true
 	}
 
 	cmd := file.GetString(TryExecKey)
 	if cmd == "" {
-		// Logger.Info(name, "TryExecKey is empty")
+		// logger.Info(name, "TryExecKey is empty")
 		return true
 	}
 
 	if path.IsAbs(cmd) {
-		// Logger.Info(cmd, "is exist?", Exist(cmd))
+		// logger.Info(cmd, "is exist?", Exist(cmd))
 		if !Exist(cmd) {
 			return false
 		}
@@ -399,7 +399,7 @@ func (m *StartManager) getUserAutostartDir() string {
 	if !Exist(m.userAutostartPath) {
 		err := os.MkdirAll(m.userAutostartPath, 0775)
 		if err != nil {
-			Logger.Info(fmt.Errorf("create user autostart dir failed: %s", err))
+			logger.Info(fmt.Errorf("create user autostart dir failed: %s", err))
 		}
 	}
 
@@ -437,7 +437,7 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 	file := glib.NewKeyFile()
 	defer file.Free()
 	if ok, err := file.LoadFromFile(name, glib.KeyFileFlagsNone); !ok {
-		Logger.Info(err)
+		logger.Info(err)
 		return err
 	}
 
@@ -446,7 +446,7 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 		HiddenKey,
 		!autostart,
 	)
-	Logger.Info("set autostart to", autostart)
+	logger.Info("set autostart to", autostart)
 
 	return saveKeyFile(file, name)
 }
@@ -460,17 +460,17 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 		name = file.GetFilename()
 		file.Unref()
 	}
-	// Logger.Info(name, "autostart:", m.isAutostart(name))
+	// logger.Info(name, "autostart:", m.isAutostart(name))
 	if autostart == m.isAutostart(name) {
-		Logger.Info("is already done")
+		logger.Info("is already done")
 		return nil
 	}
 
 	dst := name
 	if !m.isUserAutostart(name) {
-		// Logger.Info("not user's")
+		// logger.Info("not user's")
 		dst = m.getUserAutostart(name)
-		Logger.Info(dst)
+		logger.Info(dst)
 		if !Exist(dst) {
 			err := copyFile(name, dst, CopyFileNotKeepSymlink)
 			if err != nil {
@@ -485,7 +485,7 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 func (m *StartManager) AddAutostart(name string) bool {
 	err := m.setAutostart(name, true)
 	if err != nil {
-		Logger.Info("AddAutostart", err)
+		logger.Info("AddAutostart", err)
 		return false
 	}
 	return true
@@ -494,7 +494,7 @@ func (m *StartManager) AddAutostart(name string) bool {
 func (m *StartManager) RemoveAutostart(name string) bool {
 	err := m.setAutostart(name, false)
 	if err != nil {
-		Logger.Info(err)
+		logger.Info(err)
 		return false
 	}
 	return true
@@ -504,7 +504,7 @@ func (m *StartManager) IsAutostart(name string) bool {
 	if !path.IsAbs(name) {
 		file := gio.NewDesktopAppInfo(name)
 		if file == nil {
-			Logger.Info(name, "is not a vaild desktop file.")
+			logger.Info(name, "is not a vaild desktop file.")
 			return false
 		}
 		name = file.GetFilename()
@@ -517,7 +517,7 @@ func startStartManager() {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
 	START_MANAGER = StartManager{}
 	if err := dbus.InstallOnSession(&START_MANAGER); err != nil {
-		Logger.Error("Install StartManager Failed:", err)
+		logger.Error("Install StartManager Failed:", err)
 	}
 }
 

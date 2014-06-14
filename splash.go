@@ -106,7 +106,7 @@ func initBackground() {
 	// bind picture id to background window
 	err := render.CreatePictureChecked(XU.Conn(), bgWinInfo.pid, xproto.Drawable(bgWinInfo.win.Id), picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("create render picture failed:", err)
+		logger.Error("create render picture failed:", err)
 	}
 }
 
@@ -143,7 +143,7 @@ func queryRender(d xproto.Drawable) {
 			picFormat32 = f.Id
 		}
 	}
-	Logger.Debugf("picture format32=%d, format24=%d", picFormat32, picFormat24)
+	logger.Debugf("picture format32=%d, format24=%d", picFormat32, picFormat24)
 
 	// get image filters
 	filters, _ := render.QueryFilters(XU.Conn(), d).Reply()
@@ -159,13 +159,13 @@ func queryRender(d xproto.Drawable) {
 			filterConvolution = f
 		}
 	}
-	Logger.Debug("render filter:", filters.Filters)
+	logger.Debug("render filter:", filters.Filters)
 }
 
 func createBgWindow(title string) *xwindow.Window {
 	win, err := xwindow.Generate(XU)
 	if err != nil {
-		Logger.Error("could not generate new window id:", err)
+		logger.Error("could not generate new window id:", err)
 		return nil
 	}
 	w, h := getScreenResolution()
@@ -175,7 +175,7 @@ func createBgWindow(title string) *xwindow.Window {
 	err = ewmh.WmNameSet(XU, win.Id, title)
 	if err != nil {
 		// not a fatal error
-		Logger.Error("Could not set _NET_WM_NAME:", err)
+		logger.Error("Could not set _NET_WM_NAME:", err)
 	}
 
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
@@ -186,12 +186,12 @@ func createBgWindow(title string) *xwindow.Window {
 }
 
 func loadBgFile() {
-	Logger.Debug("loadBgFile() begin")
-	defer Logger.Debug("loadBgFile() end")
+	logger.Debug("loadBgFile() begin")
+	defer logger.Debug("loadBgFile() end")
 
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("loadBgFile failed:", err)
+			logger.Error("loadBgFile failed:", err)
 		}
 	}()
 
@@ -206,11 +206,11 @@ func loadBgFile() {
 	}
 
 	// rebind picture id to background pixmap
-	Logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d", bgImgInfo.pid, bgWinInfo.pid)
+	logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d", bgImgInfo.pid, bgWinInfo.pid)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
 	err := render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(ximg.Pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
-		Logger.Error("create render picture failed:", err)
+		logger.Error("create render picture failed:", err)
 		return
 	}
 
@@ -223,26 +223,26 @@ func loadBgFile() {
 	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterConvolution.NameLen), filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, 1602*uint16(filterConvolution.NameLen), filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
-		Logger.Error("set picture filter failed:", err)
+		logger.Error("set picture filter failed:", err)
 	}
 
 	runtime.GC()
 }
 
 func drawBackground() {
-	Logger.Debug("drawBackground() begin")
-	defer Logger.Debug("drawBackground() end")
+	logger.Debug("drawBackground() begin")
+	defer logger.Debug("drawBackground() end")
 
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
-		Logger.Error("get scrren resources failed:", err)
+		logger.Error("get scrren resources failed:", err)
 		return
 	}
 
 	for _, output := range resources.Outputs {
 		reply, err := randr.GetOutputInfo(XU.Conn(), output, 0).Reply()
 		if err != nil {
-			Logger.Warning("get output info failed:", err)
+			logger.Warning("get output info failed:", err)
 			continue
 		}
 		if reply.Connection != randr.ConnectionConnected {
@@ -250,7 +250,7 @@ func drawBackground() {
 		}
 		cinfo, err := randr.GetCrtcInfo(XU.Conn(), reply.Crtc, 0).Reply()
 		if err != nil {
-			Logger.Warningf("get crtc info failed: id %d, %v", reply.Crtc, err)
+			logger.Warningf("get crtc info failed: id %d, %v", reply.Crtc, err)
 			continue
 		}
 		doDrawBgByRender(bgImgInfo.pid, bgWinInfo.pid, cinfo.X, cinfo.Y, cinfo.Width, cinfo.Height)
@@ -260,18 +260,18 @@ func drawBackground() {
 func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height uint16) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("doDrawBgByRender() failed:", err)
+			logger.Error("doDrawBgByRender() failed:", err)
 		}
 	}()
 
-	Logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
+	logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
 	rect, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
 	if err != nil {
 		panic(err)
 	}
-	Logger.Debug("drawBgByRender, clip rect", rect)
+	logger.Debug("drawBgByRender, clip rect", rect)
 
 	// scale source image and clip rectangle
 	sx := float32(width) / float32(rect.Width)
@@ -281,7 +281,7 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	rect.Width = uint16(float32(rect.Width) * sx)
 	rect.Height = uint16(float32(rect.Height) * sx)
 	t := getScaleTransform(sx, sy)
-	Logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
+	logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		panic(err)
@@ -305,33 +305,33 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 // TODO: re-implemented through xrender
 // TODO: cancel operate if background file changed
 func mapBgToRoot() {
-	Logger.Debug("mapBgToRoot() begin")
-	defer Logger.Debug("mapBgToRoot() end")
+	logger.Debug("mapBgToRoot() begin")
+	defer logger.Debug("mapBgToRoot() end")
 
 	defer func() {
 		if err := recover(); err != nil {
 			// error occurred if background file is busy for user
 			// change background frequent
-			Logger.Error(err)
+			logger.Error(err)
 		}
 	}()
 
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
-	Logger.Debug("mapBgToRoot() screen resolution:", w, h)
+	logger.Debug("mapBgToRoot() screen resolution:", w, h)
 	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int(w), int(h),
 		graphic.FillProportionCenterScale, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
-	Logger.Debug("mapBgToRoot() generate rootBgFile end")
+	logger.Debug("mapBgToRoot() generate rootBgFile end")
 
 	// generate temporary blurred background file
 	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.PNG)
 	if err != nil {
 		panic(err)
 	}
-	Logger.Debug("mapBgToRoot() generate rootBgBlurFile end")
+	logger.Debug("mapBgToRoot() generate rootBgBlurFile end")
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
@@ -348,12 +348,12 @@ func mapBgToRoot() {
 	}
 }
 func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
-	Logger.Debug("doMapBgToRoot() begin")
-	defer Logger.Debug("doMapBgToRoot() end")
+	logger.Debug("doMapBgToRoot() begin")
+	defer logger.Debug("doMapBgToRoot() end")
 
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error(err)
+			logger.Error(err)
 		}
 	}()
 
@@ -380,10 +380,10 @@ func resizeBgWindow(w, h int) {
 	if geom.Width() == w && geom.Height() == h {
 		return
 	}
-	Logger.Debugf("background window before resizing, %dx%d", geom.Width(), geom.Height())
+	logger.Debugf("background window before resizing, %dx%d", geom.Width(), geom.Height())
 	bgWinInfo.win.MoveResize(0, 0, w, h)
 	geom, _ = bgWinInfo.win.Geometry()
-	Logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
+	logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
 	drawBackground()
 }
 
@@ -391,7 +391,7 @@ func listenBgFileChanged() {
 	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			Logger.Debug("background value in gsettings changed:", key)
+			logger.Debug("background value in gsettings changed:", key)
 			go mapBgToRoot()
 			go func() {
 				loadBgFile()
@@ -411,10 +411,10 @@ func listenDisplayChanged() {
 		}
 		switch e := event.(type) {
 		case xproto.ExposeEvent:
-			Logger.Debug("expose event", e)
+			logger.Debug("expose event", e)
 			drawBackground()
 		case randr.ScreenChangeNotifyEvent:
-			Logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
+			logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
 			// skip invalid event for window manager issue
 			if e.Width < 640 && e.Height < 480 {

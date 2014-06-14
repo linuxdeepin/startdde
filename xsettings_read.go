@@ -55,7 +55,7 @@ func readString(buf io.Reader) string {
 	var nameLen uint32
 	binary.Read(buf, byteOrder, &nameLen)
 	if nameLen > 1000 {
-		Logger.Info("name len to long:", nameLen)
+		logger.Info("name len to long:", nameLen)
 		panic("name len to long")
 	}
 
@@ -99,7 +99,7 @@ func readXSettings() []*HeaderInfo {
 		getAtom(X, XSETTINGS_SETTINGS),
 		0, 10240).Reply()
 	if err != nil {
-		Logger.Info("Get Property Failed:", err)
+		logger.Info("Get Property Failed:", err)
 		panic(err)
 	}
 
@@ -120,7 +120,7 @@ func readXSettings() []*HeaderInfo {
 	serial := readInterger(buf)
 	numSettings := readInterger(buf)
 
-	Logger.Infof("serial: %d, numSettings: %d",
+	logger.Infof("serial: %d, numSettings: %d",
 		serial, numSettings)
 
 	for i := uint32(0); i < numSettings; i++ {
@@ -133,18 +133,18 @@ func readXSettings() []*HeaderInfo {
 		switch sType {
 		case XSETTINGS_INTERGER:
 			v := readInterger(buf)
-			//Logger.Infof("%s = %d", name, v)
-			//Logger.Debugf("\"%s\": \"%d;0\",\n",
+			//logger.Infof("%s = %d", name, v)
+			//logger.Debugf("\"%s\": \"%d;0\",\n",
 			//name, v)
 			info.value = v
 		case XSETTINGS_STRING:
 			v := readString(buf)
-			//Logger.Debugf("\"%s\": \"%s;1\",\n",
+			//logger.Debugf("\"%s\": \"%s;1\",\n",
 			//name, v)
 			info.value = v
 		case XSETTINGS_COLOR:
 			v := readColor(buf)
-			//Logger.Debugf("\"%s\": \"%d,%d,%d,%d;2\",\n",
+			//logger.Debugf("\"%s\": \"%d,%d,%d,%d;2\",\n",
 			//name, v[0], v[1], v[2], v[3])
 			info.value = v
 		}

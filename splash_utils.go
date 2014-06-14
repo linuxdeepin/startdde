@@ -54,7 +54,7 @@ func getScreenResolution() (w, h uint16) {
 	}
 	if w == 0 || h == 0 {
 		w, h = 1024, 768 // default value
-		Logger.Error("get screen resolution failed, use default value: %dx%d", w, h)
+		logger.Error("get screen resolution failed, use default value: %dx%d", w, h)
 	}
 	return
 }
@@ -62,7 +62,7 @@ func getScreenResolution() (w, h uint16) {
 func getPrimaryScreenResolution() (w, h uint16) {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error(err)
+			logger.Error(err)
 		}
 	}()
 
@@ -73,7 +73,7 @@ func getPrimaryScreenResolution() (w, h uint16) {
 		var ok bool
 		value, ok = getDisplayPrimaryRect()
 		if !ok {
-			Logger.Warning("getPrimaryScreenResolution() retry", i)
+			logger.Warning("getPrimaryScreenResolution() retry", i)
 			time.Sleep(200 * time.Millisecond)
 			continue
 		} else {
@@ -81,22 +81,22 @@ func getPrimaryScreenResolution() (w, h uint16) {
 		}
 	}
 	if len(value) != 4 {
-		Logger.Error("get primary rect failed", value)
+		logger.Error("get primary rect failed", value)
 		return 1024, 768
 	}
 
 	w, ok := value[2].(uint16)
 	if !ok {
-		Logger.Error("get primary screen resolution failed", Display)
+		logger.Error("get primary screen resolution failed", Display)
 		return 1024, 768
 	}
 	h, ok = value[3].(uint16)
 	if !ok {
-		Logger.Error("get primary screen resolution failed", Display)
+		logger.Error("get primary screen resolution failed", Display)
 		return 1024, 768
 	}
 	if w == 0 || h == 0 {
-		Logger.Error("get primary screen resolution failed", w, h, Display)
+		logger.Error("get primary screen resolution failed", w, h, Display)
 		return 1024, 768
 	}
 	return
@@ -110,10 +110,10 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 	}()
 	select {
 	case <-time.After(200 * time.Millisecond):
-		Logger.Warning("getDisplayPrimaryRect() timeout")
+		logger.Warning("getDisplayPrimaryRect() timeout")
 	case <-done:
 		if len(value) == 4 {
-			Logger.Info("getDisplayPrimaryRect() success:", value)
+			logger.Info("getDisplayPrimaryRect() success:", value)
 			ok = true
 		}
 	}
@@ -148,7 +148,7 @@ func loadImage(imgfile string) (img image.Image, err error) {
 	defer file.Close()
 	img, _, err = image.Decode(file)
 	if err != nil {
-		Logger.Error("load image failed:", err)
+		logger.Error("load image failed:", err)
 	}
 	return
 }
@@ -184,21 +184,21 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 
 func getBackgroundFile() string {
 	uri := bgGSettings.GetString(gkeyCurrentBackground)
-	Logger.Debug("background uri:", uri)
+	logger.Debug("background uri:", uri)
 
 	// decode url path, from
 	// "file:///home/user/%E5%9B%BE%E7%89%87/Wallpapers/time%201.jpg"
 	// to "/home/fsh/图片/Wallpapers/time 1.jpg"
 	u, err := url.Parse(uri)
 	if err != nil {
-		Logger.Error(err)
+		logger.Error(err)
 		return defaultBackgroundFile
 	}
 	path := u.Path
 
 	if !isFileExists(path) {
-		Logger.Warning("background file is not exist:", path)
-		Logger.Warning("use default background:", defaultBackgroundFile)
+		logger.Warning("background file is not exist:", path)
+		logger.Warning("use default background:", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path

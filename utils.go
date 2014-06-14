@@ -130,16 +130,16 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
-		Logger.Info("string")
+		logger.Info("string")
 		if strings.HasSuffix(o, ".desktop") {
 			var app *gio.DesktopAppInfo
 			// maybe use AppInfoCreateFromCommandline with
 			// AppInfoCreateFlagsSupportsStartupNotification flag
 			if path.IsAbs(o) {
-				Logger.Info("the path to launch is abs")
+				logger.Info("the path to launch is abs")
 				app = gio.NewDesktopAppInfoFromFilename(o)
 			} else {
-				Logger.Info("the path to launch is not abs")
+				logger.Info("the path to launch is not abs")
 				app = gio.NewDesktopAppInfo(o)
 			}
 			if app == nil {
@@ -149,7 +149,7 @@ func launch(name interface{}, list interface{}) error {
 
 			startupWmClass := app.GetStartupWmClass()
 			if startupWmClass != "" {
-				Logger.Info("startupWMClass")
+				logger.Info("startupWMClass")
 				f := glib.NewKeyFile()
 				defer f.Free()
 
@@ -222,7 +222,7 @@ func launch(name interface{}, list interface{}) error {
 func execCommand(cmd string, arg string) {
 	err := exec.Command(cmd, arg).Run()
 	if err != nil {
-		Logger.Errorf("Exec '%s %s' Failed: %s\n",
+		logger.Errorf("Exec '%s %s' Failed: %s\n",
 			cmd, arg, err)
 	}
 }
@@ -230,7 +230,7 @@ func execCommand(cmd string, arg string) {
 func unsetEnv(env string) {
 	_, _, err := execAndWait(5, "/usr/bin/env", "-u", env)
 	if err != nil {
-		Logger.Error(err)
+		logger.Error(err)
 	}
 }
 

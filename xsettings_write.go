@@ -30,7 +30,7 @@ import (
 func writeInterger(value uint32, datas *[]byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -47,7 +47,7 @@ func writeInterger(value uint32, datas *[]byte) {
 func writeInterger2(value uint16, datas *[]byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -64,7 +64,7 @@ func writeInterger2(value uint16, datas *[]byte) {
 func writeString(value string, datas *[]byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -79,7 +79,7 @@ func writeString(value string, datas *[]byte) {
 func writeBytes(values []byte, datas *[]byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -92,7 +92,7 @@ func writeBytes(values []byte, datas *[]byte) {
 func writeHeader(info *HeaderInfo, datas *[]byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -127,7 +127,7 @@ func writeHeader(info *HeaderInfo, datas *[]byte) {
 func changeXSettingsProperty(datas []byte) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -137,7 +137,7 @@ func changeXSettingsProperty(datas []byte) {
                 getAtom(X, XSETTINGS_SETTINGS),
                 XSETTINGS_FORMAT, uint32(len(datas)), datas).Check()
         if err != nil {
-                Logger.Errorf("Change Property '%s' Failed: %s",
+                logger.Errorf("Change Property '%s' Failed: %s",
                         XSETTINGS_SETTINGS, err)
                 panic(err)
         }
@@ -146,7 +146,7 @@ func changeXSettingsProperty(datas []byte) {
 func setXSettingsName(name string, value interface{}) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 
@@ -171,7 +171,7 @@ func setXSettingsName(name string, value interface{}) {
 func writeXSettingsData(infos []*HeaderInfo) {
         defer func() {
                 if err := recover(); err != nil {
-                        Logger.Error("recover err:", err)
+                        logger.Error("recover err:", err)
                 }
         }()
 

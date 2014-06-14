@@ -147,7 +147,7 @@ func newSessionManager() *SessionManager {
 func startSession() {
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error("StartSession recover:", err)
+			logger.Error("StartSession recover:", err)
 			return
 		}
 	}()
@@ -156,7 +156,7 @@ func startSession() {
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
 	if err != nil {
-		Logger.Error("Install Session DBus Failed:", err)
+		logger.Error("Install Session DBus Failed:", err)
 		return
 	}
 

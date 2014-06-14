@@ -2,11 +2,11 @@ package main
 
 import (
 	"dlib/glib-2.0"
-	"dlib/logger"
+	liblogger "dlib/logger"
 	"flag"
 )
 
-var Logger = logger.NewLogger("com.deepin.SessionManager")
+var logger = liblogger.NewLogger("com.deepin.SessionManager")
 
 var debug bool = false
 

@@ -45,7 +45,7 @@ func (op *SessionManager) setPropName(name string) {
 	case "CurrentUid":
 		info, err := user.Current()
 		if err != nil {
-			Logger.Infof("Get Current User Info Failed: %v", err)
+			logger.Infof("Get Current User Info Failed: %v", err)
 			return
 		}
 		op.CurrentUid = info.Uid
