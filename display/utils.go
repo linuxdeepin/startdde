@@ -282,6 +282,18 @@ func isOverlap(x1, y1 int16, w1, h1 uint16, x2, y2 int16, w2, h2 uint16) bool {
 	return false
 }
 
+type uint16Slice []uint16
+
+func (s uint16Slice) Len() int {
+	return len(s)
+}
+func (s uint16Slice) Less(i, j int) bool {
+	return s[i] < s[j]
+}
+func (s uint16Slice) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
 type setUint16 map[uint16]bool
 
 func newSetUint16() setUint16 {

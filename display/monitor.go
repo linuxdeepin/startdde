@@ -47,7 +47,9 @@ func (m *Monitor) ListRotations() []uint16 {
 			}
 		}
 	}
-	return set.Set()
+	r := set.Set()
+	sort.Sort(uint16Slice(r))
+	return r
 }
 func (m *Monitor) ListReflect() []uint16 {
 	set := newSetUint16()
@@ -63,7 +65,9 @@ func (m *Monitor) ListReflect() []uint16 {
 			}
 		}
 	}
-	return set.Set()
+	r := set.Set()
+	sort.Sort(uint16Slice(r))
+	return r
 }
 func (m *Monitor) ListModes() []Mode {
 	set := make(map[Mode]int)
