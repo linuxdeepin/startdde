@@ -200,7 +200,7 @@ func (m *SessionManager) ShowGuideOnce() bool {
 		f, err := os.Create(path)
 		defer f.Close()
 		if err != nil {
-			Logger.Error("Can't initlize first dde", err)
+			logger.Error("Can't initlize first dde", err)
 			return false
 		}
 
