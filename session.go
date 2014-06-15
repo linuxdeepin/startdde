@@ -194,13 +194,19 @@ func startSession() {
 }
 
 func (m *SessionManager) ShowGuideOnce() bool {
-	path := os.ExpandEnv("$HOME/.config/show_dde_guide")
+	path := os.ExpandEnv("$HOME/.config/not_first_run_dde")
 	_, err := os.Stat(path)
 	if err != nil {
-		return false
-	}
-	os.Remove(path)
+		f, err := os.Create(path)
+		defer f.Close()
+		if err != nil {
+			Logger.Error("Can't initlize first dde", err)
+			return false
+		}
 
-	m.launch("/usr/lib/deepin-daemon/dde-guide", true)
-	return true
+		m.launch("/usr/lib/deepin-daemon/dde-guide", true)
+		return true
+	}
+
+	return false
 }
