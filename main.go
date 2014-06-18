@@ -3,6 +3,7 @@ package main
 import (
 	"dlib/glib-2.0"
 	liblogger "dlib/logger"
+	"dlib/proxy"
 	"flag"
 )
 
@@ -14,7 +15,7 @@ func main() {
 	flag.BoolVar(&debug, "d", false, "debug")
 	flag.Parse()
 
-	startProxy()
+	proxy.SetupProxy()
 
 	startXSettings()
 
