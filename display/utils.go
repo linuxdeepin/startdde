@@ -212,7 +212,8 @@ func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
 	}
 	gammaSize, err := randr.GetCrtcGammaSize(xcon, oinfo.Crtc).Reply()
 	if err != nil {
-		Logger.Error("GetCrtcGrammSize(crtc:%d) failed: %s", oinfo.Crtc, err.Error())
+		Logger.Warning("GetCrtcGrammSize(crtc:%d) failed: %s", oinfo.Crtc, err.Error())
+		return
 	}
 	red, green, blue := genGammaRamp(gammaSize.Size, v)
 	randr.SetCrtcGamma(xcon, oinfo.Crtc, gammaSize.Size, red, green, blue)
