@@ -16,18 +16,23 @@ func (dpy *Display) workaroundBacklight() {
 		for name, op := range GetDisplayInfo().outputNames {
 			if ok, backlight := supportedBacklight(xcon, op); ok {
 				dpy.setPropBrightness(name, backlight)
+				dpy.saveBrightness(name, backlight)
 			}
 		}
 	}
 
 	mediaKeyManager.ConnectBrightnessUp(func(onPress bool) {
-		for _, m := range dpy.Monitors {
-			workaround(m)
+		if !onPress {
+			for _, m := range dpy.Monitors {
+				workaround(m)
+			}
 		}
 	})
 	mediaKeyManager.ConnectBrightnessDown(func(onPress bool) {
-		for _, m := range dpy.Monitors {
-			workaround(m)
+		if !onPress {
+			for _, m := range dpy.Monitors {
+				workaround(m)
+			}
 		}
 	})
 
