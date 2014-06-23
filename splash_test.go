@@ -1,10 +1,14 @@
 package main
 
 import (
-	"dlib"
 	"testing"
 	// "time"
+	// "dlib/glib-2.0"
 	"fmt"
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil/xgraphics"
+	"github.com/BurntSushi/xgbutil/xprop"
 )
 
 func TestGetPrimaryScreenResolution(t *testing.T) {
@@ -16,14 +20,38 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 		{1280, 1024, 0},
 	}
 	for _, c := range tests {
-		fmt.Println(c.w * c.h)
+		fmt.Println("screen resolution", c.w*c.h)
 	}
 }
 
-func TestSplash(t *testing.T) {
-	initBackground()
-	initBackgroundAfterDependsLoaded()
-	go dlib.StartLoop()
-	// time.Sleep(10 * time.Second)
-	select {}
+// TODO
+// func TestSplash(t *testing.T) {
+// 	initBackground()
+// 	initBackgroundAfterDependsLoaded()
+// 	go glib.StartLoop()
+// 	// time.Sleep(10 * time.Second)
+// 	select {}
+// }
+
+func TestReadRootPixmap(t *testing.T) {
+	if drawWindowThroughRootPixmap() {
+		select {}
+	}
+}
+
+func drawWindowThroughRootPixmap() bool {
+	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(ddeBgPixmapBlurProp))
+	if err != nil {
+		fmt.Println("error:", err)
+		return false
+	}
+	ximg.XShow()
+	return true
+}
+
+func getRootPixmap(prop string) (d xproto.Drawable) {
+	reply, _ := xprop.GetProperty(XU, XU.RootWin(), ddeBgPixmapBlurProp)
+	d = xproto.Drawable(xgb.Get32(reply.Value))
+	fmt.Println("pixmap id:", d)
+	return
 }
