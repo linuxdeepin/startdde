@@ -27,7 +27,7 @@
 void workaround_gtk_theme()
 {
     GtkCssProvider* provider = gtk_css_provider_get_default();
-    gtk_css_provider_load_from_data(provider, "*{-GtkWindow-resize-grip-height:0;} GtkEntry:active{background:rgba(0,0,0,0);}", -1, NULL);
+    gtk_css_provider_load_from_data(provider, "*{-GtkWindow-resize-grip-height:0;background-colo: rgba(0,0,0,0);} GtkEntry:active{background:rgba(0,0,0,0);}", -1, NULL);
     gtk_style_context_add_provider_for_screen(gdk_screen_get_default(), (GtkStyleProvider*)provider, GTK_STYLE_PROVIDER_PRIORITY_USER);
 }
 
