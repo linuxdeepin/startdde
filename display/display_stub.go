@@ -2,7 +2,7 @@ package display
 
 import "github.com/BurntSushi/xgb/xproto"
 
-import "dlib/dbus"
+import "pkg.linuxdeepin.com/lib/dbus"
 
 func (dpy *Display) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{

@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 	// "time"
-	// "dlib/glib-2.0"
+	// "pkg.linuxdeepin.com/lib/glib-2.0"
 	"fmt"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"

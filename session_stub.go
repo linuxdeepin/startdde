@@ -22,7 +22,7 @@
 package main
 
 import (
-	"dlib/dbus"
+	"pkg.linuxdeepin.com/lib/dbus"
 	"os/user"
 )
 

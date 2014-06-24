@@ -28,8 +28,8 @@ import (
 	"time"
 
 	"dbus/com/deepin/daemon/display"
-	"dlib/gio-2.0"
-	"dlib/graphic"
+	"pkg.linuxdeepin.com/lib/gio-2.0"
+	"pkg.linuxdeepin.com/lib/graphic"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"

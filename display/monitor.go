@@ -1,7 +1,7 @@
 package display
 
 import "github.com/BurntSushi/xgb/randr"
-import "dlib/dbus"
+import "pkg.linuxdeepin.com/lib/dbus"
 import "fmt"
 import "strings"
 import "math"

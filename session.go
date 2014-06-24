@@ -2,7 +2,7 @@ package main
 
 import (
 	"dbus/org/freedesktop/login1"
-	"dlib/dbus"
+	"pkg.linuxdeepin.com/lib/dbus"
 	"fmt"
 	"os"
 	"time"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"dlib/glib-2.0"
-	liblogger "dlib/logger"
-	"dlib/proxy"
+	"pkg.linuxdeepin.com/lib/glib-2.0"
+	liblogger "pkg.linuxdeepin.com/lib/logger"
+	"pkg.linuxdeepin.com/lib/proxy"
 	"flag"
 )
 

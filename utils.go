@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"bytes"
-	"dlib/gio-2.0"
-	"dlib/glib-2.0"
 	"os/exec"
+	"pkg.linuxdeepin.com/lib/gio-2.0"
+	"pkg.linuxdeepin.com/lib/glib-2.0"
 	"time"
 )
 

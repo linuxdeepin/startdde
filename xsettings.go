@@ -22,122 +22,122 @@
 package main
 
 import (
-        "dlib/dbus"
-        "github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb"
+	"pkg.linuxdeepin.com/lib/dbus"
 )
 
 type XSettingsManager struct {
-        PropList []string
+	PropList []string
 }
 
 const (
-        XSETTINGS_DEST = "com.deepin.SessionManager"
-        XSETTINGS_PATH = "/com/deepin/XSettings"
-        XSETTINGS_IFC  = "com.deepin.XSettings"
+	XSETTINGS_DEST = "com.deepin.SessionManager"
+	XSETTINGS_PATH = "/com/deepin/XSettings"
+	XSETTINGS_IFC  = "com.deepin.XSettings"
 )
 
 var (
-        X             *xgb.Conn
-        xsKeyValueMap = make(map[string]interface{})
+	X             *xgb.Conn
+	xsKeyValueMap = make(map[string]interface{})
 )
 
 func (op *XSettingsManager) SetInterger(key string, value uint32) {
-        if len(key) <= 0 {
-                return
-        }
-        setXSettingsName(key, value)
-        xsKeyValueMap[key] = value
-        op.setPropName("PropList")
+	if len(key) <= 0 {
+		return
+	}
+	setXSettingsName(key, value)
+	xsKeyValueMap[key] = value
+	op.setPropName("PropList")
 }
 
 func (op *XSettingsManager) GetInterger(key string) (uint32, bool) {
-        ret, ok := xsKeyValueMap[key]
-        if !ok {
-                return 0, false
-        }
+	ret, ok := xsKeyValueMap[key]
+	if !ok {
+		return 0, false
+	}
 
-        return ret.(uint32), true
+	return ret.(uint32), true
 }
 
 func (op *XSettingsManager) SetString(key, value string) {
-        if len(key) <= 0 {
-                return
-        }
-        setXSettingsName(key, value)
-        xsKeyValueMap[key] = value
-        op.setPropName("PropList")
+	if len(key) <= 0 {
+		return
+	}
+	setXSettingsName(key, value)
+	xsKeyValueMap[key] = value
+	op.setPropName("PropList")
 }
 
 func (op *XSettingsManager) GetString(key string) (string, bool) {
-        ret, ok := xsKeyValueMap[key]
-        if !ok {
-                return "", false
-        }
+	ret, ok := xsKeyValueMap[key]
+	if !ok {
+		return "", false
+	}
 
-        return ret.(string), true
+	return ret.(string), true
 }
 
 /*
   Color: [4]string
 */
 func (op *XSettingsManager) SetColor(key string, value []byte) {
-        if len(key) <= 0 || len(value) != 4 {
-                return
-        }
-        setXSettingsName(key, value)
-        xsKeyValueMap[key] = value
-        op.setPropName("PropList")
+	if len(key) <= 0 || len(value) != 4 {
+		return
+	}
+	setXSettingsName(key, value)
+	xsKeyValueMap[key] = value
+	op.setPropName("PropList")
 }
 
 func (op *XSettingsManager) GetColor(key string) ([]byte, bool) {
-        ret, ok := xsKeyValueMap[key]
-        if !ok {
-                return []byte{}, false
-        }
+	ret, ok := xsKeyValueMap[key]
+	if !ok {
+		return []byte{}, false
+	}
 
-        return ret.([]byte), true
+	return ret.([]byte), true
 }
 
 func (op *XSettingsManager) GetDBusInfo() dbus.DBusInfo {
-        return dbus.DBusInfo{
-                XSETTINGS_DEST,
-                XSETTINGS_PATH,
-                XSETTINGS_IFC,
-        }
+	return dbus.DBusInfo{
+		XSETTINGS_DEST,
+		XSETTINGS_PATH,
+		XSETTINGS_IFC,
+	}
 }
 
 func (op *XSettingsManager) setPropName(propName string) {
-        switch propName {
-        case "PropList":
-                list := []string{}
-                for k, _ := range xsKeyValueMap {
-                        list = append(list, k)
-                }
-                op.PropList = list
-        }
+	switch propName {
+	case "PropList":
+		list := []string{}
+		for k, _ := range xsKeyValueMap {
+			list = append(list, k)
+		}
+		op.PropList = list
+	}
 }
 
 func newXSettingsManager() *XSettingsManager {
-        m := &XSettingsManager{}
-        m.setPropName("PropList")
+	m := &XSettingsManager{}
+	m.setPropName("PropList")
 
-        return m
+	return m
 }
 
 func startXSettings() {
-        var err error
-        X, err = xgb.NewConn()
-        if err != nil {
-                logger.Info("Unable to connect X server:", err)
-                panic(err)
-        }
+	var err error
+	X, err = xgb.NewConn()
+	if err != nil {
+		logger.Info("Unable to connect X server:", err)
+		panic(err)
+	}
 
-        newXWindow()
-        initSelection()
+	newXWindow()
+	initSelection()
 
-        m := newXSettingsManager()
-        dbus.InstallOnSession(m)
-        //dbus.DealWithUnhandledMessage()
+	m := newXSettingsManager()
+	dbus.InstallOnSession(m)
+	//dbus.DealWithUnhandledMessage()
 
-        //select {}
+	//select {}
 }

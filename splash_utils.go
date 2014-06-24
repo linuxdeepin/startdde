@@ -28,12 +28,12 @@ import (
 	"os"
 	"strings"
 
-	"dlib/graphic"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"net/url"
+	"pkg.linuxdeepin.com/lib/graphic"
 	"time"
 )
 
