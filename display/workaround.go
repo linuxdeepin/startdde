@@ -13,8 +13,11 @@ func (dpy *Display) workaroundBacklight() {
 	__keepMediakeyManagerAlive = mediaKeyManager
 
 	workaround := func(m *Monitor) {
-		for name, op := range GetDisplayInfo().outputNames {
-			if ok, backlight := supportedBacklight(xcon, op); ok {
+		dpyinfo := GetDisplayInfo()
+		for _, name := range dpyinfo.ListNames() {
+			op := dpyinfo.QueryOutputs(name)
+			if backlight, support := supportedBacklight(xcon, op); support {
+				//TODO: need this?
 				dpy.setPropBrightness(name, backlight)
 				dpy.saveBrightness(name, backlight)
 			}

@@ -1,12 +1,12 @@
 package display
 
 import (
-	"pkg.linuxdeepin.com/lib/dbus"
-	"pkg.linuxdeepin.com/lib/logger"
 	"fmt"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
+	"pkg.linuxdeepin.com/lib/dbus"
+	"pkg.linuxdeepin.com/lib/logger"
 	"strings"
 	"sync"
 )
@@ -62,76 +62,6 @@ var GetDisplay = func() func() *Display {
 		return dpy
 	}
 }()
-
-type DisplayInfo struct {
-	locker         sync.Mutex
-	modes          map[randr.Mode]Mode
-	outputNames    map[string]randr.Output
-	backlightLevel map[string]uint32
-}
-
-var GetDisplayInfo = func() func() *DisplayInfo {
-	info := &DisplayInfo{
-		modes:          make(map[randr.Mode]Mode),
-		outputNames:    make(map[string]randr.Output),
-		backlightLevel: make(map[string]uint32),
-	}
-	info.update()
-	return func() *DisplayInfo {
-		return info
-	}
-}()
-
-func (info *DisplayInfo) QueryModes(id randr.Mode) Mode {
-	return Mode{}
-}
-func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
-	return 0
-}
-func (info *DisplayInfo) QueryBacklightLevel(name string) uint32 {
-	return 0
-}
-
-func (info *DisplayInfo) update() {
-	info.locker.Lock()
-	defer info.locker.Unlock()
-
-	resource, err := randr.GetScreenResources(xcon, Root).Reply()
-	if err != nil {
-		Logger.Error("GetScreenResouces failed", err)
-		return
-	}
-	info.outputNames = make(map[string]randr.Output)
-	info.backlightLevel = make(map[string]uint32)
-	for _, op := range resource.Outputs {
-		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-		if err != nil {
-			Logger.Warning("DisplayInfo.update filter:", err)
-			continue
-		}
-		if oinfo.Connection != randr.ConnectionConnected {
-			continue
-		}
-
-		info.outputNames[string(oinfo.Name)] = op
-		info.backlightLevel[string(oinfo.Name)] = uint32(queryBacklightRange(xcon, op))
-	}
-	//if len(info.outputNames) != 2 {
-	//Logger.Warning("XX", info.outputNames, resource.Outputs)
-	//for _, op := range resource.Outputs {
-	//oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-	//if err != nil {
-	//fmt.Println("XX E:", err)
-	//}
-	//fmt.Println("XX:", string(oinfo.Name), oinfo.Connection)
-	//}
-	//}
-
-	info.modes = make(map[randr.Mode]Mode)
-	for _, minfo := range resource.Modes {
-		info.modes[randr.Mode(minfo.Id)] = buildMode(minfo)
-	}
-}
 
 type Display struct {
 	Monitors    []*Monitor
@@ -209,19 +139,24 @@ func (dpy *Display) listener() {
 	}
 }
 
-func (dpy *Display) ChangeBrightness(output string, v float64) {
-	if v >= 0 && v <= 1 {
-		if op, ok := GetDisplayInfo().outputNames[output]; ok {
-			if max, ok := GetDisplayInfo().backlightLevel[output]; ok && max != 0 {
-				setOutputBacklight(op, uint32(float64(max)*v))
-			} else {
-				setBrightness(xcon, op, v)
-			}
-			dpy.setPropBrightness(output, v)
-		}
-	} else {
-		Logger.Warningf("Try change the brightness of %s to an invalid value(%v)", output, v)
+func (dpy *Display) ChangeBrightness(output string, v float64) error {
+	if v < 0 && v > 1 {
+		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
+
+	op := GetDisplayInfo().QueryOutputs(output)
+	if op == 0 {
+		return fmt.Errorf("Chan't find the ", output, "output when change brightness")
+	}
+
+	max := GetDisplayInfo().QueryBacklightLevel(output)
+	if max != 0 {
+		setOutputBacklight(op, uint32(float64(max)*v))
+	} else {
+		setBrightness(xcon, op, v)
+	}
+	dpy.setPropBrightness(output, v)
+	return nil
 
 }
 func (dpy *Display) ResetBrightness(output string) {
@@ -230,13 +165,12 @@ func (dpy *Display) ResetBrightness(output string) {
 
 	}
 }
-func (dpy *Display) SetBrightness(output string, v float64) {
-	if v >= 0 && v <= 1 {
-		dpy.ChangeBrightness(output, v)
-		dpy.saveBrightness(output, v)
-	} else {
-		Logger.Warningf("Try set the brightness of %s to an invalid value(%v)", output, v)
+func (dpy *Display) SetBrightness(output string, v float64) error {
+	if err := dpy.ChangeBrightness(output, v); err != nil {
+		return err
 	}
+	dpy.saveBrightness(output, v)
+	return nil
 }
 
 func (dpy *Display) JoinMonitor(a string, b string) error {
@@ -300,23 +234,23 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 	delete(dpy.cfg.Monitors[dpy.QueryCurrentPlanName()], m.Name)
 	dpyinfo := GetDisplayInfo()
 	for _, name := range strings.Split(m.Name, joinSeparator) {
-		if op, ok := dpyinfo.outputNames[name]; ok {
-			mcfg, err := CreateConfigMonitor(dpy, op)
-			if err != nil {
-				Logger.Error("Failed createconfigmonitor at split", err, name, mcfg)
-				continue
-			}
-			dpy.cfg.Monitors[dpy.QueryCurrentPlanName()][name] = mcfg
-
-			minfo := dpyinfo.modes[mcfg.bestMode]
-			mcfg.Width = minfo.Width
-			mcfg.Height = minfo.Height
-			mcfg.currentMode = mcfg.bestMode
-
-			m := NewMonitor(dpy, mcfg)
-			m.SetMode(m.BestMode.ID)
-			r = append(r, m)
+		op := dpyinfo.QueryOutputs(name)
+		if op == 0 {
+			continue
 		}
+		mcfg, err := CreateConfigMonitor(dpy, op)
+		if err != nil {
+			Logger.Error("Failed createconfigmonitor at split", err, name, mcfg)
+			continue
+		}
+		dpy.cfg.Monitors[dpy.QueryCurrentPlanName()][name] = mcfg
+
+		//TODO: check width/height value whether zero
+
+		m := NewMonitor(dpy, mcfg)
+		//TODO: change or set?
+		m.changeMode(randr.Mode(m.BestMode.ID))
+		r = append(r, m)
 	}
 	return
 }
@@ -394,16 +328,9 @@ func (dpy *Display) ResetChanges() {
 	dpy.apply(false)
 
 	dpy.Brightness = make(map[string]float64)
-	for name, v := range dpy.cfg.Brightness {
-		dpy.Brightness[name] = v
-		dpy.ChangeBrightness(name, v)
 
-		//set brightness to 1, if the output support backlight feature
-		if op, ok := GetDisplayInfo().outputNames[name]; ok {
-			if max, ok := GetDisplayInfo().backlightLevel[name]; ok && max != 0 {
-				setBrightness(xcon, op, 1)
-			}
-		}
+	for name, v := range dpy.cfg.Brightness {
+		dpy.ChangeBrightness(name, v)
 	}
 	dpy.detectChanged()
 }
@@ -432,6 +359,7 @@ func Start() {
 
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
+		fmt.Println("Start:", m.Name, "Enabled: ", m.cfg.Enabled)
 	}
 
 	err := dbus.InstallOnSession(dpy)
@@ -443,8 +371,10 @@ func Start() {
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {
-	if max, ok := GetDisplayInfo().backlightLevel[name]; ok && max != 0 {
+	max := GetDisplayInfo().QueryBacklightLevel(name)
+	if max != 0 {
 		return 1
+	} else {
+		return 0
 	}
-	return 0
 }

@@ -7,15 +7,15 @@ import "sort"
 
 import "github.com/BurntSushi/xgb/xproto"
 
-func guestBuiltIn(ops []*Monitor) *Monitor {
+func guestBuiltIn(monitors []*Monitor) *Monitor {
 	// It's a bug if there hasn't any Output.
-	var mirrorOP *Monitor = ops[0]
+	var mirrorOP *Monitor = monitors[0]
 	currentType := unknownAtom
-	for _, op := range ops {
-		t := getContentorType(GetDisplayInfo().outputNames[op.Outputs[0]])
+	for _, m := range monitors {
+		t := getContentorType(GetDisplayInfo().QueryOutputs(m.Outputs[0]))
 		if !greaterConnectorType(t, currentType) {
 			currentType = t
-			mirrorOP = op
+			mirrorOP = m
 		}
 	}
 	return mirrorOP
@@ -33,7 +33,7 @@ func listModes(op randr.Output) []Mode {
 	}
 	var r []Mode
 	for _, id := range oinfo.Modes {
-		r = append(r, GetDisplayInfo().modes[id])
+		r = append(r, GetDisplayInfo().QueryModes(id))
 	}
 	return r
 }

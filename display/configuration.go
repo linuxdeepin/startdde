@@ -20,10 +20,7 @@ var _ConfigPath = os.Getenv("HOME") + "/.config/deepin_monitors.json"
 var configLock sync.RWMutex
 
 func (dpy *Display) QueryCurrentPlanName() string {
-	names := make([]string, 0)
-	for name, _ := range GetDisplayInfo().outputNames {
-		names = append(names, name)
-	}
+	names := GetDisplayInfo().ListNames()
 	sort.Strings(names)
 	return strings.Join(names, ",")
 	//return base64.NewEncoding("1").EncodeToString([]byte(strings.Join(names, ",")))
@@ -38,7 +35,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	//grab and build monitors information
 	monitors := make(map[string]*ConfigMonitor)
-	for _, op := range GetDisplayInfo().outputNames {
+	for _, op := range GetDisplayInfo().ListOutputs() {
 		mcfg, err := CreateConfigMonitor(dpy, op)
 		if err != nil {
 			Logger.Warning("skip invalid monitor", op)
@@ -52,12 +49,10 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	cfg.Primary = guestPrimaryName()
 
-	//query brightness information
-	for name, op := range GetDisplayInfo().outputNames {
-		var support bool
-		if support, cfg.Brightness[name] = supportedBacklight(xcon, op); support {
-			//Assume the brightness is 1.0 if there hasn't any saved information
-			GetDisplayInfo().backlightLevel[name] = uint32(queryBacklightRange(xcon, op))
+	for _, name := range GetDisplayInfo().ListNames() {
+		backlight, support := supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))
+		if support {
+			cfg.Brightness[name] = backlight
 		} else {
 			cfg.Brightness[name] = 1
 		}
@@ -92,7 +87,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		//1.1. ensure the output support the mode which be matched with the width/height
 		valid := false
 		for _, opName := range m.Outputs {
-			op := GetDisplayInfo().outputNames[opName]
+			op := GetDisplayInfo().QueryOutputs(opName)
 			oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 			if err != nil {
 				Logger.Error("ensureValid failed:", opName, "OP:", op, err)
@@ -102,10 +97,10 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 				Logger.Error("ensureValid failed:", opName, "hasn't any mode info")
 				continue
 			}
+
 			for _, id := range oinfo.Modes {
-				minfo := GetDisplayInfo().modes[id]
+				minfo := GetDisplayInfo().QueryModes(id)
 				if minfo.Width == m.Width && minfo.Height == m.Height {
-					m.currentMode = randr.Mode(minfo.ID)
 					valid = true
 					break
 				}
@@ -248,9 +243,6 @@ type ConfigMonitor struct {
 	Name    string
 	Outputs []string
 
-	currentMode randr.Mode
-	bestMode    randr.Mode
-
 	Width, Height uint16
 	RefreshRate   float64
 
@@ -271,26 +263,12 @@ func mergeConfigMonitor(dpy *Display, a *ConfigMonitor, b *ConfigMonitor) *Confi
 
 	var ops []randr.Output
 	for _, opName := range c.Outputs {
-		if op, ok := GetDisplayInfo().outputNames[opName]; ok {
+		op := GetDisplayInfo().QueryOutputs(opName)
+		if op != 0 {
 			ops = append(ops, op)
 		}
 	}
 	c.Width, c.Height = getMatchedSize(ops)
-
-	var matchedMode Modes
-	for _, minfo := range GetDisplayInfo().modes {
-		if minfo.Width == c.Width && minfo.Height == c.Height {
-			matchedMode = append(matchedMode, minfo)
-		}
-	}
-	if len(matchedMode) > 0 {
-		sort.Sort(matchedMode)
-		c.bestMode = randr.Mode(matchedMode[0].ID)
-		c.currentMode = c.bestMode
-	} else {
-		Logger.Error("Can't find matched mode", a, b)
-	}
-
 	c.Enabled = true
 	return c
 }
@@ -306,7 +284,6 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 	}
 	cfg.Name = string(oinfo.Name)
 	cfg.Outputs = append(cfg.Outputs, cfg.Name)
-	cfg.bestMode = oinfo.Modes[0]
 
 	if oinfo.Crtc != 0 && oinfo.Connection == randr.ConnectionConnected {
 		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
@@ -316,19 +293,15 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
 
 		cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
-		cfg.currentMode = cinfo.Mode
 		cfg.Enabled = true
 	} else {
 		if len(oinfo.Modes) == 0 {
 			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")
 		}
-		minfo := GetDisplayInfo().modes[cfg.bestMode]
+		minfo := GetDisplayInfo().QueryModes(oinfo.Modes[0])
 		cfg.Width, cfg.Height = minfo.Width, minfo.Height
 		cfg.Rotation, cfg.Reflect = 1, 0
-		cfg.currentMode = cfg.bestMode
-		cfg.Enabled = true
-
-		randr.SetCrtcConfig(xcon, oinfo.Crtc, 0, LastConfigTimeStamp, cfg.X, cfg.Y, cfg.currentMode, 1, []randr.Output{op})
+		cfg.Enabled = false
 	}
 
 	return cfg, nil

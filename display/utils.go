@@ -183,13 +183,13 @@ func queryBacklightRange(c *xgb.Conn, output randr.Output) int32 {
 	}
 	return pinfo.ValidValues[1]
 }
-func supportedBacklight(c *xgb.Conn, output randr.Output) (bool, float64) {
+func supportedBacklight(c *xgb.Conn, output randr.Output) (float64, bool) {
 	prop, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
 	pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
 	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
-		return false, 1
+		return 1, false
 	}
-	return true, float64(xgb.Get32(prop.Data)) / float64(pinfo.ValidValues[1])
+	return float64(xgb.Get32(prop.Data)) / float64(pinfo.ValidValues[1]), true
 }
 
 func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
@@ -223,8 +223,13 @@ func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
 	randr.SetCrtcGamma(xcon, oinfo.Crtc, gammaSize.Size, red, green, blue)
 }
 
-func queryBrightness(xcon *xgb.Conn, op randr.Output) float64 {
-	return 1
+func queryBestMode(op randr.Output) randr.Mode {
+	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
+	if err != nil {
+		Logger.Warning("can't find best mode for ", op, "(oinfo:", oinfo, ") (err:", err, ")")
+		return 0
+	}
+	return oinfo.Modes[0]
 }
 
 func parseRotationSize(rotation, width, height uint16) (uint16, uint16) {
