@@ -41,7 +41,7 @@ func (info *DisplayInfo) QueryModes(id randr.Mode) Mode {
 	if op, ok := info.modes[id]; ok {
 		return op
 	} else {
-		Logger.Warning("can't find ", id)
+		Logger.Debug("can't find ", id)
 		return Mode{}
 	}
 }
@@ -49,7 +49,7 @@ func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
 	if op, ok := info.outputNames[name]; ok {
 		return op
 	} else {
-		Logger.Warning("can't find ", name)
+		Logger.Debug("can't find ", name)
 		return 0
 	}
 }
@@ -57,7 +57,7 @@ func (info *DisplayInfo) QueryBacklightLevel(name string) uint32 {
 	if lev, ok := info.backlightLevel[name]; ok {
 		return lev
 	} else {
-		Logger.Warning("can't find ", name)
+		Logger.Debug("can't find ", name)
 		return 0
 	}
 }

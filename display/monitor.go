@@ -110,7 +110,6 @@ func (m *Monitor) changeRotation(v uint16) error {
 		return err
 	}
 	m.setPropRotation(v)
-	GetDisplay().detectChanged()
 	return nil
 }
 
@@ -119,6 +118,7 @@ func (m *Monitor) SetRotation(v uint16) error {
 		return err
 	}
 	m.cfg.Rotation = v
+	GetDisplay().detectChanged()
 	return nil
 }
 
@@ -132,7 +132,6 @@ func (m *Monitor) changeReflect(v uint16) error {
 		return err
 	}
 	m.setPropReflect(v)
-	GetDisplay().detectChanged()
 	return nil
 }
 func (m *Monitor) SetReflect(v uint16) error {
@@ -140,12 +139,12 @@ func (m *Monitor) SetReflect(v uint16) error {
 		return err
 	}
 	m.cfg.Rotation = v
+	GetDisplay().detectChanged()
 	return nil
 }
 
 func (m *Monitor) changePos(x, y int16) error {
 	m.setPropPos(x, y)
-	GetDisplay().detectChanged()
 	return nil
 }
 func (m *Monitor) SetPos(x, y int16) error {
@@ -153,6 +152,7 @@ func (m *Monitor) SetPos(x, y int16) error {
 		return err
 	}
 	m.cfg.X, m.cfg.Y = x, y
+	GetDisplay().detectChanged()
 	return nil
 }
 
@@ -173,10 +173,7 @@ func (m *Monitor) changeSwitchOn(v bool) error {
 	if v == false && m.canCloseMonitor() == false {
 		return fmt.Errorf("reject close the last opened Output %s", m.Name)
 	}
-
 	m.setPropOpened(v)
-	dpy := GetDisplay()
-	dpy.detectChanged()
 	return nil
 }
 
@@ -188,6 +185,7 @@ func (m *Monitor) SwitchOn(v bool) error {
 	//TODO: when call dpy.cfg.ensureValid
 	dpy := GetDisplay()
 	dpy.cfg.ensureValid(dpy)
+	dpy.detectChanged()
 	return nil
 }
 
@@ -204,7 +202,6 @@ func (m *Monitor) changeMode(id randr.Mode) (*Mode, error) {
 	m.setPropWidth(w)
 	m.setPropHeight(h)
 
-	GetDisplay().detectChanged()
 	return &minfo, nil
 }
 
@@ -214,6 +211,7 @@ func (m *Monitor) SetMode(id uint32) error {
 		return err
 	}
 	m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate = mode.Width, mode.Height, mode.Rate
+	GetDisplay().detectChanged()
 	return nil
 }
 
