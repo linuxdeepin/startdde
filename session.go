@@ -2,9 +2,10 @@ package main
 
 import (
 	"dbus/org/freedesktop/login1"
-	"pkg.linuxdeepin.com/lib/dbus"
 	"fmt"
 	"os"
+	"pkg.linuxdeepin.com/lib/dbus"
+	dd "runtime/debug"
 	"time"
 )
 
@@ -191,6 +192,9 @@ func startSession() {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
+
+	//quickly free splash used memory
+	dd.FreeOSMemory()
 }
 
 func (m *SessionManager) ShowGuideOnce() bool {
