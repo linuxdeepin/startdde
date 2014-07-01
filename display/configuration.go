@@ -47,7 +47,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	//save it at CurrentPlanName slot
 	cfg.Monitors[cfg.CurrentPlanName] = monitors
 
-	cfg.Primary = guestPrimaryName()
+	cfg.Primary = dpy.Primary
 
 	for _, name := range GetDisplayInfo().ListNames() {
 		backlight, support := supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))

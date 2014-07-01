@@ -133,8 +133,8 @@ func (dpy *Display) listener() {
 				m.updateInfo()
 			}
 
-			//SetPrimary will try set the valid primary
-			dpy.SetPrimary(dpy.Primary)
+			//changePrimary will try set an valid primary if dpy.Primary invalid
+			dpy.changePrimary(dpy.Primary)
 		}
 	}
 }
@@ -259,34 +259,46 @@ func (dpy *Display) detectChanged() {
 	dpy.setPropHasChanged(!dpy.cfg.Compare(LoadConfigDisplay(dpy)))
 }
 
+func (dpy *Display) canBePrimary(name string) *Monitor {
+	for _, m := range dpy.Monitors {
+		if m.Name == name && m.Opened {
+			return m
+		}
+	}
+	return nil
+}
+
+func (dpy *Display) changePrimary(name string) error {
+	if m := dpy.canBePrimary(name); m != nil {
+		dpy.setPropPrimary(name)
+		dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+		return nil
+	}
+	//the output whose name is `name` didn't exists or disabled,
+
+	if dpy.canBePrimary(dpy.Primary) != nil {
+		return fmt.Errorf("can't set %s as primary, current primary %s wouldn't be changed", name, dpy.Primary)
+	}
+
+	//try set an primary
+	for _, m := range dpy.Monitors {
+		if dpy.canBePrimary(m.Name) != nil {
+			dpy.setPropPrimary(name)
+			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			return fmt.Errorf("can't set %s as primary, and current parimary %s is invalid. fallback to %s",
+				name, dpy.Primary, m.Name)
+		}
+	}
+	panic("can't find any valid primary")
+}
+
 func (dpy *Display) SetPrimary(name string) error {
-	if m, ok := dpy.cfg.Monitors[dpy.cfg.CurrentPlanName][name]; ok {
-		if m.Enabled {
-			dpy.setPropPrimary(name)
-			dpy.cfg.Primary = name
-			dpy.savePrimary(dpy.cfg.Primary)
-			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
-			return nil
-		}
+	if err := dpy.changePrimary(name); err != nil {
+		return err
 	}
-
-	if name != dpy.Primary {
-		dpy.SetPrimary(dpy.Primary)
-	}
-
-	for _, m := range dpy.cfg.Monitors[dpy.cfg.CurrentPlanName] {
-		if m.Name != name && m.Enabled {
-			dpy.setPropPrimary(name)
-			dpy.cfg.Primary = name
-			dpy.savePrimary(dpy.cfg.Primary)
-			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
-			return nil
-		}
-	}
-
-	err := fmt.Errorf("Can't set primary to ", name)
-	Logger.Fatal(err.Error())
-	return err
+	dpy.cfg.Primary = name
+	dpy.savePrimary(dpy.cfg.Primary)
+	return nil
 }
 
 func (dpy *Display) Apply() {
@@ -322,7 +334,9 @@ func (dpy *Display) ResetChanges() {
 	}
 	dpy.setPropMonitors(monitors)
 
-	dpy.SetPrimary(dpy.cfg.Primary)
+	if err := dpy.changePrimary(dpy.cfg.Primary); err != nil {
+		Logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
+	}
 
 	//apply the saved configurations.
 	dpy.apply(false)
@@ -354,15 +368,14 @@ func (dpy *Display) Reset() {
 
 func Start() {
 	dpy := GetDisplay()
+	err := dbus.InstallOnSession(dpy)
 	dpy.ResetChanges()
+
 	go dpy.listener()
 
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
-		fmt.Println("Start:", m.Name, "Enabled: ", m.cfg.Enabled)
 	}
-
-	err := dbus.InstallOnSession(dpy)
 	if err != nil {
 		Logger.Error("Can't install dbus display service on session:", err)
 		return

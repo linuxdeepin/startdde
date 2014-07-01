@@ -21,11 +21,6 @@ func guestBuiltIn(monitors []*Monitor) *Monitor {
 	return mirrorOP
 }
 
-func guestPrimaryName() string {
-	//TODO:
-	return "TODO"
-}
-
 func listModes(op randr.Output) []Mode {
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
