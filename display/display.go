@@ -324,6 +324,7 @@ func (dpy *Display) apply(auto bool) {
 
 func (dpy *Display) ResetChanges() {
 	dpy.cfg = LoadConfigDisplay(dpy)
+	dpy.cfg.ensureValid(dpy)
 
 	//must be invoked after LoadConfigDisplay(dpy)
 	var monitors []*Monitor

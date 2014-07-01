@@ -182,7 +182,6 @@ func (m *Monitor) SwitchOn(v bool) error {
 		return err
 	}
 	m.cfg.Enabled = v
-	//TODO: when call dpy.cfg.ensureValid
 	dpy := GetDisplay()
 	dpy.cfg.ensureValid(dpy)
 	dpy.detectChanged()
@@ -257,10 +256,9 @@ func (m *Monitor) generateShell() string {
 
 func (m *Monitor) updateInfo() {
 	op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
-	//TODO: need update all info
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
-		Logger.Warning("updateInfo error:", err)
+		Logger.Warning(m.Name, "updateInfo error:", err)
 		return
 	}
 	if oinfo.Crtc == 0 {
