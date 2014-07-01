@@ -130,13 +130,13 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
-		logger.Info("string")
+		logger.Debug("string")
 		if strings.HasSuffix(o, ".desktop") {
 			var app *gio.DesktopAppInfo
 			// maybe use AppInfoCreateFromCommandline with
 			// AppInfoCreateFlagsSupportsStartupNotification flag
 			if path.IsAbs(o) {
-				logger.Info("the path to launch is abs")
+				logger.Debug("the path to launch is abs")
 				app = gio.NewDesktopAppInfoFromFilename(o)
 			} else {
 				logger.Info("the path to launch is not abs")

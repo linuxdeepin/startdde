@@ -28,8 +28,6 @@ import (
 	"time"
 
 	"dbus/com/deepin/daemon/display"
-	"pkg.linuxdeepin.com/lib/gio-2.0"
-	"pkg.linuxdeepin.com/lib/graphic"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
@@ -37,6 +35,8 @@ import (
 	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"pkg.linuxdeepin.com/lib/gio-2.0"
+	"pkg.linuxdeepin.com/lib/graphic"
 	"runtime"
 )
 
@@ -226,12 +226,12 @@ func loadBgFile() {
 		logger.Error("set picture filter failed:", err)
 	}
 
-	runtime.GC()
+	runtime.GC() // TODO
 }
 
 func drawBackground() {
-	logger.Debug("drawBackground() begin")
-	defer logger.Debug("drawBackground() end")
+	logger.Info("drawBackground() begin")
+	defer logger.Info("drawBackground() end")
 
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
@@ -305,8 +305,8 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 // TODO: re-implemented through xrender
 // TODO: cancel operate if background file changed
 func mapBgToRoot() {
-	logger.Debug("mapBgToRoot() begin")
-	defer logger.Debug("mapBgToRoot() end")
+	logger.Info("mapBgToRoot() begin")
+	defer logger.Info("mapBgToRoot() end")
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -391,11 +391,11 @@ func listenBgFileChanged() {
 	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			logger.Debug("background value in gsettings changed:", key)
-			go mapBgToRoot()
+			logger.Info("background value in gsettings changed:", key)
 			go func() {
 				loadBgFile()
 				drawBackground()
+				mapBgToRoot()
 			}()
 		}
 	})
