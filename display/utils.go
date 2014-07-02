@@ -19,6 +19,18 @@ func runCode(code string) bool {
 	return true
 }
 
+func runCodeAsync(code string) bool {
+	cmd := exec.Command("sh", "-c", code)
+	err := cmd.Start()
+	if err != nil {
+		Logger.Debug("Run", code, "failed:", err)
+	} else {
+		Logger.Debug("RunCodeOK:", code)
+	}
+	go cmd.Wait()
+	return true
+}
+
 func getAtom(c *xgb.Conn, name string) xproto.Atom {
 	r, err := xproto.InternAtom(c, false, uint16(len(name)), name).Reply()
 	if err != nil {

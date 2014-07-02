@@ -135,8 +135,21 @@ func (dpy *Display) listener() {
 
 			//changePrimary will try set an valid primary if dpy.Primary invalid
 			dpy.changePrimary(dpy.Primary)
+
+			dpy.mapTouchScreen()
 		}
 	}
+}
+
+func (dpy *Display) mapTouchScreen() {
+	for output, touchscreen := range dpy.cfg.MapToTouchScreen {
+		runCodeAsync(fmt.Sprintf(`xinput map-to-output "%s" "%s"`, touchscreen, output))
+	}
+}
+
+func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
+	//TODO: check name valid
+	dpy.saveTouchScreen(output, touchscreen)
 }
 
 func (dpy *Display) ChangeBrightness(output string, v float64) error {

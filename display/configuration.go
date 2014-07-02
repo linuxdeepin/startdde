@@ -16,6 +16,16 @@ const (
 	DPModeOnlyOne = 1
 )
 
+type ConfigDisplay struct {
+	DisplayMode     int16
+	CurrentPlanName string
+	Monitors        map[string]map[string]*ConfigMonitor
+
+	Primary          string
+	Brightness       map[string]float64
+	MapToTouchScreen map[string]string
+}
+
 var _ConfigPath = os.Getenv("HOME") + "/.config/deepin_monitors.json"
 var configLock sync.RWMutex
 
@@ -63,6 +73,7 @@ func createConfigDisplay(dpy *Display) *ConfigDisplay {
 	cfg := &ConfigDisplay{}
 	cfg.Monitors = make(map[string]map[string]*ConfigMonitor)
 	cfg.Brightness = make(map[string]float64)
+	cfg.MapToTouchScreen = make(map[string]string)
 	cfg.DisplayMode = DPModeNormal
 
 	cfg.attachCurrentMonitor(dpy)
@@ -179,8 +190,9 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 			return nil
 		} else {
 			cfg := &ConfigDisplay{
-				Brightness: make(map[string]float64),
-				Monitors:   make(map[string]map[string]*ConfigMonitor),
+				Brightness:       make(map[string]float64),
+				Monitors:         make(map[string]map[string]*ConfigMonitor),
+				MapToTouchScreen: make(map[string]string),
 			}
 			if err = json.Unmarshal(data, &cfg); err != nil {
 				return nil
@@ -189,15 +201,6 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 		}
 	}
 	return nil
-}
-
-type ConfigDisplay struct {
-	DisplayMode     int16
-	CurrentPlanName string
-	Monitors        map[string]map[string]*ConfigMonitor
-
-	Primary    string
-	Brightness map[string]float64
 }
 
 func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
@@ -349,5 +352,10 @@ func (dpy *Display) saveBrightness(output string, v float64) {
 func (dpy *Display) savePrimary(output string) {
 	cfg := LoadConfigDisplay(dpy)
 	cfg.Primary = output
+	cfg.Save()
+}
+func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
+	cfg := LoadConfigDisplay(dpy)
+	cfg.MapToTouchScreen[output] = touchscreen
 	cfg.Save()
 }
