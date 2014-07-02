@@ -73,7 +73,7 @@ func (dpy *Display) setPropHasChanged(v bool) {
 }
 
 func (dpy *Display) setPropBrightness(name string, v float64) {
-	if dpy.Brightness[name] != v {
+	if old, ok := dpy.Brightness[name]; !ok || old != v {
 		dpy.Brightness[name] = v
 		dbus.NotifyChange(dpy, "Brightness")
 	}

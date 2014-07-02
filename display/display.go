@@ -153,7 +153,8 @@ func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
 }
 
 func (dpy *Display) ChangeBrightness(output string, v float64) error {
-	if v < 0 && v > 1 {
+	if !(v >= 0 && v <= 1) {
+		//NOTO: don't use "if v < 0 || v > 1",  because there has some guy called NaN.
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
