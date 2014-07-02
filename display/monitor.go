@@ -86,6 +86,7 @@ func (m *Monitor) ListModes() []Mode {
 		}
 		for _, m := range oinfo.Modes {
 			minfo := GetDisplayInfo().QueryModes(m)
+			//TODO: handle different refresh rate but same width/height modes
 			set[minfo] += 1
 		}
 	}

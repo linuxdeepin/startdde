@@ -264,16 +264,19 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 
 		//TODO: check width/height value whether zero
 
+		dpy.cfg.ensureValid(dpy)
 		m := NewMonitor(dpy, mcfg)
 		//TODO: change or set?
-		m.changeMode(randr.Mode(m.BestMode.ID))
+		m.SetMode((m.BestMode.ID))
 		r = append(r, m)
 	}
 	return
 }
 
 func (dpy *Display) detectChanged() {
-	dpy.setPropHasChanged(!dpy.cfg.Compare(LoadConfigDisplay(dpy)))
+	cfg := LoadConfigDisplay(dpy)
+	cfg.ensureValid(dpy)
+	dpy.setPropHasChanged(!dpy.cfg.Compare(cfg))
 }
 
 func (dpy *Display) canBePrimary(name string) *Monitor {
@@ -370,6 +373,7 @@ func (dpy *Display) ResetChanges() {
 
 func (dpy *Display) SaveChanges() {
 	dpy.cfg.Save()
+	dpy.detectChanged()
 }
 
 func (dpy *Display) Reset() {
