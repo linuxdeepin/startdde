@@ -303,7 +303,8 @@ func (dpy *Display) changePrimary(name string) error {
 				name, dpy.Primary, m.Name)
 		}
 	}
-	panic("can't find any valid primary")
+	Logger.Error("can't find any valid primary", name)
+	return fmt.Errorf("can't find any valid primary", name)
 }
 
 func (dpy *Display) SetPrimary(name string) error {
