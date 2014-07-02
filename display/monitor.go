@@ -258,7 +258,7 @@ func (m *Monitor) updateInfo() {
 	op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
-		Logger.Warning(m.Name, "updateInfo error:", err)
+		Logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
 		return
 	}
 	if oinfo.Crtc == 0 {
@@ -305,14 +305,14 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 			}
 		}
 		m.setPropBestMode(best)
+		m.setPropCurrentMode(best)
 	} else {
 		op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
 		mode := queryBestMode(op)
 		modeinfo := GetDisplayInfo().QueryModes(mode)
 		m.setPropBestMode(modeinfo)
+		m.setPropCurrentMode(m.queryModeBySize(info.Width, info.Height))
 	}
-
-	m.setPropCurrentMode(m.queryModeBySize(info.Width, info.Height))
 
 	return m
 }
@@ -323,7 +323,8 @@ func (m *Monitor) queryModeBySize(width, height uint16) Mode {
 			return m
 		}
 	}
-	panic("queryModeBySize error")
+	Logger.Error("queryModeBySize error:", m.Name, width, height, m.ListModes())
+	return Mode{}
 }
 
 func (m *Monitor) ensureSize(w, h uint16) {
