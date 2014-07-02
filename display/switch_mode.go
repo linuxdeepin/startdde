@@ -1,7 +1,5 @@
 package display
 
-import "github.com/BurntSushi/xgb/randr"
-
 const (
 	DisplayModeUnknow  = -100
 	DisplayModeMirrors = -1
@@ -38,8 +36,8 @@ func (dpy *Display) SwitchMode(mode int16) {
 
 				for i, m := range dpy.Monitors {
 					if i+1 == int(mode) {
-						m.changePos(0, 0)
-						m.changeMode(randr.Mode(m.BestMode.ID))
+						m.SetPos(0, 0)
+						m.SetMode(m.BestMode.ID)
 						//m.changeSwitchOn(true)
 						m.SwitchOn(true)
 						dpy.changePrimary(m.Name)
