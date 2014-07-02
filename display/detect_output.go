@@ -71,7 +71,8 @@ func getMatchedSize(ops []randr.Output) (uint16, uint16) {
 func getMatchedSize1(ops []*Monitor) (uint16, uint16) {
 	switch len(ops) {
 	case 0:
-		panic("getMatchedSize received an ops with zero length")
+		Logger.Error("getMatchedSize received an ops with zero length")
+		return 800, 600
 	case 1:
 		bestMode := ops[0].BestMode
 		return parseRotationSize(ops[0].Rotation, bestMode.Width, bestMode.Height)

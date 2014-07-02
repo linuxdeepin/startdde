@@ -36,13 +36,16 @@ func initX11() bool {
 
 	ver, err := randr.QueryVersion(xcon, 1, 3).Reply()
 	if err != nil {
-		panic(fmt.Sprintln("randr.QueryVersion error:", err))
+		Logger.Error("randr.QueryVersion error:", err)
+		return false
 	}
 	if ver.MajorVersion != 1 || ver.MinorVersion != 3 {
-		panic(fmt.Sprintln("randr version is too low:", ver.MajorVersion, ver.MinorVersion, "this program require at least randr 1.3"))
+		Logger.Error("randr version is too low:", ver.MajorVersion, ver.MinorVersion, "this program require at least randr 1.3")
+		return false
 	}
 	if err != nil {
-		panic(fmt.Sprintln("randr.GetSceenSizeRange failed :", err))
+		Logger.Error("randr.GetSceenSizeRange failed :", err)
+		return false
 	}
 	return true
 }

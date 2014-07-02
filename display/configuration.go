@@ -322,7 +322,7 @@ func (c *ConfigMonitor) Save() {
 			return
 		}
 	}
-	panic("not reached")
+	Logger.Error("not reached")
 }
 
 func (m1 *ConfigMonitor) Compare(m2 *ConfigMonitor) bool {

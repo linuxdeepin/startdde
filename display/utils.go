@@ -161,7 +161,8 @@ func parseReflects(rotations uint16) (ret []uint16) {
 func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 	cinfo, err := randr.GetCrtcInfo(c, crtc, 0).Reply()
 	if err != nil {
-		panic(err)
+		Logger.Error(err)
+		return false
 	}
 	if cinfo.Mode == 0 {
 		return false
