@@ -40,13 +40,15 @@ func (dpy *Display) SwitchMode(mode int16) {
 					if i+1 == int(mode) {
 						m.changePos(0, 0)
 						m.changeMode(randr.Mode(m.BestMode.ID))
-						m.changeSwitchOn(true)
+						//m.changeSwitchOn(true)
+						m.SwitchOn(true)
 						dpy.changePrimary(m.Name)
 					}
 				}
 				for i, m := range dpy.Monitors {
 					if i+1 != int(mode) {
-						m.changeSwitchOn(false)
+						//m.changeSwitchOn(false)
+						m.SwitchOn(false)
 					}
 				}
 				dpy.apply(false)
