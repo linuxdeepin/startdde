@@ -3,12 +3,12 @@ package main
 import (
 	"testing"
 	// "time"
-	// "pkg.linuxdeepin.com/lib/glib-2.0"
 	"fmt"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
+	"pkg.linuxdeepin.com/lib/glib-2.0"
 )
 
 func TestGetPrimaryScreenResolution(t *testing.T) {
@@ -24,20 +24,21 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 	}
 }
 
-// TODO
-// func TestSplash(t *testing.T) {
-// 	initBackground()
-// 	initBackgroundAfterDependsLoaded()
-// 	go glib.StartLoop()
-// 	// time.Sleep(10 * time.Second)
-// 	select {}
-// }
-
-func TestReadRootPixmap(t *testing.T) {
-	if drawWindowThroughRootPixmap() {
-		select {}
-	}
+// TODO comment temporary
+func TestSplash(t *testing.T) {
+	initBackground()
+	initBackgroundAfterDependsLoaded()
+	go glib.StartLoop()
+	// time.Sleep(10 * time.Second)
+	select {}
 }
+
+// TODO comment temporary
+// func TestReadRootPixmap(t *testing.T) {
+// 	if drawWindowThroughRootPixmap() {
+// 		select {}
+// 	}
+// }
 
 func drawWindowThroughRootPixmap() bool {
 	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(ddeBgPixmapBlurProp))

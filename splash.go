@@ -336,15 +336,16 @@ func mapBgToRoot() {
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
 
+	// TODO
 	// if use cache file, keep it update to time
 	if useCacheRootBg || useCacheRootBgBlue {
-		if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int(w), int(h),
-			graphic.FillProportionCenterScale, graphic.PNG); err != nil {
-			if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
-				// set root window properties again
-				doMapBgToRoot(rootBgFile, rootBgBlurFile)
-			}
-		}
+		// 	if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int(w), int(h),
+		// 		graphic.FillProportionCenterScale, graphic.PNG); err != nil {
+		// 		if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
+		// 			// set root window properties again
+		// 			doMapBgToRoot(rootBgFile, rootBgBlurFile)
+		// 		}
+		// 	}
 	}
 }
 func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
@@ -372,7 +373,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 		panic(err)
 	}
 
-	runtime.GC()
+	runtime.GC() // TODO
 }
 
 func resizeBgWindow(w, h int) {
@@ -388,15 +389,17 @@ func resizeBgWindow(w, h int) {
 }
 
 func listenBgFileChanged() {
+	r := NewOverrideRunner()
+	go r.Loop()
 	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			logger.Info("background value in gsettings changed:", key)
-			go func() {
-				loadBgFile()
-				drawBackground()
-				mapBgToRoot()
-			}()
+			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
+			r.AddTaskGroup(
+				loadBgFile,
+				drawBackground,
+				mapBgToRoot,
+			)
 		}
 	})
 }
