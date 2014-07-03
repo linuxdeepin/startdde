@@ -26,6 +26,7 @@
 
 #include <X11/Xlib.h>
 
+int init_gdk_xlib();
 Pixmap render_img_to_xpixmap(const char *img_path);
 
 #endif /* _GDK_PIXBUF_UTILS_H */

@@ -57,15 +57,18 @@ func getRootPixmap(prop string) (d xproto.Drawable) {
 }
 
 func TestRenderImgToPixmap(t *testing.T) {
-	// initBackground()
-	// initBackgroundAfterDependsLoaded()
+	initGdkXlib()
+
+	initBackground()
+	initBackgroundAfterDependsLoaded()
+
 	// loadBgFile()
 	// drawBackground()
 	// mapBgToRoot()
 
-	rootBgFile := defaultBackgroundFile
-	rootBgBlurFile := defaultBackgroundFile
-	doMapBgToRoot(rootBgFile, rootBgBlurFile)
+	// rootBgFile := defaultBackgroundFile
+	// rootBgBlurFile := defaultBackgroundFile
+	// doMapBgToRoot(rootBgFile, rootBgBlurFile)
 
 	// bgBlurPixmap, err := convertToXpixmap(rootBgBlurFile)
 	// if err != nil {
@@ -76,9 +79,11 @@ func TestRenderImgToPixmap(t *testing.T) {
 	// 	logger.Error(err)
 	// }
 
-	// convertToXpixmap(defaultBackgroundFile)
-	// convertToXpixmap(defaultBackgroundFile)
 	// pix, err := convertToXpixmap(defaultBackgroundFile)
-	// logger.Info("render image to xpixmap:", pix, err)
+	// logger.Info("render image to xpixmap 1:", pix, err)
+	// pix, err = convertToXpixmap(defaultBackgroundFile)
+	// logger.Info("render image to xpixmap 2:", pix, err)
+	// pix, err = convertToXpixmap(defaultBackgroundFile)
+	// logger.Info("render image to xpixmap 3:", pix, err)
 	time.Sleep(100 * time.Second)
 }

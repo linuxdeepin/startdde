@@ -216,7 +216,7 @@ func loadBgFile() {
 	}
 	logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d, pixmap=%d", bgImgInfo.pid, bgWinInfo.pid, pixmap)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
-	// err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(pixmap), picFormat24, 0, nil).Check()
+	err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
 		logger.Error("create render picture failed:", err)
 		return
@@ -414,10 +414,9 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
 			r.AddTaskGroup(
-				// FIXME
-				// loadBgFile,
-				// drawBackground,
-				mapBgToRoot,
+			// loadBgFile,
+			// drawBackground,
+			// mapBgToRoot,
 			)
 		}
 	})

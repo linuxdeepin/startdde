@@ -26,6 +26,17 @@
 #include <X11/Xlib.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
+int init_gdk_xlib() {
+        Display *display=XOpenDisplay(NULL);
+        if (display == NULL) {
+                g_debug("open display failed");
+                return FALSE;
+        }
+        int screen_num=XDefaultScreen(display);
+        gdk_pixbuf_xlib_init(display, screen_num);
+        return TRUE;
+}
+
 Pixmap render_img_to_xpixmap(const char *img_path) {
         GError *err = NULL;
         GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(img_path, &err);
@@ -34,18 +45,8 @@ Pixmap render_img_to_xpixmap(const char *img_path) {
                 g_error_free(err);
                 return FALSE;
         }
-
         Pixmap xpixmap = 0;
-        Display *display=XOpenDisplay(NULL);
-        if (display == NULL) {
-                g_debug("open display failed");
-                return FALSE;
-        }
-        int screen_num=XDefaultScreen(display);
-        gdk_pixbuf_xlib_init(display, screen_num);
         gdk_pixbuf_xlib_render_pixmap_and_mask(pixbuf, &xpixmap, NULL, 0);
-        XCloseDisplay(display);
-
         g_object_unref(pixbuf);
         return xpixmap;
 }

@@ -149,12 +149,19 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 // 	return
 // }
 
+func initGdkXlib() {
+	ret := C.init_gdk_xlib()
+	if ret < 0 {
+		logger.Error("initialize gdk xlib failed", ret)
+	}
+}
+
 func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
 	cimgFile := C.CString(imgFile)
 	defer C.free(unsafe.Pointer(cimgFile))
 	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
 	logger.Debug("render image to xpixmap:", pix)
-	if pix <= 0 {
+	if pix < 0 {
 		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
 	}
 	return
