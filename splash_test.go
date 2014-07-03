@@ -1,14 +1,14 @@
 package main
 
 import (
-	"testing"
-	// "time"
 	"fmt"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
-	"pkg.linuxdeepin.com/lib/glib-2.0"
+	// "pkg.linuxdeepin.com/lib/glib-2.0"
+	"testing"
+	"time"
 )
 
 func TestGetPrimaryScreenResolution(t *testing.T) {
@@ -25,13 +25,12 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 }
 
 // TODO comment temporary
-func TestSplash(t *testing.T) {
-	initBackground()
-	initBackgroundAfterDependsLoaded()
-	go glib.StartLoop()
-	// time.Sleep(10 * time.Second)
-	select {}
-}
+// func TestSplash(t *testing.T) {
+// 	initBackground()
+// 	initBackgroundAfterDependsLoaded()
+// 	go glib.StartLoop()
+// 	time.Sleep(600 * time.Second)
+// }
 
 // TODO comment temporary
 // func TestReadRootPixmap(t *testing.T) {
@@ -55,4 +54,31 @@ func getRootPixmap(prop string) (d xproto.Drawable) {
 	d = xproto.Drawable(xgb.Get32(reply.Value))
 	fmt.Println("pixmap id:", d)
 	return
+}
+
+func TestRenderImgToPixmap(t *testing.T) {
+	// initBackground()
+	// initBackgroundAfterDependsLoaded()
+	// loadBgFile()
+	// drawBackground()
+	// mapBgToRoot()
+
+	rootBgFile := defaultBackgroundFile
+	rootBgBlurFile := defaultBackgroundFile
+	doMapBgToRoot(rootBgFile, rootBgBlurFile)
+
+	// bgBlurPixmap, err := convertToXpixmap(rootBgBlurFile)
+	// if err != nil {
+	// 	logger.Error(err)
+	// }
+	// err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurPixmap))
+	// if err != nil {
+	// 	logger.Error(err)
+	// }
+
+	// convertToXpixmap(defaultBackgroundFile)
+	// convertToXpixmap(defaultBackgroundFile)
+	// pix, err := convertToXpixmap(defaultBackgroundFile)
+	// logger.Info("render image to xpixmap:", pix, err)
+	time.Sleep(100 * time.Second)
 }

@@ -189,6 +189,7 @@ func loadBgFile() {
 	logger.Debug("loadBgFile() begin")
 	defer logger.Debug("loadBgFile() end")
 
+	// TODO remove defer
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("loadBgFile failed:", err)
@@ -199,16 +200,23 @@ func loadBgFile() {
 	defer bgImgInfo.lock.Unlock()
 
 	// load background file and convert into XU image
-	ximg := convertToXimage(getBackgroundFile())
-	if ximg != nil {
-		bgImgInfo.width = uint16(ximg.Bounds().Max.X)
-		bgImgInfo.height = uint16(ximg.Bounds().Max.Y)
+	bgfile := getBackgroundFile()
+	w, h, err := graphic.GetImageSize(bgfile)
+	if err != nil {
+		logger.Error(err)
+		return
 	}
+	bgImgInfo.width = uint16(w)
+	bgImgInfo.height = uint16(h)
 
 	// rebind picture id to background pixmap
-	logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d", bgImgInfo.pid, bgWinInfo.pid)
+	pixmap, err := convertToXpixmap(bgfile)
+	if err != nil {
+		panic(err)
+	}
+	logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d, pixmap=%d", bgImgInfo.pid, bgWinInfo.pid, pixmap)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
-	err := render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(ximg.Pixmap), picFormat24, 0, nil).Check()
+	// err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
 		logger.Error("create render picture failed:", err)
 		return
@@ -232,6 +240,12 @@ func loadBgFile() {
 func drawBackground() {
 	logger.Info("drawBackground() begin")
 	defer logger.Info("drawBackground() end")
+
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Error("drawBackground failed", err)
+		}
+	}()
 
 	resources, err := randr.GetScreenResources(XU.Conn(), XU.RootWin()).Reply()
 	if err != nil {
@@ -302,8 +316,6 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	}
 }
 
-// TODO: re-implemented through xrender
-// TODO: cancel operate if background file changed
 func mapBgToRoot() {
 	logger.Info("mapBgToRoot() begin")
 	defer logger.Info("mapBgToRoot() end")
@@ -361,13 +373,19 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	rootBgImgInfo.lock.Lock()
 	defer rootBgImgInfo.lock.Unlock()
 
-	bgPixmap := convertToPixmap(rootBgFile)
-	err := xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgPixmap))
+	bgPixmap, err := convertToXpixmap(rootBgFile)
+	if err != nil {
+		panic(err)
+	}
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgPixmap))
 	if err != nil {
 		panic(err)
 	}
 
-	bgBlurPixmap := convertToPixmap(rootBgBlurFile)
+	bgBlurPixmap, err := convertToXpixmap(rootBgBlurFile)
+	if err != nil {
+		panic(err)
+	}
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurPixmap))
 	if err != nil {
 		panic(err)
@@ -396,8 +414,9 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
 			r.AddTaskGroup(
-				loadBgFile,
-				drawBackground,
+				// FIXME
+				// loadBgFile,
+				// drawBackground,
 				mapBgToRoot,
 			)
 		}
