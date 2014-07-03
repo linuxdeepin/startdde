@@ -82,12 +82,14 @@ var bgWinInfo = struct {
 var bgImgInfo = struct {
 	width  uint16
 	height uint16
+	pixmap xproto.Pixmap
 	pid    render.Picture
 	lock   sync.Mutex
 }{}
 var rootBgImgInfo = struct {
-	// TODO refactor code
-	lock sync.Mutex
+	bgPixmap     xproto.Pixmap
+	bgBlurPixmap xproto.Pixmap
+	lock         sync.Mutex
 }{}
 
 func initBackground() {
@@ -209,13 +211,14 @@ func loadBgFile() {
 	bgImgInfo.height = uint16(h)
 
 	// rebind picture id to background pixmap
-	pixmap, err := convertToXpixmap(bgfile)
+	xproto.FreePixmap(XU.Conn(), bgImgInfo.pixmap)
+	bgImgInfo.pixmap, err = convertToXpixmap(bgfile)
 	if err != nil {
 		panic(err)
 	}
-	logger.Debugf("bgImgInfo.pid=%d, bgWinInfo.pid=%d, pixmap=%d", bgImgInfo.pid, bgWinInfo.pid, pixmap)
+	logger.Debugf("bgImgInfo %#v", bgWinInfo)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
-	err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(pixmap), picFormat24, 0, nil).Check()
+	err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(bgImgInfo.pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
 		logger.Error("create render picture failed:", err)
 		return
@@ -372,20 +375,23 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	rootBgImgInfo.lock.Lock()
 	defer rootBgImgInfo.lock.Unlock()
 
-	bgPixmap, err := convertToXpixmap(rootBgFile)
+	var err error
+	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
+	rootBgImgInfo.bgPixmap, err = convertToXpixmap(rootBgFile)
 	if err != nil {
 		panic(err)
 	}
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(bgPixmap))
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(rootBgImgInfo.bgPixmap))
 	if err != nil {
 		panic(err)
 	}
 
-	bgBlurPixmap, err := convertToXpixmap(rootBgBlurFile)
+	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
+	rootBgImgInfo.bgBlurPixmap, err = convertToXpixmap(rootBgBlurFile)
 	if err != nil {
 		panic(err)
 	}
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurPixmap))
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(rootBgImgInfo.bgBlurPixmap))
 	if err != nil {
 		panic(err)
 	}
