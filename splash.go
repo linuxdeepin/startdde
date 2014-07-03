@@ -406,17 +406,13 @@ func resizeBgWindow(w, h int) {
 }
 
 func listenBgFileChanged() {
-	r := NewOverrideRunner()
-	go r.Loop()
 	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
 			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
-			r.AddTaskGroup(
-				loadBgFile,
-				drawBackground,
-				mapBgToRoot,
-			)
+			loadBgFile()
+			drawBackground()
+			mapBgToRoot()
 		}
 	})
 }

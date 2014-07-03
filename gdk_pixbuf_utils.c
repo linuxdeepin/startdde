@@ -29,30 +29,15 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
 int init_gdk_xlib() {
-        /* Display *display=XOpenDisplay(NULL); */
-        /* if (display == NULL) { */
-        /*         g_debug("open display failed"); */
-        /*         return FALSE; */
-        /* } */
-        /* int screen_num=XDefaultScreen(display); */
-        /* /\* gdk_pixbuf_xlib_init(display, screen_num); *\/ */
-        /* gdk_pixbuf_xlib_init(display, 0); */
-
-        /* gdk_thread_init(); */
+        XInitThreads();
         gdk_init(NULL, NULL);
-        GdkDisplay *display = gdk_display_get_default();
-        if (display == NULL) {
-                g_debug("open display failed");
-                return FALSE;
-        }
-        Display *xdisplay = GDK_DISPLAY_XDISPLAY(display);
-        gdk_pixbuf_xlib_init(xdisplay, 0);
+        gdk_pixbuf_xlib_init(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), 0);
         return TRUE;
 }
 
 Pixmap render_img_to_xpixmap(const char *img_path) {
         static GMutex mutex;
-        g_mutex_lock (&mutex);
+        g_mutex_lock(&mutex);
         GError *err = NULL;
         GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(img_path, &err);
         if (err) {
@@ -63,6 +48,6 @@ Pixmap render_img_to_xpixmap(const char *img_path) {
         Pixmap xpixmap = 0;
         gdk_pixbuf_xlib_render_pixmap_and_mask(pixbuf, &xpixmap, NULL, 0);
         g_object_unref(pixbuf);
-        g_mutex_unlock (&mutex);
+        g_mutex_unlock(&mutex);
         return xpixmap;
 }
