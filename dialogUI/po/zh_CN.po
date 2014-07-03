@@ -44,17 +44,14 @@ msgid "Log out"
 msgstr "注销"
 
 #: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
 msgid "Force Shut down"
 msgstr "强制关机"
 
 #: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
 msgid "Force Restart"
 msgstr "强制重启"
 
 #: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
 msgid "Force Log out"
 msgstr "强制注销"
 
