@@ -21,6 +21,13 @@
 
 package main
 
+// #cgo pkg-config: gdk-pixbuf-xlib-2.0 x11
+// #cgo LDFLAGS: -lm
+// #include <stdlib.h>
+// #include "gdk_pixbuf_utils.h"
+import "C"
+import "unsafe"
+
 import (
 	"image"
 	_ "image/jpeg"
@@ -28,6 +35,7 @@ import (
 	"os"
 	"strings"
 
+	"fmt"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
@@ -120,8 +128,9 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 	return
 }
 
+// TODO
 // convert image file to XU image
-func convertToXimage(imgFile string) (ximg *xgraphics.Image) {
+func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 	img, err := loadImage(imgFile) // ~0.4s
 	if err != nil {
 		return
@@ -133,9 +142,21 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image) {
 	return
 }
 
-func convertToPixmap(imgFile string) (pix xproto.Pixmap) {
-	ximg := convertToXimage(imgFile)
-	pix = ximg.Pixmap
+// TODO
+// func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+// 	ximg, err := convertToXimage(imgFile)
+// 	pix = ximg.Pixmap
+// 	return
+// }
+
+func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+	cimgFile := C.CString(imgFile)
+	defer C.free(unsafe.Pointer(cimgFile))
+	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
+	logger.Debug("render image to xpixmap:", pix)
+	if pix <= 0 {
+		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
+	}
 	return
 }
 
