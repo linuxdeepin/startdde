@@ -38,6 +38,7 @@ int init_gdk_xlib() {
         /* /\* gdk_pixbuf_xlib_init(display, screen_num); *\/ */
         /* gdk_pixbuf_xlib_init(display, 0); */
 
+        /* gdk_thread_init(); */
         gdk_init(NULL, NULL);
         GdkDisplay *display = gdk_display_get_default();
         if (display == NULL) {
@@ -50,6 +51,8 @@ int init_gdk_xlib() {
 }
 
 Pixmap render_img_to_xpixmap(const char *img_path) {
+        static GMutex mutex;
+        g_mutex_lock (&mutex);
         GError *err = NULL;
         GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(img_path, &err);
         if (err) {
@@ -60,5 +63,6 @@ Pixmap render_img_to_xpixmap(const char *img_path) {
         Pixmap xpixmap = 0;
         gdk_pixbuf_xlib_render_pixmap_and_mask(pixbuf, &xpixmap, NULL, 0);
         g_object_unref(pixbuf);
+        g_mutex_unlock (&mutex);
         return xpixmap;
 }
