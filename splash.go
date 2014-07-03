@@ -91,6 +91,7 @@ var rootBgImgInfo = struct {
 }{}
 
 func initBackground() {
+	initGdkXlib()
 	randr.Init(XU.Conn())
 	randr.QueryVersion(XU.Conn(), 1, 4)
 	render.Init(XU.Conn())
@@ -111,13 +112,6 @@ func initBackground() {
 }
 
 func initBackgroundAfterDependsLoaded() {
-	go func() {
-		mapBgToRoot()
-		Display.PrimaryRect.ConnectChanged(func() {
-			mapBgToRoot()
-		})
-	}()
-
 	loadBgFile()
 
 	// background will be draw after receiving window expose
@@ -128,6 +122,11 @@ func initBackgroundAfterDependsLoaded() {
 		time.Sleep(time.Second * 5)
 		drawBackground()
 	}()
+
+	mapBgToRoot()
+	Display.PrimaryRect.ConnectChanged(func() {
+		mapBgToRoot()
+	})
 
 	listenBgFileChanged()
 	go listenDisplayChanged()
@@ -414,9 +413,9 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
 			r.AddTaskGroup(
-			// loadBgFile,
-			// drawBackground,
-			// mapBgToRoot,
+				loadBgFile,
+				drawBackground,
+				mapBgToRoot,
 			)
 		}
 	})

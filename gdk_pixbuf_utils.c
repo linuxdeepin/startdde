@@ -23,17 +23,29 @@
 
 #include <stdio.h>
 #include <glib.h>
+#include <gdk/gdk.h>
+#include <gdk/gdkx.h>
 #include <X11/Xlib.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 
 int init_gdk_xlib() {
-        Display *display=XOpenDisplay(NULL);
+        /* Display *display=XOpenDisplay(NULL); */
+        /* if (display == NULL) { */
+        /*         g_debug("open display failed"); */
+        /*         return FALSE; */
+        /* } */
+        /* int screen_num=XDefaultScreen(display); */
+        /* /\* gdk_pixbuf_xlib_init(display, screen_num); *\/ */
+        /* gdk_pixbuf_xlib_init(display, 0); */
+
+        gdk_init(NULL, NULL);
+        GdkDisplay *display = gdk_display_get_default();
         if (display == NULL) {
                 g_debug("open display failed");
                 return FALSE;
         }
-        int screen_num=XDefaultScreen(display);
-        gdk_pixbuf_xlib_init(display, screen_num);
+        Display *xdisplay = GDK_DISPLAY_XDISPLAY(display);
+        gdk_pixbuf_xlib_init(xdisplay, 0);
         return TRUE;
 }
 

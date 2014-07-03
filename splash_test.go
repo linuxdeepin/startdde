@@ -6,7 +6,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
-	// "pkg.linuxdeepin.com/lib/glib-2.0"
+	"pkg.linuxdeepin.com/lib/glib-2.0"
 	"testing"
 	"time"
 )
@@ -25,12 +25,12 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 }
 
 // TODO comment temporary
-// func TestSplash(t *testing.T) {
-// 	initBackground()
-// 	initBackgroundAfterDependsLoaded()
-// 	go glib.StartLoop()
-// 	time.Sleep(600 * time.Second)
-// }
+func TestSplash(t *testing.T) {
+	initBackground()
+	initBackgroundAfterDependsLoaded()
+	go glib.StartLoop()
+	time.Sleep(600 * time.Second)
+}
 
 // TODO comment temporary
 // func TestReadRootPixmap(t *testing.T) {
@@ -58,32 +58,10 @@ func getRootPixmap(prop string) (d xproto.Drawable) {
 
 func TestRenderImgToPixmap(t *testing.T) {
 	initGdkXlib()
-
-	initBackground()
-	initBackgroundAfterDependsLoaded()
-
-	// loadBgFile()
-	// drawBackground()
-	// mapBgToRoot()
-
-	// rootBgFile := defaultBackgroundFile
-	// rootBgBlurFile := defaultBackgroundFile
-	// doMapBgToRoot(rootBgFile, rootBgBlurFile)
-
-	// bgBlurPixmap, err := convertToXpixmap(rootBgBlurFile)
-	// if err != nil {
-	// 	logger.Error(err)
-	// }
-	// err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(bgBlurPixmap))
-	// if err != nil {
-	// 	logger.Error(err)
-	// }
-
-	// pix, err := convertToXpixmap(defaultBackgroundFile)
-	// logger.Info("render image to xpixmap 1:", pix, err)
-	// pix, err = convertToXpixmap(defaultBackgroundFile)
-	// logger.Info("render image to xpixmap 2:", pix, err)
-	// pix, err = convertToXpixmap(defaultBackgroundFile)
-	// logger.Info("render image to xpixmap 3:", pix, err)
-	time.Sleep(100 * time.Second)
+	pix, err := convertToXpixmap(defaultBackgroundFile)
+	logger.Info("render image to xpixmap 1:", pix, err)
+	pix, err = convertToXpixmap(defaultBackgroundFile)
+	logger.Info("render image to xpixmap 2:", pix, err)
+	pix, err = convertToXpixmap(defaultBackgroundFile)
+	logger.Info("render image to xpixmap 3:", pix, err)
 }

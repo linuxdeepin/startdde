@@ -21,7 +21,7 @@
 
 package main
 
-// #cgo pkg-config: gdk-pixbuf-xlib-2.0 x11
+// #cgo pkg-config: gdk-3.0 gdk-pixbuf-xlib-2.0 gdk-x11-3.0 x11
 // #cgo LDFLAGS: -lm
 // #include <stdlib.h>
 // #include "gdk_pixbuf_utils.h"
@@ -128,7 +128,7 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 	return
 }
 
-// TODO
+// TODO remove
 // convert image file to XU image
 func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 	img, err := loadImage(imgFile) // ~0.4s
@@ -142,7 +142,7 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 	return
 }
 
-// TODO
+// TODO remove
 // func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
 // 	ximg, err := convertToXimage(imgFile)
 // 	pix = ximg.Pixmap
@@ -151,7 +151,7 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 
 func initGdkXlib() {
 	ret := C.init_gdk_xlib()
-	if ret < 0 {
+	if ret == 0 {
 		logger.Error("initialize gdk xlib failed", ret)
 	}
 }
@@ -161,7 +161,7 @@ func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
 	defer C.free(unsafe.Pointer(cimgFile))
 	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
 	logger.Debug("render image to xpixmap:", pix)
-	if pix < 0 {
+	if pix == 0 {
 		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
 	}
 	return
