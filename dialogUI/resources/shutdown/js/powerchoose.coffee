@@ -32,7 +32,9 @@ class PowerChoose extends Widget
         @img_url_normal = []
         @img_url_hover = []
         @img_url_click = []
-        get_power_inhibit_can()
+        
+        @powercls = new Power()
+        @powercls.power_get_inhibit()
 
     setPos:->
         @element.style.display = "-webkit-box"
@@ -118,7 +120,7 @@ class PowerChoose extends Widget
                 i = this.value
                 frame_click = true
                 power = option[i]
-                if power_can(power)
+                if that.powercls.power_can(power)
                     that.opt_img[i].src = that.img_url_click[i]
                     that.fade(i)
             )
@@ -133,8 +135,7 @@ class PowerChoose extends Widget
             @opt[i].disable = "true"
             @opt[i].style.opacity = "0.3"
             @opt[i].style.cursor = "default"
-            inhibit = power_get_inhibit(option[i])
-            if enable is false then @showMessage(inhibit?[2])
+            if enable is false then @showMessage(@powercls.inhibit_msg(option[i]))
         else
             @opt[i].disable = "false"
             @opt[i].style.opacity = "1.0"
@@ -142,24 +143,29 @@ class PowerChoose extends Widget
 
     check_inhibit: ->
         for bt,i in @opt
-            @css_inhibit(i,!power_can(option[i]))
+            @css_inhibit(i,!@powercls.power_can(option[i]))
 
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"
-        if power_can(option[i])
-            echo "power_can true ,power_force"
-            confirm_ok(option[i])
+        if @powercls.power_can(option[i])
+            @confirm_ok(option[i])
         else
-            #power_force(option[i])
-            confirm_ok(option[i])
+            @confirm_ok(option[i])
     
+    confirm_ok : (power)->
+        echo "--------------confirm_ok(#{power})-------------"
+        switch power
+            when "lock" then destory_all()
+            when "suspend" then destory_all()
+        @powercls.power_force_session(power)
+        clearInterval(timeId)
+
     hover_state:(i,enable = true)->
         #choose_num = i
         if select_state_confirm then @select_state(i)
         power = option[i]
-        enable = power_can(power)
-        inhibit = power_get_inhibit(power)
-        if enable is false then @showMessage(inhibit?[2])
+        enable = @powercls.power_can(power)
+        if enable is false then @showMessage(@powercls.inhibit_msg(power))
         for tmp,j in @opt_img
             if j == i and enable is true then tmp.src = @img_url_hover[i]
             else
@@ -168,9 +174,8 @@ class PowerChoose extends Widget
     select_state:(i,enable = true)->
         select_state_confirm = true
         power = option[i]
-        enable = power_can(power)
-        inhibit = power_get_inhibit(power)
-        if enable is false then @showMessage(inhibit?[2])
+        enable = @powercls.power_can(power)
+        if enable is false then @showMessage(@powercls.inhibit_msg(power))
         choose_num = i
         for tmp,j in @opt
             if j == i and enable is true
