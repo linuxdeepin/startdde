@@ -1,0 +1,47 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# 
+# Translators:
+# Karim Oulad Chalha <herr.linux88@gmail.com>, 2014
+msgid ""
+msgstr ""
+"Project-Id-Version: Startdde Dialog\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2014-07-07 17:31+0800\n"
+"PO-Revision-Date: 2014-07-07 09:32+0000\n"
+"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
+"Language-Team: Arabic (http://www.transifex.com/projects/p/startdde-dialog/language/ar/)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ar\n"
+"Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:32
+msgid "Are you sure to do it?"
+msgstr "هل أنت متأكد من أنك تريد القيام بذلك؟"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:29
+msgid "Lock"
+msgstr "قفل"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:29
+msgid "Log out"
+msgstr "تسجيل الخروج"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:29
+msgid "Restart"
+msgstr "إعادة التشغيل"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:29
+msgid "Shut down"
+msgstr "إطفاء الجهاز"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:29
+msgid "Suspend"
+msgstr "تعليق"
+
+#: dialogUI/resources/shutdown/js/utils.coffee:31
+msgid "Your system is updating.please donnot poweroff..."
+msgstr "يتم تحديث نظامك, لذلك المرجوا عدم إطفاء الجهاز..."
