@@ -27,13 +27,7 @@ powerchoose = null
 frame_click = false
 option = ["shutdown","restart","lock","suspend","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
-option_text_force = [_("Force Shut down"),_("Force Restart"),_("Lock"),_("Suspend"),_("Force Log out")]
 message_text = {}
-message_text["shutdown"] = _("The system will shut down in %1 seconds.")
-message_text["restart"] = _("The system will restart in %1 seconds.")
-message_text["lock"] = _("The system will be locked in %1 seconds.")
-message_text["suspend"] = _("The system will be suspended in %1 seconds.")
-message_text["logout"] = _("You will be automatically logged out in %1 seconds.")
 message_text["systemUpdate"] = _("Your system is updating.please donnot poweroff...")
 message_text["default"] = _("Are you sure to do it?")
 

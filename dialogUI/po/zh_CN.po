@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-04-21 01:23+0800\n"
+"POT-Creation-Date: 2014-07-07 16:43+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Wang Dianjin <wangdianjin@linuxdeepin.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,10 +16,6 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-
-#: ../resources/shutdown/js/confirmdialog.coffee:87
-msgid "Cancel"
-msgstr "取消"
 
 #: ../resources/shutdown/js/utils.coffee:29
 msgid "Shut down"
@@ -30,12 +26,10 @@ msgid "Restart"
 msgstr "重启"
 
 #: ../resources/shutdown/js/utils.coffee:29
-#: ../resources/shutdown/js/utils.coffee:30
 msgid "Lock"
 msgstr "锁定"
 
 #: ../resources/shutdown/js/utils.coffee:29
-#: ../resources/shutdown/js/utils.coffee:30
 msgid "Suspend"
 msgstr "待机"
 
@@ -43,42 +37,13 @@ msgstr "待机"
 msgid "Log out"
 msgstr "注销"
 
-#: ../resources/shutdown/js/utils.coffee:30
-msgid "Force Shut down"
-msgstr "强制关机"
-
-#: ../resources/shutdown/js/utils.coffee:30
-msgid "Force Restart"
-msgstr "强制重启"
-
-#: ../resources/shutdown/js/utils.coffee:30
-msgid "Force Log out"
-msgstr "强制注销"
-
-#: ../resources/shutdown/js/utils.coffee:32
-msgid "The system will shut down in %1 seconds."
-msgstr "系统将在 %1 秒后关闭"
-
-#: ../resources/shutdown/js/utils.coffee:33
-msgid "The system will restart in %1 seconds."
-msgstr "系统将在 %1 秒后重新启动"
-
-#: ../resources/shutdown/js/utils.coffee:34
-msgid "The system will be locked in %1 seconds."
-msgstr "系统将在 %1 秒后锁定"
-
-#: ../resources/shutdown/js/utils.coffee:35
-msgid "The system will be suspended in %1 seconds."
-msgstr "系统将在 %1 秒后待机"
-
-#: ../resources/shutdown/js/utils.coffee:36
-msgid "You will be automatically logged out in %1 seconds."
-msgstr "系统将在 %1 秒后注销当前用户"
-
-#: ../resources/shutdown/js/utils.coffee:37
+#: ../resources/shutdown/js/utils.coffee:31
 msgid "Your system is updating.please donnot poweroff..."
 msgstr "系统正在进行升级操作，请不要关闭电源，请稍后..."
 
-#: ../resources/shutdown/js/utils.coffee:38
+#: ../resources/shutdown/js/utils.coffee:32
 msgid "Are you sure to do it?"
 msgstr "你确定要执行此操作吗?"
+#~ msgid "Force Shut down" #~ msgstr "强制关机" #~ msgid "Force Restart"
+#~ msgstr "强制重启"
+

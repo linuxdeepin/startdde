@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-04-21 01:23+0800\n"
+"POT-Creation-Date: 2014-07-07 16:43+0800\n"
 "PO-Revision-Date: 2014-05-08 03:13+0800\n"
 "Last-Translator: Peter Dave Hello <hsu@peterdavehello.org>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,10 +17,6 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-
-#: ../resources/shutdown/js/confirmdialog.coffee:87
-msgid "Cancel"
-msgstr "取消"
 
 #: ../resources/shutdown/js/utils.coffee:29
 msgid "Shut down"
@@ -31,12 +27,10 @@ msgid "Restart"
 msgstr "重新啟動"
 
 #: ../resources/shutdown/js/utils.coffee:29
-#: ../resources/shutdown/js/utils.coffee:30
 msgid "Lock"
 msgstr "鎖定"
 
 #: ../resources/shutdown/js/utils.coffee:29
-#: ../resources/shutdown/js/utils.coffee:30
 msgid "Suspend"
 msgstr "休眠"
 
@@ -44,45 +38,11 @@ msgstr "休眠"
 msgid "Log out"
 msgstr "登出"
 
-#: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
-msgid "Force Shut down"
-msgstr "強制關機"
-
-#: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
-msgid "Force Restart"
-msgstr "強制重新啟動"
-
-#: ../resources/shutdown/js/utils.coffee:30
-#, fuzzy
-msgid "Force Log out"
-msgstr "強制登出"
-
-#: ../resources/shutdown/js/utils.coffee:32
-msgid "The system will shut down in %1 seconds."
-msgstr "系統將在 %1 秒後關機"
-
-#: ../resources/shutdown/js/utils.coffee:33
-msgid "The system will restart in %1 seconds."
-msgstr "系統將在 %1 秒後重新啟動"
-
-#: ../resources/shutdown/js/utils.coffee:34
-msgid "The system will be locked in %1 seconds."
-msgstr "系統將在 %1 後鎖定"
-
-#: ../resources/shutdown/js/utils.coffee:35
-msgid "The system will be suspended in %1 seconds."
-msgstr "系統將在 %1 秒後進入休眠狀態"
-
-#: ../resources/shutdown/js/utils.coffee:36
-msgid "You will be automatically logged out in %1 seconds."
-msgstr "系統將在 %1 秒後登出目前使用者"
-
-#: ../resources/shutdown/js/utils.coffee:37
+#: ../resources/shutdown/js/utils.coffee:31
 msgid "Your system is updating.please donnot poweroff..."
 msgstr "系統正在更新中，請勿關閉電源"
 
-#: ../resources/shutdown/js/utils.coffee:38
+#: ../resources/shutdown/js/utils.coffee:32
 msgid "Are you sure to do it?"
 msgstr "你確定要這樣做嗎?"
+
