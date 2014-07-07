@@ -1,5 +1,4 @@
-SET(NAME "dde-shutdown")
-SET(NAME_SRC "shutdown")
+SET(NAME "shutdown")
 
 GEN_JSC_SOURCE2(JSC_GEN "jsc" "shutdown" "shutdown.cfg" "dbus.cfg")
 
@@ -10,26 +9,25 @@ SET(SRC_LIST  ${JSC_GEN} )
 add_executable(${NAME} ${SRC_LIST} bg.c shutdown.c)
 
 target_link_libraries(${NAME} dcom dbus ${DWEBVIEW_LIBRARIES})
-add_dependencies(${NAME} ${NAME_SRC}_js)
+add_dependencies(${NAME} ${NAME}_js)
+
+SET_TARGET_PROPERTIES(${NAME}
+    PROPERTIES OUTPUT_NAME dde-${NAME}
+    )
 
 execute_process(
     COMMAND make
-    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/resources/${NAME_SRC}/js
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/resources/${NAME}/js
     )
 
 install(
-    PROGRAMS ${PROJECT_BINARY_DIR}/${NAME}
+    PROGRAMS ${PROJECT_BINARY_DIR}/dde-${NAME}
     DESTINATION bin
     )
 
 install(
-    DIRECTORY ${PROJECT_SOURCE_DIR}/resources/${NAME_SRC}
+    DIRECTORY ${PROJECT_SOURCE_DIR}/resources/${NAME}
     DESTINATION ${RESOURCE_DIR}
     )
-
-install(
-    FILES ${PROJECT_SOURCE_DIR}/app/shutdown/com.deepin.dde.shutdown.service
-    DESTINATION /usr/share/dbus-1/services/
-    )
  
-GEN_JS_FILE(${NAME_SRC})
+GEN_JS_FILE(${NAME})

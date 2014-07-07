@@ -50,7 +50,7 @@ power_request = (power) ->
 
 
 
-power_get_inhibit = (power) ->
+power_inhibit_can = (power) ->
     result = null
     if not dbus_login1? then return result
     
@@ -77,15 +77,6 @@ power_get_inhibit = (power) ->
         if power is tmp.type then result = tmp.inhibit
     echo "power_get_inhibit(#{power}) result:#{result}"
     return result
-
-power_can = (power)->
-    inhibit = power_get_inhibit(power)
-    if inhibit is null
-        echo "power_can:#{power} true"
-        return true
-    else
-        echo "power_can:#{power} false"
-        return false
 
 inhibit_test = ->
     echo "--------inhibit_test-------"

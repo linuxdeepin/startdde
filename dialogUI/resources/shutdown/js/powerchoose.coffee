@@ -32,6 +32,7 @@ class PowerChoose extends Widget
         @img_url_normal = []
         @img_url_hover = []
         @img_url_click = []
+        get_power_inhibit_can()
 
     setPos:->
         @element.style.display = "-webkit-box"
@@ -76,7 +77,6 @@ class PowerChoose extends Widget
 
     frame_build:->
         @img_url_build()
-        #frame = create_element("div", "frame", @element)
         @element.addEventListener("click",->
             frame_click = true
         )
@@ -127,30 +127,10 @@ class PowerChoose extends Widget
         @setPos()
         @check_inhibit()
         showAnimation(@element,TIME_SHOW)
-    
-    timefunc:(i) ->
-        @destory()
-        confirmdialog = new ConfirmDialog(option[i])
-        confirmdialog.frame_build()
-        document.body.appendChild(confirmdialog.element)
-        confirmdialog.interval(60)
-    
-    switchToConfirmDialog:(i)->
-        @opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
-        @opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
-        @opt[i].style.borderRadius = null
-        time = 0.5
-        for el,j in opt
-            apply_animation(el,"fade_animation#{j}","#{time}s")
-        @opt[i].addEventListener("webkitAnimationEnd",=>
-            @timefunc(i)
-        ,false)
- 
-
+   
     css_inhibit:(i,enable = true)->
         if enable is true
             @opt[i].disable = "true"
-            #@opt[i].disable = "disable"
             @opt[i].style.opacity = "0.3"
             @opt[i].style.cursor = "default"
             inhibit = power_get_inhibit(option[i])
@@ -169,9 +149,9 @@ class PowerChoose extends Widget
         if power_can(option[i])
             echo "power_can true ,power_force"
             confirm_ok(option[i])
+        else
             #power_force(option[i])
-        #else
-            #@switchToConfirmDialog(i)
+            confirm_ok(option[i])
     
     hover_state:(i,enable = true)->
         #choose_num = i

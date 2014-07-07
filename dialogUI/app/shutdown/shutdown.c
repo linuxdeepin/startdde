@@ -41,16 +41,10 @@
 #include "utils.h"
 #include "background.h"
 #include "bg.h"
-/*#include "DBUS_shutdown.h"*/
 
-/*#define DEBUG*/
 
 #define SHUTDOWN_ID_NAME "desktop.app.shutdown"
-
-#define CHOICE_HTML_PATH "file://"RESOURCE_DIR"/shutdown/powerchoose.html"
-#define LOGOUT_HTML_PATH "file://"RESOURCE_DIR"/shutdown/logoutdialog.html"
-#define REBOOT_HTML_PATH "file://"RESOURCE_DIR"/shutdown/rebootdialog.html"
-#define SHUTDOWN_HTML_PATH "file://"RESOURCE_DIR"/shutdown/shutdowndialog.html"
+#define CHOICE_HTML_PATH "file://"RESOURCE_DIR"/shutdown/index.html"
 
 #define SHUTDOWN_MAJOR_VERSION 2
 #define SHUTDOWN_MINOR_VERSION 0
@@ -59,150 +53,51 @@
 #define SHUTDOWN_CONF "shutdown/config.ini"
 static GKeyFile* shutdown_config = NULL;
 
-PRIVATE GtkWidget* container = NULL;
-PRIVATE GtkWidget* webview = NULL;
+#ifdef NDEBUG
 static GSGrab* grab = NULL;
+#endif
+PRIVATE GtkWidget* container = NULL;
 
-PRIVATE GSettings* dde_bg_g_settings = NULL;
-
-static struct {
-    gboolean is_logout;
-    gboolean is_reboot;
-    gboolean is_shutdown;
-    gboolean is_choice;
-    gboolean is_front;
-} option = {FALSE, FALSE, FALSE, TRUE, FALSE};
-static GOptionEntry entries[] = {
-    {"logout", 'l', 0, G_OPTION_ARG_NONE, &option.is_logout, "logout current session", NULL},
-    {"reboot", 'r', 0, G_OPTION_ARG_NONE, &option.is_reboot, "reboot computer", NULL},
-    {"shutdown", 's', 0, G_OPTION_ARG_NONE, &option.is_shutdown, "shutdown computer", NULL},
-    {"choice", 'c', 0, G_OPTION_ARG_NONE, &option.is_choice, "choice the action(default)", NULL},
-    {"front", 'f', 0, G_OPTION_ARG_NONE, &option.is_front, "not fork", NULL},
-    {NULL}
-};
+#ifdef NDEBUG
+PRIVATE
+gint t_id;
+#endif
 
 
 JS_EXPORT_API
 void shutdown_quit()
 {
     g_key_file_free(shutdown_config);
-    g_object_unref(dde_bg_g_settings);
     gtk_main_quit();
 }
 
-G_GNUC_UNUSED
-static gboolean
-prevent_exit (GtkWidget* w, GdkEvent* e)
-{
-    NOUSED(w);
-    NOUSED(e);
-    return TRUE;
-}
 
-#ifndef DEBUG
+#ifdef NDEBUG
 static void
-focus_out_cb (GtkWidget* w, GdkEvent*e, gpointer user_data)
+focus_out_cb (GtkWidget* w G_GNUC_UNUSED, GdkEvent* e G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
-    NOUSED(w);
-    NOUSED(e);
-    NOUSED(user_data);
     gdk_window_focus (gtk_widget_get_window (container), 0);
 }
 
-static void
-G_GNUC_UNUSED sigterm_cb (int signum)
+gboolean gs_grab_move ()
 {
-    NOUSED(signum);
-    gtk_main_quit ();
-}
-
-static void
-show_cb (GtkWindow* container, gpointer data)
-{
-    NOUSED(data);
+    g_message("timeout grab==============");
     gs_grab_move_to_window (grab,
-                            gtk_widget_get_window (GTK_WIDGET(container)),
+                            gtk_widget_get_window (container),
                             gtk_window_get_screen (container),
                             FALSE);
+    /*gtk_timeout_remove(t_id);*/
+    return FALSE;
 }
-
 
 static void
-select_popup_events (void)
+show_cb ()
 {
-    XWindowAttributes attr;
-    unsigned long     events;
-
-    gdk_error_trap_push ();
-
-    memset (&attr, 0, sizeof (attr));
-    XGetWindowAttributes (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), GDK_ROOT_WINDOW (), &attr);
-
-    events = SubstructureNotifyMask | attr.your_event_mask;
-    XSelectInput (GDK_DISPLAY_XDISPLAY (gdk_display_get_default ()), GDK_ROOT_WINDOW (), events);
-
-    gdk_error_trap_pop_ignored ();
+    t_id = g_timeout_add(500,(GSourceFunc)gs_grab_move,NULL);
 }
 
-
-static gboolean
-x11_window_is_ours (Window window)
-{
-    GdkWindow *gwindow;
-    gboolean   ret;
-
-    ret = FALSE;
-
-    gwindow = gdk_x11_window_lookup_for_display (gdk_display_get_default (), window);
-
-    if (gwindow && (window != GDK_ROOT_WINDOW ())) {
-            ret = TRUE;
-    }
-
-    return ret;
-}
-
-
-static GdkFilterReturn
-xevent_filter (GdkXEvent *xevent, GdkEvent  *event, GdkWindow *window)
-{
-    NOUSED(event);
-    XEvent *ev = xevent;
-
-    switch (ev->type) {
-
-        g_debug ("event type: %d", ev->xany.type);
-        case MapNotify:
-            g_debug("dlock: MapNotify");
-             {
-                 XMapEvent *xme = &ev->xmap;
-                 if (! x11_window_is_ours (xme->window))
-                 {
-            g_debug("dlock: gdk_window_raise");
-                      gdk_window_raise (window);
-                 }
-             }
-             break;
-
-        case ConfigureNotify:
-             g_debug("dlock: ConfigureNotify");
-             {
-                  XConfigureEvent *xce = &ev->xconfigure;
-                  if (! x11_window_is_ours (xce->window))
-                  {
-                      g_debug("dlock: gdk_window_raise");
-                      gdk_window_raise (window);
-                  }
-             }
-             break;
-
-        default:
-             break;
-    }
-
-    return GDK_FILTER_CONTINUE;
-}
 #endif
+
 
 PRIVATE
 void check_version()
@@ -224,21 +119,6 @@ void check_version()
 }
 
 
-GtkWidget* new_webview()
-{
-    if (option.is_logout) {
-        return d_webview_new_with_uri (LOGOUT_HTML_PATH);
-    } else if (option.is_reboot) {
-        return d_webview_new_with_uri (REBOOT_HTML_PATH);
-    } else if (option.is_shutdown) {
-        return d_webview_new_with_uri (SHUTDOWN_HTML_PATH);
-    } else if (option.is_choice) {
-        return d_webview_new_with_uri (CHOICE_HTML_PATH);
-    }
-
-    return NULL;
-}
-
 JS_EXPORT_API
 const char* shutdown_get_username()
 {
@@ -248,73 +128,33 @@ const char* shutdown_get_username()
 
 int main (int argc, char **argv)
 {
-    /* if (argc == 2 && 0 == g_strcmp0(argv[1], "-d")) */
-    g_setenv("G_MESSAGES_DEBUG", "all", FALSE);
+    if (argc == 2 && 0 == g_strcmp0(argv[1], "-d")){
+        g_message("dde-shutdown -d");
+        g_setenv("G_MESSAGES_DEBUG", "all", FALSE);
+    }
     if (is_application_running(SHUTDOWN_ID_NAME)) {
-        g_warning("another instance of application shutdown is running...\n");
+        g_warning("another instance of application dde-shutdown is running...\n");
         return 0;
     }
 
     singleton(SHUTDOWN_ID_NAME);
 
-
     check_version();
     init_i18n ();
 
-    GOptionContext* ctx = g_option_context_new(NULL);
-    g_option_context_add_main_entries(ctx, entries, NULL);
-    g_option_context_add_group(ctx, gtk_get_option_group(TRUE));
-
-    GError* error = NULL;
-    if (!g_option_context_parse(ctx, &argc, &argv, &error)) {
-        g_warning("%s", error->message);
-        g_clear_error(&error);
-        g_option_context_free(ctx);
-        return 0;
-    }
-
-    if (!option.is_front) {
-#ifndef DEBUG
-        close_std_stream();
-#endif
-        reparent_to_init();
-    }
-
     gtk_init (&argc, &argv);
-    gdk_window_set_cursor (gdk_get_default_root_window (), gdk_cursor_new (GDK_LEFT_PTR));
 
     container = create_web_container (FALSE, TRUE);
-    ensure_fullscreen (container);
-
-    gtk_window_set_decorated (GTK_WINDOW (container), FALSE);
-    gtk_window_set_skip_taskbar_hint (GTK_WINDOW (container), TRUE);
-    gtk_window_set_skip_pager_hint (GTK_WINDOW (container), TRUE);
-#ifndef DEBUG
-    gtk_window_set_keep_above (GTK_WINDOW (container), TRUE);
-#endif
-
-    gtk_window_fullscreen (GTK_WINDOW (container));
-    gtk_widget_set_events (GTK_WIDGET (container),
-                           gtk_widget_get_events (GTK_WIDGET (container))
-                           | GDK_POINTER_MOTION_MASK
-                           | GDK_BUTTON_PRESS_MASK
-                           | GDK_BUTTON_RELEASE_MASK
-                           | GDK_KEY_PRESS_MASK
-                           | GDK_KEY_RELEASE_MASK
-                           | GDK_EXPOSURE_MASK
-                           | GDK_VISIBILITY_NOTIFY_MASK
-                           | GDK_ENTER_NOTIFY_MASK
-                           | GDK_LEAVE_NOTIFY_MASK);
-
-    webview = new_webview();
-
-    g_option_context_free(ctx);
+    
+    GtkWidget *webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
-
     monitors_adaptive(container,webview);
     setup_background(container,webview);
 
-#ifndef DEBUG
+#ifdef NDEBUG
+    grab = gs_grab_new ();
+    g_message("Shutdown Not DEBUG");
+    g_signal_connect(webview, "draw", G_CALLBACK(erase_background), NULL);
     g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
     g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
@@ -322,26 +162,18 @@ int main (int argc, char **argv)
     gtk_widget_realize (webview);
 
     GdkWindow* gdkwindow = gtk_widget_get_window (container);
-    GdkRGBA rgba = { 0, 0, 0, 0.85 };
-    gdk_window_set_background_rgba (gdkwindow, &rgba);
-    gdk_window_set_skip_taskbar_hint (gdkwindow, TRUE);
-    gdk_window_set_cursor (gdkwindow, gdk_cursor_new(GDK_LEFT_PTR));
+    gdk_window_move_resize(gdkwindow, 0, 0, gdk_screen_width(), gdk_screen_height());
 
-#ifndef DEBUG
+#ifdef NDEBUG
+    gdk_window_set_keep_above (gdkwindow, TRUE);
     gdk_window_set_override_redirect (gdkwindow, TRUE);
-    select_popup_events ();
-    gdk_window_add_filter (NULL, (GdkFilterFunc)xevent_filter, gdkwindow);
 #endif
 
-    grab = gs_grab_new ();
     gtk_widget_show_all (container);
-
-    gdk_window_focus (gtk_widget_get_window (container), 0);
-    gdk_window_stick (gdkwindow);
-
 
     gtk_main ();
 
     return 0;
+
 }
 

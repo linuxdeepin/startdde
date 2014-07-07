@@ -62,3 +62,37 @@ showAnimation =(el,t)->
 
 isSystemUpdating = false
 
+
+power_can_exe = {}
+power_inhibit = {}
+
+get_power_inhibit_can = ->
+    for key in option
+        inhibit = power_inhibit_can(key)
+        can = null
+        if inhibit is null
+            echo "power_can:#{key} true"
+            can = true
+        else
+            echo "power_can:#{key} false"
+            can = false
+        power_can_exe[key] = can
+        power_inhibit[key] = inhibit
+
+power_can = (power) ->
+    try
+        can = power_can_exe[power]
+        return can
+    catch
+        get_power_inhibit_can()
+        can = power_can_exe[power]
+        return can
+
+power_get_inhibit = (power) ->
+    try
+        inhibit = power_inhibit[power]
+        return inhibit
+    catch
+        get_power_inhibit_can()
+        inhibit = power_inhibit[power]
+        return inhibit
