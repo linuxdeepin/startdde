@@ -116,7 +116,9 @@ class PowerChoose extends Widget
             )
 
             #click
-            @opt[i].addEventListener("click",->
+            @opt[i].addEventListener("click", (e)->
+                e.preventDefault()
+                e.stopPropagation()
                 i = this.value
                 frame_click = true
                 power = option[i]

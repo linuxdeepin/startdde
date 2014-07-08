@@ -13,7 +13,6 @@ class Power
         @inhibit_power = []
         @inhibit_power_app_msg = []
         @get_login1_dbus()
-        #@inhibit_set_for_test()
 
     get_login1_dbus : ->
         try
@@ -82,7 +81,7 @@ class Power
         @inhibitorsList = dbus_login1?.ListInhibitors_sync()
         echo @inhibitorsList
         for inhibit,i in @inhibitorsList
-            echo "#{i}=======#{inhibit}-----"
+            #echo "#{i}=======#{inhibit}-----"
             if inhibit is undefined or inhibit is null then break
             #inhibit[ 0    1   2   3]
             #       power app msg type
@@ -118,16 +117,3 @@ class Power
         if @power_can(power) then return null
         return inhibit.msg for inhibit in @inhibit_power_app_msg when inhibit.power is power
 
-
-    inhibit_set_for_test : ->
-        echo "--------inhibit_set_for_test-------"
-        if not dbus_login1? then get_login1_dbus()
-        dsc_update_inhibits = []
-        dsc_update_inhibits = ["shutdown","sleep","idle","handle-power-key","handle-suspend-key","handle-hibernate-key","handle-lid-switch"]
-        for power in dsc_update_inhibits
-            err = dbus_login1.Inhibit_sync(
-                power,
-                "DeepinSoftCenter",
-                "Please wait a moment while system update is being performed... Do not turn off your computer.",
-                "block"
-            )
