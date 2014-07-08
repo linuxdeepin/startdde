@@ -130,12 +130,13 @@ class PowerChoose extends Widget
         @check_inhibit()
         showAnimation(@element,TIME_SHOW)
    
-    css_inhibit:(i,enable = true)->
-        if enable is true
+    css_inhibit:(i)->
+        disable = !@powercls.power_can(option[i])
+        if disable is true
             @opt[i].disable = "true"
             @opt[i].style.opacity = "0.3"
             @opt[i].style.cursor = "default"
-            if enable is false then @showMessage(@powercls.inhibit_msg(option[i]))
+            @showMessage(@powercls.inhibit_msg(option[i]))
         else
             @opt[i].disable = "false"
             @opt[i].style.opacity = "1.0"
@@ -143,13 +144,11 @@ class PowerChoose extends Widget
 
     check_inhibit: ->
         for bt,i in @opt
-            @css_inhibit(i,!@powercls.power_can(option[i]))
+            @css_inhibit(i)
 
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"
         if @powercls.power_can(option[i])
-            @confirm_ok(option[i])
-        else
             @confirm_ok(option[i])
     
     confirm_ok : (power)->
@@ -192,10 +191,14 @@ class PowerChoose extends Widget
             when LEFT_ARROW
                 choose_num--
                 if choose_num == -1 then choose_num = option.length - 1
+                #if @is_disable(@option[choose_num]) then choose_num--
+                #if choose_num == -1 then choose_num = @opt.length - 1
                 @select_state(choose_num)
             when RIGHT_ARROW
                 choose_num++
                 if choose_num == option.length then choose_num = 0
+                #if @is_disable(@option[choose_num]) then choose_num++
+                #if choose_num == @opt.length then choose_num = 0
                 @select_state(choose_num)
             when ENTER_KEY
                 i = choose_num
