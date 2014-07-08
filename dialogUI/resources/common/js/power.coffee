@@ -79,9 +79,7 @@ class Power
         echo "power_get_inhibit"
         if not dbus_login1? then get_login1_dbus()
         @inhibitorsList = dbus_login1?.ListInhibitors_sync()
-        echo @inhibitorsList
         for inhibit,i in @inhibitorsList
-            #echo "#{i}=======#{inhibit}-----"
             if inhibit is undefined or inhibit is null then break
             #inhibit[ 0    1   2   3]
             #       power app msg type
@@ -107,8 +105,6 @@ class Power
                                 @inhibit_power_app_msg.push({power:p,app:app,msg:msg})
             catch e
                 echo "power_get_inhibit error:#{e}"
-        echo @inhibit_power
-        echo @inhibit_power_app_msg
 
     power_can : (power) ->
         return !(power in @inhibit_power)
