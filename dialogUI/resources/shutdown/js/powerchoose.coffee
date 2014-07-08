@@ -134,12 +134,12 @@ class PowerChoose extends Widget
         disable = !@powercls.power_can(option[i])
         if disable is true
             @opt[i].disable = "true"
-            @opt[i].style.opacity = "0.3"
+            @opt_img[i].style.opacity = "0.3"
             @opt[i].style.cursor = "default"
             @showMessage(@powercls.inhibit_msg(option[i]))
         else
             @opt[i].disable = "false"
-            @opt[i].style.opacity = "1.0"
+            @opt_img[i].style.opacity = "1.0"
             @opt[i].style.cursor = "pointer"
 
     check_inhibit: ->
