@@ -121,7 +121,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		}
 	}
 	if any == nil {
-		Logger.Fatal("Can't find any ConfigMonitor at ", cfg.CurrentPlanName)
+		Logger.Error("Can't find any ConfigMonitor at ", cfg.CurrentPlanName)
 	}
 	//1. ensure there has a opened monitor.
 	if len(opend) == 0 {
