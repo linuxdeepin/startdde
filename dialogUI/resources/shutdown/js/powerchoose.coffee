@@ -32,7 +32,6 @@ class PowerChoose extends Widget
         @img_url_normal = []
         @img_url_hover = []
         @img_url_click = []
-        
         @powercls = new Power()
         @powercls.power_get_inhibit()
 
@@ -48,7 +47,7 @@ class PowerChoose extends Widget
         bottom = (screen.height) / 2
         @element.style.left = "#{left}px"
         @element.style.bottom = "#{bottom}px"
-    
+
     destory:->
         document.body.removeChild(@element)
 
@@ -82,7 +81,6 @@ class PowerChoose extends Widget
         @element.addEventListener("click",->
             frame_click = true
         )
-        
         @message_div = create_element("div","message_div",@element)
         @message_img_div = create_element("div","message_img_div",@message_div)
         @message_img_div.style.backgroundImage = "url(img/waring.png)"
@@ -91,30 +89,26 @@ class PowerChoose extends Widget
         @message_div.style.display = "none"
 
         button_div = create_element("div","button_div",@element)
-       
         for tmp ,i in option
             @opt[i] = create_element("div","opt",button_div)
             @opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
             @opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
             @opt[i].value = i
             @opt_img[i] = create_img("opt_img",@img_url_normal[i],@opt[i])
+            @opt_img[i].alt = option_text[i]
             @opt_text[i] = create_element("div","opt_text",@opt[i])
             @opt_text[i].textContent = option_text[i]
-            
-            
             that = @
             #hover
             @opt[i].addEventListener("mouseover",->
                 i = this.value
                 that.hover_state(i)
             )
-            
             #normal
             @opt[i].addEventListener("mouseout",->
                 i = this.value
                 that.opt_img[i].src = that.img_url_normal[i]
             )
-
             #click
             @opt[i].addEventListener("click", (e)->
                 e.preventDefault()
@@ -126,12 +120,11 @@ class PowerChoose extends Widget
                     that.opt_img[i].src = that.img_url_click[i]
                     that.fade(i)
             )
-        
         @setOptionDefault("shutdown")
         @setPos()
         @check_inhibit()
         showAnimation(@element,TIME_SHOW)
-   
+
     css_inhibit:(i)->
         disable = !@powercls.power_can(option[i])
         if disable is true
@@ -152,7 +145,7 @@ class PowerChoose extends Widget
         echo "--------------fade:#{option[i]}---------------"
         if @powercls.power_can(option[i])
             @confirm_ok(option[i])
-    
+
     confirm_ok : (power)->
         echo "--------------confirm_ok(#{power})-------------"
         switch power
@@ -171,7 +164,7 @@ class PowerChoose extends Widget
             if j == i and enable is true then tmp.src = @img_url_hover[i]
             else
                 tmp.src = @img_url_normal[j]
-   
+
     select_state:(i,enable = true)->
         select_state_confirm = true
         power = option[i]
@@ -187,7 +180,7 @@ class PowerChoose extends Widget
                 tmp.style.backgroundColor = "rgba(255,255,255,0.0)"
                 tmp.style.border = "1px solid rgba(255,255,255,0.0)"
                 tmp.style.borderRadius = null
- 
+
     keydown:(keyCode)->
         switch keyCode
             when LEFT_ARROW
