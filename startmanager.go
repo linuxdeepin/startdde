@@ -28,6 +28,7 @@ const (
 	OnlyShowInKey = "OnlyShowIn"
 	NotShowInKey  = "NotShowIn"
 	TryExecKey    = "TryExec"
+	GnomeDelayKey = "X-GNOME-Autostart-Delay"
 )
 
 type StartManager struct {
@@ -523,7 +524,26 @@ func startStartManager() {
 
 func startAutostartProgram() {
 	START_MANAGER.listenAutostart()
-	for _, name := range START_MANAGER.AutostartList() {
-		go START_MANAGER.Launch(name)
+	for _, path := range START_MANAGER.AutostartList() {
+		go func(path string) {
+			f := glib.NewKeyFile()
+			defer f.Free()
+
+			_, err := f.LoadFromFile(path, glib.KeyFileFlagsNone)
+			if err != nil {
+				logger.Warning("load", path, "failed:", err)
+			} else {
+				num, err := f.GetInteger(glib.KeyFileDesktopGroup,
+					GnomeDelayKey)
+				if err != nil {
+					logger.Debug("get", GnomeDelayKey, "failed", err)
+				} else {
+					duration := time.Second * time.Duration(num)
+					<-time.After(duration)
+				}
+			}
+
+			START_MANAGER.Launch(path)
+		}(path)
 	}
 }
