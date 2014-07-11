@@ -193,10 +193,6 @@ func startSession() {
 	}
 	manager.setPropStage(SessionStageAppsEnd)
 
-	// TODO fix grub boot menu missing issue temporary, should be
-	// removed one month later.
-	manager.launch("/usr/lib/deepin-daemon/grub2", false)
-
 	//quickly free splash used memory
 	dd.FreeOSMemory()
 }
