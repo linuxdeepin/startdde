@@ -152,7 +152,7 @@ class PowerChoose extends Widget
             when "lock" then destory_all()
             when "suspend" then destory_all()
         @powercls.power_force_session(power)
-        clearInterval(timeId)
+        clearInterval(restack_interval)
 
     hover_state:(i,enable = true)->
         #choose_num = i

@@ -27,10 +27,13 @@ message_text = {}
 message_text["systemUpdate"] = _("Your system is updating.please donnot poweroff...")
 message_text["default"] = _("Are you sure to do it?")
 
-timeId = null
+restack_interval = setInterval(=>
+    echo "restack:#{restack_interval}"
+    DCore.Shutdown.restack()
+,200)
 
 destory_all = ->
-    clearInterval(timeId) if timeId
+    clearInterval(restack_interval)
     DCore.Shutdown.quit()
 
 document.body.style.height = window.innerHeight
