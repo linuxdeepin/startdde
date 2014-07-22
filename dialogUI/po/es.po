@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 17:36+0800\n"
+"POT-Creation-Date: 2014-07-22 17:40+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
 "Language-Team: Spanish (http://www.transifex.com/projects/p/startdde-dialog/"
@@ -22,65 +22,23 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "¿Estas seguro?"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Lock"
-msgstr "Bloquear"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Cerrar sesión"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Restart"
-msgstr "Reiniciar"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "Apagar"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Restart"
+msgstr "Reiniciar"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Bloquear"
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Suspender"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "Tu sistema se está actualizando, por favor no lo apague..."
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Log out"
+msgstr "Cerrar sesión"
 
-#~ msgid "Cancel"
-#~ msgstr "Cancelar"
-
-#, fuzzy
-#~ msgid "Force Log out"
-#~ msgstr "Cerrar sesión"
-
-#, fuzzy
-#~ msgid "Force Restart"
-#~ msgstr "Reiniciar"
-
-#, fuzzy
-#~ msgid "Force Shut down"
-#~ msgstr "Apagar"
-
-#, fuzzy
-#~ msgid "The system will be locked in %1 seconds."
-#~ msgstr "El sistema será bloqueado en:"
-
-#, fuzzy
-#~ msgid "The system will be suspended in %1 seconds."
-#~ msgstr "El sistema será suspendido en:"
-
-#, fuzzy
-#~ msgid "The system will restart in %1 seconds."
-#~ msgstr "El sistema se reiniciará en:"
-
-#, fuzzy
-#~ msgid "The system will shut down in %1 seconds."
-#~ msgstr "El sistema se apagará en:"
-
-#, fuzzy
-#~ msgid "You will be automatically logged out in %1 seconds."
-#~ msgstr "Tu sesión terminará automáticamente en:"

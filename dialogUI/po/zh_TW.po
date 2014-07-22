@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 16:43+0800\n"
+"POT-Creation-Date: 2014-07-22 17:40+0800\n"
 "PO-Revision-Date: 2014-05-08 03:13+0800\n"
 "Last-Translator: Peter Dave Hello <hsu@peterdavehello.org>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,31 +18,23 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "關機"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Restart"
 msgstr "重新啟動"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Lock"
 msgstr "鎖定"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "休眠"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "登出"
-
-#: ../resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "系統正在更新中，請勿關閉電源"
-
-#: ../resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "你確定要這樣做嗎?"
 

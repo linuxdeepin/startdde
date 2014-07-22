@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 16:43+0800\n"
+"POT-Creation-Date: 2014-07-22 17:40+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Wang Dianjin <wangdianjin@linuxdeepin.com>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,33 +17,23 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "关机"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Restart"
 msgstr "重启"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Lock"
 msgstr "锁定"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "待机"
 
-#: ../resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "注销"
-
-#: ../resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "系统正在进行升级操作，请不要关闭电源，请稍后..."
-
-#: ../resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "你确定要执行此操作吗?"
-#~ msgid "Force Shut down" #~ msgstr "强制关机" #~ msgid "Force Restart"
-#~ msgstr "强制重启"
 

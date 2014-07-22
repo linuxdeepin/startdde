@@ -24,8 +24,6 @@ DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
 option = ["shutdown","restart","lock","suspend","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
 message_text = {}
-message_text["systemUpdate"] = _("Your system is updating.please donnot poweroff...")
-message_text["default"] = _("Are you sure to do it?")
 
 restack_interval = setInterval(=>
     echo "restack:#{restack_interval}"

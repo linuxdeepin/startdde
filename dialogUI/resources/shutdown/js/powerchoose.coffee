@@ -85,7 +85,6 @@ class PowerChoose extends Widget
         @message_img_div = create_element("div","message_img_div",@message_div)
         @message_img_div.style.backgroundImage = "url(img/waring.png)"
         @message_text_div = create_element("div","message_text_div",@message_div)
-        @message_text_div.textContent = message_text["default"]
         @message_div.style.display = "none"
 
         button_div = create_element("div","button_div",@element)
