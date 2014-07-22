@@ -4,6 +4,8 @@ import "github.com/BurntSushi/xgb/xproto"
 import "github.com/BurntSushi/xgb/randr"
 import "github.com/BurntSushi/xgb/render"
 import "github.com/BurntSushi/xgb"
+import "dbus/com/deepin/daemon/helper/backlight"
+
 import "os/exec"
 import "math"
 
@@ -177,32 +179,36 @@ func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 	return true
 }
 
-func setOutputBacklight(op randr.Output, v uint32) {
-	var buf [4]byte
-	xgb.Put32(buf[0:4], v)
-
-	err := randr.ChangeOutputPropertyChecked(xcon, op, backlightAtom,
-		xproto.AtomInteger, 32, xproto.PropModeReplace, 1,
-		buf[:]).Check()
+var setBacklight, getBacklight = func() (func(float64), func() float64) {
+	helper, err := backlight.NewBacklight("com.deepin.daemon.helper.Backlight", "/com/deepin/daemon/helper/Backlight")
 	if err != nil {
-		Logger.Error("setOutputBacklight error:", err)
+		Logger.Warning("Can't create com.deepin.daemon.helper.Backlight")
+		return func(v float64) {}, func() float64 { return 1 }
 	}
-}
-func queryBacklightRange(c *xgb.Conn, output randr.Output) int32 {
+
+	return func(v float64) {
+			err := helper.SetBrightness(v)
+			if err != nil {
+				Logger.Warning("setBacklight failed:", err)
+			}
+		},
+		func() float64 {
+			v, err := helper.GetBrightness()
+			if err != nil {
+				Logger.Warning("getBacklight failed: ", err)
+				return 0
+			}
+			return v
+		}
+}()
+
+func supportedBacklight(c *xgb.Conn, output randr.Output) bool {
 	prop, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
 	pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
 	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
-		return 0
+		return false
 	}
-	return pinfo.ValidValues[1]
-}
-func supportedBacklight(c *xgb.Conn, output randr.Output) (float64, bool) {
-	prop, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
-	pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
-	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
-		return 1, false
-	}
-	return float64(xgb.Get32(prop.Data)) / float64(pinfo.ValidValues[1]), true
+	return true
 }
 
 func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {

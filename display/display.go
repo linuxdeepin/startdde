@@ -166,9 +166,8 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Chan't find the ", output, "output when change brightness")
 	}
 
-	max := GetDisplayInfo().QueryBacklightLevel(output)
-	if max != 0 {
-		setOutputBacklight(op, uint32(float64(max)*v))
+	if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output)) {
+		setBacklight(v)
 	} else {
 		setBrightness(xcon, op, v)
 	}
@@ -407,8 +406,8 @@ func Start() {
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {
-	max := GetDisplayInfo().QueryBacklightLevel(name)
-	if max != 0 {
+	support := supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))
+	if support {
 		return 1
 	} else {
 		return 0

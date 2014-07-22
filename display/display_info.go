@@ -4,17 +4,15 @@ import "github.com/BurntSushi/xgb/randr"
 import "sync"
 
 type DisplayInfo struct {
-	locker         sync.Mutex
-	modes          map[randr.Mode]Mode
-	outputNames    map[string]randr.Output
-	backlightLevel map[string]uint32
+	locker      sync.Mutex
+	modes       map[randr.Mode]Mode
+	outputNames map[string]randr.Output
 }
 
 var GetDisplayInfo = func() func() *DisplayInfo {
 	info := &DisplayInfo{
-		modes:          make(map[randr.Mode]Mode),
-		outputNames:    make(map[string]randr.Output),
-		backlightLevel: make(map[string]uint32),
+		modes:       make(map[randr.Mode]Mode),
+		outputNames: make(map[string]randr.Output),
 	}
 	info.update()
 	return func() *DisplayInfo {
@@ -53,14 +51,6 @@ func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
 		return 0
 	}
 }
-func (info *DisplayInfo) QueryBacklightLevel(name string) uint32 {
-	if lev, ok := info.backlightLevel[name]; ok {
-		return lev
-	} else {
-		Logger.Debug("can't find ", name)
-		return 0
-	}
-}
 
 func (info *DisplayInfo) update() {
 	info.locker.Lock()
@@ -72,7 +62,6 @@ func (info *DisplayInfo) update() {
 		return
 	}
 	info.outputNames = make(map[string]randr.Output)
-	info.backlightLevel = make(map[string]uint32)
 	for _, op := range resource.Outputs {
 		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 		if err != nil {
@@ -84,19 +73,10 @@ func (info *DisplayInfo) update() {
 		}
 
 		info.outputNames[string(oinfo.Name)] = op
-		info.backlightLevel[string(oinfo.Name)] = uint32(queryBacklightRange(xcon, op))
 	}
 
 	info.modes = make(map[randr.Mode]Mode)
 	for _, minfo := range resource.Modes {
 		info.modes[randr.Mode(minfo.Id)] = buildMode(minfo)
-	}
-
-	for name, op := range info.outputNames {
-		max := uint32(queryBacklightRange(xcon, op))
-		if max == 0 {
-			continue
-		}
-		info.backlightLevel[name] = max
 	}
 }

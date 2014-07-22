@@ -16,9 +16,10 @@ func (dpy *Display) workaroundBacklight() {
 		dpyinfo := GetDisplayInfo()
 		for _, name := range dpyinfo.ListNames() {
 			op := dpyinfo.QueryOutputs(name)
-			if backlight, support := supportedBacklight(xcon, op); support {
-				dpy.setPropBrightness(name, backlight)
-				dpy.saveBrightness(name, backlight)
+			if support := supportedBacklight(xcon, op); support {
+				v := getBacklight()
+				dpy.setPropBrightness(name, v)
+				dpy.saveBrightness(name, v)
 			}
 		}
 	}
