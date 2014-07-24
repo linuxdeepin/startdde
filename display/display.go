@@ -386,6 +386,7 @@ func (dpy *Display) Reset() {
 		m.SetMode(m.BestMode.ID)
 	}
 	dpy.apply(true)
+	dpy.SaveChanges()
 }
 
 func Start() {
