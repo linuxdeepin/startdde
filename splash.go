@@ -334,14 +334,14 @@ func mapBgToRoot() {
 	w, h := getPrimaryScreenResolution()
 	logger.Debug("mapBgToRoot() screen resolution:", w, h)
 	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int(w), int(h),
-		graphic.FillProportionCenterScale, graphic.PNG)
+		graphic.FillProportionCenterScale, graphic.FormatPng)
 	if err != nil {
 		panic(err)
 	}
 	logger.Debug("mapBgToRoot() generate rootBgFile end")
 
 	// generate temporary blurred background file
-	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.PNG)
+	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.FormatPng)
 	if err != nil {
 		panic(err)
 	}
@@ -354,8 +354,8 @@ func mapBgToRoot() {
 	// if use cache file, keep it update to time
 	if useCacheRootBg || useCacheRootBgBlue {
 		// 	if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int(w), int(h),
-		// 		graphic.FillProportionCenterScale, graphic.PNG); err != nil {
-		// 		if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.PNG); err != nil {
+		// 		graphic.FillProportionCenterScale, graphic.FormatPng); err != nil {
+		// 		if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.FormatPng); err != nil {
 		// 			// set root window properties again
 		// 			doMapBgToRoot(rootBgFile, rootBgBlurFile)
 		// 		}
