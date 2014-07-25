@@ -15,10 +15,11 @@ func runCode(code string) bool {
 	err := exec.Command("sh", "-c", code).Run()
 	if err != nil {
 		logger.Debug("Run", code, "failed:", err)
+		return false
 	} else {
 		logger.Debug("RunCodeOK:", code)
+		return true
 	}
-	return true
 }
 
 func runCodeAsync(code string) bool {
@@ -26,6 +27,7 @@ func runCodeAsync(code string) bool {
 	err := cmd.Start()
 	if err != nil {
 		logger.Debug("Run", code, "failed:", err)
+		return false
 	} else {
 		logger.Debug("RunCodeOK:", code)
 	}
