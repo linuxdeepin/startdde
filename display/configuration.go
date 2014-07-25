@@ -41,7 +41,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	if _, ok := cfg.Monitors[cfg.CurrentPlanName]; ok {
 		return
 	}
-	Logger.Warning("attachCurrentMonitor: build info")
+	Logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
 
 	//grab and build monitors information
 	monitors := make(map[string]*ConfigMonitor)

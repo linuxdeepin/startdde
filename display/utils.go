@@ -289,6 +289,10 @@ func genTransformByScale(xScale float32, yScale float32) render.Transform {
 }
 
 func isOverlap(x1, y1 int16, w1, h1 uint16, x2, y2 int16, w2, h2 uint16) bool {
+	if x1 == x2 && y1 == y2 && w1 == w2 && h1 == h2 {
+		return true
+	}
+
 	var contain = func(px int16, py int16) bool {
 		if px > x1 && px < x1+int16(w1) && py > y1 && py < y1+int16(h1) {
 			return true
