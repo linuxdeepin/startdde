@@ -21,13 +21,6 @@
 
 package main
 
-// #cgo pkg-config: gdk-3.0 gdk-pixbuf-xlib-2.0 gdk-x11-3.0 x11
-// #cgo LDFLAGS: -lm
-// #include <stdlib.h>
-// #include "gdk_pixbuf_utils.h"
-import "C"
-import "unsafe"
-
 import (
 	"image"
 	_ "image/jpeg"
@@ -35,13 +28,12 @@ import (
 	"os"
 	"strings"
 
-	"fmt"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"net/url"
-	"pkg.linuxdeepin.com/lib/graphic"
+	graphic "pkg.linuxdeepin.com/lib/gdkpixbuf"
 	"time"
 )
 
@@ -149,23 +141,23 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 // 	return
 // }
 
-func initGdkXlib() {
-	ret := C.init_gdk_xlib()
-	if ret == 0 {
-		logger.Error("initialize gdk xlib failed", ret)
-	}
-}
+// func initGdkXlib() {
+// 	ret := C.init_gdk_xlib()
+// 	if ret == 0 {
+// 		logger.Error("initialize gdk xlib failed", ret)
+// 	}
+// }
 
-func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
-	cimgFile := C.CString(imgFile)
-	defer C.free(unsafe.Pointer(cimgFile))
-	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
-	logger.Debug("render image to xpixmap:", pix)
-	if pix == 0 {
-		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
-	}
-	return
-}
+// func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+// 	cimgFile := C.CString(imgFile)
+// 	defer C.free(unsafe.Pointer(cimgFile))
+// 	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
+// 	logger.Debug("render image to xpixmap:", pix)
+// 	if pix == 0 {
+// 		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
+// 	}
+// 	return
+// }
 
 // load image file and return image.Image object.
 func loadImage(imgfile string) (img image.Image, err error) {
@@ -202,7 +194,7 @@ func fixedToFloat32(f render.Fixed) float32 {
 // get rectangle in image which with the same scale to reference
 // width/heigh, and the rectangle will placed in center.
 func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.Rectangle, err error) {
-	x, y, w, h, err := graphic.GetProportionCenterScaleRect(int(refWidth), int(refHeight), int(imgWidth), int(imgHeight))
+	x, y, w, h, err := graphic.GetPreferScaleClipRect(int(refWidth), int(refHeight), int(imgWidth), int(imgHeight))
 	rect.X = int16(x)
 	rect.Y = int16(y)
 	rect.Width = uint16(w)

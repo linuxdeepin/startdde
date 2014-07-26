@@ -35,8 +35,8 @@ import (
 	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xprop"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	graphic "pkg.linuxdeepin.com/lib/gdkpixbuf"
 	"pkg.linuxdeepin.com/lib/gio-2.0"
-	"pkg.linuxdeepin.com/lib/graphic"
 	"runtime"
 )
 
@@ -93,7 +93,7 @@ var rootBgImgInfo = struct {
 }{}
 
 func initBackground() {
-	initGdkXlib()
+	graphic.InitGdkXlib()
 	randr.Init(XU.Conn())
 	randr.QueryVersion(XU.Conn(), 1, 4)
 	render.Init(XU.Conn())
@@ -212,7 +212,7 @@ func loadBgFile() {
 
 	// rebind picture id to background pixmap
 	xproto.FreePixmap(XU.Conn(), bgImgInfo.pixmap)
-	bgImgInfo.pixmap, err = convertToXpixmap(bgfile)
+	bgImgInfo.pixmap, err = graphic.ConvertImageToXpixmap(bgfile)
 	if err != nil {
 		panic(err)
 	}
@@ -333,8 +333,8 @@ func mapBgToRoot() {
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
 	logger.Debug("mapBgToRoot() screen resolution:", w, h)
-	rootBgFile, useCacheRootBg, err := graphic.FillImageCache(getBackgroundFile(), int(w), int(h),
-		graphic.FillProportionCenterScale, graphic.FormatPng)
+	rootBgFile, useCacheRootBg, err := graphic.ScaleImagePreferCache(getBackgroundFile(), int(w), int(h),
+		graphic.GDK_INTERP_BILINEAR, graphic.FormatPng)
 	if err != nil {
 		panic(err)
 	}
@@ -377,7 +377,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 
 	var err error
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
-	rootBgImgInfo.bgPixmap, err = convertToXpixmap(rootBgFile)
+	rootBgImgInfo.bgPixmap, err = graphic.ConvertImageToXpixmap(rootBgFile)
 	if err != nil {
 		panic(err)
 	}
@@ -387,7 +387,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	}
 
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
-	rootBgImgInfo.bgBlurPixmap, err = convertToXpixmap(rootBgBlurFile)
+	rootBgImgInfo.bgBlurPixmap, err = graphic.ConvertImageToXpixmap(rootBgBlurFile)
 	if err != nil {
 		panic(err)
 	}
