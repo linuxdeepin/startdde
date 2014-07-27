@@ -212,9 +212,10 @@ func loadBgFile() {
 
 	// rebind picture id to background pixmap
 	xproto.FreePixmap(XU.Conn(), bgImgInfo.pixmap)
-	bgImgInfo.pixmap, err = graphic.ConvertImageToXpixmap(bgfile)
+	bgImgInfo.pixmap, err = convertImageToXpixmap(bgfile)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	logger.Debugf("bgImgInfo %#v", bgWinInfo)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
@@ -285,7 +286,8 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	// get clip rectangle
 	rect, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	logger.Debug("drawBgByRender, clip rect", rect)
 
@@ -300,21 +302,24 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 
 	// draw to background window
 	err = render.CompositeChecked(XU.Conn(), render.PictOpSrc, srcpid, 0, dstpid,
 		rect.X, rect.Y, 0, 0, x, y, width, height).Check()
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 
 	// restore source image
 	t = getScaleTransform(1/sx, 1/sy)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 }
 
@@ -324,8 +329,8 @@ func mapBgToRoot() {
 
 	defer func() {
 		if err := recover(); err != nil {
-			// error occurred if background file is busy for user
-			// change background frequent
+			// error occurred if background file is busy for that user
+			// change background frequently
 			logger.Error(err)
 		}
 	}()
@@ -333,34 +338,24 @@ func mapBgToRoot() {
 	// generate temporary background file, same size with primary screen
 	w, h := getPrimaryScreenResolution()
 	logger.Debug("mapBgToRoot() screen resolution:", w, h)
-	rootBgFile, useCacheRootBg, err := graphic.ScaleImagePreferCache(getBackgroundFile(), int(w), int(h),
+	rootBgFile, _, err := graphic.ScaleImagePreferCache(getBackgroundFile(), int(w), int(h),
 		graphic.GDK_INTERP_BILINEAR, graphic.FormatPng)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	logger.Debug("mapBgToRoot() generate rootBgFile end")
 
 	// generate temporary blurred background file
-	rootBgBlurFile, useCacheRootBgBlue, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.FormatPng)
+	rootBgBlurFile, _, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.FormatPng)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	logger.Debug("mapBgToRoot() generate rootBgBlurFile end")
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
-
-	// TODO
-	// if use cache file, keep it update to time
-	if useCacheRootBg || useCacheRootBgBlue {
-		// 	if err := graphic.FillImage(getBackgroundFile(), rootBgFile, int(w), int(h),
-		// 		graphic.FillProportionCenterScale, graphic.FormatPng); err != nil {
-		// 		if err := graphic.BlurImage(rootBgFile, rootBgBlurFile, 50, 1, graphic.FormatPng); err != nil {
-		// 			// set root window properties again
-		// 			doMapBgToRoot(rootBgFile, rootBgBlurFile)
-		// 		}
-		// 	}
-	}
 }
 func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	logger.Debug("doMapBgToRoot() begin")
@@ -377,26 +372,30 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 
 	var err error
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
-	rootBgImgInfo.bgPixmap, err = graphic.ConvertImageToXpixmap(rootBgFile)
+	rootBgImgInfo.bgPixmap, err = convertImageToXpixmap(rootBgFile)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(rootBgImgInfo.bgPixmap))
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
-	rootBgImgInfo.bgBlurPixmap, err = graphic.ConvertImageToXpixmap(rootBgBlurFile)
+	rootBgImgInfo.bgBlurPixmap, err = convertImageToXpixmap(rootBgBlurFile)
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapBlurProp, "PIXMAP", uint(rootBgImgInfo.bgBlurPixmap))
 	if err != nil {
-		panic(err)
+		logger.Error(err)
+		return
 	}
 
-	runtime.GC() // TODO
+	runtime.GC()
 }
 
 func resizeBgWindow(w, h int) {

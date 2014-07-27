@@ -56,12 +56,12 @@ func getRootPixmap(prop string) (d xproto.Drawable) {
 	return
 }
 
-func TestRenderImgToPixmap(t *testing.T) {
-	initGdkXlib()
-	pix, err := convertToXpixmap(defaultBackgroundFile)
-	logger.Info("render image to xpixmap 1:", pix, err)
-	pix, err = convertToXpixmap(defaultBackgroundFile)
-	logger.Info("render image to xpixmap 2:", pix, err)
-	pix, err = convertToXpixmap(defaultBackgroundFile)
-	logger.Info("render image to xpixmap 3:", pix, err)
-}
+// func TestRenderImgToPixmap(t *testing.T) {
+// 	initGdkXlib()
+// 	pix, err := convertToXpixmap(defaultBackgroundFile)
+// 	logger.Info("render image to xpixmap 1:", pix, err)
+// 	pix, err = convertToXpixmap(defaultBackgroundFile)
+// 	logger.Info("render image to xpixmap 2:", pix, err)
+// 	pix, err = convertToXpixmap(defaultBackgroundFile)
+// 	logger.Info("render image to xpixmap 3:", pix, err)
+// }

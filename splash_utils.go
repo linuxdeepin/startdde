@@ -141,12 +141,39 @@ func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
 // 	return
 // }
 
-// func initGdkXlib() {
-// 	ret := C.init_gdk_xlib()
-// 	if ret == 0 {
-// 		logger.Error("initialize gdk xlib failed", ret)
-// 	}
-// }
+func putXimage(did xproto.Drawable) (err error) {
+	ximg, err := xgraphics.NewDrawable(XU, did)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	defer func() {
+		ximg.Pix = nil
+	}()
+
+	ximg.XDraw()
+	// TODO
+	// err = ximg.XDrawChecked()
+	// if err != nil {
+	// logger.Error(err)
+	// return
+	// }
+	return
+}
+
+func convertImageToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+	pix, err = graphic.ConvertImageToXpixmap(imgFile)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	// TODO
+	// err = putXimage(xproto.Drawable(pix))
+	// if err != nil {
+	// 	return
+	// }
+	return
+}
 
 // func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
 // 	cimgFile := C.CString(imgFile)
