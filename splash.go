@@ -357,6 +357,7 @@ func mapBgToRoot() {
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
 }
+
 func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	logger.Debug("doMapBgToRoot() begin")
 	defer logger.Debug("doMapBgToRoot() end")
@@ -372,7 +373,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 
 	var err error
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
-	rootBgImgInfo.bgPixmap, err = convertImageToXpixmap(rootBgFile)
+	rootBgImgInfo.bgPixmap, err = xcbConvertImageToXpixmap(rootBgFile)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -384,7 +385,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	}
 
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
-	rootBgImgInfo.bgBlurPixmap, err = convertImageToXpixmap(rootBgBlurFile)
+	rootBgImgInfo.bgBlurPixmap, err = xcbConvertImageToXpixmap(rootBgBlurFile)
 	if err != nil {
 		logger.Error(err)
 		return

@@ -6,6 +6,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
+	"pkg.linuxdeepin.com/lib/gio-2.0"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
 	"testing"
 	"time"
@@ -27,7 +28,20 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 // TODO comment temporary
 func TestSplash(t *testing.T) {
 	initBackground()
-	initBackgroundAfterDependsLoaded()
+
+	loadBgFile()
+	drawBackground()
+	mapBgToRoot()
+	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
+		switch key {
+		case gkeyCurrentBackground:
+			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
+			loadBgFile()
+			drawBackground()
+			mapBgToRoot()
+		}
+	})
+
 	go glib.StartLoop()
 	time.Sleep(600 * time.Second)
 }

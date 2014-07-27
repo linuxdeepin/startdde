@@ -120,28 +120,36 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 	return
 }
 
-// TODO remove
-// convert image file to XU image
-func convertToXimage(imgFile string) (ximg *xgraphics.Image, err error) {
-	img, err := loadImage(imgFile) // ~0.4s
+func convertImageToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+	pix, err = graphic.ConvertImageToXpixmap(imgFile)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	// TODO
+	// err = xcbPutXimage(xproto.Drawable(pix))
+	// if err != nil {
+	// 	return
+	// }
+	return
+}
+
+func xcbConvertImageToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+	ximg, err := xgraphics.NewFileName(XU, imgFile) // ~0.5s
 	if err != nil {
 		return
 	}
-	ximg = xgraphics.NewConvert(XU, img) // ~0.2s
 	ximg.CreatePixmap()
-	ximg.XDraw()
+	err = ximg.XDrawChecked()
+	if err != nil {
+		return
+	}
+	pix = ximg.Pixmap
 	ximg.Pix = nil
 	return
 }
 
-// TODO remove
-// func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
-// 	ximg, err := convertToXimage(imgFile)
-// 	pix = ximg.Pixmap
-// 	return
-// }
-
-func putXimage(did xproto.Drawable) (err error) {
+func xcbPutXimage(did xproto.Drawable) (err error) {
 	ximg, err := xgraphics.NewDrawable(XU, did)
 	if err != nil {
 		logger.Error(err)
@@ -151,40 +159,14 @@ func putXimage(did xproto.Drawable) (err error) {
 		ximg.Pix = nil
 	}()
 
-	ximg.XDraw()
 	// TODO
-	// err = ximg.XDrawChecked()
-	// if err != nil {
-	// logger.Error(err)
-	// return
-	// }
-	return
-}
-
-func convertImageToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
-	pix, err = graphic.ConvertImageToXpixmap(imgFile)
+	err = ximg.XDrawChecked()
 	if err != nil {
 		logger.Error(err)
 		return
 	}
-	// TODO
-	// err = putXimage(xproto.Drawable(pix))
-	// if err != nil {
-	// 	return
-	// }
 	return
 }
-
-// func convertToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
-// 	cimgFile := C.CString(imgFile)
-// 	defer C.free(unsafe.Pointer(cimgFile))
-// 	pix = xproto.Pixmap(C.render_img_to_xpixmap(cimgFile))
-// 	logger.Debug("render image to xpixmap:", pix)
-// 	if pix == 0 {
-// 		err = fmt.Errorf("render image to xpixmap failed, %s", imgFile)
-// 	}
-// 	return
-// }
 
 // load image file and return image.Image object.
 func loadImage(imgfile string) (img image.Image, err error) {
