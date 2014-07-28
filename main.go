@@ -1,13 +1,13 @@
 package main
 
 import (
-	"pkg.linuxdeepin.com/lib/glib-2.0"
-	liblogger "pkg.linuxdeepin.com/lib/logger"
-	"pkg.linuxdeepin.com/lib/proxy"
 	"flag"
+	"pkg.linuxdeepin.com/lib/glib-2.0"
+	"pkg.linuxdeepin.com/lib/log"
+	"pkg.linuxdeepin.com/lib/proxy"
 )
 
-var logger = liblogger.NewLogger("com.deepin.SessionManager")
+var logger = log.NewLogger("com.deepin.SessionManager")
 
 var debug bool = false
 

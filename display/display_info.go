@@ -39,7 +39,7 @@ func (info *DisplayInfo) QueryModes(id randr.Mode) Mode {
 	if op, ok := info.modes[id]; ok {
 		return op
 	} else {
-		Logger.Debug("can't find ", id)
+		logger.Debug("can't find ", id)
 		return Mode{}
 	}
 }
@@ -47,7 +47,7 @@ func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
 	if op, ok := info.outputNames[name]; ok {
 		return op
 	} else {
-		Logger.Debug("can't find ", name)
+		logger.Debug("can't find ", name)
 		return 0
 	}
 }
@@ -58,14 +58,14 @@ func (info *DisplayInfo) update() {
 
 	resource, err := randr.GetScreenResources(xcon, Root).Reply()
 	if err != nil {
-		Logger.Error("GetScreenResouces failed", err)
+		logger.Error("GetScreenResouces failed", err)
 		return
 	}
 	info.outputNames = make(map[string]randr.Output)
 	for _, op := range resource.Outputs {
 		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 		if err != nil {
-			Logger.Warning("DisplayInfo.update filter:", err)
+			logger.Warning("DisplayInfo.update filter:", err)
 			continue
 		}
 		if oinfo.Connection != randr.ConnectionConnected {

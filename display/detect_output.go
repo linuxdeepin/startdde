@@ -35,12 +35,12 @@ func listModes(op randr.Output) []Mode {
 
 func getMatchedSize(ops []randr.Output) (uint16, uint16) {
 	if len(ops) == 0 {
-		Logger.Error("getMatchedSize with zero length []randr.Output")
+		logger.Error("getMatchedSize with zero length []randr.Output")
 		return 0, 0
 	}
 	defer func() {
 		if err := recover(); err != nil {
-			Logger.Error(err)
+			logger.Error(err)
 		}
 	}()
 	var allMatched []Mode
@@ -71,7 +71,7 @@ func getMatchedSize(ops []randr.Output) (uint16, uint16) {
 func getMatchedSize1(ops []*Monitor) (uint16, uint16) {
 	switch len(ops) {
 	case 0:
-		Logger.Error("getMatchedSize received an ops with zero length")
+		logger.Error("getMatchedSize received an ops with zero length")
 		return 800, 600
 	case 1:
 		bestMode := ops[0].BestMode

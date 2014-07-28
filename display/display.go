@@ -6,7 +6,7 @@ import (
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.linuxdeepin.com/lib/dbus"
-	"pkg.linuxdeepin.com/lib/logger"
+	"pkg.linuxdeepin.com/lib/log"
 	"strings"
 	"sync"
 )
@@ -23,7 +23,7 @@ var (
 
 	MinWidth, MinHeight, MaxWidth, MaxHeight uint16
 
-	Logger = logger.NewLogger("com.deepin.daemon.Display")
+	logger = log.NewLogger("com.deepin.daemon.Display")
 )
 
 func initX11() bool {
@@ -36,15 +36,15 @@ func initX11() bool {
 
 	ver, err := randr.QueryVersion(xcon, 1, 3).Reply()
 	if err != nil {
-		Logger.Error("randr.QueryVersion error:", err)
+		logger.Error("randr.QueryVersion error:", err)
 		return false
 	}
 	if ver.MajorVersion != 1 || ver.MinorVersion != 3 {
-		Logger.Error("randr version is too low:", ver.MajorVersion, ver.MinorVersion, "this program require at least randr 1.3")
+		logger.Error("randr version is too low:", ver.MajorVersion, ver.MinorVersion, "this program require at least randr 1.3")
 		return false
 	}
 	if err != nil {
-		Logger.Error("randr.GetSceenSizeRange failed :", err)
+		logger.Error("randr.GetSceenSizeRange failed :", err)
 		return false
 	}
 	return true
@@ -126,7 +126,7 @@ func (dpy *Display) listener() {
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
 				if dpy.QueryCurrentPlanName() != dpy.cfg.CurrentPlanName {
-					Logger.Info("Detect New ConfigTimestmap, try reset changes")
+					logger.Info("Detect New ConfigTimestmap, try reset changes")
 					dpy.ResetChanges()
 				}
 			}
@@ -256,7 +256,7 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 		}
 		mcfg, err := CreateConfigMonitor(dpy, op)
 		if err != nil {
-			Logger.Error("Failed createconfigmonitor at split", err, name, mcfg)
+			logger.Error("Failed createconfigmonitor at split", err, name, mcfg)
 			continue
 		}
 		dpy.cfg.Monitors[dpy.QueryCurrentPlanName()][name] = mcfg
@@ -308,7 +308,7 @@ func (dpy *Display) changePrimary(name string) error {
 				name, dpy.Primary, m.Name)
 		}
 	}
-	Logger.Error("can't find any valid primary", name)
+	logger.Error("can't find any valid primary", name)
 	return fmt.Errorf("can't find any valid primary", name)
 }
 
@@ -356,7 +356,7 @@ func (dpy *Display) ResetChanges() {
 	dpy.setPropMonitors(monitors)
 
 	if err := dpy.changePrimary(dpy.cfg.Primary); err != nil {
-		Logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
+		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
 	}
 
 	//apply the saved configurations.
@@ -400,7 +400,7 @@ func Start() {
 		m.updateInfo()
 	}
 	if err != nil {
-		Logger.Error("Can't install dbus display service on session:", err)
+		logger.Error("Can't install dbus display service on session:", err)
 		return
 	}
 	dpy.workaroundBacklight()

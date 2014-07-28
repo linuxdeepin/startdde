@@ -41,14 +41,14 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	if _, ok := cfg.Monitors[cfg.CurrentPlanName]; ok {
 		return
 	}
-	Logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
+	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
 
 	//grab and build monitors information
 	monitors := make(map[string]*ConfigMonitor)
 	for _, op := range GetDisplayInfo().ListOutputs() {
 		mcfg, err := CreateConfigMonitor(dpy, op)
 		if err != nil {
-			Logger.Warning("skip invalid monitor", op)
+			logger.Warning("skip invalid monitor", op)
 			continue
 		}
 		monitors[mcfg.Name] = mcfg
@@ -100,11 +100,11 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 			op := GetDisplayInfo().QueryOutputs(opName)
 			oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 			if err != nil {
-				Logger.Error("ensureValid failed:", opName, "OP:", op, err)
+				logger.Error("ensureValid failed:", opName, "OP:", op, err)
 				continue
 			}
 			if len(oinfo.Modes) == 0 {
-				Logger.Error("ensureValid failed:", opName, "hasn't any mode info")
+				logger.Error("ensureValid failed:", opName, "hasn't any mode info")
 				continue
 			}
 
@@ -120,7 +120,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		}
 	}
 	if any == nil {
-		Logger.Error("Can't find any ConfigMonitor at ", cfg.CurrentPlanName)
+		logger.Error("Can't find any ConfigMonitor at ", cfg.CurrentPlanName)
 	}
 	//1. ensure there has a opened monitor.
 	if len(opend) == 0 {
@@ -146,7 +146,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		for _, m2 := range cfg.Monitors[cfg.CurrentPlanName] {
 			if m1 != m2 {
 				if isOverlap(m1.X, m1.Y, m1.Width, m1.Height, m2.X, m2.Y, m2.Width, m2.Height) {
-					Logger.Debugf("%s(%d,%d,%d,%d) is ovlerlap with %s(%d,%d,%d,%d)! **rearrange all monitor**\n",
+					logger.Debugf("%s(%d,%d,%d,%d) is ovlerlap with %s(%d,%d,%d,%d)! **rearrange all monitor**\n",
 						m1.Name, m1.X, m1.Y, m1.Width, m1.Height, m2.Name, m2.X, m2.Y, m2.Width, m2.Height)
 					valid = false
 					break
@@ -158,13 +158,13 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		pm := cfg.Monitors[cfg.CurrentPlanName][cfg.Primary]
 		cx, cy, pw, ph := int16(0), int16(0), pm.Width, pm.Height
 		pm.X, pm.Y = 0, 0
-		Logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", pm.Name, pm.X, pm.Y, pm.Width, pm.Height)
+		logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", pm.Name, pm.X, pm.Y, pm.Width, pm.Height)
 		for _, m := range cfg.Monitors[cfg.CurrentPlanName] {
 			if m != pm {
 				cx += int16(pw)
 				cy += int16(ph)
 				m.X, m.Y = cx, 0
-				Logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", m.Name, m.X, m.Y, m.Width, m.Height)
+				logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", m.Name, m.X, m.Y, m.Width, m.Height)
 			}
 		}
 	}
@@ -204,7 +204,7 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 
 func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
 	if c.CurrentPlanName != cfg.CurrentPlanName {
-		Logger.Error("Compare tow ConfigDisply which hasn't same CurrentPlaneName!",
+		logger.Error("Compare tow ConfigDisply which hasn't same CurrentPlaneName!",
 			c.CurrentPlanName, cfg.CurrentPlanName)
 		return false
 	}
@@ -229,13 +229,13 @@ func (c *ConfigDisplay) Save() {
 
 	bytes, err := json.Marshal(c)
 	if err != nil {
-		Logger.Error("Can't save configure:", err)
+		logger.Error("Can't save configure:", err)
 		return
 	}
 
 	f, err := os.Create(_ConfigPath)
 	if err != nil {
-		Logger.Error("Cant create configure:", err)
+		logger.Error("Cant create configure:", err)
 	}
 	defer f.Close()
 	f.Write(bytes)
@@ -321,7 +321,7 @@ func (c *ConfigMonitor) Save() {
 			return
 		}
 	}
-	Logger.Error("not reached")
+	logger.Error("not reached")
 }
 
 func (m1 *ConfigMonitor) Compare(m2 *ConfigMonitor) bool {

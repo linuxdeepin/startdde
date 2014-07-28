@@ -7,7 +7,7 @@ var __keepMediakeyManagerAlive interface{}
 func (dpy *Display) workaroundBacklight() {
 	mediaKeyManager, err := keybinding.NewMediaKey("com.deepin.daemon.KeyBinding", "/com/deepin/daemon/MediaKey")
 	if err != nil {
-		Logger.Error("Can't connect to /com/deepin/daemon/MediaKey", err)
+		logger.Error("Can't connect to /com/deepin/daemon/MediaKey", err)
 		return
 	}
 	__keepMediakeyManagerAlive = mediaKeyManager

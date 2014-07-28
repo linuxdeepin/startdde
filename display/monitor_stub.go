@@ -17,7 +17,7 @@ func (m *Monitor) GetDBusInfo() dbus.DBusInfo {
 func (m *Monitor) setPropCurrentMode(v Mode) {
 	if m.CurrentMode != v {
 		if v.Width == 0 || v.Height == 0 {
-			Logger.Error("setPropCurrentMode: invalid mode", v)
+			logger.Error("setPropCurrentMode: invalid mode", v)
 			return
 		}
 		m.CurrentMode = v
@@ -28,7 +28,7 @@ func (m *Monitor) setPropCurrentMode(v Mode) {
 func (m *Monitor) setPropBestMode(v Mode) {
 	if m.BestMode != v {
 		if v.Width == 0 || v.Height == 0 {
-			Logger.Error("setPropCurrentMode: invalid mode", v)
+			logger.Error("setPropCurrentMode: invalid mode", v)
 			return
 		}
 		m.BestMode = v

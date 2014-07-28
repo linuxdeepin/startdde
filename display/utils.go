@@ -14,9 +14,9 @@ var backlightAtom = getAtom(xcon, "Backlight")
 func runCode(code string) bool {
 	err := exec.Command("sh", "-c", code).Run()
 	if err != nil {
-		Logger.Debug("Run", code, "failed:", err)
+		logger.Debug("Run", code, "failed:", err)
 	} else {
-		Logger.Debug("RunCodeOK:", code)
+		logger.Debug("RunCodeOK:", code)
 	}
 	return true
 }
@@ -25,9 +25,9 @@ func runCodeAsync(code string) bool {
 	cmd := exec.Command("sh", "-c", code)
 	err := cmd.Start()
 	if err != nil {
-		Logger.Debug("Run", code, "failed:", err)
+		logger.Debug("Run", code, "failed:", err)
 	} else {
-		Logger.Debug("RunCodeOK:", code)
+		logger.Debug("RunCodeOK:", code)
 	}
 	go cmd.Wait()
 	return true
@@ -115,14 +115,14 @@ func parseRandR(randr uint16) (uint16, uint16) {
 	case 1, 2, 4, 8:
 		break
 	default:
-		Logger.Error("invalid rotation value", rotation, randr)
+		logger.Error("invalid rotation value", rotation, randr)
 		rotation = 1
 	}
 	switch reflect {
 	case 0, 16, 32, 48:
 		break
 	default:
-		Logger.Error("invalid reflect value", reflect, randr)
+		logger.Error("invalid reflect value", reflect, randr)
 		reflect = 0
 	}
 	return rotation, reflect
@@ -163,7 +163,7 @@ func parseReflects(rotations uint16) (ret []uint16) {
 func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 	cinfo, err := randr.GetCrtcInfo(c, crtc, 0).Reply()
 	if err != nil {
-		Logger.Error(err)
+		logger.Error(err)
 		return false
 	}
 	if cinfo.Mode == 0 {
@@ -182,20 +182,20 @@ func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 var setBacklight, getBacklight = func() (func(float64), func() float64) {
 	helper, err := backlight.NewBacklight("com.deepin.daemon.helper.Backlight", "/com/deepin/daemon/helper/Backlight")
 	if err != nil {
-		Logger.Warning("Can't create com.deepin.daemon.helper.Backlight")
+		logger.Warning("Can't create com.deepin.daemon.helper.Backlight")
 		return func(v float64) {}, func() float64 { return 1 }
 	}
 
 	return func(v float64) {
 			err := helper.SetBrightness(v)
 			if err != nil {
-				Logger.Warning("setBacklight failed:", err)
+				logger.Warning("setBacklight failed:", err)
 			}
 		},
 		func() float64 {
 			v, err := helper.GetBrightness()
 			if err != nil {
-				Logger.Warning("getBacklight failed: ", err)
+				logger.Warning("getBacklight failed: ", err)
 				return 0
 			}
 			return v
@@ -213,29 +213,29 @@ func supportedBacklight(c *xgb.Conn, output randr.Output) bool {
 
 func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
 	if v < 0.1 {
-		Logger.Warningf("setBrightness: %v is too small adjust to 0.1", v)
+		logger.Warningf("setBrightness: %v is too small adjust to 0.1", v)
 		v = 0.1
 	}
 	if v > 1 {
-		Logger.Warningf("setBrightness: %v is too big adjust to 1", v)
+		logger.Warningf("setBrightness: %v is too big adjust to 1", v)
 		v = 1
 	}
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
-		Logger.Errorf("GetOutputInfo(op=%d) failed: %v", op, err)
+		logger.Errorf("GetOutputInfo(op=%d) failed: %v", op, err)
 		return
 	}
 	if oinfo.Crtc == 0 || oinfo.Connection != randr.ConnectionConnected {
-		Logger.Warning("Try setBrightness at an unready Output ", string(oinfo.Name))
+		logger.Warning("Try setBrightness at an unready Output ", string(oinfo.Name))
 		return
 	}
 	gammaSize, err := randr.GetCrtcGammaSize(xcon, oinfo.Crtc).Reply()
 	if err != nil {
-		Logger.Warning("GetCrtcGrammSize(crtc:%d) failed: %s", oinfo.Crtc, err.Error())
+		logger.Warning("GetCrtcGrammSize(crtc:%d) failed: %s", oinfo.Crtc, err.Error())
 		return
 	}
 	if gammaSize.Size == 0 {
-		Logger.Warning("GetCrtcGrammSize == zero")
+		logger.Warning("GetCrtcGrammSize == zero")
 		return
 	}
 	red, green, blue := genGammaRamp(gammaSize.Size, v)
@@ -245,7 +245,7 @@ func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
 func queryBestMode(op randr.Output) randr.Mode {
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
-		Logger.Warning("can't find best mode for ", op, "(oinfo:", oinfo, ") (err:", err, ")")
+		logger.Warning("can't find best mode for ", op, "(oinfo:", oinfo, ") (err:", err, ")")
 		return 0
 	}
 	return oinfo.Modes[0]

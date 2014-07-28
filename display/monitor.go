@@ -107,7 +107,7 @@ func (m *Monitor) changeRotation(v uint16) error {
 		break
 	default:
 		err := fmt.Errorf("changeRotation with invalid value ", v)
-		Logger.Error(err)
+		logger.Error(err)
 		return err
 	}
 	m.setPropRotation(v)
@@ -129,7 +129,7 @@ func (m *Monitor) changeReflect(v uint16) error {
 		break
 	default:
 		err := fmt.Errorf("SetReflect with invalid value ", v)
-		Logger.Error(err)
+		logger.Error(err)
 		return err
 	}
 	m.setPropReflect(v)
@@ -259,7 +259,7 @@ func (m *Monitor) updateInfo() {
 	op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
-		Logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
+		logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
 		return
 	}
 	if oinfo.Crtc == 0 {
@@ -268,7 +268,7 @@ func (m *Monitor) updateInfo() {
 		m.changeSwitchOn(true)
 		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
 		if err != nil {
-			Logger.Warning("UpdateInfo Failed:", (m.Name), oinfo.Crtc, err)
+			logger.Warning("UpdateInfo Failed:", (m.Name), oinfo.Crtc, err)
 			return
 		}
 		rotation, reflect := parseRandR(cinfo.Rotation)
@@ -324,7 +324,7 @@ func (m *Monitor) queryModeBySize(width, height uint16) Mode {
 			return m
 		}
 	}
-	Logger.Error("queryModeBySize error:", m.Name, width, height, m.ListModes())
+	logger.Error("queryModeBySize error:", m.Name, width, height, m.ListModes())
 	return Mode{}
 }
 
@@ -345,7 +345,7 @@ func (m *Monitor) ensureSize(w, h uint16) {
 	if modeID != 0 {
 		m.changeMode(randr.Mode(modeID))
 		if delta != 0 {
-			Logger.Warningf("Can't ensureSize(%s) to %d %d", m.Name, w, h)
+			logger.Warningf("Can't ensureSize(%s) to %d %d", m.Name, w, h)
 		}
 	}
 }
