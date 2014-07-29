@@ -22,8 +22,6 @@
 package main
 
 import (
-	_ "image/jpeg"
-	_ "image/png"
 	"sync"
 	"time"
 
@@ -190,7 +188,6 @@ func loadBgFile() {
 	logger.Debug("loadBgFile() begin")
 	defer logger.Debug("loadBgFile() end")
 
-	// TODO remove defer
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("loadBgFile failed:", err)
@@ -227,17 +224,11 @@ func loadBgFile() {
 
 	// setup image filter
 	err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterBilinear.NameLen), filterBilinear.Name, nil).Check()
-	// TODO: choose a better filter
-	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterNearest.NameLen), filterNearest.Name, nil).Check()
-	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterBest.NameLen), filterBest.Name, nil).Check()
-	// TODO: test only, for convolution filter
-	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, uint16(filterConvolution.NameLen), filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
-	// err = render.SetPictureFilterChecked(XU.Conn(), bgImgInfo.pid, 1602*uint16(filterConvolution.NameLen), filterConvolution.Name, []render.Fixed{2621440, 2621440}).Check()
 	if err != nil {
 		logger.Error("set picture filter failed:", err)
 	}
 
-	runtime.GC() // TODO
+	runtime.GC()
 }
 
 func drawBackground() {

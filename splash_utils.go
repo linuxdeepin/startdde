@@ -22,9 +22,6 @@
 package main
 
 import (
-	"image"
-	_ "image/jpeg"
-	_ "image/png"
 	"os"
 	"strings"
 
@@ -54,7 +51,7 @@ func getScreenResolution() (w, h uint16) {
 	}
 	if w == 0 || h == 0 {
 		w, h = 1024, 768 // default value
-		logger.Error("get screen resolution failed, use default value: %dx%d", w, h)
+		logger.Errorf("get screen resolution failed, use default value: %dx%d", w, h)
 	}
 	return
 }
@@ -168,20 +165,6 @@ func xcbPutXimage(did xproto.Drawable) (err error) {
 	return
 }
 
-// load image file and return image.Image object.
-func loadImage(imgfile string) (img image.Image, err error) {
-	file, err := os.Open(imgfile)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-	img, _, err = image.Decode(file)
-	if err != nil {
-		logger.Error("load image failed:", err)
-	}
-	return
-}
-
 func getScaleTransform(x, y float32) render.Transform {
 	return render.Transform{
 		float32ToFixed(1 / x), 0, 0,
@@ -217,7 +200,7 @@ func getBackgroundFile() string {
 
 	// decode url path, from
 	// "file:///home/user/%E5%9B%BE%E7%89%87/Wallpapers/time%201.jpg"
-	// to "/home/fsh/图片/Wallpapers/time 1.jpg"
+	// to "/home/user/图片/Wallpapers/time 1.jpg"
 	u, err := url.Parse(uri)
 	if err != nil {
 		logger.Error(err)
