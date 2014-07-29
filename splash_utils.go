@@ -22,15 +22,12 @@
 package main
 
 import (
-	"os"
-	"strings"
-
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
-	"net/url"
 	graphic "pkg.linuxdeepin.com/lib/gdkpixbuf"
+	"pkg.linuxdeepin.com/lib/utils"
 	"time"
 )
 
@@ -197,34 +194,11 @@ func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.R
 func getBackgroundFile() string {
 	uri := bgGSettings.GetString(gkeyCurrentBackground)
 	logger.Debug("background uri:", uri)
-
-	// decode url path, from
-	// "file:///home/user/%E5%9B%BE%E7%89%87/Wallpapers/time%201.jpg"
-	// to "/home/user/图片/Wallpapers/time 1.jpg"
-	u, err := url.Parse(uri)
-	if err != nil {
-		logger.Error(err)
-		return defaultBackgroundFile
-	}
-	path := u.Path
-
-	if !isFileExists(path) {
+	path := utils.DecodeURI(uri)
+	if !utils.IsFileExist(path) {
 		logger.Warning("background file is not exist:", path)
 		logger.Warning("use default background:", defaultBackgroundFile)
 		return defaultBackgroundFile
 	}
 	return path
-}
-
-func uriToPath(uri string) string {
-	uri = strings.TrimLeft(uri, " ")
-	uri = strings.TrimPrefix(uri, "file://")
-	return uri
-}
-
-func isFileExists(file string) bool {
-	if _, err := os.Stat(file); err == nil {
-		return true
-	}
-	return false
 }
