@@ -388,7 +388,8 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 		return
 	}
 
-	runtime.GC()
+	// quickly free ximage used memory
+	dd.FreeOSMemory()
 }
 
 func resizeBgWindow(w, h int) {
@@ -411,7 +412,6 @@ func listenBgFileChanged() {
 			loadBgFile()
 			drawBg()
 			mapBgToRoot()
-			dd.FreeOSMemory()
 		}
 	})
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"pkg.linuxdeepin.com/lib/dbus"
-	dd "runtime/debug"
 	"time"
 )
 
@@ -192,9 +191,6 @@ func startSession() {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
-
-	//quickly free splash used memory
-	dd.FreeOSMemory()
 }
 
 func (m *SessionManager) ShowGuideOnce() bool {

@@ -115,16 +115,15 @@ func getDisplayPrimaryRect() (value []interface{}, ok bool) {
 }
 
 func convertImageToXpixmap(imgFile string) (pix xproto.Pixmap, err error) {
+	// use gdkpixbuf to convert image file to xpixmap, it more faster
+	// but an issue that static XImage objects used by gdkpixbuf will
+	// not be freed for that they act as a memory cache pool, so both
+	// current process and x server all will take memory.
 	pix, err = graphic.ConvertImageToXpixmap(imgFile)
 	if err != nil {
 		logger.Error(err)
 		return
 	}
-	// TODO
-	// err = xcbPutXimage(xproto.Drawable(pix))
-	// if err != nil {
-	// 	return
-	// }
 	return
 }
 
