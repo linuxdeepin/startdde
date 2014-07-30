@@ -6,8 +6,9 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
-	"pkg.linuxdeepin.com/lib/gio-2.0"
+	// "pkg.linuxdeepin.com/lib/gio-2.0"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
+	dd "runtime/debug"
 	"testing"
 	"time"
 )
@@ -27,20 +28,23 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 
 // TODO comment temporary
 func TestSplash(t *testing.T) {
-	initBackground()
+	initSplash()
+	initSplashAfterDependsLoaded()
 
-	loadBgFile()
-	drawBackground()
-	mapBgToRoot()
-	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
-		switch key {
-		case gkeyCurrentBackground:
-			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
-			loadBgFile()
-			drawBackground()
-			mapBgToRoot()
-		}
-	})
+	// loadBgFile()
+	// drawBg()
+	// mapBgToRoot()
+	// bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
+	// 	switch key {
+	// 	case gkeyCurrentBackground:
+	// 		logger.Info("background value in gsettings changed:", key, getBackgroundFile())
+	// 		loadBgFile()
+	// 		drawBg()
+	// 		mapBgToRoot()
+	// 	}
+	// })
+
+	dd.FreeOSMemory()
 
 	go glib.StartLoop()
 	time.Sleep(600 * time.Second)
@@ -49,10 +53,9 @@ func TestSplash(t *testing.T) {
 // TODO comment temporary
 // func TestReadRootPixmap(t *testing.T) {
 // 	if drawWindowThroughRootPixmap() {
-// 		select {}
+// 		time.Sleep(30 * time.Second)
 // 	}
 // }
-
 func drawWindowThroughRootPixmap() bool {
 	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(ddeBgPixmapBlurProp))
 	if err != nil {
@@ -62,20 +65,9 @@ func drawWindowThroughRootPixmap() bool {
 	ximg.XShow()
 	return true
 }
-
 func getRootPixmap(prop string) (d xproto.Drawable) {
 	reply, _ := xprop.GetProperty(XU, XU.RootWin(), ddeBgPixmapBlurProp)
 	d = xproto.Drawable(xgb.Get32(reply.Value))
 	fmt.Println("pixmap id:", d)
 	return
 }
-
-// func TestRenderImgToPixmap(t *testing.T) {
-// 	initGdkXlib()
-// 	pix, err := convertToXpixmap(defaultBackgroundFile)
-// 	logger.Info("render image to xpixmap 1:", pix, err)
-// 	pix, err = convertToXpixmap(defaultBackgroundFile)
-// 	logger.Info("render image to xpixmap 2:", pix, err)
-// 	pix, err = convertToXpixmap(defaultBackgroundFile)
-// 	logger.Info("render image to xpixmap 3:", pix, err)
-// }

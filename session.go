@@ -163,10 +163,10 @@ func startSession() {
 
 	manager.setPropStage(SessionStageInitBegin)
 
-	initBackground()
+	initSplash()
 	manager.launch("/usr/bin/gtk-window-decorator", false)
 	manager.launch("/usr/bin/compiz", false)
-	initBackgroundAfterDependsLoaded()
+	initSplashAfterDependsLoaded()
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)

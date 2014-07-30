@@ -153,7 +153,6 @@ func xcbPutXimage(did xproto.Drawable) (err error) {
 		ximg.Pix = nil
 	}()
 
-	// TODO
 	err = ximg.XDrawChecked()
 	if err != nil {
 		logger.Error(err)

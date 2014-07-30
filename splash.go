@@ -36,6 +36,7 @@ import (
 	graphic "pkg.linuxdeepin.com/lib/gdkpixbuf"
 	"pkg.linuxdeepin.com/lib/gio-2.0"
 	"runtime"
+	dd "runtime/debug"
 )
 
 const (
@@ -90,7 +91,7 @@ var rootBgImgInfo = struct {
 	lock         sync.Mutex
 }{}
 
-func initBackground() {
+func initSplash() {
 	graphic.InitGdkXlib()
 	randr.Init(XU.Conn())
 	randr.QueryVersion(XU.Conn(), 1, 4)
@@ -111,16 +112,16 @@ func initBackground() {
 	}
 }
 
-func initBackgroundAfterDependsLoaded() {
+func initSplashAfterDependsLoaded() {
 	loadBgFile()
 
 	// background will be draw after receiving window expose
 	// event, but here we update it again after a few time to
 	// solve draw fails problem when compiz not ready
-	drawBackground()
+	drawBg()
 	go func() {
 		time.Sleep(time.Second * 5)
-		drawBackground()
+		drawBg()
 	}()
 
 	mapBgToRoot()
@@ -231,13 +232,13 @@ func loadBgFile() {
 	runtime.GC()
 }
 
-func drawBackground() {
-	logger.Info("drawBackground() begin")
-	defer logger.Info("drawBackground() end")
+func drawBg() {
+	logger.Info("drawBg() begin")
+	defer logger.Info("drawBg() end")
 
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error("drawBackground failed", err)
+			logger.Error("drawBg failed", err)
 		}
 	}()
 
@@ -364,7 +365,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 
 	var err error
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
-	rootBgImgInfo.bgPixmap, err = convertImageToXpixmap(rootBgFile)
+	rootBgImgInfo.bgPixmap, err = xcbConvertImageToXpixmap(rootBgFile)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -376,7 +377,7 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	}
 
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
-	rootBgImgInfo.bgBlurPixmap, err = convertImageToXpixmap(rootBgBlurFile)
+	rootBgImgInfo.bgBlurPixmap, err = xcbConvertImageToXpixmap(rootBgBlurFile)
 	if err != nil {
 		logger.Error(err)
 		return
@@ -399,7 +400,7 @@ func resizeBgWindow(w, h int) {
 	bgWinInfo.win.MoveResize(0, 0, w, h)
 	geom, _ = bgWinInfo.win.Geometry()
 	logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
-	drawBackground()
+	drawBg()
 }
 
 func listenBgFileChanged() {
@@ -408,8 +409,9 @@ func listenBgFileChanged() {
 		case gkeyCurrentBackground:
 			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
 			loadBgFile()
-			drawBackground()
+			drawBg()
 			mapBgToRoot()
+			dd.FreeOSMemory()
 		}
 	})
 }
@@ -425,7 +427,7 @@ func listenDisplayChanged() {
 		switch e := event.(type) {
 		case xproto.ExposeEvent:
 			logger.Debug("expose event", e)
-			drawBackground()
+			drawBg()
 		case randr.ScreenChangeNotifyEvent:
 			logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
