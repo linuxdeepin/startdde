@@ -162,21 +162,21 @@ func xcbPutXimage(did xproto.Drawable) (err error) {
 	return
 }
 
-func getScaleTransform(x, y float32) render.Transform {
+func renderGetScaleTransform(x, y float32) render.Transform {
 	return render.Transform{
-		float32ToFixed(1 / x), 0, 0,
-		0, float32ToFixed(1 / y), 0,
-		0, 0, float32ToFixed(1),
+		renderFloat32ToFixed(1 / x), 0, 0,
+		0, renderFloat32ToFixed(1 / y), 0,
+		0, 0, renderFloat32ToFixed(1),
 	}
 }
 
 // convert float32 value to matrix fixed value
-func float32ToFixed(f float32) render.Fixed {
+func renderFloat32ToFixed(f float32) render.Fixed {
 	return render.Fixed(f * 65536)
 }
 
 // convert matrix fixed value to float32
-func fixedToFloat32(f render.Fixed) float32 {
+func renderFixedToFloat32(f render.Fixed) float32 {
 	return float32(f) / 65536
 }
 

@@ -289,7 +289,7 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	rect.Y = int16(float32(rect.Y) * sy)
 	rect.Width = uint16(float32(rect.Width) * sx)
 	rect.Height = uint16(float32(rect.Height) * sx)
-	t := getScaleTransform(sx, sy)
+	t := renderGetScaleTransform(sx, sy)
 	logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
@@ -306,7 +306,7 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	}
 
 	// restore source image
-	t = getScaleTransform(1/sx, 1/sy)
+	t = renderGetScaleTransform(1/sx, 1/sy)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		logger.Error(err)
