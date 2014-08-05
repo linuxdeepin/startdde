@@ -15,12 +15,8 @@ type SessionManager struct {
 }
 
 const (
-	_LOCK_EXEC        = "/usr/bin/dde-lock"
-	_SHUTDOWN_CMD     = "/usr/bin/dde-shutdown"
-	_REBOOT_ARG       = "--reboot"
-	_LOGOUT_ARG       = "--logout"
-	_SHUTDOWN_ARG     = "--shutdown"
-	_POWER_CHOOSE_ARG = "--choice"
+	_LOCK_EXEC    = "/usr/bin/dde-lock"
+	_SHUTDOWN_CMD = "/usr/bin/dde-shutdown"
 )
 
 const (
@@ -41,7 +37,7 @@ func (m *SessionManager) CanLogout() bool {
 }
 
 func (m *SessionManager) Logout() {
-	execCommand(_SHUTDOWN_CMD, _LOGOUT_ARG)
+	execCommand(_SHUTDOWN_CMD, "")
 }
 
 func (m *SessionManager) RequestLogout() {
@@ -62,7 +58,7 @@ func (shudown *SessionManager) CanShutdown() bool {
 }
 
 func (m *SessionManager) Shutdown() {
-	execCommand(_SHUTDOWN_CMD, _SHUTDOWN_ARG)
+	execCommand(_SHUTDOWN_CMD, "")
 }
 
 func (m *SessionManager) RequestShutdown() {
@@ -83,7 +79,7 @@ func (shudown *SessionManager) CanReboot() bool {
 }
 
 func (m *SessionManager) Reboot() {
-	execCommand(_SHUTDOWN_CMD, _REBOOT_ARG)
+	execCommand(_SHUTDOWN_CMD, "")
 }
 
 func (m *SessionManager) RequestReboot() {
@@ -123,7 +119,7 @@ func (m *SessionManager) RequestLock() {
 }
 
 func (m *SessionManager) PowerOffChoose() {
-	execCommand(_SHUTDOWN_CMD, _POWER_CHOOSE_ARG)
+	execCommand(_SHUTDOWN_CMD, "")
 }
 
 func initSession() {
