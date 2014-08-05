@@ -1,0 +1,12 @@
+#! /bin/sh
+set -e
+
+#DEBHELPER#
+
+case "$1" in
+    remove|deconfigure|failed-upgrade)
+	update-alternatives --remove x-session-mananger \
+	    /usr/bin/startdde
+	;;
+esac
+
