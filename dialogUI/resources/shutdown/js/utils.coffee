@@ -25,10 +25,7 @@ option = ["shutdown","restart","lock","suspend","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
 message_text = {}
 
-restack_interval = setInterval(=>
-    echo "restack:#{restack_interval}"
-    DCore.Shutdown.restack()
-,200)
+restack_interval = null
 
 destory_all = ->
     clearInterval(restack_interval)
