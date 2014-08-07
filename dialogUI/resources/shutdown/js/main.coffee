@@ -24,9 +24,8 @@ powerchoose.frame_build()
 document.body.appendChild(powerchoose.element)
 
 restack_interval = setInterval(=>
-    echo "restack:#{restack_interval}"
     DCore.Shutdown.restack()
-,200)
+,50)
 
 document.body.addEventListener("keydown",(e)->
     if powerchoose then powerchoose.keydown(e.which)
