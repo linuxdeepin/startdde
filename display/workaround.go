@@ -38,14 +38,4 @@ func (dpy *Display) workaroundBacklight() {
 			}
 		}
 	})
-
-	mediaKeyManager.ConnectSwitchMonitors(func(onPress bool) {
-		if !onPress {
-			if int(dpy.DisplayMode) >= len(dpy.Monitors) {
-				dpy.SwitchMode(DisplayModeMirrors)
-			} else {
-				dpy.SwitchMode(dpy.DisplayMode + 1)
-			}
-		}
-	})
 }
