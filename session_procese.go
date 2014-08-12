@@ -7,6 +7,8 @@ import "os"
 import "os/exec"
 import "time"
 
+var launchTimeout = 30 * time.Second
+
 func genUuid() string {
 	uuid := make([]byte, 16)
 	n, err := io.ReadFull(rand.Reader, uuid)
@@ -41,7 +43,7 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 		delete(m.cookies, id)
 		logger.Info(bin, "StartDuration:", endStamp.Sub(startStamp))
 		return true
-	case endStamp := <-time.After(time.Second * 10):
+	case endStamp := <-time.After(launchTimeout):
 		logger.Info(bin, "timeout:", endStamp.Sub(startStamp))
 		return false
 	}
