@@ -27,9 +27,10 @@ func (dpy *Display) SwitchMode(mode int16) {
 	} else {
 		func() {
 			dpy.lockMonitors()
-			if mode >= DisplayModeOnlyOne && int(mode) <= len(dpy.Monitors) {
-				dpy.unlockMonitors()
+			validValue := mode >= DisplayModeOnlyOne && int(mode) <= len(dpy.Monitors)
+			dpy.unlockMonitors()
 
+			if validValue {
 				for _, m := range dpy.Monitors {
 					dpy.SplitMonitor(m.Name)
 				}
