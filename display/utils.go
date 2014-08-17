@@ -198,7 +198,7 @@ var setBacklight, getBacklight = func() (func(float64), func() float64) {
 			v, err := helper.GetBrightness()
 			if err != nil {
 				logger.Warning("getBacklight failed: ", err)
-				return 0
+				return 1
 			}
 			return v
 		}
