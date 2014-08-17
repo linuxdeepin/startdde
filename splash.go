@@ -123,11 +123,7 @@ func initSplashAfterDependsLoaded() {
 		time.Sleep(time.Second * 5)
 		drawBg()
 	}()
-
 	mapBgToRoot()
-	Display.PrimaryRect.ConnectChanged(func() {
-		mapBgToRoot()
-	})
 
 	listenBgFileChanged()
 	go listenDisplayChanged()
@@ -182,13 +178,11 @@ func createBgWindow(title string) *xwindow.Window {
 	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 
 	win.Map()
+	logger.Info("background window id:", win.Id)
 	return win
 }
 
 func loadBgFile() {
-	logger.Debug("loadBgFile() begin")
-	defer logger.Debug("loadBgFile() end")
-
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("loadBgFile failed:", err)
@@ -233,9 +227,6 @@ func loadBgFile() {
 }
 
 func drawBg() {
-	logger.Info("drawBg() begin")
-	defer logger.Info("drawBg() end")
-
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("drawBg failed", err)
@@ -267,13 +258,13 @@ func drawBg() {
 }
 
 func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height uint16) {
+	logger.Infof("doDrawBgByRender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
+
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("doDrawBgByRender() failed:", err)
 		}
 	}()
-
-	logger.Debugf("draw background through xrender: x=%d, y=%d, width=%d, height=%d", x, y, width, height)
 
 	// get clip rectangle
 	rect, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
@@ -281,7 +272,7 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 		logger.Error(err)
 		return
 	}
-	logger.Debug("drawBgByRender, clip rect", rect)
+	logger.Debug("doDrawBgByRender: clip rect", rect)
 
 	// scale source image and clip rectangle
 	sx := float32(width) / float32(rect.Width)
@@ -291,7 +282,7 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	rect.Width = uint16(float32(rect.Width) * sx)
 	rect.Height = uint16(float32(rect.Height) * sx)
 	t := renderGetScaleTransform(sx, sy)
-	logger.Debugf("scale transform: sx=%f, sy=%f, %x", sx, sy, t)
+	logger.Debugf("doDrawBgByRender: scale transform, sx=%f, sy=%f, %x", sx, sy, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		logger.Error(err)
@@ -316,9 +307,6 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 }
 
 func mapBgToRoot() {
-	logger.Info("mapBgToRoot() begin")
-	defer logger.Info("mapBgToRoot() end")
-
 	defer func() {
 		if err := recover(); err != nil {
 			// error occurred if background file is busy for that user
@@ -336,7 +324,7 @@ func mapBgToRoot() {
 		logger.Error(err)
 		return
 	}
-	logger.Debug("mapBgToRoot() generate rootBgFile end")
+	logger.Debug("mapBgToRoot() generate rootBgFile success")
 
 	// generate temporary blurred background file
 	rootBgBlurFile, _, err := graphic.BlurImageCache(rootBgFile, 50, 1, graphic.FormatPng)
@@ -344,16 +332,13 @@ func mapBgToRoot() {
 		logger.Error(err)
 		return
 	}
-	logger.Debug("mapBgToRoot() generate rootBgBlurFile end")
+	logger.Debug("mapBgToRoot() generate rootBgBlurFile success")
 
 	// set root window properties
 	doMapBgToRoot(rootBgFile, rootBgBlurFile)
 }
 
 func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
-	logger.Debug("doMapBgToRoot() begin")
-	defer logger.Debug("doMapBgToRoot() end")
-
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error(err)
@@ -393,22 +378,15 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 }
 
 func resizeBgWindow(w, h int) {
-	geom, _ := bgWinInfo.win.Geometry()
-	if geom.Width() == w && geom.Height() == h {
-		return
-	}
-	logger.Debugf("background window before resizing, %dx%d", geom.Width(), geom.Height())
+	logger.Debugf("background resizing: %dx%d", w, h)
 	bgWinInfo.win.MoveResize(0, 0, w, h)
-	geom, _ = bgWinInfo.win.Geometry()
-	logger.Debugf("background window after resizing, %dx%d", geom.Width(), geom.Height())
-	drawBg()
 }
 
 func listenBgFileChanged() {
 	bgGSettings.Connect("changed", func(s *gio.Settings, key string) {
 		switch key {
 		case gkeyCurrentBackground:
-			logger.Info("background value in gsettings changed:", key, getBackgroundFile())
+			logger.Info("background changed:", key, getBackgroundFile())
 			loadBgFile()
 			drawBg()
 			mapBgToRoot()
@@ -417,6 +395,11 @@ func listenBgFileChanged() {
 }
 
 func listenDisplayChanged() {
+	Display.PrimaryRect.ConnectChanged(func() {
+		logger.Info("Display.PrimaryRect changed:", Display.PrimaryRect.Get())
+		mapBgToRoot()
+	})
+
 	bgWinInfo.win.Listen(xproto.EventMaskExposure)
 	randr.SelectInput(XU.Conn(), XU.RootWin(), randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 	for {
@@ -426,10 +409,14 @@ func listenDisplayChanged() {
 		}
 		switch e := event.(type) {
 		case xproto.ExposeEvent:
-			logger.Debug("expose event", e)
-			drawBg()
+			logger.Info("expose event:", e)
+			if e.Count == 0 {
+				// if count is zero, no more Expose events for this
+				// window follow, so we draw background in this case
+				drawBg()
+			}
 		case randr.ScreenChangeNotifyEvent:
-			logger.Debugf("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
+			logger.Infof("ScreenChangeNotifyEvent: %dx%d", e.Width, e.Height)
 
 			// skip invalid event for window manager issue
 			if e.Width < 640 && e.Height < 480 {
@@ -440,6 +427,14 @@ func listenDisplayChanged() {
 				e.Width, e.Height = e.Height, e.Width
 			}
 			resizeBgWindow(int(e.Width), int(e.Height))
+
+			// send expose event to self manually to fix the first
+			// monitor's background drawing issue if exists multiple
+			// monitors.
+			event := xproto.ExposeEvent{
+				Window: bgWinInfo.win.Id,
+			}
+			xproto.SendEvent(XU.Conn(), false, bgWinInfo.win.Id, xproto.EventMaskExposure, string(event.Bytes()))
 		}
 	}
 }

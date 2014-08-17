@@ -8,7 +8,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xprop"
 	// "pkg.linuxdeepin.com/lib/gio-2.0"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
-	dd "runtime/debug"
+	// dd "runtime/debug"
 	"testing"
 	"time"
 )
@@ -26,7 +26,6 @@ func TestGetPrimaryScreenResolution(t *testing.T) {
 	}
 }
 
-// TODO comment temporary
 func TestSplash(t *testing.T) {
 	initSplash()
 	initSplashAfterDependsLoaded()
@@ -44,18 +43,17 @@ func TestSplash(t *testing.T) {
 	// 	}
 	// })
 
-	dd.FreeOSMemory()
+	// dd.FreeOSMemory()
 
 	go glib.StartLoop()
 	time.Sleep(600 * time.Second)
 }
 
-// TODO comment temporary
-// func TestReadRootPixmap(t *testing.T) {
-// 	if drawWindowThroughRootPixmap() {
-// 		time.Sleep(30 * time.Second)
-// 	}
-// }
+func ManualTestReadRootPixmap(t *testing.T) {
+	if drawWindowThroughRootPixmap() {
+		time.Sleep(30 * time.Second)
+	}
+}
 func drawWindowThroughRootPixmap() bool {
 	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(ddeBgPixmapBlurProp))
 	if err != nil {
