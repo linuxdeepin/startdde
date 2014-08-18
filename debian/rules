@@ -13,7 +13,7 @@
 	dh $@ 
 
 override_dh_auto_build:
-	GOPATH=/usr/share/gocode go build && mv startdde-* startdde
+	GOPATH=/usr/share/gocode go build
 	echo "Start Building dialogUI" 
 	cd dialogUI && mkdir build
 	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr
