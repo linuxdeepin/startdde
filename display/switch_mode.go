@@ -2,18 +2,17 @@ package display
 
 const (
 	DisplayModeUnknow  = -100
-	DisplayModeMirrors = -1
 	DisplayModeCustom  = 0
-	DisplayModeOnlyOne = 1
+	DisplayModeMirrors = 1
+	DisplayModeExtend  = 2
+	DisplayModeOnlyOne = 3
 )
 
-func (dpy *Display) SwitchMode(mode int16) {
-	if dpy.DisplayMode == mode {
-		return
-	}
+func (dpy *Display) SwitchMode(mode int16, outputName string) {
 	dpy.setPropDisplayMode(mode)
 
-	if mode == DisplayModeMirrors {
+	switch mode {
+	case DisplayModeMirrors:
 		n := len(dpy.Monitors)
 		if n <= 1 {
 			return
@@ -22,21 +21,32 @@ func (dpy *Display) SwitchMode(mode int16) {
 			dpy.JoinMonitor(dpy.Monitors[n-1].Name, dpy.Monitors[n-2].Name)
 		}
 		dpy.apply(false)
-	} else if mode == DisplayModeCustom {
-		dpy.ResetChanges()
-	} else {
+	case DisplayModeExtend:
+		curX := int16(0)
+		for _, m := range dpy.Monitors {
+			dpy.SplitMonitor(m.Name)
+		}
+		for _, m := range dpy.Monitors {
+			m.SwitchOn(true)
+			m.SetPos(curX, 0)
+			m.SetMode(m.BestMode.ID)
+			curX += int16(m.BestMode.Width)
+		}
+		dpy.apply(true)
+	case DisplayModeOnlyOne:
 		func() {
 			dpy.lockMonitors()
-			validValue := mode >= DisplayModeOnlyOne && int(mode) <= len(dpy.Monitors)
+			outputNameValid := GetDisplayInfo().QueryOutputs(outputName) != 0
+			//validValue := mode >= DisplayModeOnlyOne && int(mode) <= len(dpy.Monitors)
 			dpy.unlockMonitors()
 
-			if validValue {
+			if outputNameValid {
 				for _, m := range dpy.Monitors {
 					dpy.SplitMonitor(m.Name)
 				}
 
-				for i, m := range dpy.Monitors {
-					if i+1 == int(mode) {
+				for _, m := range dpy.Monitors {
+					if m.Name == outputName {
 						m.SetPos(0, 0)
 						m.SetMode(m.BestMode.ID)
 						//m.changeSwitchOn(true)
@@ -44,8 +54,8 @@ func (dpy *Display) SwitchMode(mode int16) {
 						dpy.changePrimary(m.Name)
 					}
 				}
-				for i, m := range dpy.Monitors {
-					if i+1 != int(mode) {
+				for _, m := range dpy.Monitors {
+					if m.Name != outputName {
 						//m.changeSwitchOn(false)
 						m.SwitchOn(false)
 					}
@@ -53,5 +63,7 @@ func (dpy *Display) SwitchMode(mode int16) {
 				dpy.apply(false)
 			}
 		}()
+	case DisplayModeCustom:
+		dpy.ResetChanges()
 	}
 }
