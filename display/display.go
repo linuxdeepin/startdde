@@ -100,6 +100,16 @@ func (dpy *Display) rUnlockMonitors() {
 	dpy.monitorLock.RUnlock()
 }
 
+//plugging out an output wouldn't always rearrange screen allocation.
+func (dpy *Display) fixOutputNotClosed(op randr.Output) {
+	for _, present := range GetDisplayInfo().ListOutputs() {
+		if op == present {
+			return
+		}
+	}
+	runCode("xrandr --auto")
+}
+
 func (dpy *Display) listener() {
 	for {
 		e, err := xcon.WaitForEvent()
@@ -114,6 +124,9 @@ func (dpy *Display) listener() {
 				info := ee.U.Oc
 				if info.Connection != randr.ConnectionConnected && info.Mode != 0 {
 					randr.SetCrtcConfig(xcon, info.Crtc, xproto.TimeCurrentTime, LastConfigTimeStamp, 0, 0, 0, randr.RotationRotate0, nil)
+				}
+				if info.Mode == 0 || info.Crtc == 0 {
+					dpy.fixOutputNotClosed(info.Output)
 				}
 			case randr.NotifyOutputProperty:
 			}
@@ -324,6 +337,7 @@ func (dpy *Display) SetPrimary(name string) error {
 func (dpy *Display) Apply() {
 	dpy.apply(false)
 }
+
 func (dpy *Display) apply(auto bool) {
 	dpy.rLockMonitors()
 	defer dpy.rUnlockMonitors()
@@ -392,16 +406,16 @@ func (dpy *Display) Reset() {
 func Start() {
 	dpy := GetDisplay()
 	err := dbus.InstallOnSession(dpy)
+	if err != nil {
+		logger.Error("Can't install dbus display service on session:", err)
+		return
+	}
 	dpy.ResetChanges()
 
 	go dpy.listener()
 
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
-	}
-	if err != nil {
-		logger.Error("Can't install dbus display service on session:", err)
-		return
 	}
 	dpy.workaroundBacklight()
 }
