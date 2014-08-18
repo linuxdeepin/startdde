@@ -13,10 +13,13 @@
 	dh $@ 
 
 override_dh_auto_build:
-	GOPATH=/usr/share/gocode go build
+	GOPATH=/usr/share/gocode go build -o startdde
 	echo "Start Building dialogUI" 
 	cd dialogUI && mkdir build
 	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+
+override_dh_auto_clean:
+	rm -rf dialogUI/build
 
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/startdde
