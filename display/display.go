@@ -168,11 +168,11 @@ func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
 	dpy.saveTouchScreen(output, touchscreen)
 }
 
-//brightness value range is 0.1~1.
+//The range of brightness value is 0.1~1.
 //Generally speaking user can use media key to change brightness when the output
-//support backlight, but we can't rely on this assumption.
-//If xrandr/acpi driver working, the value of zero is safety. But if the driver
-//doesn't work well and ChangeBrightness has received an zero value then the system
+//supports backlight, but we can't rely on this assumption.
+//If xrandr/acpi driver works, the value of zero is safety. But if the driver
+//doesn't work well, ChangeBrightness has received a zero value and then the system
 //will enter an unusable situation.
 func (dpy *Display) ChangeBrightness(output string, v float64) error {
 	if !(v >= 0.1 && v <= 1) {
