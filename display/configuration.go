@@ -170,6 +170,22 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 	}
 }
 
+func validBrightnessValue(v float64) bool {
+	if v >= 0.1 && v <= 1 {
+		return true
+	}
+	return false
+}
+
+func validConfig(r *ConfigDisplay) bool {
+	for _, v := range r.Brightness {
+		if !validBrightnessValue(v) {
+			return false
+		}
+	}
+	return true
+}
+
 func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 	configLock.RLock()
 	defer configLock.RUnlock()
@@ -194,6 +210,10 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 				MapToTouchScreen: make(map[string]string),
 			}
 			if err = json.Unmarshal(data, &cfg); err != nil {
+				return nil
+			}
+			if !validConfig(cfg) {
+				logger.Warning("the deepin_monitors.json is invalid.")
 				return nil
 			}
 			return cfg

@@ -175,7 +175,7 @@ func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
 //doesn't work well, ChangeBrightness has received a zero value and then the system
 //will enter an unusable situation.
 func (dpy *Display) ChangeBrightness(output string, v float64) error {
-	if !(v >= 0.1 && v <= 1) {
+	if !validBrightnessValue(v) {
 		//NOTO: don't use "if v < 0.1 || v > 1",  because there has some guy called NaN.
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
@@ -198,7 +198,6 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 func (dpy *Display) ResetBrightness(output string) {
 	if v, ok := LoadConfigDisplay(dpy).Brightness[output]; ok {
 		dpy.SetBrightness(output, v)
-
 	}
 }
 func (dpy *Display) SetBrightness(output string, v float64) error {
@@ -388,6 +387,14 @@ func (dpy *Display) ResetChanges() {
 	for name, v := range dpy.cfg.Brightness {
 		dpy.ChangeBrightness(name, v)
 	}
+	//dpy.cfg.Brightness may doesn't contain all output, so we must
+	//reset this output's brightness to 1
+	for _, mcfg := range dpy.cfg.Monitors[dpy.cfg.CurrentPlanName] {
+		if _, ok := dpy.cfg.Brightness[mcfg.Name]; !ok {
+			dpy.ChangeBrightness(mcfg.Name, 1)
+		}
+	}
+
 	dpy.detectChanged()
 }
 
