@@ -132,6 +132,32 @@ const char* shutdown_get_username()
     return username;
 }
 
+PRIVATE
+void spawn_command_sync (const char* command,gboolean sync)
+{
+    GError *error = NULL;
+    const gchar *cmd = g_strdup_printf ("%s",command);
+    if(sync){
+        g_message ("g_spawn_command_line_sync:%s",cmd);
+        g_spawn_command_line_sync (cmd, NULL, NULL, NULL, &error);
+    }else{
+        g_message ("g_spawn_command_line_async:%s",cmd);
+        g_spawn_command_line_async (cmd, &error);
+    }
+    if (error != NULL) {
+        g_warning ("%s failed:%s\n",cmd, error->message);
+        g_error_free (error);
+        error = NULL;
+    }
+}
+
+JS_EXPORT_API
+void shutdown_switch_to_greeter(){
+    char* cmd = g_strdup_printf("/usr/bin/dde-switchtogreeter");
+    spawn_command_sync(cmd,FALSE);
+    g_free(cmd);
+}
+
 int main (int argc, char **argv)
 {
     if (argc == 2 && 0 == g_strcmp0(argv[1], "-d")){
@@ -152,7 +178,7 @@ int main (int argc, char **argv)
     g_log_set_default_handler((GLogFunc)log_to_file, "dde-shutdown");
 
     container = create_web_container (FALSE, TRUE);
-    
+
     GtkWidget *webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
     monitors_adaptive(container,webview);

@@ -1,47 +1,50 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
-# 
+#
 # Translators:
 # Maxximo88 <real.massimo@hotmail.it>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 17:31+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
-"Language-Team: Italian (http://www.transifex.com/projects/p/startdde-dialog/language/it/)\n"
+"Language-Team: Italian (http://www.transifex.com/projects/p/startdde-dialog/"
+"language/it/)\n"
+"Language: it\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: it\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "Sicuro di volerlo fare?"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Lock"
-msgstr "Blocca"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Logout"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Restart"
-msgstr "Riavvia"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "Spegni"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Restart"
+msgstr "Riavvia"
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Sospendi"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "Il sistema è in aggiornamento, per cortesia non spegnere.."
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Blocca"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Log out"
+msgstr "Logout"
+
+#~ msgid "Are you sure to do it?"
+#~ msgstr "Sicuro di volerlo fare?"
+
+#~ msgid "Your system is updating.please donnot poweroff..."
+#~ msgstr "Il sistema è in aggiornamento, per cortesia non spegnere.."

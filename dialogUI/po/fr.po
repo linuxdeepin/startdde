@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 17:36+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
 "Language-Team: French (http://www.transifex.com/projects/p/startdde-dialog/"
@@ -19,30 +19,33 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "Êtes vous sûr de vouloir faire cela ?"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Lock"
-msgstr "Verrouiller"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Déconnexion"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Restart"
-msgstr "Redémarrer"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "Éteindre"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Restart"
+msgstr "Redémarrer"
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Mettre en veille"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "Votre système se met à jour. Veuillez ne pas éteindre l'ordinateur..."
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Verrouiller"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Log out"
+msgstr "Déconnexion"
+
+#~ msgid "Are you sure to do it?"
+#~ msgstr "Êtes vous sûr de vouloir faire cela ?"
+
+#~ msgid "Your system is updating.please donnot poweroff..."
+#~ msgstr ""
+#~ "Votre système se met à jour. Veuillez ne pas éteindre l'ordinateur..."

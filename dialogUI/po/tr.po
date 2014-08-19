@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 17:36+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
 "Language-Team: Turkish (http://www.transifex.com/projects/p/startdde-dialog/"
@@ -19,30 +19,32 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "Bunu yapmak istediğinize emin misiniz?"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Lock"
-msgstr "Kilitle"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Çıkış yap"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Restart"
-msgstr "Tekrar başlat"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "Kapat"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Restart"
+msgstr "Tekrar başlat"
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Askıya al"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "Sisteminiz güncelleniyor. lütfen kapatmayın..."
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Kilitle"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Log out"
+msgstr "Çıkış yap"
+
+#~ msgid "Are you sure to do it?"
+#~ msgstr "Bunu yapmak istediğinize emin misiniz?"
+
+#~ msgid "Your system is updating.please donnot poweroff..."
+#~ msgstr "Sisteminiz güncelleniyor. lütfen kapatmayın..."

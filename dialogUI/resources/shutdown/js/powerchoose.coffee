@@ -147,11 +147,12 @@ class PowerChoose extends Widget
 
     confirm_ok : (power)->
         echo "--------------confirm_ok(#{power})-------------"
+        destory_all()
         switch power
-            when "lock" then destory_all()
-            when "suspend" then destory_all()
-        @powercls.power_force_session(power)
-        clearInterval(restack_interval)
+            when "user_switch"
+                DCore.Shutdown.switch_to_greeter()
+            else
+                @powercls.power_force_session(power)
 
     hover_state:(i,enable = true)->
         #choose_num = i

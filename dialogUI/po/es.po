@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-22 17:40+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
 "Language-Team: Spanish (http://www.transifex.com/projects/p/startdde-dialog/"
@@ -31,14 +31,17 @@ msgid "Restart"
 msgstr "Reiniciar"
 
 #: ../resources/shutdown/js/utils.coffee:25
-msgid "Lock"
-msgstr "Bloquear"
-
-#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Suspender"
 
 #: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Bloquear"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "Cerrar sesión"
-

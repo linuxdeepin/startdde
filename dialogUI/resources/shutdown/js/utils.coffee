@@ -21,8 +21,8 @@
 APP_NAME = "Shutdown"
 DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
 
-option = ["shutdown","restart","lock","suspend","logout"]
-option_text = [_("Shut down"),_("Restart"),_("Lock"),_("Suspend"),_("Log out")]
+option = ["shutdown","restart","suspend","lock","user_switch","logout"]
+option_text = [_("Shut down"),_("Restart"),_("Suspend"),_("Lock"),_("Switch user"),_("Log out")]
 message_text = {}
 
 restack_interval = null

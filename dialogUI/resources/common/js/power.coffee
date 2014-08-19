@@ -6,7 +6,7 @@ class Power
         path:"/org/freedesktop/login1",
         interface:"org.freedesktop.login1.Manager",
     dbus_login1 = null
-       
+
     constructor : ->
         @option = ["shutdown","restart","suspend","logout"]
         @inhibitorsList = []
@@ -23,8 +23,7 @@ class Power
             )
         catch e
             echo "dbus_login1 error:#{e}"
-        
-    
+
     power_request : (power) ->
         if not dbus_login1? then get_login1_dbus()
         document.body.style.cursor = "wait" if power isnt "suspend" and power isnt "lock"
@@ -34,7 +33,7 @@ class Power
             when "restart" then dbus_login1.Reboot(true)
             when "shutdown" then dbus_login1.PowerOff(true)
             else return
-    
+
     power_force_sys : (power) ->
         if not dbus_login1? then get_login1_dbus()
         document.body.style.cursor = "wait" if power isnt "suspend" and power isnt "lock"
@@ -44,7 +43,7 @@ class Power
             when "restart" then dbus_login1.Reboot(false)
             when "shutdown" then dbus_login1.PowerOff(false)
             else return
-        
+
     power_force_session : (power) ->
         dbus_power = null
         try

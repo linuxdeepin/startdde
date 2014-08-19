@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1 \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-22 17:40+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-05-08 03:13+0800\n"
 "Last-Translator: Peter Dave Hello <hsu@peterdavehello.org>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -27,14 +27,17 @@ msgid "Restart"
 msgstr "重新啟動"
 
 #: ../resources/shutdown/js/utils.coffee:25
-msgid "Lock"
-msgstr "鎖定"
-
-#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "休眠"
 
 #: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "鎖定"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "登出"
-

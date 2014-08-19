@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-07-07 17:36+0800\n"
+"POT-Creation-Date: 2014-08-19 11:48+0800\n"
 "PO-Revision-Date: 2014-07-07 09:32+0000\n"
 "Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
 "Language-Team: Indonesian (Indonesia) (http://www.transifex.com/projects/p/"
@@ -19,30 +19,32 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:32
-msgid "Are you sure to do it?"
-msgstr "Anda yakin?"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Lock"
-msgstr "Kunci"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Log out"
-msgstr "Keluar"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
-msgid "Restart"
-msgstr "Nyalakan Ulang"
-
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
 msgstr "Matikan"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:29
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Restart"
+msgstr "Nyalakan Ulang"
+
+#: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
 msgstr "Tangguhkan"
 
-#: dialogUI/resources/shutdown/js/utils.coffee:31
-msgid "Your system is updating.please donnot poweroff..."
-msgstr "Sistem sedang diperbarui. Jangan matikan komputer ..."
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Lock"
+msgstr "Kunci"
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Switch user"
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:25
+msgid "Log out"
+msgstr "Keluar"
+
+#~ msgid "Are you sure to do it?"
+#~ msgstr "Anda yakin?"
+
+#~ msgid "Your system is updating.please donnot poweroff..."
+#~ msgstr "Sistem sedang diperbarui. Jangan matikan komputer ..."
