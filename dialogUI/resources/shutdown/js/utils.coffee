@@ -20,12 +20,23 @@
 
 APP_NAME = "Shutdown"
 DEFAULT_BG = "/usr/share/backgrounds/default_background.jpg"
-
 option = ["shutdown","restart","suspend","lock","user_switch","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Suspend"),_("Lock"),_("Switch user"),_("Log out")]
 message_text = {}
 
 restack_interval = null
+
+get_accounts_lenght = ->
+    dbus = DCore.DBus.sys("com.deepin.daemon.Accounts")
+    length = dbus.UserList.length
+    if dbus.AllowGuest then ++length
+    return length
+
+if get_accounts_lenght() < 2
+    index = i for opt,i in option when opt is "user_switch"
+    echo "splice : #{index}:#{option[index]}"
+    option.splice(index,1)
+    option_text.splice(index,1)
 
 destory_all = ->
     clearInterval(restack_interval)

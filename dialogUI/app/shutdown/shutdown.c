@@ -153,9 +153,7 @@ void spawn_command_sync (const char* command,gboolean sync)
 
 JS_EXPORT_API
 void shutdown_switch_to_greeter(){
-    char* cmd = g_strdup_printf("/usr/bin/dde-switchtogreeter");
-    spawn_command_sync(cmd,FALSE);
-    g_free(cmd);
+    spawn_command_sync("/usr/bin/dde-switchtogreeter",FALSE);
 }
 
 int main (int argc, char **argv)

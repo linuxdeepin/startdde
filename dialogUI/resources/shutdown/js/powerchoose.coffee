@@ -35,19 +35,6 @@ class PowerChoose extends Widget
         @powercls = new Power()
         @powercls.power_get_inhibit()
 
-    setPos:->
-        @element.style.display = "-webkit-box"
-        echo "clientWidth:#{@element.clientWidth}"
-        echo "clientHeight:#{@element.clientHeight}"
-        w = @element.clientWidth
-        h = @element.clientHeight
-        w = 610 if w == 0
-        h = 145 if h == 0
-        left = (screen.width  - w) / 2
-        bottom = (screen.height) / 2
-        @element.style.left = "#{left}px"
-        @element.style.bottom = "#{bottom}px"
-
     destory:->
         document.body.removeChild(@element)
 
@@ -120,7 +107,6 @@ class PowerChoose extends Widget
                     that.fade(i)
             )
         @setOptionDefault("shutdown")
-        @setPos()
         @check_inhibit()
         showAnimation(@element,TIME_SHOW)
 
