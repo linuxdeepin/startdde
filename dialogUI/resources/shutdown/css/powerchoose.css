@@ -27,7 +27,7 @@
 body{
     cursor:default;
     overflow:hidden;
-    
+
     background-origin:padding-box;
     background-clip:border-box;
     background-position:center;
@@ -35,8 +35,11 @@ body{
     background-repeat:no-repeat;
     background-attachment:fixed;
     background-color:rgba(0,0,0,0.5);
-    
+
     font-size:62.5%;
+    display:-webkit-box;
+    -webkit-box-pack:center;
+    -webkit-box-align:center;
 }
 
 .bg_el{
@@ -48,11 +51,11 @@ body{
 }
 
 .PowerChoose{
-    position:absolute;
     display:-webkit-box;
     -webkit-box-pack:center;
     -webkit-box-align:center;
     -webkit-box-orient:vertical;
+    margin-bottom:10em;
 }
 
 .message_div{
