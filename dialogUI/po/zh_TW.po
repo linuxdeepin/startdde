@@ -28,7 +28,7 @@ msgstr "重新啟動"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
-msgstr "休眠"
+msgstr "待命"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Lock"
@@ -36,7 +36,7 @@ msgstr "鎖定"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr ""
+msgstr "切換使用者"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
