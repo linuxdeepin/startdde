@@ -107,7 +107,8 @@ func (dpy *Display) fixOutputNotClosed(op randr.Output) {
 			return
 		}
 	}
-	runCode("xrandr --auto")
+
+	dpy.apply(true)
 }
 
 func (dpy *Display) listener() {

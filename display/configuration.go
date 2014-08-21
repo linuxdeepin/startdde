@@ -16,6 +16,8 @@ const (
 	DPModeOnlyOne = 1
 )
 
+var hasCFG = false
+
 type ConfigDisplay struct {
 	DisplayMode     int16
 	CurrentPlanName string
@@ -216,6 +218,7 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 				logger.Warning("the deepin_monitors.json is invalid.")
 				return nil
 			}
+			hasCFG = true
 			return cfg
 		}
 	}
@@ -259,6 +262,7 @@ func (c *ConfigDisplay) Save() {
 	}
 	defer f.Close()
 	f.Write(bytes)
+	hasCFG = true
 }
 
 type ConfigMonitor struct {
@@ -312,10 +316,15 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		if err != nil {
 			return nil, err
 		}
-		cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
+		if isBadOutput(oinfo.Crtc) {
+			cfg.Enabled = false
+		} else {
+			cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
 
-		cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
-		cfg.Enabled = true
+			cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
+
+			cfg.Enabled = true
+		}
 	} else {
 		if len(oinfo.Modes) == 0 {
 			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")
@@ -323,7 +332,12 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		minfo := GetDisplayInfo().QueryModes(oinfo.Modes[0])
 		cfg.Width, cfg.Height = minfo.Width, minfo.Height
 		cfg.Rotation, cfg.Reflect = 1, 0
-		cfg.Enabled = false
+		//try opening all outputs if there hasn't configuration currently.
+		if !hasCFG {
+			cfg.Enabled = true
+		} else {
+			cfg.Enabled = false
+		}
 	}
 
 	return cfg, nil

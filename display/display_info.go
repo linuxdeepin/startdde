@@ -7,6 +7,7 @@ type DisplayInfo struct {
 	locker      sync.Mutex
 	modes       map[randr.Mode]Mode
 	outputNames map[string]randr.Output
+	badOutputs  map[string]randr.Output
 }
 
 var GetDisplayInfo = func() func() *DisplayInfo {
@@ -52,6 +53,19 @@ func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
 	}
 }
 
+func isBadOutput(crtc randr.Crtc) bool {
+	if crtc != 0 {
+		cinfo, err := randr.GetCrtcInfo(xcon, crtc, LastConfigTimeStamp).Reply()
+		if err != nil {
+			return true
+		}
+		hasOnlyOneRotation := cinfo.Rotations == 1
+		if hasOnlyOneRotation {
+			return true
+		}
+	}
+	return false
+}
 func (info *DisplayInfo) update() {
 	info.locker.Lock()
 	defer info.locker.Unlock()
@@ -62,6 +76,7 @@ func (info *DisplayInfo) update() {
 		return
 	}
 	info.outputNames = make(map[string]randr.Output)
+	info.badOutputs = make(map[string]randr.Output)
 	for _, op := range resource.Outputs {
 		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 		if err != nil {
@@ -72,6 +87,10 @@ func (info *DisplayInfo) update() {
 			continue
 		}
 
+		if isBadOutput(oinfo.Crtc) {
+			info.badOutputs[string(oinfo.Name)] = op
+			logger.Infof("detect a bad output[%s:%d], it wouldn't auto until user involved.", string(oinfo.Name), op)
+		}
 		info.outputNames[string(oinfo.Name)] = op
 	}
 
