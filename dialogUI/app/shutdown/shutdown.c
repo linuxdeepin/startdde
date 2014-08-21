@@ -32,18 +32,18 @@
 #include <signal.h>
 #include <X11/XKBlib.h>
 
+#include "jsextension.h"
+#include "dwebview.h"
+#include "background.h"
+#include "display_info.h"
 
 #include "X_misc.h"
 #include "gs-grab.h"
-#include "jsextension.h"
-#include "dwebview.h"
 #include "i18n.h"
 #include "utils.h"
-#include "background.h"
-#include "bg.h"
 
 
-#define SHUTDOWN_ID_NAME "desktop.app.shutdown"
+#define SHUTDOWN_ID_NAME "deepin.dde.shutdown"
 #define CHOICE_HTML_PATH "file://"RESOURCE_DIR"/shutdown/index.html"
 
 #define SHUTDOWN_MAJOR_VERSION 2
@@ -57,11 +57,32 @@ static GKeyFile* shutdown_config = NULL;
 static GSGrab* grab = NULL;
 #endif
 PRIVATE GtkWidget* container = NULL;
+PRIVATE GtkWidget* webview = NULL;
 
 #ifdef NDEBUG
 PRIVATE
 gint t_id;
 #endif
+
+PRIVATE struct DisplayInfo rect_primary;
+PRIVATE struct DisplayInfo rect_screen;
+
+void notify_workarea_size(struct DisplayInfo info)
+{
+    JSObjectRef size_info = json_create();
+    json_append_number(size_info, "x", info.x);
+    json_append_number(size_info, "y", info.y);
+    json_append_number(size_info, "width", info.width);
+    json_append_number(size_info, "height", info.height);
+    js_post_message("workarea_size_changed", size_info);
+}
+
+JS_EXPORT_API
+void shutdown_emit_webview_ok()
+{
+    update_primary_info(&rect_primary);
+    notify_workarea_size(rect_primary);
+}
 
 
 JS_EXPORT_API
@@ -82,6 +103,7 @@ void shutdown_restack()
 static void
 focus_out_cb (GtkWidget* w G_GNUC_UNUSED, GdkEvent* e G_GNUC_UNUSED, gpointer user_data G_GNUC_UNUSED)
 {
+    g_debug("[%s]:====",__func__);
     gdk_window_focus (gtk_widget_get_window (container), 0);
 }
 
@@ -90,7 +112,7 @@ gboolean gs_grab_move ()
     g_message("timeout grab==============");
     gs_grab_move_to_window (grab,
                             gtk_widget_get_window (container),
-                            gtk_window_get_screen (container),
+                            gtk_window_get_screen (GTK_WINDOW(container)),
                             FALSE);
     /*gtk_timeout_remove(t_id);*/
     return FALSE;
@@ -103,7 +125,6 @@ show_cb ()
 }
 
 #endif
-
 
 PRIVATE
 void check_version()
@@ -156,6 +177,25 @@ void shutdown_switch_to_greeter(){
     spawn_command_sync("/usr/bin/dde-switchtogreeter",FALSE);
 }
 
+JS_EXPORT_API
+gboolean shutdown_is_debug(){
+#ifdef NDEBUG
+    return FALSE;
+#endif
+    return TRUE;
+}
+
+PRIVATE
+void monitors_changed_cb()
+{
+    g_debug("[%s] signal========",__func__);
+    update_primary_info(&rect_primary);
+    update_screen_info(&rect_screen);
+
+    widget_move_by_rect(container,rect_primary);
+    draw_background_in_fullscreen();
+}
+
 int main (int argc, char **argv)
 {
     if (argc == 2 && 0 == g_strcmp0(argv[1], "-d")){
@@ -175,17 +215,25 @@ int main (int argc, char **argv)
     gtk_init (&argc, &argv);
     g_log_set_default_handler((GLogFunc)log_to_file, "dde-shutdown");
 
+    update_primary_info(&rect_primary);
+    update_screen_info(&rect_screen);
+
+    draw_background_in_fullscreen();
+
     container = create_web_container (FALSE, TRUE);
+    widget_move_by_rect(container,rect_primary);
+    listen_monitors_changed_signal(G_CALLBACK(monitors_changed_cb),NULL);
 
-    GtkWidget *webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
+    webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
-    monitors_adaptive(container,webview);
-    setup_background(container,webview);
 
+    gtk_widget_set_events (container,GDK_ALL_EVENTS_MASK);
+    gtk_widget_set_events (webview,GDK_ALL_EVENTS_MASK);
+
+    g_signal_connect(webview, "draw", G_CALLBACK(erase_background), NULL);
 #ifdef NDEBUG
     grab = gs_grab_new ();
     g_message("Shutdown Not DEBUG");
-    g_signal_connect(webview, "draw", G_CALLBACK(erase_background), NULL);
     g_signal_connect (container, "show", G_CALLBACK (show_cb), NULL);
     g_signal_connect (webview, "focus-out-event", G_CALLBACK( focus_out_cb), NULL);
 #endif
@@ -193,18 +241,13 @@ int main (int argc, char **argv)
     gtk_widget_realize (webview);
 
     GdkWindow* gdkwindow = gtk_widget_get_window (container);
-    gdk_window_move_resize(gdkwindow, 0, 0, gdk_screen_width(), gdk_screen_height());
-
-#ifdef NDEBUG
+    gdk_window_set_accept_focus(gdkwindow,TRUE);
     gdk_window_set_keep_above (gdkwindow, TRUE);
-    gdk_window_set_override_redirect (gdkwindow, TRUE);
-#endif
+    gdk_window_set_override_redirect (gdkwindow, TRUE);//must
 
     gtk_widget_show_all (container);
 
     gtk_main ();
 
     return 0;
-
 }
-

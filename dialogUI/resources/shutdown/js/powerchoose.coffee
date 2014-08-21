@@ -25,13 +25,13 @@ class PowerChoose extends Widget
 
     constructor: ()->
         super
-        confirmdialog = null
         @opt = []
         @opt_img = []
         @opt_text = []
         @img_url_normal = []
         @img_url_hover = []
         @img_url_click = []
+        document.body.appendChild(@element)
         @powercls = new Power()
         @powercls.power_get_inhibit()
 
@@ -186,4 +186,3 @@ class PowerChoose extends Widget
                 @fade(i)
             when ESC_KEY
                 destory_all()
-

@@ -42,14 +42,6 @@ body{
     -webkit-box-align:center;
 }
 
-.bg_el{
-    position:absolute;
-    left:0;
-    top:0;
-    width:100%;
-    height:100%;
-}
-
 .PowerChoose{
     display:-webkit-box;
     -webkit-box-pack:center;

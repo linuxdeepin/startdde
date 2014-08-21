@@ -24,8 +24,6 @@ option = ["shutdown","restart","suspend","lock","user_switch","logout"]
 option_text = [_("Shut down"),_("Restart"),_("Suspend"),_("Lock"),_("Switch user"),_("Log out")]
 message_text = {}
 
-restack_interval = null
-
 get_accounts_lenght = ->
     dbus = DCore.DBus.sys("com.deepin.daemon.Accounts")
     length = dbus.UserList.length
@@ -42,12 +40,8 @@ destory_all = ->
     clearInterval(restack_interval)
     DCore.Shutdown.quit()
 
-document.body.style.height = window.innerHeight
-document.body.style.width = window.innerWidth
-
 TIME_SHOW = 500
 showAnimation =(el,t)->
     _b = document.body
     _b.style.display = "none"
     jQuery(_b).fadeIn(t)
-

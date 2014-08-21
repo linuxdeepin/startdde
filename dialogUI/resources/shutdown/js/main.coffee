@@ -18,23 +18,33 @@
 #You should have received a copy of the GNU General Public License
 #along with this program; if not, see <http://www.gnu.org/licenses/>.
 
-frame_click = false
-powerchoose = new PowerChoose()
-powerchoose.frame_build()
-document.body.appendChild(powerchoose.element)
+powerchoose = null
+DEBUG = DCore.Shutdown.is_debug()
+restack_interval = null
 
-restack_interval = setInterval(=>
-    DCore.Shutdown.restack()
-,50)
+main = ->
+    powerchoose = new PowerChoose()
+    powerchoose.frame_build()
 
-document.body.addEventListener("keydown",(e)->
-    if powerchoose then powerchoose.keydown(e.which)
-    else if confirmdialog then confirmdialog.keydown(e.which)
+    if !DEBUG
+        restack_interval = setInterval(=>
+            DCore.Shutdown.restack()
+        ,50)
+
+    document.body.addEventListener("keydown",(e)->
+        powerchoose?.keydown(e.which)
     )
 
-document.body.addEventListener("click",->
-    if !frame_click
-        destory_all()
-    frame_click = false
+    document.body.addEventListener("click",->
+        console.debug "body click"
+        if !frame_click
+            destory_all()
+        frame_click = false
     )
 
+DCore.signal_connect('workarea_size_changed', (alloc)->
+    echo "primary_size_changed:#{alloc.width}*#{alloc.height}(#{alloc.x},#{alloc.y})"
+    main()
+)
+
+DCore.Shutdown.emit_webview_ok()

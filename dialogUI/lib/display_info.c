@@ -1,10 +1,9 @@
-#include <dbus/dbus.h>
-#include <gio/gio.h>
-#include <gdk/gdk.h>
-
+#include "./dbus/dbus_introspect.h"
+#include "dwebview.h"
+#include "background.h"
 #include "display_info.h"
 
-gboolean update_display_info(struct DisplayInfo* info)
+gboolean update_primary_info(struct DisplayInfo* info)
 {
     GError* error = NULL;
     GDBusProxy* proxy = g_dbus_proxy_new_for_bus_sync(G_BUS_TYPE_SESSION,
@@ -19,56 +18,128 @@ gboolean update_display_info(struct DisplayInfo* info)
     if (error == NULL) {
         GVariant* res = g_dbus_proxy_get_cached_property(proxy, "PrimaryRect");
         g_variant_get(res, "(nnqq)", &info->x, &info->y, &info->width, &info->height);
-        g_debug("%dx%d(%d,%d)", info->width, info->height, info->x, info->y);
+        g_variant_unref(res);
+        GVariant* primary = g_dbus_proxy_get_cached_property(proxy, "Primary");
+        info->name = g_variant_get_string(primary,NULL);
+        g_variant_unref(primary);
+        g_debug("[%s] Display DBus primaryInfo::name:%s::%dx%d(%d,%d)",__func__, info->name, info->width, info->height, info->x, info->y);
         g_object_unref(proxy);
         return TRUE;
     } else {
-        g_warning("[%s] connection dbus failed: %s", __func__, error->message);
+        g_warning("[%s] connection dbus failed and use gdk to get primaryInfo: %s", __func__, error->message);
         g_clear_error(&error);
-        info->x = 0;
-        info->y = 0;
-        info->width = gdk_screen_width();
-        info->height = gdk_screen_height();
+        GdkScreen* screen = gdk_screen_get_default();
+        if (screen == NULL) return FALSE;
+        gint num_primary = gdk_screen_get_primary_monitor(screen);
+        GdkRectangle dest;
+        gdk_screen_get_monitor_geometry(screen, num_primary, &dest);
+        info->name = gdk_screen_get_monitor_plug_name(screen,num_primary);
+        info->x = dest.x;
+        info->y = dest.y;
+        info->width = dest.width;
+        info->height = dest.height;
+        g_debug("[%s] gdk primaryInfo::name:%s::%dx%d(%d,%d)",__func__, info->name, info->width, info->height, info->x, info->y);
         return FALSE;
     }
 }
 
-
-void listen_primary_changed_signal(GSourceFunc handler)
+gboolean update_screen_info(struct DisplayInfo* info)
 {
-    char* rules = g_strdup_printf("eavesdrop='true',"
-                                  "type='signal',"
-                                  "interface='%s',"
-                                  "member='%s',"
-                                  "path='%s'",
-                                  DISPLAY_INTERFACE,
-                                  PRIMARY_CHANGED_SIGNAL,
-                                  DISPLAY_PATH);
-    g_debug("rules: %s", rules);
-
-    DBusError error;
-    dbus_error_init(&error);
-
-    DBusConnection* conn = dbus_bus_get(DBUS_BUS_SESSION, &error);
-
-    if (dbus_error_is_set(&error)) {
-        g_warning("[%s] Connection Error: %s", __func__, error.message);
-        dbus_error_free(&error);
-        return;
-    }
-
-    dbus_bus_add_match(conn, rules, &error);
-    g_free(rules);
-
-    if (dbus_error_is_set(&error)) {
-        g_warning("[%s] add match failed: %s", __func__, error.message);
-        dbus_error_free(&error);
-        return;
-    }
-
-    dbus_connection_flush(conn);
-
-    g_debug("[%s] listen update signal", __func__);
-    g_timeout_add(100, (GSourceFunc)handler, conn);
+    info->x = 0;
+    info->y = 0;
+    info->width = gdk_screen_width();
+    info->height = gdk_screen_height();
+    g_debug("[%s]:screen:%dx%d(%d,%d)",__func__, info->width, info->height, info->x, info->y);
+    return TRUE;
 }
 
+gint update_monitors_num()
+{
+    GdkScreen* screen = gdk_screen_get_default();
+    if (screen == NULL) return 0;
+    return gdk_screen_get_n_monitors(screen);
+}
+
+void listen_primary_changed_signal(GDBusSignalCallback handler, gpointer data, GDestroyNotify data_free_func)
+{
+    GError* err = NULL;
+    static GDBusConnection* conn = NULL;
+    if (conn == NULL ) {
+        conn = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+    }
+    if (err != NULL) {
+        g_warning("[%s] get dbus failed: %s", __func__, err->message);
+        g_clear_error(&err);
+        return;
+    }
+    add_watch(conn, DISPLAY_PATH, DISPLAY_INTERFACE, PRIMARY_CHANGED_SIGNAL);
+    g_dbus_connection_signal_subscribe(conn,
+                                       DISPLAY_NAME,
+                                       DISPLAY_INTERFACE,
+                                       PRIMARY_CHANGED_SIGNAL,
+                                       DISPLAY_PATH,
+                                       NULL,
+                                       G_DBUS_SIGNAL_FLAGS_NONE,
+                                       handler,
+                                       data,
+                                       data_free_func
+                                       );
+}
+
+void listen_monitors_changed_signal(GCallback handler, gpointer data)
+{
+    GdkScreen* screen = gdk_screen_get_default();
+    g_signal_connect(screen, "monitors-changed", G_CALLBACK(handler), data);
+}
+
+void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info)
+{
+    GdkGeometry geo = {0};
+    geo.min_height = 0;
+    geo.min_width = 0;
+
+    gboolean realized = gtk_widget_get_realized(widget);
+    g_debug("[%s] realized:==%d==, info: %d*%d(%d, %d)", __func__,realized, info.width, info.height, info.x, info.y);
+    if (!realized) {
+        gtk_window_set_geometry_hints(GTK_WINDOW(widget), NULL, &geo, GDK_HINT_MIN_SIZE);
+        gtk_widget_set_size_request(widget, info.width, info.height);
+        gtk_window_move(GTK_WINDOW(widget), info.x, info.y);
+    }else {
+        GdkWindow* gdk = gtk_widget_get_window(widget);
+        gdk_window_set_geometry_hints(gdk, &geo, GDK_HINT_MIN_SIZE);
+        gdk_window_move_resize(gdk, info.x, info.y,info.width,info.height );
+        gdk_window_flush(gdk);
+    }
+}
+
+void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name)
+{
+    g_debug("[%s], %s:%dx%d(%d,%d)",__func__, info.name,info.width, info.height, info.x, info.y);
+
+    GtkWidget* container = NULL;
+    container = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_widget_set_size_request(container, info.width, info.height);
+    gtk_window_move(GTK_WINDOW(container), info.x, info.y);
+
+    setup_background(container,NULL,xatom_name);
+    gtk_widget_realize (container);
+    GdkWindow* gdkwindow = gtk_widget_get_window (container);
+    gdk_window_set_accept_focus(gdkwindow,FALSE);
+    gdk_window_set_override_redirect (gdkwindow, TRUE);
+    gtk_widget_show (container);
+}
+
+void draw_background_in_fullscreen()
+{
+    struct DisplayInfo info;
+    update_screen_info(&info);
+    const gchar *xatom_name;
+    gint num = update_monitors_num();
+    g_debug("[%s] monitors num:===%d===",__func__, num);
+    if (num < 2){
+        xatom_name = "_DDE_BACKGROUND_PIXMAP";
+    }else{
+        xatom_name = "_DDE_BACKGROUND_WINDOW";
+    }
+    draw_background_by_rect(info,xatom_name);
+}

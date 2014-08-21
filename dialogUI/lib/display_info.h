@@ -2,19 +2,36 @@
 #define _DISPLAY_INFO_H_
 
 #include <glib.h>
+#include <gio/gio.h>
+#include <gtk/gtk.h>
 
 #define DISPLAY_NAME "com.deepin.daemon.Display"
 #define DISPLAY_PATH "/com/deepin/daemon/Display"
 #define DISPLAY_INTERFACE DISPLAY_NAME
+#define MONITOR_INTERFACE "com.deepin.daemon.Display.Monitor"
 #define PRIMARY_CHANGED_SIGNAL "PrimaryChanged"
+
+#define DISPLAYMODE_EXTEND 2
+#define DISPLAYMODE_PERSONAL 0
+#define DISPLAYMODE_DEFAULT DISPLAYMODE_EXTEND
 
 struct DisplayInfo {
     gint16 x, y;
     guint16 width, height;
+    const gchar* name;
 };
 
-gboolean update_display_info(struct DisplayInfo* info);
-void listen_primary_changed_signal(GSourceFunc handler);
+gboolean update_primary_info(struct DisplayInfo* info);
+gboolean update_screen_info(struct DisplayInfo* info);
+
+void listen_primary_changed_signal(GDBusSignalCallback handler, gpointer data, GDestroyNotify data_free_func);
+void listen_monitors_changed_signal(GCallback handler, gpointer data);
+
+gint update_monitors_num();
+
+void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info);
+
+void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name);
+void draw_background_in_fullscreen();
 
 #endif /* end of include guard: _DISPLAY_INFO_H_ */
-
