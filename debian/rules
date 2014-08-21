@@ -16,7 +16,7 @@ override_dh_auto_build:
 	GOPATH=/usr/share/gocode go build -o startdde
 	echo "Start Building dialogUI" 
 	cd dialogUI && mkdir build
-	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr
+	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
 
 override_dh_auto_clean:
 	rm -rf dialogUI/build
