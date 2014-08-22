@@ -28,6 +28,7 @@ import (
 	"dbus/com/deepin/daemon/display"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/render"
+	"github.com/BurntSushi/xgb/shape"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
@@ -97,6 +98,7 @@ func initSplash() {
 	randr.QueryVersion(XU.Conn(), 1, 4)
 	render.Init(XU.Conn())
 	render.QueryVersion(XU.Conn(), 0, 11)
+	shape.Init(XU.Conn())
 
 	// initialize structure
 	bgWinInfo.pid, _ = render.NewPictureId(XU.Conn())
@@ -170,14 +172,20 @@ func createBgWindow(title string) *xwindow.Window {
 	// set _NET_WM_NAME so it looks nice
 	err = ewmh.WmNameSet(XU, win.Id, title)
 	if err != nil {
-		// not a fatal error
-		logger.Error("Could not set _NET_WM_NAME:", err)
+		logger.Error(err) // not a fatal error
 	}
 
 	// set _NET_WM_WINDOW_TYPE_DESKTOP window type
 	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 
+	// disable input event
+	err = shape.RectanglesChecked(XU.Conn(), shape.SoSet, shape.SkInput, 0, win.Id, 0, 0, nil).Check()
+	if err != nil {
+		logger.Error(err) // not a fatal error
+	}
+
 	win.Map()
+
 	logger.Info("background window id:", win.Id)
 	return win
 }
