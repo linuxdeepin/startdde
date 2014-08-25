@@ -1,21 +1,22 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
-#
+# 
 # Translators:
+# RAFAEL GAUNA <rafaelgt.mbin@gmail.com>, 2014
+# viniciusarl <vinniciusal@outlook.com>, 2014
 msgid ""
 msgstr ""
-"Project-Id-Version: Deepin Destkop Environment\n"
+"Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2013-12-11 04:44+0000\n"
-"Last-Translator: 648trindade <rafaelgt.mbin@gmail.com>\n"
-"Language-Team: Portuguese (Brazil) (http://www.transifex.com/projects/p/"
-"deepin-destkop-environment/language/pt_BR/)\n"
-"Language: pt_BR\n"
+"PO-Revision-Date: 2014-08-25 21:23+0000\n"
+"Last-Translator: RAFAEL GAUNA <rafaelgt.mbin@gmail.com>\n"
+"Language-Team: Portuguese (Brazil) (http://www.transifex.com/projects/p/startdde-dialog/language/pt_BR/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: pt_BR\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #: ../resources/shutdown/js/utils.coffee:25
@@ -36,43 +37,8 @@ msgstr "Travar"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr ""
+msgstr "Alternar usuário"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "Sair"
-
-#, fuzzy
-#~ msgid "Force Shut down"
-#~ msgstr "Desligar"
-
-#, fuzzy
-#~ msgid "Force Restart"
-#~ msgstr "Reiniciar"
-
-#, fuzzy
-#~ msgid "Force Log out"
-#~ msgstr "Sair"
-
-#, fuzzy
-#~ msgid "The system will shut down in %1 seconds."
-#~ msgstr "O sistema será desligado em:"
-
-#, fuzzy
-#~ msgid "The system will restart in %1 seconds."
-#~ msgstr "O sistema será reiniciado em:"
-
-#, fuzzy
-#~ msgid "The system will be locked in %1 seconds."
-#~ msgstr "O sistema será travado em:"
-
-#, fuzzy
-#~ msgid "The system will be suspended in %1 seconds."
-#~ msgstr "O sistema será suspenso em:"
-
-#, fuzzy
-#~ msgid "You will be automatically logged out in %1 seconds."
-#~ msgstr "Você sairá automaticamente em:"
-
-#~ msgid "Cancel"
-#~ msgstr "Cancelar"

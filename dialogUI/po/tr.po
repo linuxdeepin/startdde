@@ -1,7 +1,7 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
-#
+# 
 # Translators:
 # yakup <mutouk@yandex.ru>, 2014
 msgid ""
@@ -9,14 +9,13 @@ msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-07-07 09:32+0000\n"
-"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
-"Language-Team: Turkish (http://www.transifex.com/projects/p/startdde-dialog/"
-"language/tr/)\n"
-"Language: tr\n"
+"PO-Revision-Date: 2014-08-22 20:33+0000\n"
+"Last-Translator: yakup <mutouk@yandex.ru>\n"
+"Language-Team: Turkish (http://www.transifex.com/projects/p/startdde-dialog/language/tr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: tr\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #: ../resources/shutdown/js/utils.coffee:25
@@ -37,14 +36,8 @@ msgstr "Kilitle"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr ""
+msgstr "Kullanıcı değiştir"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "Çıkış yap"
-
-#~ msgid "Are you sure to do it?"
-#~ msgstr "Bunu yapmak istediğinize emin misiniz?"
-
-#~ msgid "Your system is updating.please donnot poweroff..."
-#~ msgstr "Sisteminiz güncelleniyor. lütfen kapatmayın..."

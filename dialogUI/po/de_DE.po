@@ -1,23 +1,23 @@
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
-#
+# 
 # Translators:
 # Eduard Gotwig <eduardgotwig@gmail.com>, 2014
+# Ettore Atalan <atalanttore@googlemail.com>, 2014
 # Steven Eisenreich, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-07-07 09:32+0000\n"
-"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
-"Language-Team: German (Germany) (http://www.transifex.com/projects/p/"
-"startdde-dialog/language/de_DE/)\n"
-"Language: de_DE\n"
+"PO-Revision-Date: 2014-08-25 10:28+0000\n"
+"Last-Translator: webcrush <chris.plescher@yahoo.de>\n"
+"Language-Team: German (Germany) (http://www.transifex.com/projects/p/startdde-dialog/language/de_DE/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Language: de_DE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: ../resources/shutdown/js/utils.coffee:25
@@ -38,15 +38,8 @@ msgstr "Sperren"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr ""
+msgstr "Benutzer wechseln"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
 msgstr "Abmelden"
-
-#~ msgid "Are you sure to do it?"
-#~ msgstr "Sind Sie sichter, dass Sie das tun wollen?"
-
-#~ msgid "Your system is updating.please donnot poweroff..."
-#~ msgstr ""
-#~ "Ihr System wird aktualisiert. Bitte schalten Sie den Rechner nicht aus."
