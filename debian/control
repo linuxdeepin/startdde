@@ -2,31 +2,21 @@ Source: startdde
 Section: admin
 Priority: extra
 Maintainer: Deepin Packages Builder <packages@linuxdeepin.com>
-Build-Depends: debhelper (>= 8.0.0),
- golang,
- libwebkitgtk-3.0-dev,
- libgail-3-dev,
- libdeepin-webkit-3.0-0,
- coffeescript,
- cmake,
- pkg-config,
- libgtk-3-dev,
- dde-daemon,
- libdbus-glib-1-dev,
+Build-Depends: debhelper (>= 9), cmake, pkg-config, golang-go, coffeescript,
  libsqlite3-dev,
+ libwebkitgtk-3.0-dev,
+ golang-dlib-dev,
+ golang-xgbutil-dev,
  golang-fsnotify-dev,
- go-xgbutil,
- libgstreamer-plugins-base0.10-dev,
- libicu48,
- libgeoclue-dev,
-Standards-Version: 3.9.4
+ dde-go-dbus-factory,
+ libdeepin-webkit-3.0-0, 
+Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
 
 Package: startdde
 Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends},
- go-dlib,
  dde-daemon (>= 0.0.1+20140731174758),
 Conflicts: deepin-session
 Description: starter of deepin desktop environment

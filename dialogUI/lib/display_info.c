@@ -1,5 +1,4 @@
 #include <dbus/dbus.h>
-#include <dbus/dbus-glib.h>
 #include <gio/gio.h>
 #include <gdk/gdk.h>
 
