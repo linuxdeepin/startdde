@@ -5,6 +5,7 @@ mode = developer
 
 [startdde-dialog.startddepot]
 file_filter = dialogUI/po/<lang>.po
+source_file = dialogUI/po/startdde.pot
 source_lang = en
 type = PO
 
