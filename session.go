@@ -1,6 +1,7 @@
 package main
 
 import (
+	screenlock "dbus/com/deepin/dde/screenlock/frontend"
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
@@ -114,8 +115,23 @@ func (m *SessionManager) RequestHibernate() {
 	objLogin.Hibernate(false)
 }
 
-func (m *SessionManager) RequestLock() {
-	execCommand(_LOCK_EXEC, "")
+func (m *SessionManager) RequestLock() error {
+	guiOk := make(chan bool, 1)
+	lock, err := screenlock.NewScreenlock("com.deepin.dde.screenlock.Frontend", "/com/deepin/dde/screenlock/Frontend")
+	if err != nil {
+		return err
+	}
+	defer screenlock.DestroyScreenlock(lock)
+	lock.ConnectReady(func() {
+		guiOk <- true
+	})
+	lock.Hello()
+	select {
+	case <-time.After(time.Second * 5):
+		return fmt.Errorf("wait lock gui showing timeout")
+	case <-guiOk:
+		return nil
+	}
 }
 
 func (m *SessionManager) PowerOffChoose() {
