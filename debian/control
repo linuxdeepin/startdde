@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 9), cmake, pkg-config, golang-go, coffeescript,
  golang-xgbutil-dev,
  golang-fsnotify-dev,
  dde-go-dbus-factory,
- libdeepin-webkit-3.0-0, 
+ libdeepin-webkit-3.0-0, libgail-3-dev, libgstreamer-plugins-base0.10-dev,
 Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
 
