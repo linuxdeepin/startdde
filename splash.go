@@ -43,10 +43,12 @@ import (
 const (
 	personalizationID     = "com.deepin.dde.personalization"
 	gkeyCurrentBackground = "current-picture"
-	ddeBgPixmapProp       = "_DDE_BACKGROUND_PIXMAP"
-	ddeBgPixmapBlurProp   = "_DDE_BACKGROUND_PIXMAP_BLURRED"
-	ddeBgWindowTitle      = "DDE Background"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
+
+	ddeBgWindowTitle    = "DDE Background"
+	ddeBgWindowProp     = "_DDE_BACKGROUND_WINDOW"
+	ddeBgPixmapProp     = "_DDE_BACKGROUND_PIXMAP"
+	ddeBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLURRED"
 )
 
 var (
@@ -184,7 +186,14 @@ func createBgWindow(title string) *xwindow.Window {
 		logger.Error(err) // not a fatal error
 	}
 
+	// map window
 	win.Map()
+
+	// create property on root window
+	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgWindowProp, "WINDOW", uint(win.Id))
+	if err != nil {
+		logger.Error(err) // not a fatal error
+	}
 
 	logger.Info("background window id:", win.Id)
 	return win

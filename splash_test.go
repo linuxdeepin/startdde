@@ -9,27 +9,16 @@ import (
 	// "pkg.linuxdeepin.com/lib/gio-2.0"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
 	// dd "runtime/debug"
+	"github.com/BurntSushi/xgbutil/ewmh"
 	"testing"
 	"time"
 )
 
-func TestGetPrimaryScreenResolution(t *testing.T) {
-	tests := []struct {
-		w, h, r uint16
-	}{
-		{1024, 768, 0},
-		{1440, 900, 50806},
-		{1280, 1024, 0},
-	}
-	for _, c := range tests {
-		fmt.Println("screen resolution", c.w*c.h)
-	}
-}
-
-func TestSplash(t *testing.T) {
+func ManualTestSplash(t *testing.T) {
 	initSplash()
 	initSplashAfterDependsLoaded()
 
+	// TODO
 	// loadBgFile()
 	// drawBg()
 	// mapBgToRoot()
@@ -50,21 +39,22 @@ func TestSplash(t *testing.T) {
 }
 
 func ManualTestReadRootPixmap(t *testing.T) {
-	if drawWindowThroughRootPixmap() {
-		time.Sleep(30 * time.Second)
+	if drawWindowThroughRootPixmap(ddeBgWindowProp) {
+		time.Sleep(300 * time.Second)
 	}
 }
-func drawWindowThroughRootPixmap() bool {
-	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(ddeBgPixmapBlurProp))
+func drawWindowThroughRootPixmap(prop string) bool {
+	ximg, err := xgraphics.NewDrawable(XU, getRootPixmap(prop))
 	if err != nil {
 		fmt.Println("error:", err)
 		return false
 	}
-	ximg.XShow()
+	win := ximg.XShow()
+	ewmh.WmWindowTypeSet(XU, win.Id, []string{"_NET_WM_WINDOW_TYPE_DESKTOP"})
 	return true
 }
 func getRootPixmap(prop string) (d xproto.Drawable) {
-	reply, _ := xprop.GetProperty(XU, XU.RootWin(), ddeBgPixmapBlurProp)
+	reply, _ := xprop.GetProperty(XU, XU.RootWin(), prop)
 	d = xproto.Drawable(xgb.Get32(reply.Value))
 	fmt.Println("pixmap id:", d)
 	return
