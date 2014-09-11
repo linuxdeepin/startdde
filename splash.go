@@ -47,7 +47,6 @@ const (
 
 	ddeBgWindowTitle    = "DDE Background"
 	ddeBgWindowProp     = "_DDE_BACKGROUND_WINDOW"
-	ddeBgPixmapProp     = "_DDE_BACKGROUND_PIXMAP"
 	ddeBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLURRED" // primary screen's background with blurred effect
 )
 
@@ -367,10 +366,10 @@ func mapBgToRoot() {
 	logger.Debug("mapBgToRoot() generate rootBgBlurFile success")
 
 	// set root window properties
-	doMapBgToRoot(rootBgFile, rootBgBlurFile)
+	doMapBgToRoot(rootBgBlurFile)
 }
 
-func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
+func doMapBgToRoot(rootBgBlurFile string) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error(err)
@@ -381,18 +380,6 @@ func doMapBgToRoot(rootBgFile, rootBgBlurFile string) {
 	defer rootBgImgInfo.lock.Unlock()
 
 	var err error
-	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgPixmap)
-	rootBgImgInfo.bgPixmap, err = xcbConvertImageToXpixmap(rootBgFile)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgPixmapProp, "PIXMAP", uint(rootBgImgInfo.bgPixmap))
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-
 	xproto.FreePixmap(XU.Conn(), rootBgImgInfo.bgBlurPixmap)
 	rootBgImgInfo.bgBlurPixmap, err = xcbConvertImageToXpixmap(rootBgBlurFile)
 	if err != nil {
