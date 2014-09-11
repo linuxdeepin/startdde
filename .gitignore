@@ -1,28 +1,34 @@
 /*.gitignore*/
 
 startdde
+
+# test
+*.test
+test_main.go
+splash_dev_test.go
+
+# temporary
+core
+try/
+*.js
+*~
+*.orig
 .tag*
 tags
 cscope*
+*.sw[po]
+*.log
+*.pyc
+
+# diloagUI
 dialogUI/build/
 dialogUI/resources/shutdown/js/powerchoosedialog.js
 dialogUI/resources/shutdown/js/shutdowndialog.js
 dialogUI/resources/shutdown/js/rebootdialog.js
 dialogUI/resources/shutdown/js/logoutdialog.js
-*.sw[po]
-*.log
-*~
-*.orig
-core
-*.pyc
-try/
 
 # CMake
 CMakeFiles/
 CMakeCache.txt
-Makefile
 cmake_install.cmake
 install_manifest.txt
-*.js
-test_main.go
-*.test

@@ -48,7 +48,7 @@ const (
 	ddeBgWindowTitle    = "DDE Background"
 	ddeBgWindowProp     = "_DDE_BACKGROUND_WINDOW"
 	ddeBgPixmapProp     = "_DDE_BACKGROUND_PIXMAP"
-	ddeBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLURRED"
+	ddeBgPixmapBlurProp = "_DDE_BACKGROUND_PIXMAP_BLURRED" // primary screen's background with blurred effect
 )
 
 var (
@@ -119,6 +119,7 @@ func initSplash() {
 func initSplashAfterDependsLoaded() {
 	loadBgFile()
 
+	// TODO: notifyRedrawBgWindow()
 	// background will be draw after receiving window expose
 	// event, but here we update it again after a few time to
 	// solve draw fails problem when compiz not ready
@@ -445,6 +446,7 @@ func listenDisplayChanged() {
 			}
 			resizeBgWindow(int(e.Width), int(e.Height))
 
+			// TODO: notifyRedrawBgWindow()
 			// send expose event to self manually to fix the first
 			// monitor's background drawing issue if exists multiple
 			// monitors.
