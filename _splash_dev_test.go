@@ -7,7 +7,7 @@ import (
 	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
-	. "launchpad.net/gocheck"
+	C "launchpad.net/gocheck"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
 	"testing"
 	"time"
@@ -15,20 +15,20 @@ import (
 
 type splashTester struct{}
 
-func TestT(t *testing.T) { TestingT(t) }
+func TestT(t *testing.T) { C.TestingT(t) }
 
 func init() {
-	Suite(&splashTester{})
+	C.Suite(&splashTester{})
 }
 
-func (*splashTester) TestSplash(c *C) {
+func (*splashTester) TestSplash(c *C.C) {
 	initSplash()
 	initSplashAfterDependsLoaded()
 	go glib.StartLoop()
 	time.Sleep(600 * time.Second)
 }
 
-func (*splashTester) TestSplashReadRootProp(c *C) {
+func (*splashTester) TestSplashReadRootProp(c *C.C) {
 	if drawWindowThroughRootProp(ddeBgWindowProp) {
 		time.Sleep(300 * time.Second)
 	}

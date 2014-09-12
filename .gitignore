@@ -5,7 +5,6 @@ startdde
 # test
 *.test
 test_main.go
-splash_dev_test.go
 
 # temporary
 core
