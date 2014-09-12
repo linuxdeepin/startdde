@@ -12,22 +12,5 @@
 %:
 	dh $@ 
 
-override_dh_auto_build:
-	GOPATH=/usr/share/gocode go build -o startdde
-	echo "Start Building dialogUI" 
-	cd dialogUI && mkdir build
-	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release
-
-override_dh_auto_clean:
-	rm -rf dialogUI/build
-
-override_dh_auto_install:
-	dh_auto_install --destdir=debian/startdde
-	mkdir -p debian/startdde/usr/bin && cp startdde debian/startdde/usr/bin
-	mkdir -p debian/startdde/usr/share/xsessions  && cp *.desktop debian/startdde/usr/share/xsessions
-	echo "Install dialogUI" 
-	cd dialogUI/build && make DESTDIR=$(CURDIR)/debian/startdde/ install
-	#mkdir -p debian/startdde/usr/share/glib-2.0/schemas && cp schemas/* debian/startdde//usr/share/glib-2.0/schemas
-
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
