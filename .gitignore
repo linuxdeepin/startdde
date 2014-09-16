@@ -1,6 +1,7 @@
 /*.gitignore*/
 
 startdde
+splash_dev_test.go
 
 # test
 *.test
