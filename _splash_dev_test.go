@@ -10,17 +10,8 @@ import (
 	"github.com/BurntSushi/xgbutil/xprop"
 	C "launchpad.net/gocheck"
 	"pkg.linuxdeepin.com/lib/glib-2.0"
-	"testing"
 	"time"
 )
-
-type splashTester struct{}
-
-func TestT(t *testing.T) { C.TestingT(t) }
-
-func init() {
-	C.Suite(&splashTester{})
-}
 
 func (*splashTester) TestSplash(c *C.C) {
 	initSplash()

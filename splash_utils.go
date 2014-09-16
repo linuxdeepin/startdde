@@ -161,10 +161,14 @@ func xcbPutXimage(did xproto.Drawable) (err error) {
 }
 
 func renderGetScaleTransform(x, y float32) render.Transform {
+	var m11, m22, m33 render.Fixed
+	m11 = renderFloat32ToFixed(1 / x)
+	m22 = renderFloat32ToFixed(1 / y)
+	m33 = renderFloat32ToFixed(1)
 	return render.Transform{
-		renderFloat32ToFixed(1 / x), 0, 0,
-		0, renderFloat32ToFixed(1 / y), 0,
-		0, 0, renderFloat32ToFixed(1),
+		m11, 0, 0,
+		0, m22, 0,
+		0, 0, m33,
 	}
 }
 
@@ -180,12 +184,15 @@ func renderFixedToFloat32(f render.Fixed) float32 {
 
 // get rectangle in image which with the same scale to reference
 // width/heigh, and the rectangle will placed in center.
-func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.Rectangle, err error) {
+func getClipRect(refWidth, refHeight, imgWidth, imgHeight uint16) (rect xproto.Rectangle, useAllImage bool, err error) {
 	x, y, w, h, err := graphic.GetPreferScaleClipRect(int(refWidth), int(refHeight), int(imgWidth), int(imgHeight))
 	rect.X = int16(x)
 	rect.Y = int16(y)
 	rect.Width = uint16(w)
 	rect.Height = uint16(h)
+	if uint16(w) == imgWidth && uint16(h) == imgHeight {
+		useAllImage = true
+	}
 	return
 }
 

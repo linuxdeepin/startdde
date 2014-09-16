@@ -227,7 +227,7 @@ func loadBgFile() {
 		logger.Error(err)
 		return
 	}
-	logger.Debugf("bgImgInfo %#v", bgWinInfo)
+	logger.Debugf("bgImgInfo %v", bgImgInfo)
 	render.FreePicture(XU.Conn(), bgImgInfo.pid)
 	err = render.CreatePictureChecked(XU.Conn(), bgImgInfo.pid, xproto.Drawable(bgImgInfo.pixmap), picFormat24, 0, nil).Check()
 	if err != nil {
@@ -284,8 +284,13 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 		}
 	}()
 
+	if width <= 0 || height <= 0 {
+		logger.Warning("width or height invalid:", width, height)
+		return
+	}
+
 	// get clip rectangle
-	rect, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
+	rect, _, err := getClipRect(width, height, getBgImgWidth(), getBgImgHeight())
 	if err != nil {
 		logger.Error(err)
 		return
@@ -293,14 +298,22 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	logger.Debug("doDrawBgByRender: clip rect", rect)
 
 	// scale source image and clip rectangle
-	sx := float32(width) / float32(rect.Width)
-	sy := float32(height) / float32(rect.Height)
-	rect.X = int16(float32(rect.X) * sx)
-	rect.Y = int16(float32(rect.Y) * sy)
-	rect.Width = uint16(float32(rect.Width) * sx)
-	rect.Height = uint16(float32(rect.Height) * sx)
-	t := renderGetScaleTransform(sx, sy)
-	logger.Debugf("doDrawBgByRender: scale transform, sx=%f, sy=%f, %x", sx, sy, t)
+
+	// FIXME: to ignore the drawing issue caused by
+	// gdkpixbuf/convertImageToXpixmap() that there will be a
+	// horizontal line in the bottom right corner if the size of
+	// background image and screen is similar, we increase the scale
+	// value a little here
+	s := float32(height+10) / float32(rect.Height)
+
+	rect.X = int16(float32(rect.X) * s)
+	rect.Y = int16(float32(rect.Y) * s)
+	rect.Width = uint16(float32(rect.Width) * s)
+	rect.Height = uint16(float32(rect.Height) * s)
+	logger.Debug("doDrawBgByRender: scaled clip rect", rect)
+
+	t := renderGetScaleTransform(s, s)
+	logger.Debugf("doDrawBgByRender: scale transform, s=%f, %x", s, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		logger.Error(err)
@@ -316,7 +329,8 @@ func doDrawBgByRender(srcpid, dstpid render.Picture, x, y int16, width, height u
 	}
 
 	// restore source image
-	t = renderGetScaleTransform(1/sx, 1/sy)
+	t = renderGetScaleTransform(1/s, 1/s)
+	logger.Debugf("doDrawBgByRender: restore scale transform, s=%f, s=%f, %x", 1/s, 1/s, t)
 	err = render.SetPictureTransformChecked(XU.Conn(), srcpid, t).Check()
 	if err != nil {
 		logger.Error(err)
