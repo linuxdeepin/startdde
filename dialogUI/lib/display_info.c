@@ -128,18 +128,3 @@ void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name)
     gdk_window_set_override_redirect (gdkwindow, TRUE);
     gtk_widget_show (container);
 }
-
-void draw_background_in_fullscreen()
-{
-    struct DisplayInfo info;
-    update_screen_info(&info);
-    const gchar *xatom_name;
-    gint num = update_monitors_num();
-    g_debug("[%s] monitors num:===%d===",__func__, num);
-    if (num < 2){
-        xatom_name = "_DDE_BACKGROUND_PIXMAP";
-    }else{
-        xatom_name = "_DDE_BACKGROUND_WINDOW";
-    }
-    draw_background_by_rect(info,xatom_name);
-}

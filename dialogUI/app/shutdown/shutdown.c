@@ -193,7 +193,7 @@ void monitors_changed_cb()
     update_screen_info(&rect_screen);
 
     widget_move_by_rect(container,rect_primary);
-    draw_background_in_fullscreen();
+    draw_background_by_rect(rect_screen,"_DDE_BACKGROUND_WINDOW");
 }
 
 int main (int argc, char **argv)
@@ -218,7 +218,7 @@ int main (int argc, char **argv)
     update_primary_info(&rect_primary);
     update_screen_info(&rect_screen);
 
-    draw_background_in_fullscreen();
+    draw_background_by_rect(rect_screen,"_DDE_BACKGROUND_WINDOW");
 
     container = create_web_container (FALSE, TRUE);
     widget_move_by_rect(container,rect_primary);

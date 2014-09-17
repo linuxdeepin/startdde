@@ -32,6 +32,5 @@ gint update_monitors_num();
 void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info);
 
 void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name);
-void draw_background_in_fullscreen();
 
 #endif /* end of include guard: _DISPLAY_INFO_H_ */
