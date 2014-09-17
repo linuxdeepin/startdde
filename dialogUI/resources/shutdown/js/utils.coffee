@@ -36,8 +36,19 @@ if get_accounts_lenght() < 2
     option.splice(index,1)
     option_text.splice(index,1)
 
+zoneDBus = null
+enableZoneDetect = (enable) ->
+    ZONE = "com.deepin.daemon.Zone"
+    try
+        if not zoneDBus?
+            zoneDBus = DCore.DBus.session(ZONE)
+        zoneDBus.EnableZoneDetected_sync(enable)
+    catch e
+        echo "zoneDBus #{ZONE} error : #{e}"
+
 destory_all = ->
     clearInterval(restack_interval)
+    enableZoneDetect(true)
     DCore.Shutdown.quit()
 
 TIME_SHOW = 500

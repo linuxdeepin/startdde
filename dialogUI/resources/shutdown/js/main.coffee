@@ -23,6 +23,7 @@ DEBUG = DCore.Shutdown.is_debug()
 restack_interval = null
 
 main = ->
+    enableZoneDetect(false)
     powerchoose = new PowerChoose()
     powerchoose.frame_build()
 
