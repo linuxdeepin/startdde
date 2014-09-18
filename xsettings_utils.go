@@ -96,7 +96,6 @@ func newXWindow() {
         if err != nil {
                 panic(err)
         }
-        xproto.MapWindow(X, wid)
         X.Sync()
 }
 
