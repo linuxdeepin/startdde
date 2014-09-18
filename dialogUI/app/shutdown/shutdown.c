@@ -56,6 +56,7 @@ static GKeyFile* shutdown_config = NULL;
 #ifdef NDEBUG
 static GSGrab* grab = NULL;
 #endif
+PRIVATE GtkWidget* bg_window = NULL;
 PRIVATE GtkWidget* container = NULL;
 PRIVATE GtkWidget* webview = NULL;
 
@@ -193,7 +194,7 @@ void monitors_changed_cb()
     update_screen_info(&rect_screen);
 
     widget_move_by_rect(container,rect_primary);
-    draw_background_by_rect(rect_screen,"_DDE_BACKGROUND_WINDOW");
+    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_WINDOW");
 }
 
 int main (int argc, char **argv)
@@ -218,11 +219,12 @@ int main (int argc, char **argv)
     update_primary_info(&rect_primary);
     update_screen_info(&rect_screen);
 
-    draw_background_by_rect(rect_screen,"_DDE_BACKGROUND_WINDOW");
+    bg_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_WINDOW");
 
     container = create_web_container (FALSE, TRUE);
     widget_move_by_rect(container,rect_primary);
-    listen_monitors_changed_signal(G_CALLBACK(monitors_changed_cb),NULL);
+    listen_primary_changed_signal(monitors_changed_cb,&rect_primary,NULL);
 
     webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));

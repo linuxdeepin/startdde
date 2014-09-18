@@ -86,6 +86,9 @@ void listen_primary_changed_signal(GDBusSignalCallback handler, gpointer data, G
                                        );
 }
 
+//Warning:
+//the monitors-changed signal came before primaryChanged signal of Display dbus
+//so if you want to use monitors-changed signal,you must use gdk primary to get primary rect instead of the Display Dbus PrimaryInfo
 void listen_monitors_changed_signal(GCallback handler, gpointer data)
 {
     GdkScreen* screen = gdk_screen_get_default();
@@ -112,19 +115,17 @@ void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info)
     }
 }
 
-void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name)
+void draw_background_by_rect(GtkWidget* widget,struct DisplayInfo info,const gchar* xatom_name)
 {
     g_debug("[%s], %s:%dx%d(%d,%d)",__func__, info.name,info.width, info.height, info.x, info.y);
 
-    GtkWidget* container = NULL;
-    container = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_widget_set_size_request(container, info.width, info.height);
-    gtk_window_move(GTK_WINDOW(container), info.x, info.y);
+    gtk_widget_set_size_request(widget, info.width, info.height);
+    gtk_window_move(GTK_WINDOW(widget), info.x, info.y);
 
-    setup_background(container,NULL,xatom_name);
-    gtk_widget_realize (container);
-    GdkWindow* gdkwindow = gtk_widget_get_window (container);
+    setup_background(widget,NULL,xatom_name);
+    gtk_widget_realize (widget);
+    GdkWindow* gdkwindow = gtk_widget_get_window (widget);
     gdk_window_set_accept_focus(gdkwindow,FALSE);
     gdk_window_set_override_redirect (gdkwindow, TRUE);
-    gtk_widget_show (container);
+    gtk_widget_show (widget);
 }

@@ -31,12 +31,12 @@ void background_info_set_background_by_drawable(BackgroundInfo* info, guint32 dr
     guint border,depth, width=0, height=0;
     Display* dpy = gdk_x11_get_default_xdisplay();
     gdk_error_trap_push();
-    /*GdkWindow* gdkwindow = gtk_widget_get_window (info->container);*/
-    /*gdk_window_get_geometry(gdkwindow,&x,&y,&width,&height);*/
-    if(width == 0 || height == 0){
-        Window root;
-        XGetGeometry(dpy, drawable, &root, &x, &y, &width, &height, &border, &depth);
-    }
+    //TODO:
+    //we shoul use xatom_name window to set events instead of root window
+    //because the monitors changed signal will came before root window rect changed
+    //so the Xroot window rect maybe keep old rect in update_bg function and in Display DBus signal "PrimaryChanged"
+    Window root;
+    XGetGeometry(dpy, drawable, &root, &x, &y, &width, &height, &border, &depth);
     g_debug("[%s] %d*%d(%d,%d)",__func__,width,height,x,y);
     if (gdk_error_trap_pop()) {
         g_warning("set_background_by_drawable invalid drawable %d \n", drawable);
@@ -159,6 +159,10 @@ void setup_background(GtkWidget* container, GtkWidget* webview,const char* xatom
     BackgroundInfo* info = create_background_info(container, webview);
     background_info_set_background_by_drawable(info, get_blurred_background());
 
+    //TODO:
+    //we shoul use xatom_name window to set events instead of root window
+    //because the monitors changed signal will came before root window rect changed
+    //so the Xroot window rect maybe keep old rect in update_bg function
     gdk_window_set_events(gdk_get_default_root_window(), GDK_PROPERTY_CHANGE_MASK);
     gdk_window_add_filter(gdk_get_default_root_window(), (GdkFilterFunc)update_bg, info);
 }

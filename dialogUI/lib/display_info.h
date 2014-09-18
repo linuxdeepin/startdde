@@ -8,12 +8,7 @@
 #define DISPLAY_NAME "com.deepin.daemon.Display"
 #define DISPLAY_PATH "/com/deepin/daemon/Display"
 #define DISPLAY_INTERFACE DISPLAY_NAME
-#define MONITOR_INTERFACE "com.deepin.daemon.Display.Monitor"
 #define PRIMARY_CHANGED_SIGNAL "PrimaryChanged"
-
-#define DISPLAYMODE_EXTEND 2
-#define DISPLAYMODE_PERSONAL 0
-#define DISPLAYMODE_DEFAULT DISPLAYMODE_EXTEND
 
 struct DisplayInfo {
     gint16 x, y;
@@ -31,6 +26,6 @@ gint update_monitors_num();
 
 void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info);
 
-void draw_background_by_rect(struct DisplayInfo info,const gchar* xatom_name);
+void draw_background_by_rect(GtkWidget* widget,struct DisplayInfo info,const gchar* xatom_name);
 
 #endif /* end of include guard: _DISPLAY_INFO_H_ */
