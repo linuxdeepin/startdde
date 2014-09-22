@@ -3,6 +3,37 @@
 #include "background.h"
 #include "display_info.h"
 
+gint update_primary_monitor_n()
+{
+    GdkScreen* screen = gdk_screen_get_default();
+    if (screen == NULL) return 0;
+    return gdk_screen_get_primary_monitor(screen);
+}
+
+gint update_monitors_num()
+{
+    GdkScreen* screen = gdk_screen_get_default();
+    if (screen == NULL) return 0;
+    return gdk_screen_get_n_monitors(screen);
+}
+
+gboolean update_n_monitor_info(gint index,struct DisplayInfo* info)
+{
+    GdkScreen* screen = gdk_screen_get_default();
+    if (screen == NULL) return FALSE;
+    gint len = gdk_screen_get_n_monitors(screen);
+    if (index > len - 1) return FALSE;
+    GdkRectangle dest;
+    gdk_screen_get_monitor_geometry(screen, index, &dest);
+    info->x = dest.x;
+    info->y = dest.y;
+    info->width = dest.width;
+    info->height = dest.height;
+    info->index = index;
+    g_message("[%s] gdk monitors num:%d and index:[%d]:::%dx%d(%d,%d)",__func__,len, info->index, info->width, info->height, info->x, info->y);
+    return TRUE;
+}
+
 gboolean update_primary_info(struct DisplayInfo* info)
 {
     GError* error = NULL;
@@ -19,27 +50,16 @@ gboolean update_primary_info(struct DisplayInfo* info)
         GVariant* res = g_dbus_proxy_get_cached_property(proxy, "PrimaryRect");
         g_variant_get(res, "(nnqq)", &info->x, &info->y, &info->width, &info->height);
         g_variant_unref(res);
-        GVariant* primary = g_dbus_proxy_get_cached_property(proxy, "Primary");
-        info->name = g_variant_get_string(primary,NULL);
-        g_variant_unref(primary);
-        g_debug("[%s] Display DBus primaryInfo::name:%s::%dx%d(%d,%d)",__func__, info->name, info->width, info->height, info->x, info->y);
+        info->index = update_primary_monitor_n();
+        g_message("[%s] Display DBus primaryInfo:::%dx%d(%d,%d)",__func__, info->width, info->height, info->x, info->y);
         g_object_unref(proxy);
         return TRUE;
     } else {
         g_warning("[%s] connection dbus failed and use gdk to get primaryInfo: %s", __func__, error->message);
         g_clear_error(&error);
-        GdkScreen* screen = gdk_screen_get_default();
-        if (screen == NULL) return FALSE;
-        gint num_primary = gdk_screen_get_primary_monitor(screen);
-        GdkRectangle dest;
-        gdk_screen_get_monitor_geometry(screen, num_primary, &dest);
-        info->name = gdk_screen_get_monitor_plug_name(screen,num_primary);
-        info->x = dest.x;
-        info->y = dest.y;
-        info->width = dest.width;
-        info->height = dest.height;
-        g_debug("[%s] gdk primaryInfo::name:%s::%dx%d(%d,%d)",__func__, info->name, info->width, info->height, info->x, info->y);
-        return FALSE;
+        gboolean result = update_n_monitor_info(update_primary_monitor_n(),info);
+        g_message("[%s] Display DBus primaryInfo:::%dx%d(%d,%d)",__func__, info->width, info->height, info->x, info->y);
+        return result;
     }
 }
 
@@ -49,15 +69,9 @@ gboolean update_screen_info(struct DisplayInfo* info)
     info->y = 0;
     info->width = gdk_screen_width();
     info->height = gdk_screen_height();
-    g_debug("[%s]:screen:%dx%d(%d,%d)",__func__, info->width, info->height, info->x, info->y);
+    info->index = 0;
+    g_message("[%s]:gdk_screen:%dx%d(%d,%d)",__func__, info->width, info->height, info->x, info->y);
     return TRUE;
-}
-
-gint update_monitors_num()
-{
-    GdkScreen* screen = gdk_screen_get_default();
-    if (screen == NULL) return 0;
-    return gdk_screen_get_n_monitors(screen);
 }
 
 void listen_primary_changed_signal(GDBusSignalCallback handler, gpointer data, GDestroyNotify data_free_func)
@@ -102,7 +116,7 @@ void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info)
     geo.min_width = 0;
 
     gboolean realized = gtk_widget_get_realized(widget);
-    g_debug("[%s] realized:==%d==, info: %d*%d(%d, %d)", __func__,realized, info.width, info.height, info.x, info.y);
+    g_message("[%s] realized:==%d==, info: %d*%d(%d, %d)", __func__,realized, info.width, info.height, info.x, info.y);
     if (!realized) {
         gtk_window_set_geometry_hints(GTK_WINDOW(widget), NULL, &geo, GDK_HINT_MIN_SIZE);
         gtk_widget_set_size_request(widget, info.width, info.height);
@@ -117,7 +131,7 @@ void widget_move_by_rect(GtkWidget* widget,struct DisplayInfo info)
 
 void draw_background_by_rect(GtkWidget* widget,struct DisplayInfo info,const gchar* xatom_name)
 {
-    g_debug("[%s], %s:%dx%d(%d,%d)",__func__, info.name,info.width, info.height, info.x, info.y);
+    g_message("[%s], :%dx%d(%d,%d)",__func__, info.width, info.height, info.x, info.y);
 
     gtk_widget_set_size_request(widget, info.width, info.height);
     gtk_window_move(GTK_WINDOW(widget), info.x, info.y);

@@ -224,7 +224,7 @@ int main (int argc, char **argv)
 
     container = create_web_container (FALSE, TRUE);
     widget_move_by_rect(container,rect_primary);
-    listen_primary_changed_signal(monitors_changed_cb,&rect_primary,NULL);
+    listen_primary_changed_signal(monitors_changed_cb,NULL,NULL);
 
     webview = d_webview_new_with_uri (CHOICE_HTML_PATH);
     gtk_container_add (GTK_CONTAINER(container), GTK_WIDGET (webview));
