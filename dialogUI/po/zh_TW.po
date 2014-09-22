@@ -12,7 +12,7 @@ msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-23 15:01+0000\n"
+"PO-Revision-Date: 2014-08-30 13:09+0000\n"
 "Last-Translator: freddy4212 <freddy4212@gmail.com>\n"
 "Language-Team: Chinese (Taiwan) (http://www.transifex.com/projects/p/startdde-dialog/language/zh_TW/)\n"
 "MIME-Version: 1.0\n"
@@ -31,7 +31,7 @@ msgstr "重新啟動"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
-msgstr "待機"
+msgstr "睡眠"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Lock"

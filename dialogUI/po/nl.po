@@ -3,42 +3,41 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
-# lexross <its4moi@gmail.com>, 2014
-# Tristan Denni <tristan.denni@viacesi.fr>, 2014
+# Jop <jop@jopv.net>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-30 12:06+0000\n"
-"Last-Translator: lexross <its4moi@gmail.com>\n"
-"Language-Team: French (http://www.transifex.com/projects/p/startdde-dialog/language/fr/)\n"
+"PO-Revision-Date: 2014-08-21 09:03+0000\n"
+"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
+"Language-Team: Dutch (http://www.transifex.com/projects/p/startdde-dialog/language/nl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: fr\n"
-"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"Language: nl\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Shut down"
-msgstr "Éteindre"
+msgstr "Afsluiten"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Restart"
-msgstr "Redémarrer"
+msgstr "Herstarten"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Suspend"
-msgstr "Mettre en veille"
+msgstr "Slaapstand"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Lock"
-msgstr "Verrouiller"
+msgstr "Vergrendelen"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr "Changer d'utilisateur"
+msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
-msgstr "Déconnexion"
+msgstr "Log uit"
