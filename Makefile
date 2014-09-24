@@ -1,9 +1,16 @@
 PREFIX = /usr
 
+ifndef USE_GCCGO
+    GOBUILD = go build
+else
+    LDFLAGS = $(shell pkg-config --libs gio-2.0 gdk-3.0 gdk-pixbuf-xlib-2.0 x11)
+    GOBUILD = go build -compiler gccgo -gccgoflags "${LDFLAGS}"
+endif
+
 all: build
 
 build:
-	GOPATH=/usr/share/gocode go build -o startdde
+	GOPATH=/usr/share/gocode ${GOBUILD} -o startdde
 	echo "Start Building dialogUI"
 	cd dialogUI && mkdir build
 	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
