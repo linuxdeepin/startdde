@@ -3,14 +3,15 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
+# Heimen Stoffels <motionshot@vivaldi.net>, 2014
 # Jop <jop@jopv.net>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-21 09:03+0000\n"
-"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
+"PO-Revision-Date: 2014-09-22 19:17+0000\n"
+"Last-Translator: Heimen Stoffels <motionshot@vivaldi.net>\n"
 "Language-Team: Dutch (http://www.transifex.com/projects/p/startdde-dialog/language/nl/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -36,8 +37,8 @@ msgstr "Vergrendelen"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Switch user"
-msgstr ""
+msgstr "Gebruiker wisselen"
 
 #: ../resources/shutdown/js/utils.coffee:25
 msgid "Log out"
-msgstr "Log uit"
+msgstr "Afmelden"
