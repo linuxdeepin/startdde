@@ -41,7 +41,7 @@ var (
 	xsKeyValueMap = make(map[string]interface{})
 )
 
-func (op *XSettingsManager) SetInterger(key string, value uint32) {
+func (op *XSettingsManager) SetInteger(key string, value uint32) {
 	if len(key) <= 0 {
 		return
 	}
@@ -50,7 +50,7 @@ func (op *XSettingsManager) SetInterger(key string, value uint32) {
 	op.setPropName("PropList")
 }
 
-func (op *XSettingsManager) GetInterger(key string) (uint32, bool) {
+func (op *XSettingsManager) GetInteger(key string) (uint32, bool) {
 	ret, ok := xsKeyValueMap[key]
 	if !ok {
 		return 0, false
