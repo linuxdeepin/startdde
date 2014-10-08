@@ -47,6 +47,7 @@ enableZoneDetect = (enable) ->
         echo "zoneDBus #{ZONE} error : #{e}"
 
 destory_all = ->
+    console.log "destory_all"
     clearInterval(restack_interval)
     enableZoneDetect(true)
     DCore.Shutdown.quit()

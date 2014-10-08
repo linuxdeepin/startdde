@@ -25,6 +25,10 @@ restack_interval = null
 main = ->
     enableZoneDetect(false)
     powerchoose = new PowerChoose()
+    document.body.addEventListener("keydown",(e)->
+        powerchoose?.keydown(e.which)
+    )
+
     powerchoose.frame_build()
 
     if !DEBUG
@@ -32,19 +36,14 @@ main = ->
             DCore.Shutdown.restack()
         ,50)
 
-    document.body.addEventListener("keydown",(e)->
-        powerchoose?.keydown(e.which)
-    )
-
-    document.body.addEventListener("click",->
-        console.debug "body click"
-        if !frame_click
-            destory_all()
-        frame_click = false
-    )
-
 DCore.signal_connect('workarea_size_changed', (alloc)->
     echo "primary_size_changed:#{alloc.width}*#{alloc.height}(#{alloc.x},#{alloc.y})"
+
+    document.body.addEventListener("click", (e)->
+        console.debug "body click"
+        destory_all()
+    )
+
     main()
 )
 

@@ -31,9 +31,14 @@ class PowerChoose extends Widget
         @img_url_normal = []
         @img_url_hover = []
         @img_url_click = []
+        @message_text = []
         document.body.appendChild(@element)
         @powercls = new Power()
         @powercls.power_get_inhibit()
+
+        @accountscls = new Accounts("Shutdown")
+        @username = @accountscls?.get_default_username()
+        @userid = @accountscls?.get_user_id(@username)
 
     destory:->
         document.body.removeChild(@element)
@@ -45,16 +50,39 @@ class PowerChoose extends Widget
             @img_url_click.push("img/#{option[i]}_press.png")
 
 
+    get_sessioned_on_power_dict : ->
+        ["shutdown","restart"]
+
+    get_sessioned_on_msg : ->
+        @accountscls?.is_user_sessioned_on(@userid)
+        @users_id_logined_len =  @accountscls?.users_id_logined.length
+        users_id_logined = @accountscls?.users_id_logined
+        if @users_id_logined_len > 1
+            if @userid in users_id_logined
+                for uid,i in users_id_logined
+                    if @userid is uid
+                        users_id_logined.splice(i,1)
+            names = []
+            for id in users_id_logined
+                names.push(@accountscls.get_user_name(id))
+            console.debug "current userid:#{@userid};other logged ids:(#{users_id_logined}) === names:(#{names})"
+            msg = _("The user %1 has logged, shutdown or restart may cause loss to the account running data.").args(names.toString())
+            return msg
+        else
+            return null
+
     showMessage:(text)->
-        @message_div.style.display = "-webkit-box"
-        @message_text_div.textContent = text
+        if text is null or text is undefined
+            return
+        @message_div?.style.opacity = 1
+        @message_text_div?.textContent = text
 
 
     setOptionDefault:(option_defalut)->
         #this key must get From system
         GetinFromKey = false
-        for tmp,i in option
-            if tmp is option_defalut
+        for key,i in option
+            if key is option_defalut
                 if GetinFromKey
                     @select_state(i)
                 else
@@ -62,20 +90,22 @@ class PowerChoose extends Widget
                     @hover_state(i)
                 @opt[i].focus()
 
-
-    frame_build:->
-        @img_url_build()
-        @element.addEventListener("click",->
-            frame_click = true
-        )
+    message_div_build:->
         @message_div = create_element("div","message_div",@element)
         @message_img_div = create_element("div","message_img_div",@message_div)
         @message_img_div.style.backgroundImage = "url(img/waring.png)"
         @message_text_div = create_element("div","message_text_div",@message_div)
-        @message_div.style.display = "none"
+        @message_div.style.opacity = 0
 
+
+
+    frame_build:->
+        @img_url_build()
+
+        sessioned_on_msg = @get_sessioned_on_msg()
+        @message_div_build()
         button_div = create_element("div","button_div",@element)
-        for tmp ,i in option
+        for key ,i in option
             @opt[i] = create_element("div","opt",button_div)
             @opt[i].style.backgroundColor = "rgba(255,255,255,0.0)"
             @opt[i].style.border = "1px solid rgba(255,255,255,0.0)"
@@ -84,6 +114,12 @@ class PowerChoose extends Widget
             @opt_img[i].alt = option_text[i]
             @opt_text[i] = create_element("div","opt_text",@opt[i])
             @opt_text[i].textContent = option_text[i]
+
+            message_text = @powercls.inhibit_msg(key)
+            if sessioned_on_msg? and (key in @get_sessioned_on_power_dict())
+                message_text = sessioned_on_msg
+            @message_text.push(message_text)
+
             that = @
             #hover
             @opt[i].addEventListener("mouseover",->
@@ -100,14 +136,13 @@ class PowerChoose extends Widget
                 e.preventDefault()
                 e.stopPropagation()
                 i = this.value
-                frame_click = true
                 power = option[i]
                 if that.powercls.power_can(power)
                     that.opt_img[i].src = that.img_url_click[i]
                     that.fade(i)
             )
         @setOptionDefault("shutdown")
-        @check_inhibit()
+        @check_inhibit_message()
         showAnimation(@element,TIME_SHOW)
 
     css_inhibit:(i)->
@@ -116,15 +151,15 @@ class PowerChoose extends Widget
             @opt[i].disable = "true"
             @opt_img[i].style.opacity = "0.3"
             @opt[i].style.cursor = "default"
-            @showMessage(@powercls.inhibit_msg(option[i]))
         else
             @opt[i].disable = "false"
             @opt_img[i].style.opacity = "1.0"
             @opt[i].style.cursor = "pointer"
 
-    check_inhibit: ->
+    check_inhibit_message: ->
         for bt,i in @opt
             @css_inhibit(i)
+            @showMessage(@message_text[i])
 
     fade:(i)->
         echo "--------------fade:#{option[i]}---------------"
@@ -145,7 +180,7 @@ class PowerChoose extends Widget
         if select_state_confirm then @select_state(i)
         power = option[i]
         enable = @powercls.power_can(power)
-        if enable is false then @showMessage(@powercls.inhibit_msg(power))
+        @showMessage(@message_text[i])
         for tmp,j in @opt_img
             if j == i and enable is true then tmp.src = @img_url_hover[i]
             else
@@ -155,7 +190,7 @@ class PowerChoose extends Widget
         select_state_confirm = true
         power = option[i]
         enable = @powercls.power_can(power)
-        if enable is false then @showMessage(@powercls.inhibit_msg(power))
+        @showMessage(@message_text[i])
         choose_num = i
         for tmp,j in @opt
             if j == i and enable is true
@@ -172,13 +207,13 @@ class PowerChoose extends Widget
             when LEFT_ARROW
                 choose_num--
                 if choose_num == -1 then choose_num = option.length - 1
-                #if @is_disable(@option[choose_num]) then choose_num--
+                #if @is_disable(option[choose_num]) then choose_num--
                 #if choose_num == -1 then choose_num = @opt.length - 1
                 @select_state(choose_num)
             when RIGHT_ARROW
                 choose_num++
                 if choose_num == option.length then choose_num = 0
-                #if @is_disable(@option[choose_num]) then choose_num++
+                #if @is_disable(option[choose_num]) then choose_num++
                 #if choose_num == @opt.length then choose_num = 0
                 @select_state(choose_num)
             when ENTER_KEY

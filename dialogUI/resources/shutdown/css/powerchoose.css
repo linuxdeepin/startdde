@@ -58,6 +58,7 @@ body{
     margin-bottom:2em;
     max-width:45em;
     text-align:left;
+    opacity:0.0;
 }
 
 .message_img_div{
