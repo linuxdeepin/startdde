@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-10-11 10:20+0800\n"
+"POT-Creation-Date: 2014-10-13 10:01+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,7 +19,7 @@ msgstr ""
 
 #: ../resources/shutdown/js/powerchoose.coffee:69
 msgid ""
-"The user %1 has logged, shutdown or restart may cause loss to the account "
+"The user %1 has logged in, shutdown or restart may cause loss to the account "
 "running data."
 msgstr ""
 
