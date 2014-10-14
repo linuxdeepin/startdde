@@ -3,50 +3,53 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
-# freddy4212 <freddy4212@gmail.com>, 2014
-# freddy4212 <freddy4212@gmail.com>, 2013
-# Peter Dave Hello <hsu@peterdavehello.org>, 2014
-# Wang Dianjin <wangdianjin@linuxdeepin.com>, 2013
+# eko ikhyar <ikhyar.com@gmail.com>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-10-13 10:01+0800\n"
-"PO-Revision-Date: 2014-10-13 06:49+0000\n"
+"POT-Creation-Date: 2014-10-17 14:44+0800\n"
+"PO-Revision-Date: 2014-10-17 06:59+0000\n"
 "Last-Translator: deepin_transifex <xiabin@linuxdeepin.com>\n"
-"Language-Team: Chinese (Taiwan) (http://www.transifex.com/projects/p/startdde-dialog/language/zh_TW/)\n"
+"Language-Team: Indonesian (http://www.transifex.com/projects/p/startdde-dialog/language/id/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: zh_TW\n"
+"Language: id\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ../resources/shutdown/js/powerchoose.coffee:69
+#: ../resources/shutdown/js/powerchoose.coffee:70
 msgid ""
-"The user %1 has logged in, shutdown or restart may cause loss to the account"
-" running data."
+"The other users have logged in, shutdown or restart may cause the running "
+"data to be lost."
+msgstr "Pengguna lain telah masuk, mematikan atau menghidupkan ulang dapat menyebabkan data yang berjalan akan hilang."
+
+#: ../resources/shutdown/js/powerchoose.coffee:72
+msgid ""
+"User %1 has logged in, shutdown or restart may cause the running data to be "
+"lost."
 msgstr ""
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
-msgstr "關機"
+msgstr "Matikan"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
-msgstr "重新啟動"
+msgstr "Hidupkan ulang"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
-msgstr "睡眠"
+msgstr "Suspensi"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
-msgstr "鎖定"
+msgstr "Kunci"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
-msgstr "切換使用者"
+msgstr "Beralih pengguna"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
-msgstr "登出"
+msgstr "Keluar"

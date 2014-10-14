@@ -8,9 +8,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-21 09:03+0000\n"
-"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
+"POT-Creation-Date: 2014-10-13 10:01+0800\n"
+"PO-Revision-Date: 2014-10-13 18:01+0000\n"
+"Last-Translator: samson <sambelet@yahoo.com>\n"
 "Language-Team: Amharic (http://www.transifex.com/projects/p/startdde-dialog/language/am/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,26 +18,32 @@ msgstr ""
 "Language: am\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/powerchoose.coffee:69
+msgid ""
+"The user %1 has logged in, shutdown or restart may cause loss to the account"
+" running data."
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
 msgstr "ማጥፊያ"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
 msgstr "እንደገና ማስጀመሪያ"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
 msgstr "ማገጃ"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
 msgstr "መቆለፊያ"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
-msgstr ""
+msgstr "ተጠቃሚ መቀየሪያ"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
 msgstr "መውጫ"

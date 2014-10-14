@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-24 16:24+0000\n"
+"POT-Creation-Date: 2014-10-17 14:44+0800\n"
+"PO-Revision-Date: 2014-10-20 12:31+0000\n"
 "Last-Translator: JimSp472000 <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek (Greece) (http://www.transifex.com/projects/p/startdde-dialog/language/el_GR/)\n"
 "MIME-Version: 1.0\n"
@@ -18,26 +18,38 @@ msgstr ""
 "Language: el_GR\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/powerchoose.coffee:70
+msgid ""
+"The other users have logged in, shutdown or restart may cause the running "
+"data to be lost."
+msgstr "Οι άλλοι χρήστες έχουν συνδεθεί, ο τερματισμός λειτουργίας ή η επανεκκίνηση ίσως προκαλέσουν απώλεια τρεχόντων δεδομένων."
+
+#: ../resources/shutdown/js/powerchoose.coffee:72
+msgid ""
+"User %1 has logged in, shutdown or restart may cause the running data to be "
+"lost."
+msgstr "Ο χρήστης %1 έχει συνδεθεί, ο τερματισμός λειτουργίας ή η επανεκκίνηση ίσως προκαλέσουν απώλεια τρεχόντων δεδομένων."
+
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
 msgstr "Τερματισμός λειτουργίας"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
 msgstr "Επανεκκίνηση"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
 msgstr "Αναστολή"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
 msgstr "Κλείδωμα"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
 msgstr "Εναλλαγή χρήστη"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
 msgstr "Αποσύνδεση"

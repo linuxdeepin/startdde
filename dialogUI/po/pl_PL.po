@@ -8,9 +8,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-09-16 10:46+0000\n"
-"Last-Translator: Piotr Strębski <strebski@o2.pl>\n"
+"POT-Creation-Date: 2014-10-13 10:01+0800\n"
+"PO-Revision-Date: 2014-10-13 06:49+0000\n"
+"Last-Translator: deepin_transifex <xiabin@linuxdeepin.com>\n"
 "Language-Team: Polish (Poland) (http://www.transifex.com/projects/p/startdde-dialog/language/pl_PL/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,26 +18,32 @@ msgstr ""
 "Language: pl_PL\n"
 "Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/powerchoose.coffee:69
+msgid ""
+"The user %1 has logged in, shutdown or restart may cause loss to the account"
+" running data."
+msgstr ""
+
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
 msgstr "Wyłącz"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
 msgstr "Uruchom ponownie"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
 msgstr "Wstrzymaj"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
 msgstr "Zablokuj"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
 msgstr "Przełącz użytkownika"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
 msgstr "Wyloguj"

@@ -8,9 +8,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-31 13:42+0000\n"
-"Last-Translator: kdavid97 <kdavid97@gmail.hu>\n"
+"POT-Creation-Date: 2014-10-17 14:44+0800\n"
+"PO-Revision-Date: 2014-10-20 08:50+0000\n"
+"Last-Translator: deepin_transifex <xiabin@linuxdeepin.com>\n"
 "Language-Team: Hungarian (http://www.transifex.com/projects/p/startdde-dialog/language/hu/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,26 +18,38 @@ msgstr ""
 "Language: hu\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/powerchoose.coffee:70
+msgid ""
+"The other users have logged in, shutdown or restart may cause the running "
+"data to be lost."
+msgstr "A leállítás vagy újraindítás a többi bejelentkezett felhasználó számára adatvesztéssel járhat."
+
+#: ../resources/shutdown/js/powerchoose.coffee:72
+msgid ""
+"User %1 has logged in, shutdown or restart may cause the running data to be "
+"lost."
+msgstr "%1 felhasználó bejelentkezett állapotban van, a leállítás vagy újraindítási művelet számukra adatvesztéssel is járhat."
+
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
 msgstr "Kikapcsolás"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
 msgstr "Újraindítás "
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
 msgstr "Nyugalmi állapot"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
 msgstr "Zárolás"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
 msgstr "Felhasználóváltás"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
 msgstr "Kijelentkezés"
