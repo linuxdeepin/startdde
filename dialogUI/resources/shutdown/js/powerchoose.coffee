@@ -66,7 +66,10 @@ class PowerChoose extends Widget
             for id in users_id_logined
                 names.push(@accountscls.get_user_name(id))
             console.debug "current userid:#{@userid};other logged ids:(#{users_id_logined}) === names:(#{names})"
-            msg = _("The user %1 has logged in, shutdown or restart may cause loss to the account running data.").args(names.toString())
+            if names.length > 1
+                msg = _("The other users have logged in, shutdown or restart may cause the running data to be lost.")
+            else if names.length == 1
+                msg = _("User 1% has logged in, shutdown or restart may cause the running data to be lost.").args(names.toString())
             return msg
         else
             return null
