@@ -69,7 +69,7 @@ class PowerChoose extends Widget
             if names.length > 1
                 msg = _("The other users have logged in, shutdown or restart may cause the running data to be lost.")
             else if names.length == 1
-                msg = _("User 1% has logged in, shutdown or restart may cause the running data to be lost.").args(names.toString())
+                msg = _("User %1 has logged in, shutdown or restart may cause the running data to be lost.").args(names.toString())
             return msg
         else
             return null
