@@ -9,10 +9,10 @@ import (
 
 var logger = log.NewLogger("com.deepin.SessionManager")
 
-var debug bool = false
+var debug = flag.Bool("d", false, "debug")
+var WindowManager = flag.String("wm", "compiz", "the window manager used by dde")
 
 func main() {
-	flag.BoolVar(&debug, "d", false, "debug")
 	flag.Parse()
 
 	proxy.SetupProxy()

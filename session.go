@@ -155,6 +155,21 @@ func newSessionManager() *SessionManager {
 
 	return m
 }
+func (manager *SessionManager) launchWindowManager() {
+	initSplash()
+	switch *WindowManager {
+	case "compiz":
+		manager.launch("/usr/bin/gtk-window-decorator", false)
+		manager.launch("/usr/bin/compiz", false)
+	case "gala":
+		//TODO: need special handle? like notify SessionManager
+		manager.launch("/usr/bin/gala", false)
+	default:
+		logger.Warning("the window manager of", *WindowManager, "may be not supported")
+		manager.launch(*WindowManager, false)
+	}
+	initSplashAfterDependsLoaded()
+}
 
 func startSession() {
 	defer func() {
@@ -173,11 +188,7 @@ func startSession() {
 	}
 
 	manager.setPropStage(SessionStageInitBegin)
-
-	initSplash()
-	manager.launch("/usr/bin/gtk-window-decorator", false)
-	manager.launch("/usr/bin/compiz", false)
-	initSplashAfterDependsLoaded()
+	manager.launchWindowManager()
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)
@@ -199,7 +210,7 @@ func startSession() {
 
 	manager.setPropStage(SessionStageAppsBegin)
 
-	if !debug {
+	if !*debug {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
