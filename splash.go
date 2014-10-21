@@ -187,7 +187,13 @@ func createBgWindow(title string) *xwindow.Window {
 	}
 
 	// map window
-	win.Map()
+	// TODO: remove such code when deepin-wm is completed
+	switch *WindowManager {
+	case "compiz":
+		win.Map()
+	case "gala":
+		// do nothing
+	}
 
 	// create property on root window
 	err = xprop.ChangeProp32(XU, XU.RootWin(), ddeBgWindowProp, "WINDOW", uint(win.Id))
