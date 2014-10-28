@@ -31,9 +31,7 @@ func (dpy *Display) setPropPrimaryRect(v xproto.Rectangle) {
 		dpy.PrimaryRect = v
 		dbus.NotifyChange(dpy, "PrimaryRect")
 
-		if dpy.PrimaryChanged != nil {
-			dpy.PrimaryChanged(dpy.PrimaryRect)
-		}
+		dbus.Emit(dpy, "PrimaryChanged", dpy.PrimaryRect)
 	}
 }
 

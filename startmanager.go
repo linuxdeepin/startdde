@@ -64,7 +64,7 @@ const (
 )
 
 func (m *StartManager) emitAutostartChanged(name, status string, info map[string]AutostartInfo) {
-	m.AutostartChanged(status, name)
+	dbus.Emit(m, "AutostartChanged", status, name)
 	delete(info, name)
 }
 
