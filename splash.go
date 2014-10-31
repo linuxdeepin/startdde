@@ -42,7 +42,7 @@ import (
 
 const (
 	personalizationID     = "com.deepin.dde.personalization"
-	gkeyCurrentBackground = "current-picture"
+	gkeyCurrentBackground = "picture-uri"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
 
 	ddeBgWindowTitle    = "DDE Background"
