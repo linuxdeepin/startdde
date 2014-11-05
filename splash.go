@@ -191,7 +191,7 @@ func createBgWindow(title string) *xwindow.Window {
 	switch *WindowManager {
 	case "compiz":
 		win.Map()
-	case "gala":
+	case "deepin":
 		// do nothing
 	}
 
