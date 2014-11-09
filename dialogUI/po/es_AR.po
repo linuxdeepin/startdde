@@ -3,36 +3,32 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
-# child <comendador@gmail.com>, 2014
-# David Ríos <drios9420@gmail.com>, 2013
-# ICesarI <icesari@msn.com>, 2014
-# Jean Rivas <jeancarlosrivas@gmail.com>, 2013
-# 李洪武 <lihongwu1987@gmail.com>, 2013
+# Mariano Agüero <nero1000000@gmail.com>, 2014
 msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2014-10-17 14:44+0800\n"
-"PO-Revision-Date: 2014-12-04 13:37+0000\n"
-"Last-Translator: deepin_transifex <xiabin@linuxdeepin.com>\n"
-"Language-Team: Spanish (http://www.transifex.com/projects/p/startdde-dialog/language/es/)\n"
+"PO-Revision-Date: 2014-11-22 01:43+0000\n"
+"Last-Translator: Mariano Agüero <nero1000000@gmail.com>\n"
+"Language-Team: Spanish (Argentina) (http://www.transifex.com/projects/p/startdde-dialog/language/es_AR/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: es\n"
+"Language: es_AR\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: ../resources/shutdown/js/powerchoose.coffee:70
 msgid ""
 "The other users have logged in, shutdown or restart may cause the running "
 "data to be lost."
-msgstr "Los otros usuarios han iniciado sesión, apagar o reiniciar pueden ocasionar la pérdida de los datos en ejecución."
+msgstr "Otros usuarios han iniciado sesión, apagar o reiniciar puede causar la pérdida de datos."
 
 #: ../resources/shutdown/js/powerchoose.coffee:72
 msgid ""
 "User %1 has logged in, shutdown or restart may cause the running data to be "
 "lost."
-msgstr "El usuario %1 ha iniciado sesión, apagar o reiniciar pueden ocasionar la pérdida de los datos en ejecución."
+msgstr "El usuario %1 ha iniciado sesión, apagar o reiniciar puede causar la pérdida de datos."
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
@@ -52,7 +48,7 @@ msgstr "Bloquear"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
-msgstr "Cambiar de usuario"
+msgstr "Cambiar usuario"
 
 #: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
