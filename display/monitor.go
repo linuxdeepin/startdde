@@ -73,8 +73,53 @@ func (m *Monitor) ListReflect() []uint16 {
 	sort.Sort(uint16Slice(r))
 	return r
 }
+
+func FindMatchedMode(minfoGroup ...[]Mode) ([]Mode, error) {
+	countSet := make(map[string]int)
+	tmpSet := make(map[string]Mode)
+
+	for _, minfos := range minfoGroup {
+		for _, minfo := range mergeModeInfo(minfos) {
+			wh := fmt.Sprintf("%d%d", minfo.Width, minfo.Height)
+			countSet[wh] = countSet[wh] + 1
+			tmpSet[wh] = minfo
+		}
+	}
+
+	for wh, count := range countSet {
+		if count < len(minfoGroup) {
+			delete(tmpSet, wh)
+		}
+	}
+
+	var sameModes []Mode
+	for _, minfo := range tmpSet {
+		sameModes = append(sameModes, minfo)
+	}
+
+	sort.Sort(Modes(sameModes))
+
+	if len(sameModes) == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	return sameModes, nil
+}
+
+func mergeModeInfo(minfos []Mode) []Mode {
+	tmpSet := make(map[string]Mode)
+	for _, minfo := range minfos {
+		tmpSet[fmt.Sprintf("%d%d", minfo.Width, minfo.Height)] = minfo
+	}
+	var ret []Mode
+	for _, minfo := range tmpSet {
+		ret = append(ret, minfo)
+	}
+	return ret
+}
+
 func (m *Monitor) ListModes() []Mode {
 	set := make(map[Mode]int)
+	var allMode [][]Mode
 	for _, oname := range m.Outputs {
 		op := GetDisplayInfo().QueryOutputs(oname)
 		if op == 0 {
@@ -84,21 +129,20 @@ func (m *Monitor) ListModes() []Mode {
 		if err != nil {
 			continue
 		}
+		var modeGroup []Mode
 		for _, m := range oinfo.Modes {
 			minfo := GetDisplayInfo().QueryModes(m)
 			//TODO: handle different refresh rate but same width/height modes
 			set[minfo] += 1
+			modeGroup = append(modeGroup, minfo)
 		}
+		allMode = append(allMode, modeGroup)
 	}
-
-	var r []Mode
-	for k, n := range set {
-		if n == len(m.Outputs) {
-			r = append(r, k)
-		}
+	modes, err := FindMatchedMode(allMode...)
+	if err != nil {
+		logger.Warning("ListModes failed:", err)
 	}
-	sort.Sort(Modes(r))
-	return r
+	return modes
 }
 
 func (m *Monitor) changeRotation(v uint16) error {
