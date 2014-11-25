@@ -382,6 +382,7 @@ func (dpy *Display) ResetChanges() {
 
 	//apply the saved configurations.
 	dpy.apply(false)
+	dpy.setPropHasChanged(false)
 
 	dpy.Brightness = make(map[string]float64)
 
@@ -395,8 +396,6 @@ func (dpy *Display) ResetChanges() {
 			dpy.ChangeBrightness(mcfg.Name, 1)
 		}
 	}
-
-	dpy.detectChanged()
 }
 
 func (dpy *Display) SaveChanges() {
