@@ -22,13 +22,14 @@ const (
 )
 
 const (
-	_AUTOSTART    = "autostart"
-	DESKTOP_ENV   = "Deepin"
-	HiddenKey     = "Hidden"
-	OnlyShowInKey = "OnlyShowIn"
-	NotShowInKey  = "NotShowIn"
-	TryExecKey    = "TryExec"
-	GnomeDelayKey = "X-GNOME-Autostart-Delay"
+	_AUTOSTART             = "autostart"
+	DESKTOP_ENV            = "Deepin"
+	HiddenKey              = "Hidden"
+	OnlyShowInKey          = "OnlyShowIn"
+	NotShowInKey           = "NotShowIn"
+	TryExecKey             = "TryExec"
+	GnomeDelayKey          = "X-GNOME-Autostart-Delay"
+	DeepinAutostartExecKey = "X-Deepin-Autostart-Exec"
 )
 
 type StartManager struct {
@@ -452,6 +453,34 @@ func (m *StartManager) doSetAutostart(name string, autostart bool) error {
 	return saveKeyFile(file, name)
 }
 
+func (m *StartManager) addAutostartFile(name string) (string, error) {
+	dst := m.getUserAutostart(name)
+	// logger.Info(dst)
+	if !Exist(dst) {
+		src := m.getSysAutostart(name)
+		if src == "" {
+			src = name
+		}
+
+		err := copyFile(src, dst, CopyFileNotKeepSymlink)
+		if err != nil {
+			return dst, fmt.Errorf("copy file failed: %s", err)
+		}
+
+		k := glib.NewKeyFile()
+		defer k.Free()
+
+		k.LoadFromFile(dst, glib.KeyFileFlagsNone)
+		exec, _ := k.GetString(glib.KeyFileDesktopGroup, DeepinAutostartExecKey)
+		if exec != "" {
+			k.SetString(glib.KeyFileDesktopGroup, glib.KeyFileDesktopKeyExec, exec)
+		}
+		saveKeyFile(k, dst)
+	}
+
+	return dst, nil
+}
+
 func (m *StartManager) setAutostart(name string, autostart bool) error {
 	if !path.IsAbs(name) {
 		file := gio.NewDesktopAppInfo(name)
@@ -470,13 +499,10 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 	dst := name
 	if !m.isUserAutostart(name) {
 		// logger.Info("not user's")
-		dst = m.getUserAutostart(name)
-		logger.Info(dst)
-		if !Exist(dst) {
-			err := copyFile(name, dst, CopyFileNotKeepSymlink)
-			if err != nil {
-				return fmt.Errorf("copy file failed: %s", err)
-			}
+		var err error
+		dst, err = m.addAutostartFile(name)
+		if err != nil {
+			return err
 		}
 	}
 
