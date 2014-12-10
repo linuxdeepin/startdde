@@ -142,6 +142,7 @@ func (dpy *Display) listener() {
 				if dpy.QueryCurrentPlanName() != dpy.cfg.CurrentPlanName {
 					logger.Info("Detect New ConfigTimestmap, try reset changes")
 					dpy.ResetChanges()
+					dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
 				}
 			}
 
@@ -213,13 +214,13 @@ func (dpy *Display) JoinMonitor(a string, b string) error {
 	dpy.lockMonitors()
 	defer dpy.unlockMonitors()
 
-	ms := dpy.cfg.Monitors[dpy.cfg.CurrentPlanName]
+	ms := dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors
 	if ma, ok := ms[a]; ok {
 		if mb, ok := ms[b]; ok {
 			mc := mergeConfigMonitor(dpy, ma, mb)
-			delete(dpy.cfg.Monitors[dpy.cfg.CurrentPlanName], a)
-			delete(dpy.cfg.Monitors[dpy.cfg.CurrentPlanName], b)
-			dpy.cfg.Monitors[dpy.cfg.CurrentPlanName][mc.Name] = mc
+			delete(dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors, a)
+			delete(dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors, b)
+			dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors[mc.Name] = mc
 
 			var newMonitors []*Monitor
 			for _, m := range dpy.Monitors {
@@ -267,7 +268,7 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 		return
 	}
 
-	delete(dpy.cfg.Monitors[dpy.QueryCurrentPlanName()], m.Name)
+	delete(dpy.cfg.Plans[dpy.QueryCurrentPlanName()].Monitors, m.Name)
 	dpyinfo := GetDisplayInfo()
 	for _, name := range strings.Split(m.Name, joinSeparator) {
 		op := dpyinfo.QueryOutputs(name)
@@ -279,7 +280,7 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 			logger.Error("Failed createconfigmonitor at split", err, name, mcfg)
 			continue
 		}
-		dpy.cfg.Monitors[dpy.QueryCurrentPlanName()][name] = mcfg
+		dpy.cfg.Plans[dpy.QueryCurrentPlanName()].Monitors[name] = mcfg
 
 		//TODO: check width/height value whether zero
 
@@ -293,6 +294,10 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 }
 
 func (dpy *Display) detectChanged() {
+	if dpy.DisplayMode != DisplayModeCustom {
+		dpy.setPropHasChanged(false)
+		return
+	}
 	cfg := LoadConfigDisplay(dpy)
 	cfg.ensureValid(dpy)
 	dpy.setPropHasChanged(!dpy.cfg.Compare(cfg))
@@ -336,12 +341,15 @@ func (dpy *Display) SetPrimary(name string) error {
 	if err := dpy.changePrimary(name); err != nil {
 		return err
 	}
-	dpy.cfg.Primary = name
-	dpy.savePrimary(dpy.cfg.Primary)
+	dpy.savePrimary(name)
 	return nil
 }
 
 func (dpy *Display) Apply() {
+	if dpy.DisplayMode != DisplayModeCustom {
+		logger.Warning("Display.Apply only can be used in Custom DisplayMode.")
+		return
+	}
 	dpy.apply(false)
 }
 
@@ -365,11 +373,12 @@ func (dpy *Display) apply(auto bool) {
 
 func (dpy *Display) ResetChanges() {
 	dpy.cfg = LoadConfigDisplay(dpy)
+	dpy.setPropDisplayMode(dpy.cfg.DisplayMode)
 	dpy.cfg.ensureValid(dpy)
 
 	//must be invoked after LoadConfigDisplay(dpy)
 	var monitors []*Monitor
-	for _, mcfg := range dpy.cfg.Monitors[dpy.cfg.CurrentPlanName] {
+	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
 		m := NewMonitor(dpy, mcfg)
 		m.updateInfo()
 		monitors = append(monitors, m)
@@ -381,7 +390,7 @@ func (dpy *Display) ResetChanges() {
 	}
 
 	//apply the saved configurations.
-	dpy.apply(false)
+	dpy.Apply()
 	dpy.setPropHasChanged(false)
 
 	dpy.Brightness = make(map[string]float64)
@@ -391,7 +400,7 @@ func (dpy *Display) ResetChanges() {
 	}
 	//dpy.cfg.Brightness may doesn't contain all output, so we must
 	//reset this output's brightness to 1
-	for _, mcfg := range dpy.cfg.Monitors[dpy.cfg.CurrentPlanName] {
+	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
 		if _, ok := dpy.cfg.Brightness[mcfg.Name]; !ok {
 			dpy.ChangeBrightness(mcfg.Name, 1)
 		}
@@ -425,6 +434,8 @@ func Start() {
 		return
 	}
 	dpy.ResetChanges()
+	dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+	fmt.Println("Ok........")
 
 	go dpy.listener()
 

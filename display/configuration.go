@@ -9,19 +9,17 @@ import "sync"
 import "strings"
 import "sort"
 
-const (
-	DPModeUnknow  = -100
-	DPModeMirrors = -1
-	DPModeNormal  = 0
-	DPModeOnlyOne = 1
-)
-
 var hasCFG = false
+
+type monitorGroup struct {
+	DefaultOutput string
+	Monitors      map[string]*ConfigMonitor
+}
 
 type ConfigDisplay struct {
 	DisplayMode     int16
 	CurrentPlanName string
-	Monitors        map[string]map[string]*ConfigMonitor
+	Plans           map[string]*monitorGroup
 
 	Primary          string
 	Brightness       map[string]float64
@@ -40,24 +38,27 @@ func (dpy *Display) QueryCurrentPlanName() string {
 
 func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	cfg.CurrentPlanName = dpy.QueryCurrentPlanName()
-	if _, ok := cfg.Monitors[cfg.CurrentPlanName]; ok {
+	if _, ok := cfg.Plans[cfg.CurrentPlanName]; ok {
 		return
 	}
 	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
 
 	//grab and build monitors information
-	monitors := make(map[string]*ConfigMonitor)
+	monitors := &monitorGroup{
+		DefaultOutput: "",
+		Monitors:      make(map[string]*ConfigMonitor),
+	}
 	for _, op := range GetDisplayInfo().ListOutputs() {
 		mcfg, err := CreateConfigMonitor(dpy, op)
 		if err != nil {
 			logger.Warning("skip invalid monitor", op)
 			continue
 		}
-		monitors[mcfg.Name] = mcfg
+		monitors.Monitors[mcfg.Name] = mcfg
 	}
 
 	//save it at CurrentPlanName slot
-	cfg.Monitors[cfg.CurrentPlanName] = monitors
+	cfg.Plans[cfg.CurrentPlanName] = monitors
 
 	cfg.Primary = dpy.Primary
 
@@ -72,10 +73,10 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 func createConfigDisplay(dpy *Display) *ConfigDisplay {
 	cfg := &ConfigDisplay{}
-	cfg.Monitors = make(map[string]map[string]*ConfigMonitor)
+	cfg.Plans = make(map[string]*monitorGroup)
 	cfg.Brightness = make(map[string]float64)
 	cfg.MapToTouchScreen = make(map[string]string)
-	cfg.DisplayMode = DPModeNormal
+	cfg.DisplayMode = DisplayModeExtend
 
 	cfg.attachCurrentMonitor(dpy)
 	cfg.ensureValid(dpy)
@@ -90,7 +91,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 	var any *ConfigMonitor
 	GetDisplayInfo().update()
 
-	for _, m := range cfg.Monitors[cfg.CurrentPlanName] {
+	for _, m := range cfg.Plans[cfg.CurrentPlanName].Monitors {
 		any = m
 		if m.Enabled {
 			opend = append(opend, m)
@@ -144,8 +145,8 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 
 	//4. avoid monitor allocation overlay
 	valid := true
-	for _, m1 := range cfg.Monitors[cfg.CurrentPlanName] {
-		for _, m2 := range cfg.Monitors[cfg.CurrentPlanName] {
+	for _, m1 := range cfg.Plans[cfg.CurrentPlanName].Monitors {
+		for _, m2 := range cfg.Plans[cfg.CurrentPlanName].Monitors {
 			if m1 != m2 {
 				if isOverlap(m1.X, m1.Y, m1.Width, m1.Height, m2.X, m2.Y, m2.Width, m2.Height) {
 					logger.Debugf("%s(%d,%d,%d,%d) is ovlerlap with %s(%d,%d,%d,%d)! **rearrange all monitor**\n",
@@ -157,11 +158,11 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 		}
 	}
 	if !valid {
-		pm := cfg.Monitors[cfg.CurrentPlanName][cfg.Primary]
+		pm := cfg.Plans[cfg.CurrentPlanName].Monitors[cfg.Primary]
 		cx, cy, pw, ph := int16(0), int16(0), pm.Width, pm.Height
 		pm.X, pm.Y = 0, 0
 		logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", pm.Name, pm.X, pm.Y, pm.Width, pm.Height)
-		for _, m := range cfg.Monitors[cfg.CurrentPlanName] {
+		for _, m := range cfg.Plans[cfg.CurrentPlanName].Monitors {
 			if m != pm {
 				cx += int16(pw)
 				cy += int16(ph)
@@ -208,7 +209,7 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 		} else {
 			cfg := &ConfigDisplay{
 				Brightness:       make(map[string]float64),
-				Monitors:         make(map[string]map[string]*ConfigMonitor),
+				Plans:            make(map[string]*monitorGroup),
 				MapToTouchScreen: make(map[string]string),
 			}
 			if err = json.Unmarshal(data, &cfg); err != nil {
@@ -236,8 +237,8 @@ func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
 		return false
 	}
 
-	for _, m1 := range c.Monitors[c.CurrentPlanName] {
-		if m2, ok := cfg.Monitors[c.CurrentPlanName][m1.Name]; ok {
+	for _, m1 := range c.Plans[c.CurrentPlanName].Monitors {
+		if m2, ok := cfg.Plans[c.CurrentPlanName].Monitors[m1.Name]; ok {
 			if m1.Compare(m2) == false {
 				return false
 			}
@@ -348,9 +349,9 @@ func (c *ConfigMonitor) Save() {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	for i, m := range cfg.Monitors[cfg.CurrentPlanName] {
+	for i, m := range cfg.Plans[cfg.CurrentPlanName].Monitors {
 		if m.Name == c.Name {
-			cfg.Monitors[cfg.CurrentPlanName][i] = c
+			cfg.Plans[cfg.CurrentPlanName].Monitors[i] = c
 			cfg.Save()
 			return
 		}
@@ -378,17 +379,39 @@ func (m1 *ConfigMonitor) Compare(m2 *ConfigMonitor) bool {
 }
 
 func (dpy *Display) saveBrightness(output string, v float64) {
+	dpy.cfg.Brightness[output] = v
+
 	cfg := LoadConfigDisplay(dpy)
 	cfg.Brightness[output] = v
 	cfg.Save()
 }
+
 func (dpy *Display) savePrimary(output string) {
+	dpy.cfg.Primary = output
+
 	cfg := LoadConfigDisplay(dpy)
 	cfg.Primary = output
 	cfg.Save()
 }
+
 func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
+	dpy.cfg.MapToTouchScreen[output] = touchscreen
+
 	cfg := LoadConfigDisplay(dpy)
 	cfg.MapToTouchScreen[output] = touchscreen
+	cfg.Save()
+}
+
+func (dpy *Display) saveDisplayMode(mode int16, output string) {
+	dpy.cfg.DisplayMode = mode
+	if mode == DisplayModeOnlyOne {
+		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
+	}
+
+	cfg := LoadConfigDisplay(dpy)
+	cfg.DisplayMode = mode
+	if mode == DisplayModeOnlyOne {
+		cfg.Plans[cfg.CurrentPlanName].DefaultOutput = output
+	}
 	cfg.Save()
 }

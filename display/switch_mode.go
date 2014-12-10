@@ -9,30 +9,45 @@ const (
 )
 
 func (dpy *Display) SwitchMode(mode int16, outputName string) {
-	dpy.setPropDisplayMode(mode)
 
 	switch mode {
 	case DisplayModeMirrors:
 		n := len(dpy.Monitors)
-		if n <= 1 {
+		if n == 0 {
+			logger.Error("Invoking SwitchMode with none Monitors.")
 			return
 		}
-		for ; n > 1; n = len(dpy.Monitors) {
-			dpy.JoinMonitor(dpy.Monitors[n-1].Name, dpy.Monitors[n-2].Name)
+		if n == 1 {
+			m := dpy.Monitors[0]
+			m.SetPos(0, 0)
+			m.SetMode(m.BestMode.ID)
+			m.SwitchOn(true)
+		} else {
+			for ; n > 1; n = len(dpy.Monitors) {
+				dpy.JoinMonitor(dpy.Monitors[n-1].Name, dpy.Monitors[n-2].Name)
+			}
 		}
 		dpy.apply(false)
+
+		dpy.setPropDisplayMode(mode)
+		dpy.saveDisplayMode(mode, "")
 	case DisplayModeExtend:
-		curX := int16(0)
 		for _, m := range dpy.Monitors {
 			dpy.SplitMonitor(m.Name)
 		}
+
+		curX := int16(0)
 		for _, m := range dpy.Monitors {
-			m.SwitchOn(true)
+			m.changeSwitchOn(true)
+			m.cfg.Enabled = true
 			m.SetPos(curX, 0)
 			m.SetMode(m.BestMode.ID)
 			curX += int16(m.BestMode.Width)
 		}
-		dpy.apply(true)
+		dpy.apply(false)
+
+		dpy.setPropDisplayMode(mode)
+		dpy.saveDisplayMode(mode, "")
 	case DisplayModeOnlyOne:
 		func() {
 			dpy.lockMonitors()
@@ -49,21 +64,26 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 					if m.Name == outputName {
 						m.SetPos(0, 0)
 						m.SetMode(m.BestMode.ID)
-						//m.changeSwitchOn(true)
 						m.SwitchOn(true)
 						dpy.changePrimary(m.Name)
 					}
 				}
 				for _, m := range dpy.Monitors {
 					if m.Name != outputName {
-						//m.changeSwitchOn(false)
 						m.SwitchOn(false)
 					}
 				}
 				dpy.apply(false)
+
+				dpy.setPropDisplayMode(mode)
+				dpy.saveDisplayMode(mode, outputName)
 			}
 		}()
 	case DisplayModeCustom:
+		dpy.setPropDisplayMode(mode)
 		dpy.ResetChanges()
+
+		dpy.saveDisplayMode(mode, "")
 	}
+	dpy.detectChanged()
 }
