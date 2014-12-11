@@ -22,105 +22,105 @@
 package main
 
 import (
-        "encoding/binary"
-        "github.com/BurntSushi/xgb"
-        "github.com/BurntSushi/xgb/xproto"
-        //"time"
+	"encoding/binary"
+	"github.com/BurntSushi/xgb"
+	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil"
+	"github.com/BurntSushi/xgbutil/xprop"
+	"os"
 )
 
 type HeaderInfo struct {
-        vType      byte
-        nameLen    uint16
-        name       string
-        lastSerial uint32
-        value      interface{}
+	vType      byte
+	nameLen    uint16
+	name       string
+	lastSerial uint32
+	value      interface{}
 }
 
 const (
-        XSETTINGS_S0       = "_XSETTINGS_S0"
-        XSETTINGS_SETTINGS = "_XSETTINGS_SETTINGS"
+	XSETTINGS_S0       = "_XSETTINGS_S0"
+	XSETTINGS_SETTINGS = "_XSETTINGS_SETTINGS"
 
-        XSETTINGS_FORMAT = 8
-        XSETTINGS_ORDER  = 0
-        XSETTINGS_SERIAL = 0
+	XSETTINGS_FORMAT = 8
+	XSETTINGS_ORDER  = 0
+	XSETTINGS_SERIAL = 0
 
-        XSETTINGS_INTERGER = 0
-        XSETTINGS_STRING   = 1
-        XSETTINGS_COLOR    = 2
+	XSETTINGS_INTERGER = 0
+	XSETTINGS_STRING   = 1
+	XSETTINGS_COLOR    = 2
 )
 
 var (
-        sReply    *xproto.GetSelectionOwnerReply
-        byteOrder binary.ByteOrder
+	sReply    *xproto.GetSelectionOwnerReply
+	byteOrder binary.ByteOrder
 )
 
 func getAtom(X *xgb.Conn, name string) xproto.Atom {
-        reply, err := xproto.InternAtom(X, false,
-                uint16(len(name)), name).Reply()
-        if err != nil {
-                logger.Infof("'%s' Get Xproto Atom Failed: %s",
-                        name, err)
-        }
+	reply, err := xproto.InternAtom(X, false,
+		uint16(len(name)), name).Reply()
+	if err != nil {
+		logger.Infof("'%s' Get Xproto Atom Failed: %s",
+			name, err)
+	}
 
-        return reply.Atom
+	return reply.Atom
 }
 
 func newXWindow() {
-        wid, err := xproto.NewWindowId(X)
-        if err != nil {
-                logger.Infof("New Window Id Failed: %v", err)
-                panic(err)
-        }
-        logger.Infof("New window id: %v", wid)
+	wid, err := xproto.NewWindowId(X)
+	if err != nil {
+		logger.Infof("New Window Id Failed: %v", err)
+		panic(err)
+	}
+	logger.Infof("New window id: %v", wid)
 
-        setupInfo := xproto.Setup(X)
-        /*
-           for _, screenInfo := setupInfo.Roots {
-           }
-        */
-        screen := setupInfo.DefaultScreen(X)
-        logger.Infof("root wid: %v", screen.Root)
-        err = xproto.CreateWindowChecked(X,
-                0,
-                wid, screen.Root, 0, 0,
-                1, 1, 0, xproto.WindowClassInputOnly,
-                screen.RootVisual, 0,
-                nil).Check()
-        if err != nil {
-                panic(err)
-        }
-        err = xproto.SetSelectionOwnerChecked(X, wid,
-                getAtom(X, XSETTINGS_S0),
-                xproto.TimeCurrentTime).Check()
-        //xproto.Timestamp(getCurrentTimestamp())).Check()
-        if err != nil {
-                panic(err)
-        }
-        X.Sync()
+	setupInfo := xproto.Setup(X)
+
+	screen := setupInfo.DefaultScreen(X)
+	logger.Infof("root wid: %v", screen.Root)
+	err = xproto.CreateWindowChecked(X,
+		0,
+		wid, screen.Root, 0, 0,
+		1, 1, 0, xproto.WindowClassInputOnly,
+		screen.RootVisual, 0,
+		nil).Check()
+	if err != nil {
+		panic(err)
+	}
+	setWMPID(wid)
+	err = xproto.SetSelectionOwnerChecked(X, wid,
+		getAtom(X, XSETTINGS_S0),
+		xproto.TimeCurrentTime).Check()
+	//xproto.Timestamp(getCurrentTimestamp())).Check()
+	if err != nil {
+		panic(err)
+	}
+	X.Sync()
 }
 
 func initSelection() {
-        var err error
+	var err error
 
-        if XSETTINGS_ORDER == 1 {
-                byteOrder = binary.BigEndian
-        } else {
-                byteOrder = binary.LittleEndian
-        }
+	if XSETTINGS_ORDER == 1 {
+		byteOrder = binary.BigEndian
+	} else {
+		byteOrder = binary.LittleEndian
+	}
 
-        sReply, err = xproto.GetSelectionOwner(X,
-                getAtom(X, XSETTINGS_S0)).Reply()
-        if err != nil {
-                logger.Infof("Unable to connect X server: %v", err)
-                panic(err)
-        }
-        logger.Infof("select owner wid: %v", sReply.Owner)
+	sReply, err = xproto.GetSelectionOwner(X,
+		getAtom(X, XSETTINGS_S0)).Reply()
+	if err != nil {
+		logger.Infof("Unable to connect X server: %v", err)
+		panic(err)
+	}
+	logger.Infof("select owner wid: %v", sReply.Owner)
 }
 
-/*
-func getCurrentTimestamp() int64 {
-        t := time.Now().Unix()
-        logger.Info("Timestamp:", t)
-        return t
+func setWMPID(wid xproto.Window) {
+	xu, err := xgbutil.NewConn()
+	if err != nil {
+		return
+	}
+	xprop.ChangeProp32(xu, wid, "_NET_WM_PID", "CARDINAL", uint(os.Getpid()))
 }
-*/
