@@ -294,7 +294,7 @@ func (m *Monitor) split(dpy *Display) (r []*Monitor) {
 }
 
 func (dpy *Display) detectChanged() {
-	if dpy.DisplayMode != DisplayModeCustom {
+	if dpy.disableChanged() {
 		dpy.setPropHasChanged(false)
 		return
 	}
@@ -345,8 +345,12 @@ func (dpy *Display) SetPrimary(name string) error {
 	return nil
 }
 
+func (dpy *Display) disableChanged() bool {
+	return dpy.DisplayMode != DisplayModeCustom && len(dpy.Monitors) > 1
+}
+
 func (dpy *Display) Apply() {
-	if dpy.DisplayMode != DisplayModeCustom {
+	if dpy.disableChanged() {
 		logger.Warning("Display.Apply only can be used in Custom DisplayMode.")
 		return
 	}
