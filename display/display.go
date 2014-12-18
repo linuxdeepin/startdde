@@ -348,7 +348,13 @@ func (dpy *Display) SetPrimary(name string) error {
 }
 
 func (dpy *Display) disableChanged() bool {
-	return dpy.DisplayMode != DisplayModeCustom && len(dpy.Monitors) > 1
+	switch dpy.DisplayMode {
+	case DisplayModeCustom:
+		return len(dpy.Monitors) > 1
+	case DisplayModeOnlyOne, DisplayModeExtend, DisplayModeMirrors:
+		return true
+	}
+	return true
 }
 
 func (dpy *Display) Apply() {
