@@ -434,6 +434,11 @@ func (dpy *Display) Reset() {
 		m.SetRotation(1)
 		m.SetMode(m.BestMode.ID)
 	}
+	for _, m := range dpy.Monitors {
+		for _, output := range m.Outputs {
+			dpy.SetBrightness(output, 1)
+		}
+	}
 	dpy.apply(true)
 	dpy.SaveChanges()
 }
