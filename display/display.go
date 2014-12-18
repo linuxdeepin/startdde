@@ -348,11 +348,11 @@ func (dpy *Display) SetPrimary(name string) error {
 }
 
 func (dpy *Display) disableChanged() bool {
-	switch dpy.DisplayMode {
-	case DisplayModeCustom:
-		return len(dpy.Monitors) > 1
-	case DisplayModeOnlyOne, DisplayModeExtend, DisplayModeMirrors:
-		return true
+	if len(dpy.Monitors) == 1 && !dpy.Monitors[0].IsComposited {
+		return false
+	}
+	if dpy.DisplayMode == DisplayModeCustom {
+		return false
 	}
 	return true
 }
