@@ -117,14 +117,14 @@ func parseRandR(randr uint16) (uint16, uint16) {
 	case 1, 2, 4, 8:
 		break
 	default:
-		logger.Error("invalid rotation value", rotation, randr)
+		logger.Warning("invalid rotation value", rotation, randr)
 		rotation = 1
 	}
 	switch reflect {
 	case 0, 16, 32, 48:
 		break
 	default:
-		logger.Error("invalid reflect value", reflect, randr)
+		logger.Warning("invalid reflect value", reflect, randr)
 		reflect = 0
 	}
 	return rotation, reflect

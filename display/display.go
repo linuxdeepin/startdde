@@ -299,7 +299,9 @@ func (dpy *Display) detectChanged() {
 		return
 	}
 	cfg := LoadConfigDisplay(dpy)
-	cfg.ensureValid(dpy)
+	if !cfg.ensureValid(dpy) {
+		return
+	}
 	dpy.setPropHasChanged(!dpy.cfg.Compare(cfg))
 }
 
