@@ -152,7 +152,7 @@ func (dpy *Display) listener() {
 			}
 
 			//changePrimary will try set an valid primary if dpy.Primary invalid
-			dpy.changePrimary(dpy.Primary)
+			dpy.changePrimary(dpy.Primary, true)
 
 			dpy.mapTouchScreen()
 		}
@@ -314,10 +314,12 @@ func (dpy *Display) canBePrimary(name string) *Monitor {
 	return nil
 }
 
-func (dpy *Display) changePrimary(name string) error {
+func (dpy *Display) changePrimary(name string, effectRect bool) error {
 	if m := dpy.canBePrimary(name); m != nil {
 		dpy.setPropPrimary(name)
-		dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+		if effectRect {
+			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+		}
 		return nil
 	}
 	//the output whose name is `name` didn't exists or disabled,
@@ -329,8 +331,10 @@ func (dpy *Display) changePrimary(name string) error {
 	//try set an primary
 	for _, m := range dpy.Monitors {
 		if dpy.canBePrimary(m.Name) != nil {
-			dpy.setPropPrimary(name)
-			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			dpy.setPropPrimary(m.Name)
+			if effectRect {
+				dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			}
 			return fmt.Errorf("can't set %s as primary, and current parimary %s is invalid. fallback to %s",
 				name, dpy.Primary, m.Name)
 		}
@@ -340,7 +344,7 @@ func (dpy *Display) changePrimary(name string) error {
 }
 
 func (dpy *Display) SetPrimary(name string) error {
-	if err := dpy.changePrimary(name); err != nil {
+	if err := dpy.changePrimary(name, true); err != nil {
 		return err
 	}
 	dpy.savePrimary(name)
@@ -397,7 +401,7 @@ func (dpy *Display) ResetChanges() {
 	}
 	dpy.setPropMonitors(monitors)
 
-	if err := dpy.changePrimary(dpy.cfg.Primary); err != nil {
+	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
 	}
 
