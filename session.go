@@ -196,15 +196,11 @@ func startSession() {
 
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
 
-	showGuide := manager.ShowGuideOnce()
+	manager.ShowGuideOnce()
 
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
 	manager.launch("/usr/bin/dde-dock-applets", false)
-
-	if showGuide {
-		manager.launch("/usr/bin/dde-launcher", true, "--hidden")
-	}
 
 	manager.setPropStage(SessionStageCoreEnd)
 
