@@ -81,9 +81,8 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		}()
 	case DisplayModeCustom:
 		dpy.setPropDisplayMode(mode)
-		dpy.ResetChanges()
-
 		dpy.saveDisplayMode(mode, "")
+		dpy.ResetChanges()
 	}
 	dpy.detectChanged()
 }
