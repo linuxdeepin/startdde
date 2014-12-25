@@ -456,7 +456,6 @@ func Start() {
 	}
 	dpy.ResetChanges()
 	dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
-	fmt.Println("Ok........")
 
 	go dpy.listener()
 

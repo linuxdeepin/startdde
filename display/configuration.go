@@ -320,15 +320,11 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		if err != nil {
 			return nil, err
 		}
-		if isBadOutput(oinfo.Crtc) {
-			cfg.Enabled = false
-		} else {
-			cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
+		cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
 
-			cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
+		cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
 
-			cfg.Enabled = true
-		}
+		cfg.Enabled = true
 	} else {
 		if len(oinfo.Modes) == 0 {
 			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")
