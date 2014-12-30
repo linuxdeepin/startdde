@@ -202,6 +202,8 @@ func startSession() {
 	manager.launch("/usr/bin/dde-dock", true)
 	manager.launch("/usr/bin/dde-dock-applets", false)
 
+	manager.launch("/usr/bin/dde-launcher", false, "--hidden")
+
 	manager.setPropStage(SessionStageCoreEnd)
 
 	manager.setPropStage(SessionStageAppsBegin)
