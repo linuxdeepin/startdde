@@ -1,6 +1,7 @@
 package display
 
 import "github.com/BurntSushi/xgb/randr"
+import "regexp"
 import "sync"
 
 type DisplayInfo struct {
@@ -53,7 +54,12 @@ func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
 	}
 }
 
-func isBadOutput(crtc randr.Crtc) bool {
+var badOutputPattern = regexp.MustCompile(`.+-\d-\d$`)
+
+func isBadOutput(output string, crtc randr.Crtc) bool {
+	if !badOutputPattern.MatchString(output) {
+		return false
+	}
 	if crtc != 0 {
 		cinfo, err := randr.GetCrtcInfo(xcon, crtc, LastConfigTimeStamp).Reply()
 		if err != nil {
@@ -61,10 +67,13 @@ func isBadOutput(crtc randr.Crtc) bool {
 		}
 		hasOnlyOneRotation := cinfo.Rotations == 1
 		if hasOnlyOneRotation {
+			if cinfo.Mode != 0 {
+				randr.SetCrtcConfig(xcon, crtc, 0, LastConfigTimeStamp, 0, 0, 0, 1, nil)
+			}
 			return true
 		}
 	}
-	return false
+	return true
 }
 func (info *DisplayInfo) update() {
 	info.locker.Lock()
@@ -87,9 +96,10 @@ func (info *DisplayInfo) update() {
 			continue
 		}
 
-		if isBadOutput(oinfo.Crtc) {
+		if (len(resource.Outputs) > 1) && isBadOutput(string(oinfo.Name), oinfo.Crtc) {
 			info.badOutputs[string(oinfo.Name)] = op
-			logger.Infof("detect a bad output[%s:%d], it wouldn't auto until user involved.", string(oinfo.Name), op)
+			logger.Infof("detect a bad output[%s:%d], it wouldn't autoopen until user involved.", string(oinfo.Name), op)
+			continue
 		}
 		info.outputNames[string(oinfo.Name)] = op
 	}

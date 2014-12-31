@@ -86,7 +86,7 @@ func createConfigDisplay(dpy *Display) *ConfigDisplay {
 func (cfg *ConfigDisplay) updateMonitorPlan(dpy *Display) {
 }
 
-func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
+func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 	var opend []*ConfigMonitor
 	var any *ConfigMonitor
 	GetDisplayInfo().update()
@@ -124,6 +124,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 	}
 	if any == nil {
 		logger.Error("Can't find any ConfigMonitor at ", cfg.CurrentPlanName)
+		return false
 	}
 	//1. ensure there has a opened monitor.
 	if len(opend) == 0 {
@@ -171,6 +172,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) {
 			}
 		}
 	}
+	return true
 }
 
 func validBrightnessValue(v float64) bool {
@@ -228,7 +230,7 @@ func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
 
 func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
 	if c.CurrentPlanName != cfg.CurrentPlanName {
-		logger.Error("Compare tow ConfigDisply which hasn't same CurrentPlaneName!",
+		logger.Errorf("Compare tow ConfigDisply which hasn't same CurrentPlaneName %q != %q",
 			c.CurrentPlanName, cfg.CurrentPlanName)
 		return false
 	}
@@ -260,6 +262,7 @@ func (c *ConfigDisplay) Save() {
 	f, err := os.Create(_ConfigPath)
 	if err != nil {
 		logger.Error("Cant create configure:", err)
+		return
 	}
 	defer f.Close()
 	f.Write(bytes)
@@ -317,15 +320,11 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		if err != nil {
 			return nil, err
 		}
-		if isBadOutput(oinfo.Crtc) {
-			cfg.Enabled = false
-		} else {
-			cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
+		cfg.Width, cfg.Height = cinfo.Width, cinfo.Height
 
-			cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
+		cfg.Rotation, cfg.Reflect = parseRandR(cinfo.Rotation)
 
-			cfg.Enabled = true
-		}
+		cfg.Enabled = true
 	} else {
 		if len(oinfo.Modes) == 0 {
 			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")

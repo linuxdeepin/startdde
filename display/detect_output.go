@@ -41,6 +41,7 @@ func getMatchedSize(ops []randr.Output) (uint16, uint16) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error(err)
+			return
 		}
 	}()
 	var allMatched []Mode

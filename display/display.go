@@ -152,7 +152,7 @@ func (dpy *Display) listener() {
 			}
 
 			//changePrimary will try set an valid primary if dpy.Primary invalid
-			dpy.changePrimary(dpy.Primary)
+			dpy.changePrimary(dpy.Primary, true)
 
 			dpy.mapTouchScreen()
 		}
@@ -299,7 +299,9 @@ func (dpy *Display) detectChanged() {
 		return
 	}
 	cfg := LoadConfigDisplay(dpy)
-	cfg.ensureValid(dpy)
+	if !cfg.ensureValid(dpy) {
+		return
+	}
 	dpy.setPropHasChanged(!dpy.cfg.Compare(cfg))
 }
 
@@ -312,10 +314,12 @@ func (dpy *Display) canBePrimary(name string) *Monitor {
 	return nil
 }
 
-func (dpy *Display) changePrimary(name string) error {
+func (dpy *Display) changePrimary(name string, effectRect bool) error {
 	if m := dpy.canBePrimary(name); m != nil {
 		dpy.setPropPrimary(name)
-		dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+		if effectRect {
+			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+		}
 		return nil
 	}
 	//the output whose name is `name` didn't exists or disabled,
@@ -327,8 +331,10 @@ func (dpy *Display) changePrimary(name string) error {
 	//try set an primary
 	for _, m := range dpy.Monitors {
 		if dpy.canBePrimary(m.Name) != nil {
-			dpy.setPropPrimary(name)
-			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			dpy.setPropPrimary(m.Name)
+			if effectRect {
+				dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			}
 			return fmt.Errorf("can't set %s as primary, and current parimary %s is invalid. fallback to %s",
 				name, dpy.Primary, m.Name)
 		}
@@ -338,7 +344,7 @@ func (dpy *Display) changePrimary(name string) error {
 }
 
 func (dpy *Display) SetPrimary(name string) error {
-	if err := dpy.changePrimary(name); err != nil {
+	if err := dpy.changePrimary(name, true); err != nil {
 		return err
 	}
 	dpy.savePrimary(name)
@@ -346,7 +352,13 @@ func (dpy *Display) SetPrimary(name string) error {
 }
 
 func (dpy *Display) disableChanged() bool {
-	return dpy.DisplayMode != DisplayModeCustom && len(dpy.Monitors) > 1
+	if len(dpy.Monitors) == 1 && !dpy.Monitors[0].IsComposited {
+		return false
+	}
+	if dpy.DisplayMode == DisplayModeCustom {
+		return false
+	}
+	return true
 }
 
 func (dpy *Display) Apply() {
@@ -389,7 +401,7 @@ func (dpy *Display) ResetChanges() {
 	}
 	dpy.setPropMonitors(monitors)
 
-	if err := dpy.changePrimary(dpy.cfg.Primary); err != nil {
+	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
 	}
 
@@ -426,6 +438,11 @@ func (dpy *Display) Reset() {
 		m.SetRotation(1)
 		m.SetMode(m.BestMode.ID)
 	}
+	for _, m := range dpy.Monitors {
+		for _, output := range m.Outputs {
+			dpy.SetBrightness(output, 1)
+		}
+	}
 	dpy.apply(true)
 	dpy.SaveChanges()
 }
@@ -439,7 +456,6 @@ func Start() {
 	}
 	dpy.ResetChanges()
 	dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
-	fmt.Println("Ok........")
 
 	go dpy.listener()
 
