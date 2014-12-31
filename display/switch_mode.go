@@ -65,7 +65,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 						m.SetPos(0, 0)
 						m.SetMode(m.BestMode.ID)
 						m.SwitchOn(true)
-						dpy.changePrimary(m.Name)
+						dpy.changePrimary(m.Name, true)
 					}
 				}
 				for _, m := range dpy.Monitors {
@@ -81,9 +81,8 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		}()
 	case DisplayModeCustom:
 		dpy.setPropDisplayMode(mode)
-		dpy.ResetChanges()
-
 		dpy.saveDisplayMode(mode, "")
+		dpy.ResetChanges()
 	}
 	dpy.detectChanged()
 }

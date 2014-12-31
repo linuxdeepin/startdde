@@ -61,6 +61,7 @@ func (dpy *Display) setPropMonitors(v []*Monitor) {
 		dbus.InstallOnSession(m)
 	}
 	dbus.NotifyChange(dpy, "Monitors")
+	dpy.changePrimary(dpy.Primary, false)
 }
 
 func (dpy *Display) setPropHasChanged(v bool) {

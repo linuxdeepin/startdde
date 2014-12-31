@@ -8,9 +8,9 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Startdde Dialog\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2014-08-19 11:48+0800\n"
-"PO-Revision-Date: 2014-08-21 09:03+0000\n"
-"Last-Translator: electricface <songwentai@linuxdeepin.com>\n"
+"POT-Creation-Date: 2014-10-17 14:44+0800\n"
+"PO-Revision-Date: 2014-12-26 19:21+0000\n"
+"Last-Translator: deepin_transifex <xiabin@linuxdeepin.com>\n"
 "Language-Team: Arabic (http://www.transifex.com/projects/p/startdde-dialog/language/ar/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,26 +18,38 @@ msgstr ""
 "Language: ar\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5;\n"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/powerchoose.coffee:70
+msgid ""
+"The other users have logged in, shutdown or restart may cause the running "
+"data to be lost."
+msgstr "تسجيل دخول مستخدمين آخرين ، اغلاق أو إعادة تشغيل قد يتسبب في فقدان البيانات  "
+
+#: ../resources/shutdown/js/powerchoose.coffee:72
+msgid ""
+"User %1 has logged in, shutdown or restart may cause the running data to be "
+"lost."
+msgstr "تسجيل دخول المستخدم ٪ 1 ، اغلاق أو إعادة تشغيل قد يتسبب في فقدان البيانات "
+
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Shut down"
 msgstr "إطفاء الجهاز"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Restart"
 msgstr "إعادة التشغيل"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Suspend"
 msgstr "تعليق"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Lock"
 msgstr "قفل"
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Switch user"
 msgstr ""
 
-#: ../resources/shutdown/js/utils.coffee:25
+#: ../resources/shutdown/js/utils.coffee:24
 msgid "Log out"
 msgstr "تسجيل الخروج"
