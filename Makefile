@@ -10,7 +10,7 @@ endif
 all: build
 
 build:
-	GOPATH=/usr/share/gocode ${GOBUILD} -o startdde
+	${GOBUILD} -o startdde
 	echo "Start Building dialogUI"
 	cd dialogUI && mkdir build
 	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
