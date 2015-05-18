@@ -38,6 +38,7 @@ import (
 	"pkg.linuxdeepin.com/lib/gio-2.0"
 	"runtime"
 	dd "runtime/debug"
+	"strings"
 )
 
 const (
@@ -186,13 +187,9 @@ func createBgWindow(title string) *xwindow.Window {
 		logger.Error(err) // not a fatal error
 	}
 
-	// map window
-	// TODO: remove such code when deepin-wm is completed
-	switch *WindowManager {
-	case "compiz":
+	// map window if window manager is compiz
+	if strings.Contains(*windowManagerBin, "compiz") {
 		win.Map()
-	case "deepin":
-		// do nothing
 	}
 
 	// create property on root window
