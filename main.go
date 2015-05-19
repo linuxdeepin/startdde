@@ -1,8 +1,13 @@
 package main
 
+// #cgo pkg-config: gtk+-3.0
+// #include <gtk/gtk.h>
+// void gtkInit() {
+//    gtk_init(NULL, NULL);
+// }
+import "C"
 import (
 	"flag"
-	"pkg.linuxdeepin.com/lib/glib-2.0"
 	"pkg.linuxdeepin.com/lib/log"
 	"pkg.linuxdeepin.com/lib/proxy"
 )
@@ -13,6 +18,7 @@ var debug = flag.Bool("d", false, "debug")
 var WindowManager = flag.String("wm", "deepin", "the window manager used by dde")
 
 func main() {
+	C.gtkInit()
 	flag.Parse()
 
 	proxy.SetupProxy()
@@ -23,5 +29,5 @@ func main() {
 
 	startSession()
 
-	glib.StartLoop()
+	C.gtk_main()
 }
