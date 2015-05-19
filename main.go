@@ -10,7 +10,7 @@ import (
 var logger = log.NewLogger("com.deepin.SessionManager")
 
 var debug = flag.Bool("d", false, "debug")
-var WindowManager = flag.String("wm", "compiz", "the window manager used by dde")
+var WindowManager = flag.String("wm", "deepin", "the window manager used by dde")
 
 func main() {
 	flag.Parse()
