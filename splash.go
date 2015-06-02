@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	personalizationID     = "com.deepin.dde.personalization"
+	personalizationID     = "com.deepin.wrap.gnome.desktop.background"
 	gkeyCurrentBackground = "picture-uri"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
 
