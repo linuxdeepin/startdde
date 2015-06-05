@@ -194,7 +194,10 @@ void monitors_changed_cb()
     update_screen_info(&rect_screen);
 
     widget_move_by_rect(container,rect_primary);
-    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_WINDOW");
+    //TODO:
+    //PIXMAP_BLURRED does not apply the mult-monitores;
+    //WINDOW applies the mult-monitores; But new deepin-wm has not prepare WINDOW;So after it fix WINDOW , here must restore WINDOW
+    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_PIXMAP_BLURRED");
 }
 
 int main (int argc, char **argv)
@@ -220,7 +223,7 @@ int main (int argc, char **argv)
     update_screen_info(&rect_screen);
 
     bg_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_WINDOW");
+    draw_background_by_rect(bg_window,rect_screen,"_DDE_BACKGROUND_PIXMAP_BLURRED");
 
     container = create_web_container (FALSE, TRUE);
     widget_move_by_rect(container,rect_primary);
