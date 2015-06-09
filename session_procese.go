@@ -35,8 +35,17 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	m.cookies[id] = make(chan time.Time, 1)
 	startStamp := time.Now()
 
-	cmd.Start()
-	go cmd.Wait()
+	err := cmd.Start()
+	if err != nil {
+		logger.Warningf("Start command '%s' failed: %v", bin, err)
+		return false
+	}
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			logger.Warningf("Wait command '%s' failed: %v", bin, err)
+		}
+	}()
 
 	select {
 	case endStamp := <-m.cookies[id]:
