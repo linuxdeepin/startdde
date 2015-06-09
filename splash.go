@@ -414,6 +414,8 @@ func listenBgFileChanged() {
 			mapBgToRoot()
 		}
 	})
+	//fixed the gsettings signal handling broken after glib2.43
+	bgGSettings.GetString(gkeyCurrentBackground)
 }
 
 func listenDisplayChanged() {

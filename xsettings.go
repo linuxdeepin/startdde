@@ -143,6 +143,8 @@ func (m *XSManager) handleGSettingsChanged() {
 		},
 		})
 	})
+	//fixed the gsettings signal handling broken after glib2.43
+	m.gs.GetString("theme-name")
 }
 
 func startXSettings() {
