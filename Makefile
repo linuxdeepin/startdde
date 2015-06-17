@@ -10,13 +10,15 @@ endif
 all: build
 
 build:
-	GOPATH=/usr/share/gocode ${GOBUILD} -o startdde
+	${GOBUILD} -o startdde
 	echo "Start Building dialogUI"
 	cd dialogUI && mkdir build
 	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
 
 install:
 	mkdir -p ${DESTDIR}${PREFIX}/bin && cp startdde ${DESTDIR}${PREFIX}/bin
+	mkdir -pv ${DESTDIR}${PREFIX}/share/glib-2.0/schemas
+	cp misc/schemas/*.xml ${DESTDIR}${PREFIX}/share/glib-2.0/schemas/
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions && cp misc/*.desktop ${DESTDIR}${PREFIX}/share/xsessions
 	echo "Install dialogUI"
 	cd dialogUI/build && make DESTDIR=${DESTDIR} install

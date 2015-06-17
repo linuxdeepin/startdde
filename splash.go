@@ -38,10 +38,11 @@ import (
 	"pkg.linuxdeepin.com/lib/gio-2.0"
 	"runtime"
 	dd "runtime/debug"
+	"strings"
 )
 
 const (
-	personalizationID     = "com.deepin.dde.personalization"
+	personalizationID     = "com.deepin.wrap.gnome.desktop.background"
 	gkeyCurrentBackground = "picture-uri"
 	defaultBackgroundFile = "/usr/share/backgrounds/default_background.jpg"
 
@@ -186,13 +187,9 @@ func createBgWindow(title string) *xwindow.Window {
 		logger.Error(err) // not a fatal error
 	}
 
-	// map window
-	// TODO: remove such code when deepin-wm is completed
-	switch *WindowManager {
-	case "compiz":
+	// map window if window manager is compiz
+	if strings.Contains(*windowManagerBin, "compiz") {
 		win.Map()
-	case "deepin":
-		// do nothing
 	}
 
 	// create property on root window
@@ -417,6 +414,8 @@ func listenBgFileChanged() {
 			mapBgToRoot()
 		}
 	})
+	//fixed the gsettings signal handling broken after glib2.43
+	bgGSettings.GetString(gkeyCurrentBackground)
 }
 
 func listenDisplayChanged() {

@@ -157,17 +157,7 @@ func newSessionManager() *SessionManager {
 }
 func (manager *SessionManager) launchWindowManager() {
 	initSplash()
-	switch *WindowManager {
-	case "compiz":
-		manager.launch("/usr/bin/gtk-window-decorator", false)
-		manager.launch("/usr/bin/compiz", false)
-	case "deepin":
-		//TODO: need special handle? like notify SessionManager
-		manager.launch("/usr/bin/deepin-wm", false)
-	default:
-		logger.Warning("the window manager of", *WindowManager, "may be not supported")
-		manager.launch(*WindowManager, false)
-	}
+	manager.launch(*windowManagerBin, false)
 	initSplashAfterDependsLoaded()
 }
 

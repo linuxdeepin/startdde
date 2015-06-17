@@ -19,7 +19,7 @@ Depends: ${shlibs:Depends},
  ${misc:Depends},
  dde-daemon (>= 0.0.1+20140731174758),
  dde-workspace,
- deepin-wm | compiz,
+ deepin-wm | deepin-compiz,
 Conflicts: deepin-session
 Description: starter of deepin desktop environment
  starter of deepin desktop environment.
