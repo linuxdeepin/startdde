@@ -26,8 +26,8 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
-	graphic "pkg.linuxdeepin.com/lib/gdkpixbuf"
-	"pkg.linuxdeepin.com/lib/utils"
+	graphic "pkg.deepin.io/lib/gdkpixbuf"
+	"pkg.deepin.io/lib/utils"
 	"time"
 )
 

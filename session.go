@@ -5,7 +5,7 @@ import (
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
-	"pkg.linuxdeepin.com/lib/dbus"
+	"pkg.deepin.io/lib/dbus"
 	"time"
 )
 

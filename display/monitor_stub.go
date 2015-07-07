@@ -1,6 +1,6 @@
 package display
 
-import "pkg.linuxdeepin.com/lib/dbus"
+import "pkg.deepin.io/lib/dbus"
 import "fmt"
 import "strings"
 

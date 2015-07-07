@@ -9,7 +9,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xprop"
 	C "launchpad.net/gocheck"
-	"pkg.linuxdeepin.com/lib/glib-2.0"
+	"pkg.deepin.io/lib/glib-2.0"
 	"time"
 )
 

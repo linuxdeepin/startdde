@@ -8,8 +8,8 @@ package main
 import "C"
 import (
 	"flag"
-	"pkg.linuxdeepin.com/lib/log"
-	"pkg.linuxdeepin.com/lib/proxy"
+	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/proxy"
 )
 
 var logger = log.NewLogger("com.deepin.SessionManager")

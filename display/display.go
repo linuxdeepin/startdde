@@ -5,8 +5,8 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
-	"pkg.linuxdeepin.com/lib/dbus"
-	"pkg.linuxdeepin.com/lib/log"
+	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
 	"strings"
 	"sync"
 )
