@@ -190,7 +190,7 @@ func launch(name interface{}, list interface{}) error {
 
 			// TODO: read delay field
 			// TODO: launch context???
-			_, err := app.Launch(list.([]*gio.File), nil)
+			_, err := app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext())
 			return err
 		} else {
 			app, err := gio.AppInfoCreateFromCommandline(
@@ -204,12 +204,12 @@ func launch(name interface{}, list interface{}) error {
 
 			defer app.Unref()
 
-			_, err = app.Launch(list.([]*gio.File), nil)
+			_, err = app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext())
 			return err
 		}
 
 	case *gio.AppInfo, *gio.DesktopAppInfo:
-		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), nil)
+		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext())
 		return err
 
 	case *gio.File:
