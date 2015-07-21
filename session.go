@@ -170,6 +170,11 @@ func startSession() {
 	}()
 
 	initSession()
+
+	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
+	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
+	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
+
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
 	if err != nil {
