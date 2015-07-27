@@ -42,7 +42,7 @@
       </description>
     </key>
     <key type="s" name="gtk-font-name">
-      <default>'Source Han Sans 10'</default>
+      <default>'sans-serif 10'</default>
       <summary>Default font</summary>
       <description>
         Name of the default font used by gtk+.
@@ -116,6 +116,7 @@
       </description>
     </key>
     -->
+    <!--
     <key type="s" name="gtk-im-module">
       <default>''</default>
       <summary>GTK IM Module</summary>
@@ -137,15 +138,16 @@
         Keyboard shortcut to open the menu bars.
       </description>
     </key>
+    -->
     <key type="s" name="xft-hintstyle">
-      <default>''</default>
+      <default>'hintfull'</default>
       <summary>Xft hintstyle</summary>
       <description>
         What degree of hinting to use; hintnone, hintslight, hintmedium, or hintfull.
       </description>
     </key>
     <key type="s" name="xft-rgba">
-      <default>''</default>
+      <default>'rgb'</default>
       <summary>Xft RGBA</summary>
       <description>
         Type of subpixel antialiasing; none, rgb, bgr, vrgb, vbgr.
@@ -231,6 +233,7 @@
         If set to 0, the list will always be empty; if set to -1, no item will be removed.
       </description>
     </key>
+    <!--
     <key type="i" name="xft-dpi">
       <range min="-1" max="1048576" />
       <default>-1</default>
@@ -239,6 +242,7 @@
         Resolution for Xft, in 1024 * dots/inch. -1 to use default value.
       </description>
     </key>
+    -->
     <key type="b" name="cursor-blink">
       <default>true</default>
       <summary>Cursor Blink</summary>
@@ -271,6 +275,7 @@
       </description>
     </key>
     -->
+    <!--
     <key type="b" name="gtk-menu-images">
       <default>false</default>
       <summary>Menu images</summary>
@@ -293,6 +298,7 @@
         it changes the behaviour of the window manager, the panel etc.
       </description>
     </key>
+    -->
     <!--
     GtkShowInputMethodMenu has been deprecated since version 3.10 and should not be used in newly-written code.
     <key type="b" name="gtk-show-input-method-menu">
@@ -330,6 +336,7 @@
         Whether GTK+ should keep track of items inside the recently used resources list.
       </description>
     </key>
+    <!--
     <key type="b" name="gtk-shell-shows-app-menu">
       <default>false</default>
       <summary>Show app menu</summary>
@@ -337,6 +344,7 @@
         Set to TRUE if the desktop environment is displaying the app menu, FALSE if the app should display it itself.
       </description>
     </key>
+    -->
     <key type="b" name="xft-antialias">
       <default>true</default>
       <summary>Xft antialias</summary>
