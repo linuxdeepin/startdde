@@ -29,8 +29,6 @@ build: prepare startdde dialog
 
 install:
 	mkdir -p ${DESTDIR}${PREFIX}/bin && cp startdde ${DESTDIR}${PREFIX}/bin
-	mkdir -pv ${DESTDIR}${PREFIX}/share/glib-2.0/schemas
-	cp misc/schemas/*.xml ${DESTDIR}${PREFIX}/share/glib-2.0/schemas/
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions && cp misc/*.desktop ${DESTDIR}${PREFIX}/share/xsessions
 	echo "Install dialogUI"
 	cd dialogUI/build && make DESTDIR=${DESTDIR} install
