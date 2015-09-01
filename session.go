@@ -192,7 +192,13 @@ func startSession() {
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
 
 	manager.ShowGuideOnce()
-	manager.launch("/usr/bin/dde-launcher", false, "--hidden")
+	// dde-launcher is fast enough now, there's no need to start it at the begnning
+	// of every session.
+	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
+
+	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
+	// to run properly.
+	manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", false)
 
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
