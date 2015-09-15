@@ -465,6 +465,11 @@ func Start() {
 	dpy.workaroundBacklight()
 }
 
+func ApplySettings() {
+	dpy := GetDisplay()
+	dpy.Apply()
+}
+
 func (dpy *Display) QueryOutputFeature(name string) int32 {
 	support := supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))
 	if support {
