@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Deepin 2D
+Comment=Deepin 2D Desktop Environment
+Exec=/usr/bin/startdde-2D
+TryExec=/usr/bin/startdde-2D

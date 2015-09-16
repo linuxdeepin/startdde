@@ -28,8 +28,11 @@ dialog:
 build: prepare startdde dialog
 
 install:
-	mkdir -p ${DESTDIR}${PREFIX}/bin && cp startdde ${DESTDIR}${PREFIX}/bin
-	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions && cp misc/*.desktop ${DESTDIR}${PREFIX}/share/xsessions
+	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
+	install -Dm755 misc/bin/startdde-2D ${DESTDIR}${PREFIX}/bin/startdde-2D
+
+	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions && cp misc/xsessions/* ${DESTDIR}${PREFIX}/share/xsessions
+
 	echo "Install dialogUI"
 	cd dialogUI/build && make DESTDIR=${DESTDIR} install
 
