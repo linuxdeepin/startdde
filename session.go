@@ -207,7 +207,6 @@ func startSession() {
 
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
-	manager.launch("/usr/bin/dde-dock-applets", false)
 
 	manager.setPropStage(SessionStageCoreEnd)
 
