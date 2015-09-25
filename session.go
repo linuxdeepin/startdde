@@ -203,7 +203,7 @@ func startSession() {
 
 	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
 	// to run properly.
-	manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", false)
+	manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", true)
 
 	manager.launch("/usr/bin/dde-desktop", true)
 	manager.launch("/usr/bin/dde-dock", true)
