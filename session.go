@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"pkg.deepin.io/lib/dbus"
+	"sync"
 	"time"
 )
 
@@ -189,10 +190,6 @@ func startSession() {
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager()
 
-	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
-
-	manager.ShowGuideOnce()
-
 	// apply display settings, becase of window manager reset it.
 	// if wm not start finished, the operation will not work.
 	initDisplaySettings()
@@ -201,12 +198,24 @@ func startSession() {
 	// of every session.
 	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
 
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
 	// to run properly.
-	manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", true)
+	go func() {
+		manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", true)
+		manager.launch("/usr/bin/dde-desktop", true)
+		wg.Done()
+	}()
 
-	manager.launch("/usr/bin/dde-desktop", true)
-	manager.launch("/usr/bin/dde-dock", true)
+	go func() {
+		manager.launch("/usr/lib/deepin-daemon/dde-preload", true)
+		manager.launch("/usr/bin/dde-dock", true)
+		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
+		wg.Done()
+	}()
+	wg.Wait()
 
 	manager.setPropStage(SessionStageCoreEnd)
 
@@ -216,22 +225,4 @@ func startSession() {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
-}
-
-func (m *SessionManager) ShowGuideOnce() bool {
-	path := os.ExpandEnv("$HOME/.config/not_first_run_dde")
-	_, err := os.Stat(path)
-	if err != nil {
-		f, err := os.Create(path)
-		defer f.Close()
-		if err != nil {
-			logger.Error("Can't initlize first dde", err)
-			return false
-		}
-
-		m.launch("/usr/lib/deepin-daemon/dde-guide", true)
-		return true
-	}
-
-	return false
 }
