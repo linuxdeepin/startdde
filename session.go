@@ -157,9 +157,7 @@ func newSessionManager() *SessionManager {
 	return m
 }
 func (manager *SessionManager) launchWindowManager() {
-	initSplash()
 	manager.launch(*windowManagerBin, false)
-	initSplashAfterDependsLoaded()
 }
 
 func startSession() {
