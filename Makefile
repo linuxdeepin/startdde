@@ -3,16 +3,18 @@ GOPATH_DIR = gopath
 GOPKG_PREFIX = pkg.deepin.io/dde/startdde
 
 ifndef USE_GCCGO
-	ifndef GOLANG_DEBUG
-		GOLDFLAGS = -ldflags '-s -w'
-	endif
+	GOLDFLAGS = -ldflags '-s -w'
+else
+	GOLDFLAGS = -s -w  -Os -O2
+endif
 
+ifdef GODEBUG
+	GOLDFLAGS =
+endif
+
+ifndef USE_GCCGO
 	GOBUILD = go build ${GOLDFLAGS}
 else
-	ifndef GOLANG_DEBUG
-		GOLDFLAGS = -s -w -Os -O2
-	endif
-
 	GOLDFLAGS += $(shell pkg-config --libs gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11)
 	GOBUILD = go build -compiler gccgo -gccgoflags "${GOLDFLAGS}"
 endif
