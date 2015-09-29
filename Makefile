@@ -29,9 +29,9 @@ startdde:
 	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -o startdde
 
 dialog:
-	@echo "Start Building dialogUI"
-	cd dialogUI && mkdir build
-	cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
+	@echo "Skiping Build dialogUI"
+	#cd dialogUI && mkdir build
+	#cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
 
 build: prepare startdde dialog
 
@@ -42,8 +42,8 @@ install:
 	chmod 0755 ${DESTDIR}${PREFIX}/bin/startdde-2D
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
-	@echo "Install dialogUI"
-	cd dialogUI/build && make DESTDIR=${DESTDIR} install
+	@echo "Skip Install dialogUI"
+	#cd dialogUI/build && make DESTDIR=${DESTDIR} install
 
 clean:
 	rm -rf ${GOPATH_DIR}
