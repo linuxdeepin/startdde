@@ -2,13 +2,14 @@ package display
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"strings"
-	"sync"
 )
 
 var (
@@ -462,7 +463,6 @@ func Start() {
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
 	}
-	dpy.workaroundBacklight()
 }
 
 func ApplySettings() {
