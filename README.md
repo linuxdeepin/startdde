@@ -1,13 +1,109 @@
-What it will be?
-===============
-* logout/shutdown/reboot dialog
-* autostart manager
-* session manager
-* xsettings-daemon
-* DDE core component scheduler
+# Startdde
+
+**Description**:
+Startdde is used for launching DDE components and invoking
+user's custom applications which compliant with xdg autostart specification.
+
+## Dependencies
+
+### Build Dependencies
+
+- cmake
+- pkg-config
+- golang-go
+- coffeescript
+- sqlite3
+- webkitgtk
+- [deepin-webkit](https://github.com/linuxdeepin/deepin-webkit)
+- [go-dlib](https://github.com/linuxdeepin/go-lib)
+- [go-xgb](https://github.com/BurntSushi/xgb)
+- [go-xgbutil](https://github.com/BurntSushi/xgbutil)
+- [go-fsnotify](https://github.com/howeyc/fsnotify)
+- [dde-dbus-factory](https://github.com/linuxdeepin/dbus-factory)
+- gail-3-dev
+- gstreamer-plugins-base-1.0
 
 
-the urgent tasks
-================
-* autostart support
-* dialog support
+### Runtime Dependencies
+
+- dde-daemon (>= 0.0.1+20140731174758)
+- dde-workspace
+- deepin-wm | deepin-compiz | compiz
+
+## Installation
+
+### Deepin
+
+Install prerequisites
+```
+$ sudo apt-get build-dep startdde
+```
+
+Build
+```
+$ GOPATH=/usr/share/gocode make
+```
+
+If you have isolated testing build environment (say a docker container), you can install it directly
+```
+$ sudo make install
+```
+
+generate package files and install Startdde with it
+```
+$ debuild -uc -us ...
+$ sudo dpkg -i ../startdde-*deb
+```
+
+## Usage
+
+Run Startdde with the command below
+
+```
+Usage of /usr/bin/startdde:
+  -d=false: debug
+  -wm="/usr/bin/deepin-wm": the window manager used by dde
+```
+
+
+### Directly run without display manager
+
+```
+$ echo "dbus-launch --exit-with-session /usr/bin/startdde" > ~/.xinitrc
+$ startx
+```
+
+### Run with display manager
+
+1. construct a session desktop in /usr/share/xsessions
+
+```
+cat /usr/share/xsessions/deepin.desktop
+
+[Desktop Entry]
+Name=Deepin
+Comment=Deepin Desktop Environment
+Exec=/usr/bin/startdde
+```
+
+2. Using DisplayManager like, gdm, kdm or lightdm to startup Startdde
+
+## Getting help
+
+Any usage issues can ask for help via
+
+* [Gitter](https://gitter.im/orgs/linuxdeepin/rooms)
+* [IRC channel](https://webchat.freenode.net/?channels=deepin)
+* [Forum](https://bbs.deepin.org)
+* [WiKi](http://wiki.deepin.org/)
+
+## Getting involved
+
+We encourage you to report issues and contribute changes
+
+* [Contirubtion guide for users](http://wiki.deepin.org/index.php?title=Contribution_Guidelines_for_Users)
+* [Contribution guide for developers](http://wiki.deepin.org/index.php?title=Contribution_Guidelines_for_Developers)
+
+## License
+
+Startdde is licensed under [GPLv3](LICENSE).
