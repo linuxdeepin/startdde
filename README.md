@@ -6,7 +6,7 @@ user's custom applications which compliant with xdg autostart specification.
 
 ## Dependencies
 
-### Build Dependencies
+### Build dependencies
 
 - cmake
 - pkg-config
@@ -24,7 +24,7 @@ user's custom applications which compliant with xdg autostart specification.
 - gstreamer-plugins-base-1.0
 
 
-### Runtime Dependencies
+### Runtime dependencies
 
 - dde-daemon (>= 0.0.1+20140731174758)
 - dde-workspace
@@ -101,7 +101,7 @@ Any usage issues can ask for help via
 
 We encourage you to report issues and contribute changes
 
-* [Contirubtion guide for users](http://wiki.deepin.org/index.php?title=Contribution_Guidelines_for_Users)
+* [Contribution guide for users](http://wiki.deepin.org/index.php?title=Contribution_Guidelines_for_Users)
 * [Contribution guide for developers](http://wiki.deepin.org/index.php?title=Contribution_Guidelines_for_Developers)
 
 ## License
