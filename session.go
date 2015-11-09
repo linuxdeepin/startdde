@@ -1,6 +1,7 @@
 package main
 
 import (
+	"dbus/com/deepin/daemon/soundeffect"
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
@@ -42,6 +43,10 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) RequestLogout() {
+	err := playSystemSound("logout", true)
+	if err != nil {
+		logger.Warning("Play 'logout' sound failed:", err)
+	}
 	os.Exit(0)
 }
 
@@ -63,6 +68,10 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
+	err := playSystemSound("shutdown", true)
+	if err != nil {
+		logger.Warning("Play 'logout' sound failed:", err)
+	}
 	objLogin.PowerOff(true)
 }
 
@@ -200,6 +209,11 @@ func startSession() {
 	}()
 	wg.Wait()
 
+	err = playSystemSound("login", false)
+	if err != nil {
+		logger.Warning("Play 'login' sound failed:", err)
+	}
+
 	manager.setPropStage(SessionStageCoreEnd)
 
 	manager.setPropStage(SessionStageAppsBegin)
@@ -208,4 +222,19 @@ func startSession() {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
+}
+
+func playSystemSound(event string, sync bool) error {
+	player, err := soundeffect.NewSoundEffect("com.deepin.daemon.SoundEffect",
+		"/com/deepin/daemon/SoundEffect")
+	if err != nil {
+		return err
+	}
+	defer soundeffect.DestroySoundEffect(player)
+
+	if sync {
+		return player.PlaySystemSoundSync(event)
+	}
+
+	return player.PlaySystemSound(event)
 }
