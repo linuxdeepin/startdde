@@ -128,7 +128,7 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 	return nil
 }
 
-func launch(name interface{}, list interface{}) error {
+func launch(name interface{}, list interface{}, timestamp uint32) error {
 	switch o := name.(type) {
 	case string:
 		logger.Debug("string")
@@ -143,7 +143,7 @@ func launch(name interface{}, list interface{}) error {
 			}
 			defer app.Unref()
 
-			_, err = app.Launch(list.([]*gio.File), nil)
+			_, err = app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
 			return err
 		}
 
@@ -167,12 +167,11 @@ func launch(name interface{}, list interface{}) error {
 			recordStartWMClass(o, startupWMClass)
 		}
 
-		// TODO: launch context???
-		_, err := app.Launch(list.([]*gio.File), nil)
+		_, err := app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
 		return err
 
 	case *gio.AppInfo, *gio.DesktopAppInfo:
-		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), nil)
+		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
 		return err
 
 	case *gio.File:

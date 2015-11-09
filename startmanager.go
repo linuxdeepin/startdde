@@ -46,8 +46,12 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 }
 
 func (m *StartManager) Launch(name string) (bool, error) {
+	return m.LaunchWithTimestamp(name, 0)
+}
+
+func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
 	list := make([]*gio.File, 0)
-	err := launch(name, list)
+	err := launch(name, list, timestamp)
 	if err != nil {
 		logger.Info("launch failed:", err)
 	}
