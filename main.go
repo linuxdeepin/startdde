@@ -8,6 +8,7 @@ package main
 import "C"
 import (
 	"flag"
+	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
 )
@@ -27,7 +28,13 @@ func main() {
 
 	startDisplay()
 
+	playSound("login", false)
+
 	startSession()
 
 	C.gtk_main()
+}
+
+func playSound(event string, sync bool) error {
+	return soundutils.PlaySystemSound(event, "", sync)
 }
