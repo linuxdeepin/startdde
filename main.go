@@ -22,13 +22,13 @@ func main() {
 	C.gtkInit()
 	flag.Parse()
 
+	playSound("login", false)
+
 	proxy.SetupProxy()
 
 	startXSettings()
 
 	startDisplay()
-
-	playSound("login", false)
 
 	startSession()
 
