@@ -15,7 +15,7 @@ endif
 ifndef USE_GCCGO
 	GOBUILD = go build ${GOLDFLAGS}
 else
-	GOLDFLAGS += $(shell pkg-config --libs gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11)
+	GOLDFLAGS += $(shell pkg-config --libs gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 libcanberra)
 	GOBUILD = go build -compiler gccgo -gccgoflags "${GOLDFLAGS}"
 endif
 
