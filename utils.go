@@ -11,9 +11,10 @@ import (
 
 	"bytes"
 	"os/exec"
+	"time"
+
 	"pkg.deepin.io/lib/gio-2.0"
 	"pkg.deepin.io/lib/glib-2.0"
-	"time"
 )
 
 func Exist(name string) bool {
@@ -131,68 +132,7 @@ func launch(name interface{}, list interface{}) error {
 	switch o := name.(type) {
 	case string:
 		logger.Debug("string")
-		if strings.HasSuffix(o, ".desktop") {
-			var app *gio.DesktopAppInfo
-			// maybe use AppInfoCreateFromCommandline with
-			// AppInfoCreateFlagsSupportsStartupNotification flag
-			if path.IsAbs(o) {
-				logger.Debug("the path to launch is abs")
-				app = gio.NewDesktopAppInfoFromFilename(o)
-			} else {
-				logger.Info("the path to launch is not abs")
-				app = gio.NewDesktopAppInfo(o)
-			}
-			if app == nil {
-				return errors.New("Launch failed")
-			}
-			defer app.Unref()
-
-			startupWmClass := app.GetStartupWmClass()
-			if startupWmClass != "" {
-				logger.Info("startupWMClass")
-				f := glib.NewKeyFile()
-				defer f.Free()
-
-				homePath := os.Getenv("HOME")
-				filterPath := path.Join(
-					homePath,
-					"/.config/dock/filter.ini",
-				)
-				if !Exist(filterPath) {
-					f, err := os.Create(filterPath)
-					if err != nil {
-						return fmt.Errorf("Launcher create config failedfailed: %s", err)
-					}
-					f.Close()
-				}
-				if ok, err := f.LoadFromFile(
-					filterPath,
-					glib.KeyFileFlagsNone,
-				); !ok {
-					return fmt.Errorf("Launcher load config failed: %s", err)
-				}
-
-				basename := path.Base(o)
-				dot := strings.LastIndex(
-					basename,
-					path.Ext(o),
-				)
-				appid := strings.Replace(
-					basename[:dot],
-					"_",
-					"-",
-					-1,
-				)
-				f.SetString(startupWmClass, "appid", appid)
-				f.SetString(startupWmClass, "path", o)
-				saveKeyFile(f, filterPath)
-			}
-
-			// TODO: read delay field
-			// TODO: launch context???
-			_, err := app.Launch(list.([]*gio.File), nil)
-			return err
-		} else {
+		if !strings.HasSuffix(o, ".desktop") {
 			app, err := gio.AppInfoCreateFromCommandline(
 				o,
 				"",
@@ -201,22 +141,106 @@ func launch(name interface{}, list interface{}) error {
 			if err != nil {
 				return err
 			}
-
 			defer app.Unref()
 
 			_, err = app.Launch(list.([]*gio.File), nil)
 			return err
 		}
 
+		var app *gio.DesktopAppInfo
+		// maybe use AppInfoCreateFromCommandline with
+		// AppInfoCreateFlagsSupportsStartupNotification flag
+		if path.IsAbs(o) {
+			logger.Debug("the path to launch is abs")
+			app = gio.NewDesktopAppInfoFromFilename(o)
+		} else {
+			logger.Info("the path to launch is not abs")
+			app = gio.NewDesktopAppInfo(o)
+		}
+		if app == nil {
+			return errors.New("Launch failed")
+		}
+		defer app.Unref()
+
+		startupWMClass := app.GetStartupWmClass()
+		if startupWMClass != "" {
+			recordStartWMClass(o, startupWMClass)
+		}
+
+		// TODO: launch context???
+		_, err := app.Launch(list.([]*gio.File), nil)
+		return err
+
 	case *gio.AppInfo, *gio.DesktopAppInfo:
 		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), nil)
 		return err
 
 	case *gio.File:
-		return errors.New("not support now")
+		return errors.New("not supported type now")
 	}
 
-	return errors.New("not suport")
+	return errors.New("not suported type now")
+}
+
+func getDelayTime(o string) time.Duration {
+	f := glib.NewKeyFile()
+	defer f.Free()
+
+	_, err := f.LoadFromFile(o, glib.KeyFileFlagsNone)
+	if err != nil {
+		logger.Warning("load", o, "failed:", err)
+		return 0
+	}
+
+	num, err := f.GetInteger(glib.KeyFileDesktopGroup, GnomeDelayKey)
+	if err != nil {
+		logger.Debug("get", GnomeDelayKey, "failed", err)
+		return 0
+	}
+
+	return time.Second * time.Duration(num)
+}
+
+func recordStartWMClass(o string, startupWMClass string) {
+	logger.Info("startupWMClass")
+	f := glib.NewKeyFile()
+	defer f.Free()
+
+	homePath := os.Getenv("HOME")
+	filterDir := path.Join(homePath, ".config/dock")
+	os.MkdirAll(filterDir, 0664)
+	filterPath := path.Join(filterDir, "filter.ini")
+	if !Exist(filterPath) {
+		f, err := os.Create(filterPath)
+		if err != nil {
+			logger.Errorf("Launcher create config failedfailed: %s", err)
+		} else {
+			f.Close()
+		}
+	} else {
+		if ok, err := f.LoadFromFile(
+			filterPath,
+			glib.KeyFileFlagsKeepComments|glib.KeyFileFlagsKeepTranslations,
+		); !ok {
+			logger.Errorf("Launcher load config failed: %s", err)
+			return
+		}
+
+		basename := path.Base(o)
+		dot := strings.LastIndex(
+			basename,
+			path.Ext(o),
+		)
+		appid := strings.Replace(
+			basename[:dot],
+			"_",
+			"-",
+			-1,
+		)
+		f.SetString(startupWMClass, "appid", appid)
+		f.SetString(startupWMClass, "path", o)
+		saveKeyFile(f, filterPath)
+	}
 }
 
 func execCommand(cmd string, arg string) {

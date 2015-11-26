@@ -43,13 +43,13 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
 
-func (m *StartManager) Launch(name string) bool {
+func (m *StartManager) Launch(name string) (bool, error) {
 	list := make([]*gio.File, 0)
 	err := launch(name, list)
 	if err != nil {
 		logger.Info(err)
 	}
-	return err == nil
+	return err == nil, err
 }
 
 type AutostartInfo struct {
@@ -550,23 +550,11 @@ func startStartManager() {
 
 func startAutostartProgram() {
 	START_MANAGER.listenAutostart()
+	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
 	for _, path := range START_MANAGER.AutostartList() {
 		go func(path string) {
-			f := glib.NewKeyFile()
-			defer f.Free()
-
-			_, err := f.LoadFromFile(path, glib.KeyFileFlagsNone)
-			if err != nil {
-				logger.Warning("load", path, "failed:", err)
-			} else {
-				num, err := f.GetInteger(glib.KeyFileDesktopGroup,
-					GnomeDelayKey)
-				if err != nil {
-					logger.Debug("get", GnomeDelayKey, "failed", err)
-				} else {
-					duration := time.Second * time.Duration(num)
-					<-time.After(duration)
-				}
+			if delayTime := getDelayTime(path); delayTime != 0 {
+				time.Sleep(delayTime)
 			}
 
 			START_MANAGER.Launch(path)
