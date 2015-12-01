@@ -243,14 +243,6 @@ func recordStartWMClass(o string, startupWMClass string) {
 	}
 }
 
-func execCommand(cmd string, arg string) {
-	err := exec.Command(cmd, arg).Run()
-	if err != nil {
-		logger.Errorf("Exec '%s %s' Failed: %s\n",
-			cmd, arg, err)
-	}
-}
-
 func execAndWait(timeout int, name string, arg ...string) (stdout, stderr string, err error) {
 	cmd := exec.Command(name, arg...)
 	var bufStdout, bufStderr bytes.Buffer
