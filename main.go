@@ -22,7 +22,7 @@ func main() {
 	C.gtkInit()
 	flag.Parse()
 
-	playSound("login", false)
+	soundutils.PlaySystemSound(soundutils.KeyLogin, "", false)
 
 	proxy.SetupProxy()
 
@@ -33,8 +33,4 @@ func main() {
 	startSession()
 
 	C.gtk_main()
-}
-
-func playSound(event string, sync bool) error {
-	return soundutils.PlaySystemSound(event, "", sync)
 }

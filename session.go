@@ -1,9 +1,11 @@
 package main
 
 import (
+	"dbus/com/deepin/api/soundthemeplayer"
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
+	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/dbus"
 	"sync"
 	"time"
@@ -42,6 +44,13 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) RequestLogout() {
+	if soundutils.CanPlayEvent(soundutils.KeyLogout) {
+		// Try to launch 'sound-theme-player'
+		playThemeSound("", "")
+		// Play sound
+		playThemeSound(soundutils.GetSoundTheme(),
+			soundutils.QueryEvent(soundutils.KeyLogout))
+	}
 	os.Exit(0)
 }
 
@@ -208,4 +217,25 @@ func startSession() {
 		startAutostartProgram()
 	}
 	manager.setPropStage(SessionStageAppsEnd)
+}
+
+var themePlayer *soundthemeplayer.SoundThemePlayer
+
+func playThemeSound(theme, event string) {
+	if themePlayer == nil {
+		var err error
+		themePlayer, err = soundthemeplayer.NewSoundThemePlayer(
+			"com.deepin.api.SoundThemePlayer",
+			"/com/deepin/api/SoundThemePlayer",
+		)
+		if err != nil {
+			logger.Error("Init 'SoundThemePlayer' failed:", err)
+			return
+		}
+	}
+
+	err := themePlayer.Play(theme, event)
+	if err != nil {
+		logger.Error("Play sound theme failed:", theme, event, err)
+	}
 }
