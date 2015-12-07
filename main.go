@@ -22,7 +22,7 @@ func main() {
 	C.gtkInit()
 	flag.Parse()
 
-	soundutils.PlaySystemSound(soundutils.KeyLogin, "", false)
+	soundutils.PlaySystemSound(soundutils.EventLogin, "", false)
 
 	proxy.SetupProxy()
 

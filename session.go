@@ -45,12 +45,12 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) RequestLogout() {
-	if soundutils.CanPlayEvent(soundutils.KeyLogout) {
+	if soundutils.CanPlayEvent(soundutils.EventLogout) {
 		// Try to launch 'sound-theme-player'
 		playThemeSound("", "")
 		// Play sound
 		playThemeSound(soundutils.GetSoundTheme(),
-			soundutils.QueryEvent(soundutils.KeyLogout))
+			soundutils.EventLogout)
 	}
 	os.Exit(0)
 }
@@ -73,6 +73,13 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
+	err := soundutils.SetShutdownSound(
+		soundutils.CanPlayEvent(soundutils.EventShutdown),
+		soundutils.GetSoundTheme(),
+		soundutils.EventShutdown)
+	if err != nil {
+		logger.Warning("Set shutdown sound failed:", err)
+	}
 	objLogin.PowerOff(true)
 }
 
