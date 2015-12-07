@@ -5,10 +5,11 @@ import (
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
-	"pkg.deepin.io/dde/api/soundutils"
-	"pkg.deepin.io/lib/dbus"
 	"sync"
 	"time"
+
+	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/lib/dbus"
 )
 
 type SessionManager struct {
@@ -167,6 +168,7 @@ func startSession() {
 	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
 	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
 	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
+	os.Setenv("XDG_CURRENT_DESKTOP", "Deepin")
 
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
