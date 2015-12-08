@@ -40,8 +40,6 @@ build: prepare startdde dialog
 install:
 	mkdir -p ${DESTDIR}${PREFIX}/bin
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
-	sed 's|@PREFIX@|$(PREFIX)|g' misc/bin/startdde-2D.in >  ${DESTDIR}${PREFIX}/bin/startdde-2D
-	chmod 0755 ${DESTDIR}${PREFIX}/bin/startdde-2D
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
 	@echo "Skip Install dialogUI"

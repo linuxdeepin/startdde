@@ -1,5 +1,5 @@
 [Desktop Entry]
 Name=Deepin
 Comment=Deepin Desktop Environment
-Exec=@PREFIX@/bin/startdde
+Exec=@PREFIX@/bin/startdde -wm deepin-wm-switcher
 TryExec=@PREFIX@/bin/startdde
