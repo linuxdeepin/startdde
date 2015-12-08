@@ -28,6 +28,7 @@ user's custom applications which compliant with xdg autostart specification.
 
 - dde-daemon (>= 0.0.1+20140731174758)
 - dde-workspace
+- deepin-wm-switcher
 - deepin-wm | deepin-compiz | compiz
 
 ## Installation
@@ -62,7 +63,7 @@ Run Startdde with the command below
 ```
 Usage of /usr/bin/startdde:
   -d=false: debug
-  -wm="/usr/bin/deepin-wm": the window manager used by dde
+  -wm="/usr/bin/deepin-wm-switcher": the window manager used by dde
 ```
 
 

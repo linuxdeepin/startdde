@@ -16,7 +16,7 @@ import (
 var logger = log.NewLogger("com.deepin.SessionManager")
 
 var debug = flag.Bool("d", false, "debug")
-var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm", "the window manager used by dde")
+var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm-switcher", "the window manager used by dde")
 
 func main() {
 	C.gtkInit()
