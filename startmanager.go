@@ -429,7 +429,18 @@ func (m *StartManager) AutostartList() []string {
 	dirs := m.autostartDirs()
 	for _, dir := range dirs {
 		if Exist(dir) {
-			apps = append(apps, m.getAutostartApps(dir)...)
+			list := m.getAutostartApps(dir)
+			if len(apps) == 0 {
+				apps = append(apps, list...)
+				continue
+			}
+
+			for _, v := range list {
+				if isAppInList(v, apps) {
+					continue
+				}
+				apps = append(apps, v)
+			}
 		}
 	}
 	return apps
@@ -560,4 +571,13 @@ func startAutostartProgram() {
 			START_MANAGER.Launch(path)
 		}(path)
 	}
+}
+
+func isAppInList(app string, apps []string) bool {
+	for _, v := range apps {
+		if path.Base(app) == path.Base(v) {
+			return true
+		}
+	}
+	return false
 }
