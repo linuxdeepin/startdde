@@ -185,7 +185,7 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 
 	op := GetDisplayInfo().QueryOutputs(output)
 	if op == 0 {
-		return fmt.Errorf("Chan't find the ", output, "output when change brightness")
+		return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
 	}
 
 	if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output)) {
@@ -341,7 +341,7 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 		}
 	}
 	logger.Error("can't find any valid primary", name)
-	return fmt.Errorf("can't find any valid primary", name)
+	return fmt.Errorf("can't find any valid primary: %v", name)
 }
 
 func (dpy *Display) SetPrimary(name string) error {
@@ -463,11 +463,6 @@ func Start() {
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
 	}
-}
-
-func ApplySettings() {
-	dpy := GetDisplay()
-	dpy.Apply()
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {

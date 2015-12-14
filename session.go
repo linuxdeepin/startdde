@@ -191,10 +191,6 @@ func startSession() {
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager()
 
-	// apply display settings, becase of window manager reset it.
-	// if wm not start finished, the operation will not work.
-	initDisplaySettings()
-
 	// dde-launcher is fast enough now, there's no need to start it at the begnning
 	// of every session.
 	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")

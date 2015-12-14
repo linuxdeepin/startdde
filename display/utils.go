@@ -88,8 +88,8 @@ func (m Modes) Less(i, j int) bool {
 	if m[i].Width == m[j].Width && m[i].Height == m[j].Height {
 		return m[i].Rate > m[j].Rate
 	} else {
-		sum1 := m[i].Width+m[i].Height
-		sum2 := m[j].Width+m[j].Height
+		sum1 := m[i].Width + m[i].Height
+		sum2 := m[j].Width + m[j].Height
 		if sum1 == sum2 {
 			if m[i].Width == m[j].Width {
 				return m[i].Height > m[j].Height
@@ -213,11 +213,16 @@ var setBacklight, getBacklight = func() (func(float64), func() float64) {
 }()
 
 func supportedBacklight(c *xgb.Conn, output randr.Output) bool {
-	prop, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
-	pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
-	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
+	_, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
+	if err != nil {
 		return false
 	}
+
+	// SW can not query prop of backlight
+	// pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
+	// if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
+	// 	return false
+	// }
 	return true
 }
 

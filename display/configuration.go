@@ -327,7 +327,7 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		cfg.Enabled = true
 	} else {
 		if len(oinfo.Modes) == 0 {
-			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")
+			return nil, fmt.Errorf("%s hasn't any mode info", string(oinfo.Name))
 		}
 		minfo := GetDisplayInfo().QueryModes(oinfo.Modes[0])
 		cfg.Width, cfg.Height = minfo.Width, minfo.Height

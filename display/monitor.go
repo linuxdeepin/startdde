@@ -150,7 +150,7 @@ func (m *Monitor) changeRotation(v uint16) error {
 	case 1, 2, 4, 8:
 		break
 	default:
-		err := fmt.Errorf("changeRotation with invalid value ", v)
+		err := fmt.Errorf("changeRotation with invalid value %v", v)
 		logger.Error(err)
 		return err
 	}
@@ -172,7 +172,7 @@ func (m *Monitor) changeReflect(v uint16) error {
 	case 0, 16, 32, 48:
 		break
 	default:
-		err := fmt.Errorf("SetReflect with invalid value ", v)
+		err := fmt.Errorf("SetReflect with invalid value %v", v)
 		logger.Error(err)
 		return err
 	}
