@@ -10,15 +10,17 @@ import (
 
 	"github.com/howeyc/fsnotify"
 
-	"pkg.deepin.io/lib/dbus"
 	"gir/gio-2.0"
 	"gir/glib-2.0"
+	"pkg.deepin.io/lib/dbus"
 )
 
 const (
 	_OBJECT = "com.deepin.SessionManager"
 	_PATH   = "/com/deepin/StartManager"
 	_INTER  = "com.deepin.StartManager"
+
+	_WritePerm os.FileMode = 0200
 )
 
 const (
@@ -47,7 +49,7 @@ func (m *StartManager) Launch(name string) (bool, error) {
 	list := make([]*gio.File, 0)
 	err := launch(name, list)
 	if err != nil {
-		logger.Info(err)
+		logger.Info("launch failed:", err)
 	}
 	return err == nil, err
 }
@@ -447,10 +449,21 @@ func (m *StartManager) AutostartList() []string {
 }
 
 func (m *StartManager) doSetAutostart(name string, autostart bool) error {
+	stat, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+
+	if int(stat.Mode().Perm()&_WritePerm) == 0 {
+		err := os.Chmod(name, stat.Mode()|_WritePerm)
+		if err != nil {
+			return err
+		}
+	}
+
 	file := glib.NewKeyFile()
 	defer file.Free()
 	if ok, err := file.LoadFromFile(name, glib.KeyFileFlagsNone); !ok {
-		logger.Info(err)
 		return err
 	}
 
@@ -520,22 +533,22 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 	return m.doSetAutostart(dst, autostart)
 }
 
-func (m *StartManager) AddAutostart(name string) bool {
+func (m *StartManager) AddAutostart(name string) (bool, error) {
 	err := m.setAutostart(name, true)
 	if err != nil {
 		logger.Info("AddAutostart", err)
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
-func (m *StartManager) RemoveAutostart(name string) bool {
+func (m *StartManager) RemoveAutostart(name string) (bool, error) {
 	err := m.setAutostart(name, false)
 	if err != nil {
-		logger.Info(err)
-		return false
+		logger.Info("RemoveAutostart failed:", err)
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 func (m *StartManager) IsAutostart(name string) bool {
