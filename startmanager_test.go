@@ -1,7 +1,7 @@
 package main
 
 import (
-	"pkg.deepin.io/lib/gio-2.0"
+	"gir/gio-2.0"
 	"fmt"
 	"io/ioutil"
 	"os"
