@@ -5,11 +5,24 @@ import (
 	"strings"
 	"sync"
 
+	"gir/gio-2.0"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
+)
+
+const (
+	displaySchema         = "com.deepin.dde.display"
+	gsKeyBrightnessSetter = "brightness-setter"
+
+	brightnessSetterAuto              = "auto"
+	brightnessSetterGamma             = "gamma"
+	brightnessSetterBacklight         = "backlight"
+	brightnessSetterBacklightRaw      = "backlight-raw"
+	brightnessSetterBacklightPlatform = "backlight-platform"
+	brightnessSetterBacklightFirmware = "backlight-firmware"
 )
 
 var (
@@ -60,6 +73,8 @@ var GetDisplay = func() func() *Display {
 	GetDisplayInfo().update()
 	dpy.setPropHasChanged(false)
 
+	dpy.setting = gio.NewSettings(displaySchema)
+
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
 	return func() *Display {
@@ -86,6 +101,8 @@ type Display struct {
 
 	Brightness map[string]float64
 	cfg        *ConfigDisplay
+
+	setting *gio.Settings
 }
 
 func (dpy *Display) lockMonitors() {
@@ -183,19 +200,34 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
+	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
+	switch setter {
+	case brightnessSetterBacklight, brightnessSetterBacklightRaw,
+		brightnessSetterBacklightPlatform, brightnessSetterBacklightFirmware:
+		setBacklight(v, setter)
+		dpy.setPropBrightness(output, v)
+		return nil
+	}
+
 	op := GetDisplayInfo().QueryOutputs(output)
 	if op == 0 {
 		return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
 	}
+	if setter == brightnessSetterGamma {
+		setBrightness(xcon, op, v)
+		dpy.setPropBrightness(output, v)
+		return nil
+	}
 
+	// Auto detect
 	if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output)) {
-		setBacklight(v)
+		setBacklight(v, brightnessSetterBacklight)
 	} else {
 		setBrightness(xcon, op, v)
 	}
+
 	dpy.setPropBrightness(output, v)
 	return nil
-
 }
 
 func (dpy *Display) ResetBrightness(output string) {

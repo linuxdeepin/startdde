@@ -64,7 +64,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	for _, name := range GetDisplayInfo().ListNames() {
 		if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
-			cfg.Brightness[name] = getBacklight()
+			cfg.Brightness[name] = getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
 		} else {
 			cfg.Brightness[name] = 1
 		}
