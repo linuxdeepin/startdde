@@ -72,6 +72,7 @@ func isBadOutput(output string, crtc randr.Crtc) bool {
 			}
 			return true
 		}
+		return false
 	}
 	return true
 }
