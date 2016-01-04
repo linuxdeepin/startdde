@@ -436,6 +436,7 @@ func (dpy *Display) ResetChanges() {
 
 	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
+		runCode("xrandr --auto")
 	}
 
 	//apply the saved configurations.
