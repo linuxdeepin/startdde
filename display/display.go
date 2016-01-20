@@ -200,6 +200,16 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
+	var isSupported = supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
+	if isSupported {
+		real := getBacklight(brightnessSetterBacklight)
+		// not change, update prop
+		if v > real-0.01 && v < real+0.01 {
+			dpy.setPropBrightness(output, real)
+			return nil
+		}
+	}
+
 	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
 	switch setter {
 	case brightnessSetterBacklight, brightnessSetterBacklightRaw,
@@ -220,7 +230,7 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 	}
 
 	// Auto detect
-	if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output)) {
+	if isSupported {
 		setBacklight(v, brightnessSetterBacklight)
 	} else {
 		setBrightness(xcon, op, v)
