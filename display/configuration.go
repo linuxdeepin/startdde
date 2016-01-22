@@ -176,10 +176,10 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 }
 
 func validBrightnessValue(v float64) bool {
-	if v >= 0.1 && v <= 1 {
-		return true
+	if v < 0 || v > 1 {
+		return false
 	}
-	return false
+	return true
 }
 
 func validConfig(r *ConfigDisplay) bool {
