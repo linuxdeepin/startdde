@@ -30,23 +30,15 @@ prepare:
 startdde:
 	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -o startdde
 
-dialog:
-	@echo "Skiping Build dialogUI"
-	#cd dialogUI && mkdir build
-	#cd dialogUI/build && cmake .. -DCMAKE_INSTALL_PREFIX=${PREFIX} -DCMAKE_BUILD_TYPE=Release
-
-build: prepare startdde dialog
+build: prepare startdde
 
 install:
 	mkdir -p ${DESTDIR}${PREFIX}/bin
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
-	@echo "Skip Install dialogUI"
-	#cd dialogUI/build && make DESTDIR=${DESTDIR} install
 
 clean:
 	rm -rf ${GOPATH_DIR}
-	rm -rf dialogUI/build
 
 rebuild: clean build
