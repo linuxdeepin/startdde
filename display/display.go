@@ -1,14 +1,37 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package display
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+
+	"gir/gio-2.0"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
-	"pkg.linuxdeepin.com/lib/dbus"
-	"pkg.linuxdeepin.com/lib/log"
-	"strings"
-	"sync"
+	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
+)
+
+const (
+	displaySchema         = "com.deepin.dde.display"
+	gsKeyBrightnessSetter = "brightness-setter"
+
+	brightnessSetterAuto              = "auto"
+	brightnessSetterGamma             = "gamma"
+	brightnessSetterBacklight         = "backlight"
+	brightnessSetterBacklightRaw      = "backlight-raw"
+	brightnessSetterBacklightPlatform = "backlight-platform"
+	brightnessSetterBacklightFirmware = "backlight-firmware"
 )
 
 var (
@@ -59,6 +82,8 @@ var GetDisplay = func() func() *Display {
 	GetDisplayInfo().update()
 	dpy.setPropHasChanged(false)
 
+	dpy.setting = gio.NewSettings(displaySchema)
+
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
 	return func() *Display {
@@ -85,6 +110,8 @@ type Display struct {
 
 	Brightness map[string]float64
 	cfg        *ConfigDisplay
+
+	setting *gio.Settings
 }
 
 func (dpy *Display) lockMonitors() {
@@ -182,19 +209,44 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
-	op := GetDisplayInfo().QueryOutputs(output)
-	if op == 0 {
-		return fmt.Errorf("Chan't find the ", output, "output when change brightness")
+	var isSupported = supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
+	if isSupported {
+		real := getBacklight(brightnessSetterBacklight)
+		// not change, update prop
+		if v > real-0.01 && v < real+0.01 {
+			dpy.setPropBrightness(output, real)
+			return nil
+		}
 	}
 
-	if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output)) {
-		setBacklight(v)
+	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
+	switch setter {
+	case brightnessSetterBacklight, brightnessSetterBacklightRaw,
+		brightnessSetterBacklightPlatform, brightnessSetterBacklightFirmware:
+		setBacklight(v, setter)
+		dpy.setPropBrightness(output, v)
+		return nil
+	}
+
+	op := GetDisplayInfo().QueryOutputs(output)
+	if op == 0 {
+		return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
+	}
+	if setter == brightnessSetterGamma {
+		setBrightness(xcon, op, v)
+		dpy.setPropBrightness(output, v)
+		return nil
+	}
+
+	// Auto detect
+	if isSupported {
+		setBacklight(v, brightnessSetterBacklight)
 	} else {
 		setBrightness(xcon, op, v)
 	}
+
 	dpy.setPropBrightness(output, v)
 	return nil
-
 }
 
 func (dpy *Display) ResetBrightness(output string) {
@@ -340,7 +392,7 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 		}
 	}
 	logger.Error("can't find any valid primary", name)
-	return fmt.Errorf("can't find any valid primary", name)
+	return fmt.Errorf("can't find any valid primary: %v", name)
 }
 
 func (dpy *Display) SetPrimary(name string) error {
@@ -403,6 +455,7 @@ func (dpy *Display) ResetChanges() {
 
 	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
+		runCode("xrandr --auto")
 	}
 
 	//apply the saved configurations.
@@ -462,7 +515,6 @@ func Start() {
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
 	}
-	dpy.workaroundBacklight()
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {

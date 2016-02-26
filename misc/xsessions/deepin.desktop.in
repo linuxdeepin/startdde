@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Deepin
+Comment=Deepin Desktop Environment
+Exec=@PREFIX@/bin/startdde
+TryExec=@PREFIX@/bin/startdde

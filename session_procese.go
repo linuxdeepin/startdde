@@ -1,3 +1,12 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package main
 
 import "fmt"
@@ -35,8 +44,17 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	m.cookies[id] = make(chan time.Time, 1)
 	startStamp := time.Now()
 
-	cmd.Start()
-	go cmd.Wait()
+	err := cmd.Start()
+	if err != nil {
+		logger.Warningf("Start command '%s' failed: %v", bin, err)
+		return false
+	}
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			logger.Warningf("Wait command '%s' failed: %v", bin, err)
+		}
+	}()
 
 	select {
 	case endStamp := <-m.cookies[id]:

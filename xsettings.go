@@ -1,143 +1,153 @@
 /**
- * Copyright (c) 2011 ~ 2013 Deepin, Inc.
- *               2011 ~ 2013 jouyouyun
- *
- * Author:      jouyouyun <jouyouwen717@gmail.com>
- * Maintainer:  jouyouyun <jouyouwen717@gmail.com>
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, see <http://www.gnu.org/licenses/>.
  **/
 
 package main
 
 import (
+	"fmt"
 	"github.com/BurntSushi/xgb"
-	"pkg.linuxdeepin.com/lib/dbus"
+	"github.com/BurntSushi/xgb/xproto"
+	"pkg.deepin.io/lib/dbus"
+	"gir/gio-2.0"
 )
-
-type XSettingsManager struct {
-	PropList []string
-}
 
 const (
-	XSETTINGS_DEST = "com.deepin.SessionManager"
-	XSETTINGS_PATH = "/com/deepin/XSettings"
-	XSETTINGS_IFC  = "com.deepin.XSettings"
+	xsSchema = "com.deepin.xsettings"
 )
 
-var (
-	X             *xgb.Conn
-	xsKeyValueMap = make(map[string]interface{})
-)
+type XSManager struct {
+	PropList []string
 
-func (op *XSettingsManager) SetInteger(key string, value uint32) {
-	if len(key) <= 0 {
-		return
-	}
-	setXSettingsName(key, value)
-	xsKeyValueMap[key] = value
-	op.setPropName("PropList")
+	conn  *xgb.Conn
+	owner xproto.Window
+
+	gs *gio.Settings
 }
 
-func (op *XSettingsManager) GetInteger(key string) (uint32, bool) {
-	ret, ok := xsKeyValueMap[key]
-	if !ok {
-		return 0, false
-	}
-
-	return ret.(uint32), true
+type xsSetting struct {
+	sType int8
+	prop  string
+	value interface{} // int32, string, [4]int16
 }
 
-func (op *XSettingsManager) SetString(key, value string) {
-	if len(key) <= 0 {
-		return
-	}
-	setXSettingsName(key, value)
-	xsKeyValueMap[key] = value
-	op.setPropName("PropList")
-}
+func NewXSManager() (*XSManager, error) {
+	var m = &XSManager{}
 
-func (op *XSettingsManager) GetString(key string) (string, bool) {
-	ret, ok := xsKeyValueMap[key]
-	if !ok {
-		return "", false
+	var err error
+	m.conn, err = xgb.NewConn()
+	if err != nil {
+		return nil, err
 	}
 
-	return ret.(string), true
-}
-
-/*
-  Color: [4]string
-*/
-func (op *XSettingsManager) SetColor(key string, value []byte) {
-	if len(key) <= 0 || len(value) != 4 {
-		return
-	}
-	setXSettingsName(key, value)
-	xsKeyValueMap[key] = value
-	op.setPropName("PropList")
-}
-
-func (op *XSettingsManager) GetColor(key string) ([]byte, bool) {
-	ret, ok := xsKeyValueMap[key]
-	if !ok {
-		return []byte{}, false
+	m.owner, err = createSettingWindow(m.conn)
+	if err != nil {
+		m.conn.Close()
+		return nil, err
 	}
 
-	return ret.([]byte), true
-}
-
-func (op *XSettingsManager) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		XSETTINGS_DEST,
-		XSETTINGS_PATH,
-		XSETTINGS_IFC,
+	if !isSelectionOwned(settingPropScreen, m.owner, m.conn) {
+		m.conn.Close()
+		logger.Errorf("Owned '%s' failed", settingPropSettings)
+		return nil, fmt.Errorf("Owned '%s' failed", settingPropSettings)
 	}
+
+	m.gs = gio.NewSettings(xsSchema)
+	err = m.setSettings(m.getSettingsInSchema())
+	if err != nil {
+		logger.Warning("Change xsettings property failed:", err)
+	}
+
+	return m, nil
 }
 
-func (op *XSettingsManager) setPropName(propName string) {
-	switch propName {
-	case "PropList":
-		list := []string{}
-		for k, _ := range xsKeyValueMap {
-			list = append(list, k)
+func (m *XSManager) setSettings(settings []xsSetting) error {
+	datas, err := getSettingPropValue(m.owner, m.conn)
+	if err != nil {
+		return err
+	}
+
+	xsInfo := marshalSettingData(datas)
+	xsInfo.serial = xsDataSerial
+	for _, s := range settings {
+		item := xsInfo.getPropItem(s.prop)
+		if item != nil {
+			xsInfo.items = xsInfo.modifyProperty(s)
+			continue
 		}
-		op.PropList = list
+
+		var tmp *xsItemInfo
+		switch s.sType {
+		case settingTypeInteger:
+			tmp = newXSItemInteger(s.prop, s.value.(int32))
+		case settingTypeString:
+			tmp = newXSItemString(s.prop, s.value.(string))
+		case settingTypeColor:
+			tmp = newXSItemColor(s.prop, s.value.([4]int16))
+		}
+
+		xsInfo.items = append(xsInfo.items, *tmp)
+		xsInfo.numSettings++
 	}
+
+	data := unmarshalSettingData(xsInfo)
+	return changeSettingProp(m.owner, data, m.conn)
 }
 
-func newXSettingsManager() *XSettingsManager {
-	m := &XSettingsManager{}
-	m.setPropName("PropList")
+func (m *XSManager) getSettingsInSchema() []xsSetting {
+	var settings []xsSetting
+	for _, key := range m.gs.ListKeys() {
+		info := gsInfos.getInfoByGSKey(key)
+		if info == nil {
+			continue
+		}
 
-	return m
+		settings = append(settings, xsSetting{
+			sType: info.getKeySType(),
+			prop:  info.xsKey,
+			value: info.getKeyValue(m.gs),
+		})
+	}
+
+	return settings
+}
+
+func (m *XSManager) handleGSettingsChanged() {
+	m.gs.Connect("changed", func(s *gio.Settings, key string) {
+		info := gsInfos.getInfoByGSKey(key)
+		if info == nil {
+			return
+		}
+
+		m.setSettings([]xsSetting{{
+			sType: info.getKeySType(),
+			prop:  info.xsKey,
+			value: info.getKeyValue(m.gs),
+		},
+		})
+	})
+	//fixed the gsettings signal handling broken after glib2.43
+	m.gs.GetString("theme-name")
 }
 
 func startXSettings() {
-	var err error
-	X, err = xgb.NewConn()
+	m, err := NewXSManager()
 	if err != nil {
-		logger.Info("Unable to connect X server:", err)
-		panic(err)
+		logger.Error("Start xsettings failed:", err)
+		return
 	}
 
-	newXWindow()
-	initSelection()
+	err = dbus.InstallOnSession(m)
+	if err != nil {
+		logger.Error("Install dbus session failed:", err)
+		return
+	}
+	dbus.DealWithUnhandledMessage()
 
-	m := newXSettingsManager()
-	dbus.InstallOnSession(m)
-	//dbus.DealWithUnhandledMessage()
-
-	//select {}
+	m.handleGSettingsChanged()
 }

@@ -1,3 +1,12 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package display
 
 import "github.com/BurntSushi/xgb/xproto"
@@ -88,7 +97,15 @@ func (m Modes) Less(i, j int) bool {
 	if m[i].Width == m[j].Width && m[i].Height == m[j].Height {
 		return m[i].Rate > m[j].Rate
 	} else {
-		return m[i].Width+m[i].Height > m[j].Width+m[j].Height
+		sum1 := m[i].Width + m[i].Height
+		sum2 := m[j].Width + m[j].Height
+		if sum1 == sum2 {
+			if m[i].Width == m[j].Width {
+				return m[i].Height > m[j].Height
+			}
+			return m[i].Width > m[j].Width
+		}
+		return sum1 > sum2
 	}
 }
 func (m Modes) Swap(i, j int) {
@@ -181,21 +198,21 @@ func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 	return true
 }
 
-var setBacklight, getBacklight = func() (func(float64), func() float64) {
+var setBacklight, getBacklight = func() (func(float64, string), func(string) float64) {
 	helper, err := backlight.NewBacklight("com.deepin.daemon.helper.Backlight", "/com/deepin/daemon/helper/Backlight")
 	if err != nil {
 		logger.Warning("Can't create com.deepin.daemon.helper.Backlight")
-		return func(v float64) {}, func() float64 { return 1 }
+		return func(v float64, driver string) {}, func(driver string) float64 { return 1 }
 	}
 
-	return func(v float64) {
-			err := helper.SetBrightness(v)
+	return func(v float64, driver string) {
+			err := helper.SetBrightness(v, driver)
 			if err != nil {
 				logger.Warning("setBacklight failed:", err)
 			}
 		},
-		func() float64 {
-			v, err := helper.GetBrightness()
+		func(driver string) float64 {
+			v, err := helper.GetBrightness(driver)
 			if err != nil {
 				logger.Warning("getBacklight failed: ", err)
 				return 1
@@ -210,6 +227,7 @@ func supportedBacklight(c *xgb.Conn, output randr.Output) bool {
 	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
 		return false
 	}
+
 	return true
 }
 

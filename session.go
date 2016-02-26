@@ -1,12 +1,24 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package main
 
 import (
-	screenlock "dbus/com/deepin/dde/screenlock/frontend"
+	"dbus/com/deepin/api/soundthemeplayer"
 	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
-	"pkg.linuxdeepin.com/lib/dbus"
+	"sync"
 	"time"
+
+	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/lib/dbus"
 )
 
 type SessionManager struct {
@@ -16,8 +28,8 @@ type SessionManager struct {
 }
 
 const (
-	_LOCK_EXEC    = "/usr/bin/dde-lock"
-	_SHUTDOWN_CMD = "/usr/bin/dde-shutdown"
+	cmdLock     = "/usr/bin/dde-lock"
+	cmdShutdown = "/usr/bin/dde-shutdown"
 )
 
 const (
@@ -38,10 +50,17 @@ func (m *SessionManager) CanLogout() bool {
 }
 
 func (m *SessionManager) Logout() {
-	execCommand(_SHUTDOWN_CMD, "")
+	m.launch(cmdShutdown, false)
 }
 
 func (m *SessionManager) RequestLogout() {
+	if soundutils.CanPlayEvent(soundutils.EventLogout) {
+		// Try to launch 'sound-theme-player'
+		playThemeSound("", "")
+		// Play sound
+		playThemeSound(soundutils.GetSoundTheme(),
+			soundutils.EventLogout)
+	}
 	os.Exit(0)
 }
 
@@ -59,10 +78,17 @@ func (shudown *SessionManager) CanShutdown() bool {
 }
 
 func (m *SessionManager) Shutdown() {
-	execCommand(_SHUTDOWN_CMD, "")
+	m.launch(cmdShutdown, false)
 }
 
 func (m *SessionManager) RequestShutdown() {
+	err := soundutils.SetShutdownSound(
+		soundutils.CanPlayEvent(soundutils.EventShutdown),
+		soundutils.GetSoundTheme(),
+		soundutils.EventShutdown)
+	if err != nil {
+		logger.Warning("Set shutdown sound failed:", err)
+	}
 	objLogin.PowerOff(true)
 }
 
@@ -80,7 +106,7 @@ func (shudown *SessionManager) CanReboot() bool {
 }
 
 func (m *SessionManager) Reboot() {
-	execCommand(_SHUTDOWN_CMD, "")
+	m.launch(cmdShutdown, false)
 }
 
 func (m *SessionManager) RequestReboot() {
@@ -116,26 +142,12 @@ func (m *SessionManager) RequestHibernate() {
 }
 
 func (m *SessionManager) RequestLock() error {
-	guiOk := make(chan bool, 1)
-	lock, err := screenlock.NewScreenlock("com.deepin.dde.screenlock.Frontend", "/com/deepin/dde/screenlock/Frontend")
-	if err != nil {
-		return err
-	}
-	defer screenlock.DestroyScreenlock(lock)
-	lock.ConnectReady(func() {
-		guiOk <- true
-	})
-	lock.Hello()
-	select {
-	case <-time.After(time.Second * 5):
-		return fmt.Errorf("wait lock gui showing timeout")
-	case <-guiOk:
-		return nil
-	}
+	m.launch(cmdLock, false)
+	return nil
 }
 
 func (m *SessionManager) PowerOffChoose() {
-	execCommand(_SHUTDOWN_CMD, "")
+	m.launch(cmdShutdown, false)
 }
 
 func initSession() {
@@ -156,19 +168,7 @@ func newSessionManager() *SessionManager {
 	return m
 }
 func (manager *SessionManager) launchWindowManager() {
-	initSplash()
-	switch *WindowManager {
-	case "compiz":
-		manager.launch("/usr/bin/gtk-window-decorator", false)
-		manager.launch("/usr/bin/compiz", false)
-	case "deepin":
-		//TODO: need special handle? like notify SessionManager
-		manager.launch("/usr/bin/deepin-wm", false)
-	default:
-		logger.Warning("the window manager of", *WindowManager, "may be not supported")
-		manager.launch(*WindowManager, false)
-	}
-	initSplashAfterDependsLoaded()
+	manager.launch(*windowManagerBin, false)
 }
 
 func startSession() {
@@ -180,6 +180,12 @@ func startSession() {
 	}()
 
 	initSession()
+
+	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
+	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
+	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
+	os.Setenv("XDG_CURRENT_DESKTOP", "Deepin")
+
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
 	if err != nil {
@@ -194,14 +200,28 @@ func startSession() {
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager()
 
-	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
+	// dde-launcher is fast enough now, there's no need to start it at the begnning
+	// of every session.
+	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
 
-	manager.ShowGuideOnce()
-	manager.launch("/usr/bin/dde-launcher", false, "--hidden")
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	manager.launch("/usr/bin/dde-desktop", true)
-	manager.launch("/usr/bin/dde-dock", true)
-	manager.launch("/usr/bin/dde-dock-applets", false)
+	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
+	// to run properly.
+	go func() {
+		manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", true)
+		manager.launch("/usr/bin/dde-desktop", true)
+		wg.Done()
+	}()
+
+	go func() {
+		manager.launch("/usr/lib/deepin-daemon/dde-preload", true)
+		manager.launch("/usr/bin/dde-dock", true)
+		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
+		wg.Done()
+	}()
+	wg.Wait()
 
 	manager.setPropStage(SessionStageCoreEnd)
 
@@ -213,20 +233,23 @@ func startSession() {
 	manager.setPropStage(SessionStageAppsEnd)
 }
 
-func (m *SessionManager) ShowGuideOnce() bool {
-	path := os.ExpandEnv("$HOME/.config/not_first_run_dde")
-	_, err := os.Stat(path)
-	if err != nil {
-		f, err := os.Create(path)
-		defer f.Close()
-		if err != nil {
-			logger.Error("Can't initlize first dde", err)
-			return false
-		}
+var themePlayer *soundthemeplayer.SoundThemePlayer
 
-		m.launch("/usr/lib/deepin-daemon/dde-guide", true)
-		return true
+func playThemeSound(theme, event string) {
+	if themePlayer == nil {
+		var err error
+		themePlayer, err = soundthemeplayer.NewSoundThemePlayer(
+			"com.deepin.api.SoundThemePlayer",
+			"/com/deepin/api/SoundThemePlayer",
+		)
+		if err != nil {
+			logger.Error("Init 'SoundThemePlayer' failed:", err)
+			return
+		}
 	}
 
-	return false
+	err := themePlayer.Play(theme, event)
+	if err != nil {
+		logger.Error("Play sound theme failed:", theme, event, err)
+	}
 }

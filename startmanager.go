@@ -1,3 +1,12 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package main
 
 import (
@@ -10,15 +19,17 @@ import (
 
 	"github.com/howeyc/fsnotify"
 
-	"pkg.linuxdeepin.com/lib/dbus"
-	"pkg.linuxdeepin.com/lib/gio-2.0"
-	"pkg.linuxdeepin.com/lib/glib-2.0"
+	"gir/gio-2.0"
+	"gir/glib-2.0"
+	"pkg.deepin.io/lib/dbus"
 )
 
 const (
 	_OBJECT = "com.deepin.SessionManager"
 	_PATH   = "/com/deepin/StartManager"
 	_INTER  = "com.deepin.StartManager"
+
+	_WritePerm os.FileMode = 0200
 )
 
 const (
@@ -43,13 +54,17 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
 
-func (m *StartManager) Launch(name string) bool {
+func (m *StartManager) Launch(name string) (bool, error) {
+	return m.LaunchWithTimestamp(name, 0)
+}
+
+func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
 	list := make([]*gio.File, 0)
-	err := launch(name, list)
+	err := launch(name, list, timestamp)
 	if err != nil {
-		logger.Info(err)
+		logger.Info("launch failed:", err)
 	}
-	return err == nil
+	return err == nil, err
 }
 
 type AutostartInfo struct {
@@ -429,17 +444,39 @@ func (m *StartManager) AutostartList() []string {
 	dirs := m.autostartDirs()
 	for _, dir := range dirs {
 		if Exist(dir) {
-			apps = append(apps, m.getAutostartApps(dir)...)
+			list := m.getAutostartApps(dir)
+			if len(apps) == 0 {
+				apps = append(apps, list...)
+				continue
+			}
+
+			for _, v := range list {
+				if isAppInList(v, apps) {
+					continue
+				}
+				apps = append(apps, v)
+			}
 		}
 	}
 	return apps
 }
 
 func (m *StartManager) doSetAutostart(name string, autostart bool) error {
+	stat, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+
+	if int(stat.Mode().Perm()&_WritePerm) == 0 {
+		err := os.Chmod(name, stat.Mode()|_WritePerm)
+		if err != nil {
+			return err
+		}
+	}
+
 	file := glib.NewKeyFile()
 	defer file.Free()
 	if ok, err := file.LoadFromFile(name, glib.KeyFileFlagsNone); !ok {
-		logger.Info(err)
 		return err
 	}
 
@@ -509,22 +546,22 @@ func (m *StartManager) setAutostart(name string, autostart bool) error {
 	return m.doSetAutostart(dst, autostart)
 }
 
-func (m *StartManager) AddAutostart(name string) bool {
+func (m *StartManager) AddAutostart(name string) (bool, error) {
 	err := m.setAutostart(name, true)
 	if err != nil {
 		logger.Info("AddAutostart", err)
-		return false
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
-func (m *StartManager) RemoveAutostart(name string) bool {
+func (m *StartManager) RemoveAutostart(name string) (bool, error) {
 	err := m.setAutostart(name, false)
 	if err != nil {
-		logger.Info(err)
-		return false
+		logger.Info("RemoveAutostart failed:", err)
+		return false, err
 	}
-	return true
+	return true, nil
 }
 
 func (m *StartManager) IsAutostart(name string) bool {
@@ -550,26 +587,23 @@ func startStartManager() {
 
 func startAutostartProgram() {
 	START_MANAGER.listenAutostart()
+	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
 	for _, path := range START_MANAGER.AutostartList() {
 		go func(path string) {
-			f := glib.NewKeyFile()
-			defer f.Free()
-
-			_, err := f.LoadFromFile(path, glib.KeyFileFlagsNone)
-			if err != nil {
-				logger.Warning("load", path, "failed:", err)
-			} else {
-				num, err := f.GetInteger(glib.KeyFileDesktopGroup,
-					GnomeDelayKey)
-				if err != nil {
-					logger.Debug("get", GnomeDelayKey, "failed", err)
-				} else {
-					duration := time.Second * time.Duration(num)
-					<-time.After(duration)
-				}
+			if delayTime := getDelayTime(path); delayTime != 0 {
+				time.Sleep(delayTime)
 			}
 
 			START_MANAGER.Launch(path)
 		}(path)
 	}
+}
+
+func isAppInList(app string, apps []string) bool {
+	for _, v := range apps {
+		if path.Base(app) == path.Base(v) {
+			return true
+		}
+	}
+	return false
 }

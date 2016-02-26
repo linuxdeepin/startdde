@@ -1,7 +1,16 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package display
 
 import "github.com/BurntSushi/xgb/randr"
-import "pkg.linuxdeepin.com/lib/dbus"
+import "pkg.deepin.io/lib/dbus"
 import "fmt"
 import "strings"
 import "math"
@@ -150,7 +159,7 @@ func (m *Monitor) changeRotation(v uint16) error {
 	case 1, 2, 4, 8:
 		break
 	default:
-		err := fmt.Errorf("changeRotation with invalid value ", v)
+		err := fmt.Errorf("changeRotation with invalid value %v", v)
 		logger.Error(err)
 		return err
 	}
@@ -172,7 +181,7 @@ func (m *Monitor) changeReflect(v uint16) error {
 	case 0, 16, 32, 48:
 		break
 	default:
-		err := fmt.Errorf("SetReflect with invalid value ", v)
+		err := fmt.Errorf("SetReflect with invalid value %v", v)
 		logger.Error(err)
 		return err
 	}

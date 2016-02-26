@@ -1,3 +1,12 @@
+/**
+ * Copyright (C) 2014 Deepin Technology Co., Ltd.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ **/
+
 package display
 
 import "github.com/BurntSushi/xgb/randr"
@@ -64,7 +73,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	for _, name := range GetDisplayInfo().ListNames() {
 		if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
-			cfg.Brightness[name] = getBacklight()
+			cfg.Brightness[name] = getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
 		} else {
 			cfg.Brightness[name] = 1
 		}
@@ -176,10 +185,10 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 }
 
 func validBrightnessValue(v float64) bool {
-	if v >= 0.1 && v <= 1 {
-		return true
+	if v < 0 || v > 1 {
+		return false
 	}
-	return false
+	return true
 }
 
 func validConfig(r *ConfigDisplay) bool {
@@ -327,7 +336,7 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		cfg.Enabled = true
 	} else {
 		if len(oinfo.Modes) == 0 {
-			return nil, fmt.Errorf(string(oinfo.Name), "hasn't any mode info")
+			return nil, fmt.Errorf("%s hasn't any mode info", string(oinfo.Name))
 		}
 		minfo := GetDisplayInfo().QueryModes(oinfo.Modes[0])
 		cfg.Width, cfg.Height = minfo.Width, minfo.Height
