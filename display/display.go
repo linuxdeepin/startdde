@@ -46,7 +46,7 @@ var (
 
 	MinWidth, MinHeight, MaxWidth, MaxHeight uint16
 
-	logger = log.NewLogger("com.deepin.daemon.Display")
+	logger = log.NewLogger("daemon/display")
 )
 
 func initX11() bool {

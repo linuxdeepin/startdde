@@ -24,7 +24,7 @@ import (
 	"pkg.deepin.io/lib/proxy"
 )
 
-var logger = log.NewLogger("com.deepin.SessionManager")
+var logger = log.NewLogger("startdde")
 
 var debug = flag.Bool("d", false, "debug")
 var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm-switcher", "the window manager used by dde")
