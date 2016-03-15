@@ -54,7 +54,7 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) RequestLogout() {
-	if soundutils.CanPlayEvent(soundutils.EventLogout) {
+	if soundutils.CanPlayEvent() {
 		// Try to launch 'sound-theme-player'
 		playThemeSound("", "")
 		// Play sound
@@ -83,7 +83,7 @@ func (m *SessionManager) Shutdown() {
 
 func (m *SessionManager) RequestShutdown() {
 	err := soundutils.SetShutdownSound(
-		soundutils.CanPlayEvent(soundutils.EventShutdown),
+		soundutils.CanPlayEvent(),
 		soundutils.GetSoundTheme(),
 		soundutils.EventShutdown)
 	if err != nil {
