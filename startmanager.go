@@ -46,9 +46,17 @@ const (
 type StartManager struct {
 	userAutostartPath string
 	AutostartChanged  func(string, string)
+	delayHandler      *mapDelayHandler
 }
 
-var START_MANAGER StartManager
+func newStartManager() *StartManager {
+	manager := &StartManager{}
+	manager.delayHandler = newMapDelayHandler(500*time.Millisecond,
+		manager.emitSignalAutostartChanged)
+	return manager
+}
+
+var START_MANAGER *StartManager
 
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
@@ -67,148 +75,80 @@ func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool,
 	return err == nil, err
 }
 
-type AutostartInfo struct {
-	renamed    chan bool
-	created    chan bool
-	notRenamed chan bool
-	notCreated chan bool
-}
-
 const (
-	AutostartAdded   string = "added"
-	AutostartDeleted string = "deleted"
+	AutostartAdded         = "added"
+	AutostartDeleted       = "deleted"
+	SignalAutostartChanged = "AutostartChanged"
 )
 
-func (m *StartManager) emitAutostartChanged(name, status string, info map[string]AutostartInfo) {
-	dbus.Emit(m, "AutostartChanged", status, name)
-	delete(info, name)
+func (m *StartManager) emitSignalAutostartChanged(name string) {
+	var status string
+	if m.isAutostart(name) {
+		status = AutostartAdded
+	} else {
+		status = AutostartDeleted
+	}
+	logger.Debugf("emit %v %q %q", SignalAutostartChanged, status, name)
+	dbus.Emit(m, SignalAutostartChanged, status, name)
 }
 
-func (m *StartManager) autostartHandler(ev *fsnotify.FileEvent, name string, info map[string]AutostartInfo) {
-	// logger.Info(ev)
-	if _, ok := info[name]; !ok {
-		info[name] = AutostartInfo{
-			make(chan bool),
-			make(chan bool),
-			make(chan bool),
-			make(chan bool),
-		}
+func (m *StartManager) listenAutostartFileEvents() {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		logger.Error(err)
+		return
 	}
-	if ev.IsRename() {
-		select {
-		case <-info[name].renamed:
-		default:
-		}
-		go func() {
-			select {
-			case <-info[name].notRenamed:
-				return
-			case <-time.After(time.Second):
-				<-info[name].renamed
-				m.emitAutostartChanged(name, AutostartDeleted, info)
-				// logger.Info(AutostartDeleted)
-			}
-		}()
-		info[name].renamed <- true
-	} else if ev.IsCreate() {
-		go func() {
-			select {
-			case <-info[name].renamed:
-				info[name].notRenamed <- true
-				info[name].renamed <- true
-			default:
-			}
-			select {
-			case <-info[name].notCreated:
-				return
-			case <-time.After(time.Second):
-				<-info[name].created
-				m.emitAutostartChanged(name, AutostartAdded, info)
-				// logger.Info("create", AutostartAdded)
-			}
-		}()
-		info[name].created <- true
-	} else if ev.IsModify() && !ev.IsAttrib() {
-		go func() {
-			select {
-			case <-info[name].created:
-				info[name].notCreated <- true
-			}
-			select {
-			case <-info[name].renamed:
-				// logger.Info("modified")
-				if m.isAutostart(name) {
-					m.emitAutostartChanged(name, AutostartAdded, info)
-				} else {
-					m.emitAutostartChanged(name, AutostartDeleted, info)
-				}
-			default:
-				m.emitAutostartChanged(name, AutostartAdded, info)
-				// logger.Info("modify", AutostartAdded)
-			}
-		}()
-	} else if ev.IsAttrib() {
-		go func() {
-			select {
-			case <-info[name].renamed:
-				<-info[name].created
-				info[name].notCreated <- true
-			default:
-			}
-		}()
-	} else if ev.IsDelete() {
-		m.emitAutostartChanged(name, AutostartDeleted, info)
-		// logger.Info(AutostartDeleted)
-	}
-}
-
-func (m *StartManager) eventHandler(watcher *fsnotify.Watcher) {
-	info := map[string]AutostartInfo{}
-	for {
-		select {
-		case ev := <-watcher.Event:
-			name := path.Clean(ev.Name)
-			basename := path.Base(name)
-			matched, _ := path.Match(`[^#.]*.desktop`, basename)
-			if matched {
-				if _, ok := info[name]; !ok {
-					info[name] = AutostartInfo{
-						make(chan bool, 1),
-						make(chan bool, 1),
-						make(chan bool, 1),
-						make(chan bool, 1),
-					}
-				}
-				m.autostartHandler(ev, name, info)
-			}
-		case <-watcher.Error:
-		}
-	}
-}
-
-func (m *StartManager) listenAutostart() {
-	watcher, _ := fsnotify.NewWatcher()
 	for _, dir := range m.autostartDirs() {
-		watcher.Watch(dir)
+		logger.Debugf("Watch dir %q", dir)
+		err := watcher.Watch(dir)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
-	go m.eventHandler(watcher)
+	go func() {
+		for {
+			select {
+			case ev := <-watcher.Event:
+				name := path.Clean(ev.Name)
+				basename := path.Base(name)
+				matched, err := path.Match(`[^#.]*.desktop`, basename)
+				if err != nil {
+					logger.Warning(err)
+				}
+				if matched {
+					logger.Debug("file event:", ev)
+					m.delayHandler.AddTask(name)
+				}
+
+			case err := <-watcher.Error:
+				logger.Error("fsnotify error:", err)
+				return
+			}
+		}
+	}()
 }
 
 // filepath.Walk will walk through the whole directory tree
-func scanDir(d string, fn func(path string, info os.FileInfo) error) {
+func scanDir(d string, fn func(path string, info os.FileInfo) bool) {
 	f, err := os.Open(d)
+	defer func() {
+		if f != nil {
+			f.Close()
+		}
+	}()
+
 	if err != nil {
-		// logger.Info("scanDir", err)
+		logger.Error("scanDir open dir failed:", err)
 		return
 	}
+	// get all file info
 	infos, err := f.Readdir(0)
 	if err != nil {
-		logger.Info("scanDir", err)
-		return
+		logger.Warning("scanDir Readdir error:", err)
 	}
 
 	for _, info := range infos {
-		if fn(d, info) != nil {
+		if fn(d, info) {
 			break
 		}
 	}
@@ -220,17 +160,13 @@ func (m *StartManager) getUserAutostart(name string) string {
 
 func (m *StartManager) isUserAutostart(name string) bool {
 	if path.IsAbs(name) {
-		if !Exist(name) {
-			return false
+		if Exist(name) {
+			return path.Dir(name) == m.getUserAutostartDir()
 		}
-		return path.Dir(name) == m.getUserAutostartDir()
+		return false
 	} else {
 		return Exist(path.Join(m.getUserAutostartDir(), name))
 	}
-}
-
-func (m *StartManager) isHidden(file *gio.DesktopAppInfo) bool {
-	return file.HasKey(HiddenKey) && file.GetBoolean(HiddenKey)
 }
 
 func showInDeepinAux(file *gio.DesktopAppInfo, keyname string) bool {
@@ -261,12 +197,12 @@ func (m *StartManager) showInDeepin(file *gio.DesktopAppInfo) bool {
 func findExec(_path, cmd string, exist chan<- bool) {
 	found := false
 
-	scanDir(_path, func(p string, info os.FileInfo) error {
+	scanDir(_path, func(p string, info os.FileInfo) bool {
 		if !info.IsDir() && info.Name() == cmd {
 			found = true
-			return errors.New("Found it")
+			return true
 		}
-		return nil
+		return false
 	})
 
 	exist <- found
@@ -322,7 +258,7 @@ func (m *StartManager) isAutostartAux(name string) bool {
 	}
 	defer file.Unref()
 
-	return m.hasValidTryExecKey(file) && !m.isHidden(file) && m.showInDeepin(file)
+	return m.hasValidTryExecKey(file) && !file.GetIsHidden() && m.showInDeepin(file)
 }
 
 func lowerBaseName(name string) string {
@@ -356,13 +292,13 @@ func (m *StartManager) getSysAutostart(name string) string {
 			continue
 		}
 		scanDir(d,
-			func(p string, info os.FileInfo) error {
+			func(p string, info os.FileInfo) bool {
 				if lowerBaseName(name) == strings.ToLower(info.Name()) {
 					sysPath = path.Join(p,
 						info.Name())
-					return errors.New("Found it")
+					return true
 				}
-				return nil
+				return false
 			},
 		)
 		if sysPath != "" {
@@ -394,14 +330,14 @@ func (m *StartManager) isAutostart(name string) bool {
 func (m *StartManager) getAutostartApps(dir string) []string {
 	apps := make([]string, 0)
 
-	scanDir(dir, func(p string, info os.FileInfo) error {
+	scanDir(dir, func(p string, info os.FileInfo) bool {
 		if !info.IsDir() {
 			fullpath := path.Join(p, info.Name())
 			if m.isAutostart(fullpath) {
 				apps = append(apps, fullpath)
 			}
 		}
-		return nil
+		return false
 	})
 
 	return apps
@@ -579,14 +515,14 @@ func (m *StartManager) IsAutostart(name string) bool {
 
 func startStartManager() {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
-	START_MANAGER = StartManager{}
-	if err := dbus.InstallOnSession(&START_MANAGER); err != nil {
+	START_MANAGER = newStartManager()
+	if err := dbus.InstallOnSession(START_MANAGER); err != nil {
 		logger.Error("Install StartManager Failed:", err)
 	}
 }
 
 func startAutostartProgram() {
-	START_MANAGER.listenAutostart()
+	START_MANAGER.listenAutostartFileEvents()
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
 	for _, path := range START_MANAGER.AutostartList() {
 		go func(path string) {

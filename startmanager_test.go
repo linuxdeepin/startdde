@@ -10,8 +10,8 @@
 package main
 
 import (
-	"gir/gio-2.0"
 	"fmt"
+	"gir/gio-2.0"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -171,15 +171,14 @@ func TestHasValidTryExecKey(t *testing.T) {
 		t.Errorf("hasValidTryExecKey Failed: %s", d)
 	}
 }
-func TestIsHidden(t *testing.T) {
-	m := StartManager{}
+func TestGioGetIsHidden(t *testing.T) {
 	d, b := testAutostartRelatedFunc(func(name string, c D) bool {
 		file := gio.NewDesktopAppInfoFromFilename(name)
 		if file == nil {
 			return true
 		}
 		defer file.Unref()
-		return m.isHidden(file) == c.S.isHidden
+		return file.GetIsHidden() == c.S.isHidden
 	})
 	if !b {
 		t.Errorf("isHidden Failed: %s", d)
@@ -231,8 +230,8 @@ func _TestSetAutostart(t *testing.T) {
 }
 
 func _TestScanDir(t *testing.T) {
-	scanDir("/tmp", func(p string, info os.FileInfo) error {
+	scanDir("/tmp", func(p string, info os.FileInfo) bool {
 		t.Log(info.Name())
-		return nil
+		return false
 	})
 }
