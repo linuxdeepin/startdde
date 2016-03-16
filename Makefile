@@ -28,7 +28,7 @@ prepare:
 		fi
 
 startdde:
-	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -o startdde
+	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -v -o startdde
 
 build: prepare startdde
 
@@ -39,6 +39,6 @@ install:
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
 
 clean:
-	rm -rf ${GOPATH_DIR}
+	rm -rf ${GOPATH_DIR} startdde
 
 rebuild: clean build
