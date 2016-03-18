@@ -51,7 +51,7 @@ type StartManager struct {
 
 func newStartManager() *StartManager {
 	manager := &StartManager{}
-	manager.delayHandler = newMapDelayHandler(500*time.Millisecond,
+	manager.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		manager.emitSignalAutostartChanged)
 	return manager
 }
