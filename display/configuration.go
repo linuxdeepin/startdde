@@ -13,10 +13,10 @@ import "github.com/BurntSushi/xgb/randr"
 import "encoding/json"
 import "fmt"
 import "os"
-import "io/ioutil"
 import "sync"
 import "strings"
 import "sort"
+import dutils "pkg.deepin.io/lib/utils"
 
 var hasCFG = false
 
@@ -35,8 +35,12 @@ type ConfigDisplay struct {
 	MapToTouchScreen map[string]string
 }
 
-var _ConfigPath = os.Getenv("HOME") + "/.config/deepin_monitors.json"
-var configLock sync.RWMutex
+var (
+	homeDir           = os.Getenv("HOME")
+	_ConfigPath       = homeDir + "/.config/deepin_monitors.json"
+	_CustomConfigPath = homeDir + "/.config/deepin_monitors_custom.json"
+	configLock        sync.RWMutex
+)
 
 func (dpy *Display) QueryCurrentPlanName() string {
 	names := GetDisplayInfo().ListNames()
@@ -200,41 +204,28 @@ func validConfig(r *ConfigDisplay) bool {
 	return true
 }
 
-func LoadConfigDisplay(dpy *Display) (r *ConfigDisplay) {
+func LoadConfigDisplay(dpy *Display) *ConfigDisplay {
 	configLock.RLock()
 	defer configLock.RUnlock()
 
-	defer func() {
-		if r == nil {
-			r = createConfigDisplay(dpy)
-		}
-		r.attachCurrentMonitor(dpy)
-		//fmt.Println("CURR:", r.CurrentPlanName)
-	}()
-
-	if f, err := os.Open(_ConfigPath); err != nil {
-		return nil
-	} else {
-		if data, err := ioutil.ReadAll(f); err != nil {
-			return nil
-		} else {
-			cfg := &ConfigDisplay{
-				Brightness:       make(map[string]float64),
-				Plans:            make(map[string]*monitorGroup),
-				MapToTouchScreen: make(map[string]string),
-			}
-			if err = json.Unmarshal(data, &cfg); err != nil {
-				return nil
-			}
-			if !validConfig(cfg) {
-				logger.Warning("the deepin_monitors.json is invalid.")
-				return nil
-			}
-			hasCFG = true
-			return cfg
+	var config = _ConfigPath
+	if dpy.DisplayMode == DisplayModeCustom {
+		if dutils.IsFileExist(_CustomConfigPath) {
+			config = _CustomConfigPath
 		}
 	}
-	return nil
+
+	cfg, err := loadConfigFromFile(dpy, config)
+	if err != nil {
+		logger.Warningf("Load config '%s' failed: %v", config, err)
+		hasCFG = false
+		cfg = createConfigDisplay(dpy)
+		cfg.attachCurrentMonitor(dpy)
+	} else {
+		hasCFG = true
+	}
+
+	return cfg
 }
 
 func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
@@ -262,19 +253,23 @@ func (c *ConfigDisplay) Save() {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	bytes, err := json.Marshal(c)
-	if err != nil {
-		logger.Error("Can't save configure:", err)
-		return
+	var config = _ConfigPath
+	if c.DisplayMode == DisplayModeCustom {
+		config = _CustomConfigPath
 	}
 
-	f, err := os.Create(_ConfigPath)
+	fw, err := os.Create(config)
 	if err != nil {
 		logger.Error("Cant create configure:", err)
 		return
 	}
-	defer f.Close()
-	f.Write(bytes)
+	defer fw.Close()
+
+	err = json.NewEncoder(fw).Encode(c)
+	if err != nil {
+		logger.Warningf("Save config '%s' failed: %v", config, err)
+		return
+	}
 	hasCFG = true
 }
 
@@ -411,6 +406,10 @@ func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
 }
 
 func (dpy *Display) saveDisplayMode(mode int16, output string) {
+	if dpy.cfg.DisplayMode == mode {
+		return
+	}
+
 	dpy.cfg.DisplayMode = mode
 	if mode == DisplayModeOnlyOne {
 		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
@@ -422,4 +421,28 @@ func (dpy *Display) saveDisplayMode(mode int16, output string) {
 		cfg.Plans[cfg.CurrentPlanName].DefaultOutput = output
 	}
 	cfg.Save()
+}
+
+func loadConfigFromFile(dpy *Display, file string) (*ConfigDisplay, error) {
+	fr, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer fr.Close()
+
+	cfg := &ConfigDisplay{
+		Brightness:       make(map[string]float64),
+		Plans:            make(map[string]*monitorGroup),
+		MapToTouchScreen: make(map[string]string),
+	}
+	err = json.NewDecoder(fr).Decode(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if !validConfig(cfg) {
+		return nil, fmt.Errorf("Invalid config file: %v", file)
+	}
+
+	return cfg, nil
 }

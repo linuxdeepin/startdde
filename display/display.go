@@ -25,6 +25,7 @@ import (
 const (
 	displaySchema         = "com.deepin.dde.display"
 	gsKeyBrightnessSetter = "brightness-setter"
+	gsKeyDisplayMode      = "display-mode"
 
 	brightnessSetterAuto              = "auto"
 	brightnessSetterGamma             = "gamma"
@@ -83,6 +84,7 @@ var GetDisplay = func() func() *Display {
 	dpy.setPropHasChanged(false)
 
 	dpy.setting = gio.NewSettings(displaySchema)
+	dpy.setPropDisplayMode(int16(dpy.setting.GetEnum(gsKeyDisplayMode)))
 
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
@@ -441,7 +443,7 @@ func (dpy *Display) apply(auto bool) {
 
 func (dpy *Display) ResetChanges() {
 	dpy.cfg = LoadConfigDisplay(dpy)
-	dpy.setPropDisplayMode(dpy.cfg.DisplayMode)
+	dpy.syncDisplayMode(dpy.cfg.DisplayMode)
 	dpy.cfg.ensureValid(dpy)
 
 	//must be invoked after LoadConfigDisplay(dpy)
@@ -498,6 +500,13 @@ func (dpy *Display) Reset() {
 	}
 	dpy.apply(true)
 	dpy.SaveChanges()
+}
+
+func (dpy *Display) syncDisplayMode(mode int16) {
+	if mode != int16(dpy.setting.GetEnum(gsKeyDisplayMode)) {
+		dpy.setting.SetEnum(gsKeyDisplayMode, int32(mode))
+	}
+	dpy.setPropDisplayMode(mode)
 }
 
 func Start() {

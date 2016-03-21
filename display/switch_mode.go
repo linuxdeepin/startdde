@@ -10,7 +10,7 @@
 package display
 
 const (
-	DisplayModeUnknow  = -100
+	DisplayModeUnknow  = 4
 	DisplayModeCustom  = 0
 	DisplayModeMirrors = 1
 	DisplayModeExtend  = 2
@@ -38,7 +38,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		}
 		dpy.apply(false)
 
-		dpy.setPropDisplayMode(mode)
+		dpy.syncDisplayMode(mode)
 		dpy.saveDisplayMode(mode, "")
 	case DisplayModeExtend:
 		for _, m := range dpy.Monitors {
@@ -55,7 +55,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		}
 		dpy.apply(false)
 
-		dpy.setPropDisplayMode(mode)
+		dpy.syncDisplayMode(mode)
 		dpy.saveDisplayMode(mode, "")
 	case DisplayModeOnlyOne:
 		func() {
@@ -84,12 +84,13 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 				}
 				dpy.apply(false)
 
-				dpy.setPropDisplayMode(mode)
+				dpy.syncDisplayMode(mode)
 				dpy.saveDisplayMode(mode, outputName)
 			}
 		}()
 	case DisplayModeCustom:
-		dpy.setPropDisplayMode(mode)
+		dpy.syncDisplayMode(mode)
+		dpy.cfg = LoadConfigDisplay(dpy)
 		dpy.saveDisplayMode(mode, "")
 		dpy.ResetChanges()
 	}
