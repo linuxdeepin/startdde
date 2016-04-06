@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"dbus/com/deepin/daemon/helper/backlight"
 	"gir/gio-2.0"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
@@ -88,6 +89,14 @@ var GetDisplay = func() func() *Display {
 
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
+	var err error
+	dpy.blHelper, err = backlight.NewBacklight(backlightDest,
+		backlightPath)
+	if err != nil {
+		logger.Warning("New backlight failed:", err)
+		dpy.blHelper = nil
+	}
+
 	return func() *Display {
 		return dpy
 	}
@@ -113,7 +122,8 @@ type Display struct {
 	Brightness map[string]float64
 	cfg        *ConfigDisplay
 
-	setting *gio.Settings
+	setting  *gio.Settings
+	blHelper *backlight.Backlight
 }
 
 func (dpy *Display) lockMonitors() {
@@ -161,14 +171,14 @@ func (dpy *Display) listener() {
 			case randr.NotifyOutputProperty:
 			}
 		case randr.ScreenChangeNotifyEvent:
+			var planChanged = (dpy.cfg.CurrentPlanName != dpy.QueryCurrentPlanName())
 			dpy.setPropScreenWidth(ee.Width)
 			dpy.setPropScreenHeight(ee.Height)
-
 			GetDisplayInfo().update()
 
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
-				if dpy.QueryCurrentPlanName() != dpy.cfg.CurrentPlanName {
+				if planChanged {
 					logger.Info("Detect New ConfigTimestmap, try reset changes")
 					dpy.ResetChanges()
 					dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
@@ -211,40 +221,24 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
-	var isSupported = supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
-	if isSupported {
-		real := getBacklight(brightnessSetterBacklight)
-		// not change, update prop
-		if v > real-0.01 && v < real+0.01 {
-			dpy.setPropBrightness(output, real)
-			return nil
-		}
+	now := dpy.Brightness[output]
+	if v > now-0.01 && v < now+0.01 {
+		return nil
 	}
 
+	isSupported := dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
 	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
-	switch setter {
-	case brightnessSetterBacklight, brightnessSetterBacklightRaw,
-		brightnessSetterBacklightPlatform, brightnessSetterBacklightFirmware:
-		setBacklight(v, setter)
-		dpy.setPropBrightness(output, v)
-		return nil
-	}
+	if (setter == brightnessSetterGamma) ||
+		(setter == brightnessSetterAuto && !isSupported) {
+		op := GetDisplayInfo().QueryOutputs(output)
+		if op == 0 {
+			logger.Warning("[ChangeBrightness] query output failed:", output)
+			return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
+		}
 
-	op := GetDisplayInfo().QueryOutputs(output)
-	if op == 0 {
-		return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
-	}
-	if setter == brightnessSetterGamma {
 		setBrightness(xcon, op, v)
-		dpy.setPropBrightness(output, v)
-		return nil
-	}
-
-	// Auto detect
-	if isSupported {
-		setBacklight(v, brightnessSetterBacklight)
 	} else {
-		setBrightness(xcon, op, v)
+		dpy.setBacklight(output, setter, v)
 	}
 
 	dpy.setPropBrightness(output, v)
@@ -467,8 +461,10 @@ func (dpy *Display) ResetChanges() {
 	dpy.Brightness = make(map[string]float64)
 
 	for name, v := range dpy.cfg.Brightness {
+		logger.Debug("Reset brightness:", name, v)
 		dpy.ChangeBrightness(name, v)
 	}
+
 	//dpy.cfg.Brightness may doesn't contain all output, so we must
 	//reset this output's brightness to 1
 	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
@@ -527,7 +523,7 @@ func Start() {
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {
-	support := supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))
+	support := dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name))
 	if support {
 		return 1
 	} else {

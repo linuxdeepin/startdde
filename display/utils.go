@@ -13,7 +13,6 @@ import "github.com/BurntSushi/xgb/xproto"
 import "github.com/BurntSushi/xgb/randr"
 import "github.com/BurntSushi/xgb/render"
 import "github.com/BurntSushi/xgb"
-import "dbus/com/deepin/daemon/helper/backlight"
 
 import "os/exec"
 import "math"
@@ -198,33 +197,22 @@ func isCrtcConnected(c *xgb.Conn, crtc randr.Crtc) bool {
 	return true
 }
 
-var setBacklight, getBacklight = func() (func(float64, string), func(string) float64) {
-	helper, err := backlight.NewBacklight("com.deepin.daemon.helper.Backlight", "/com/deepin/daemon/helper/Backlight")
+func hasPropBacklight(c *xgb.Conn, output randr.Output) bool {
+	prop, err := randr.GetOutputProperty(c, output, backlightAtom,
+		xproto.AtomAny, 0, 1, false, false).Reply()
 	if err != nil {
-		logger.Warning("Can't create com.deepin.daemon.helper.Backlight")
-		return func(v float64, driver string) {}, func(driver string) float64 { return 1 }
+		logger.Warning("Get prop backlight failed:", output)
+		return false
 	}
 
-	return func(v float64, driver string) {
-			err := helper.SetBrightness(v, driver)
-			if err != nil {
-				logger.Warning("setBacklight failed:", err)
-			}
-		},
-		func(driver string) float64 {
-			v, err := helper.GetBrightness(driver)
-			if err != nil {
-				logger.Warning("getBacklight failed: ", err)
-				return 1
-			}
-			return v
-		}
-}()
+	pinfo, err := randr.QueryOutputProperty(c, output,
+		backlightAtom).Reply()
+	if err != nil {
+		logger.Warning("Query prop backlight failed:", output)
+		return false
+	}
 
-func supportedBacklight(c *xgb.Conn, output randr.Output) bool {
-	prop, err := randr.GetOutputProperty(c, output, backlightAtom, xproto.AtomAny, 0, 1, false, false).Reply()
-	pinfo, err := randr.QueryOutputProperty(c, output, backlightAtom).Reply()
-	if err != nil || prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
+	if prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
 		return false
 	}
 

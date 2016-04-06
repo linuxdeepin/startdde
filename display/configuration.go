@@ -76,11 +76,11 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	cfg.Primary = dpy.Primary
 
 	for _, name := range GetDisplayInfo().ListNames() {
-		if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
-			cfg.Brightness[name] = getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
-		} else {
-			cfg.Brightness[name] = 1
-		}
+		//if dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
+		//cfg.Brightness[name] = getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
+		//} else {
+		cfg.Brightness[name] = 1
+		//}
 	}
 }
 
@@ -221,6 +221,7 @@ func LoadConfigDisplay(dpy *Display) *ConfigDisplay {
 		hasCFG = false
 		cfg = createConfigDisplay(dpy)
 		cfg.attachCurrentMonitor(dpy)
+		dpy.syncDisplayMode(cfg.DisplayMode)
 	} else {
 		hasCFG = true
 	}
