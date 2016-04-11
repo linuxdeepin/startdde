@@ -216,7 +216,7 @@ func startSession() {
 	}()
 
 	go func() {
-		manager.launch("/usr/lib/deepin-daemon/dde-preload", true)
+		manager.launch("/usr/lib/deepin-daemon/dde-dock-daemon", true)
 		manager.launch("/usr/bin/dde-dock", true)
 		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
 		wg.Done()
