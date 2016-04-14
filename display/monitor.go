@@ -308,12 +308,12 @@ func (m *Monitor) generateShell() string {
 	return code + " "
 }
 
-func (m *Monitor) updateInfo() {
+func (m *Monitor) updateInfo() error {
 	op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
 		logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
-		return
+		return err
 	}
 	if oinfo.Crtc == 0 {
 		m.changeSwitchOn(false)
@@ -322,7 +322,7 @@ func (m *Monitor) updateInfo() {
 		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
 		if err != nil {
 			logger.Warning("UpdateInfo Failed:", (m.Name), oinfo.Crtc, err)
-			return
+			return err
 		}
 		rotation, reflect := parseRandR(cinfo.Rotation)
 		m.changeRotation(rotation)
@@ -332,6 +332,7 @@ func (m *Monitor) updateInfo() {
 		m.changePos(cinfo.X, cinfo.Y)
 		m.changeMode(cinfo.Mode)
 	}
+	return nil
 }
 
 func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {

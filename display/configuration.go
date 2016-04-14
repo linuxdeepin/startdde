@@ -104,6 +104,7 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 	var any *ConfigMonitor
 	GetDisplayInfo().update()
 
+	logger.Debug("[ensureValid] current plan:", cfg.CurrentPlanName, cfg)
 	for _, m := range cfg.Plans[cfg.CurrentPlanName].Monitors {
 		any = m
 		if m.Enabled {
@@ -215,6 +216,7 @@ func LoadConfigDisplay(dpy *Display) *ConfigDisplay {
 		}
 	}
 
+	logger.Debug("[LoadConfigDisplay] file:", config)
 	cfg, err := loadConfigFromFile(dpy, config)
 	if err != nil {
 		logger.Warningf("Load config '%s' failed: %v", config, err)
@@ -407,10 +409,6 @@ func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
 }
 
 func (dpy *Display) saveDisplayMode(mode int16, output string) {
-	if dpy.cfg.DisplayMode == mode {
-		return
-	}
-
 	dpy.cfg.DisplayMode = mode
 	if mode == DisplayModeOnlyOne {
 		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output

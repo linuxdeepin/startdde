@@ -171,14 +171,13 @@ func (dpy *Display) listener() {
 			case randr.NotifyOutputProperty:
 			}
 		case randr.ScreenChangeNotifyEvent:
-			var planChanged = (dpy.cfg.CurrentPlanName != dpy.QueryCurrentPlanName())
 			dpy.setPropScreenWidth(ee.Width)
 			dpy.setPropScreenHeight(ee.Height)
 			GetDisplayInfo().update()
 
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
-				if planChanged {
+				if dpy.cfg.CurrentPlanName != dpy.QueryCurrentPlanName() {
 					logger.Info("Detect New ConfigTimestmap, try reset changes")
 					dpy.ResetChanges()
 					dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
@@ -366,7 +365,12 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 	if m := dpy.canBePrimary(name); m != nil {
 		dpy.setPropPrimary(name)
 		if effectRect {
-			dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+			dpy.setPropPrimaryRect(xproto.Rectangle{
+				X:      m.X,
+				Y:      m.Y,
+				Width:  m.Width,
+				Height: m.Height,
+			})
 		}
 		return nil
 	}
@@ -381,7 +385,12 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 		if dpy.canBePrimary(m.Name) != nil {
 			dpy.setPropPrimary(m.Name)
 			if effectRect {
-				dpy.setPropPrimaryRect(xproto.Rectangle{m.X, m.Y, m.Width, m.Height})
+				dpy.setPropPrimaryRect(xproto.Rectangle{
+					X:      m.X,
+					Y:      m.Y,
+					Width:  m.Width,
+					Height: m.Height,
+				})
 			}
 			return fmt.Errorf("can't set %s as primary, and current parimary %s is invalid. fallback to %s",
 				name, dpy.Primary, m.Name)
@@ -436,19 +445,7 @@ func (dpy *Display) apply(auto bool) {
 }
 
 func (dpy *Display) ResetChanges() {
-	dpy.cfg = LoadConfigDisplay(dpy)
-	dpy.syncDisplayMode(dpy.cfg.DisplayMode)
-	dpy.cfg.ensureValid(dpy)
-
-	//must be invoked after LoadConfigDisplay(dpy)
-	var monitors []*Monitor
-	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
-		m := NewMonitor(dpy, mcfg)
-		m.updateInfo()
-		monitors = append(monitors, m)
-	}
-	dpy.setPropMonitors(monitors)
-
+	dpy.rebuildMonitors()
 	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
 		runCode("xrandr --auto")
@@ -529,4 +526,24 @@ func (dpy *Display) QueryOutputFeature(name string) int32 {
 	} else {
 		return 0
 	}
+}
+
+func (dpy *Display) rebuildMonitors() {
+	dpy.cfg = LoadConfigDisplay(dpy)
+	dpy.cfg.attachCurrentMonitor(dpy)
+	dpy.saveDisplayMode(dpy.DisplayMode,
+		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+	dpy.cfg.ensureValid(dpy)
+
+	//must be invoked after LoadConfigDisplay(dpy)
+	var monitors []*Monitor
+	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
+		m := NewMonitor(dpy, mcfg)
+		err := m.updateInfo()
+		if err != nil {
+			continue
+		}
+		monitors = append(monitors, m)
+	}
+	dpy.setPropMonitors(monitors)
 }

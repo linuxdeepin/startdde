@@ -15,9 +15,9 @@ import "pkg.deepin.io/lib/dbus"
 
 func (dpy *Display) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{
-		"com.deepin.daemon.Display",
-		"/com/deepin/daemon/Display",
-		"com.deepin.daemon.Display",
+		Dest:       "com.deepin.daemon.Display",
+		ObjectPath: "/com/deepin/daemon/Display",
+		Interface:  "com.deepin.daemon.Display",
 	}
 }
 
@@ -61,12 +61,11 @@ func (dpy *Display) setPropDisplayMode(v int16) {
 func (dpy *Display) setPropMonitors(v []*Monitor) {
 	for _, m := range dpy.Monitors {
 		dbus.UnInstallObject(m)
-		m = m
+		m = nil
 	}
 
 	dpy.Monitors = v
 	for _, m := range dpy.Monitors {
-		m = m
 		dbus.InstallOnSession(m)
 	}
 	dbus.NotifyChange(dpy, "Monitors")

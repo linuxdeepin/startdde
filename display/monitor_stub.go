@@ -17,9 +17,9 @@ func (m *Monitor) GetDBusInfo() dbus.DBusInfo {
 	name := strings.Replace(m.Name, "-", "_", -1)
 	name = strings.Replace(name, joinSeparator, "_", -1)
 	return dbus.DBusInfo{
-		"com.deepin.daemon.Display",
-		fmt.Sprintf("/com/deepin/daemon/Display/Monitor%s", name),
-		"com.deepin.daemon.Display.Monitor",
+		Dest:       "com.deepin.daemon.Display",
+		ObjectPath: fmt.Sprintf("/com/deepin/daemon/Display/Monitor%s", name),
+		Interface:  "com.deepin.daemon.Display.Monitor",
 	}
 }
 

@@ -18,7 +18,6 @@ const (
 )
 
 func (dpy *Display) SwitchMode(mode int16, outputName string) {
-
 	switch mode {
 	case DisplayModeMirrors:
 		n := len(dpy.Monitors)
@@ -26,6 +25,13 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			logger.Error("Invoking SwitchMode with none Monitors.")
 			return
 		}
+
+		dpy.syncDisplayMode(mode)
+		dpy.saveDisplayMode(mode, "")
+		if dpy.DisplayMode == DisplayModeCustom {
+			dpy.rebuildMonitors()
+		}
+
 		if n == 1 {
 			m := dpy.Monitors[0]
 			m.SetPos(0, 0)
@@ -37,10 +43,13 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			}
 		}
 		dpy.apply(false)
-
+	case DisplayModeExtend:
 		dpy.syncDisplayMode(mode)
 		dpy.saveDisplayMode(mode, "")
-	case DisplayModeExtend:
+		if dpy.DisplayMode == DisplayModeCustom {
+			dpy.rebuildMonitors()
+		}
+
 		for _, m := range dpy.Monitors {
 			dpy.SplitMonitor(m.Name)
 		}
@@ -54,11 +63,14 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			curX += int16(m.BestMode.Width)
 		}
 		dpy.apply(false)
-
-		dpy.syncDisplayMode(mode)
-		dpy.saveDisplayMode(mode, "")
 	case DisplayModeOnlyOne:
 		func() {
+			dpy.syncDisplayMode(mode)
+			dpy.saveDisplayMode(mode, outputName)
+			if dpy.DisplayMode == DisplayModeCustom {
+				dpy.rebuildMonitors()
+			}
+
 			dpy.lockMonitors()
 			outputNameValid := GetDisplayInfo().QueryOutputs(outputName) != 0
 			//validValue := mode >= DisplayModeOnlyOne && int(mode) <= len(dpy.Monitors)
@@ -83,9 +95,6 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 					}
 				}
 				dpy.apply(false)
-
-				dpy.syncDisplayMode(mode)
-				dpy.saveDisplayMode(mode, outputName)
 			}
 		}()
 	case DisplayModeCustom:
