@@ -20,6 +20,7 @@ import "C"
 import (
 	"flag"
 	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
 )
@@ -42,6 +43,8 @@ func main() {
 	startDisplay()
 
 	startSession()
+
+	watchdog.Start()
 
 	C.gtk_main()
 }
