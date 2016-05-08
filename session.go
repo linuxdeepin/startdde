@@ -205,7 +205,7 @@ func startSession() {
 	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
 	// to run properly.
@@ -221,6 +221,12 @@ func startSession() {
 		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
 		wg.Done()
 	}()
+
+	go func() {
+		manager.launch("/usr/lib/deepin-daemon/dde-osd", true)
+		wg.Done()
+	}()
+
 	wg.Wait()
 
 	manager.setPropStage(SessionStageCoreEnd)
