@@ -216,14 +216,17 @@ func startSession() {
 	}()
 
 	go func() {
-		manager.launch("/usr/lib/deepin-daemon/dde-dock-daemon", true)
+		// dde-session-initializer contains backend of dock, launcher currently
+		manager.launch("/usr/lib/deepin-daemon/dde-session-initializer", true)
 		manager.launch("/usr/bin/dde-dock", true)
+		manager.launch("/usr/bin/dde-launcher", false)
+
 		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
 		wg.Done()
 	}()
 
 	go func() {
-		manager.launch("/usr/lib/deepin-daemon/dde-osd", true)
+		manager.launch("/usr/lib/deepin-daemon/dde-osd", false)
 		wg.Done()
 	}()
 
