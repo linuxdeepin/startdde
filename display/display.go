@@ -81,11 +81,10 @@ var GetDisplay = func() func() *Display {
 	sinfo := xproto.Setup(xcon).DefaultScreen(xcon)
 	dpy.setPropScreenWidth(sinfo.WidthInPixels)
 	dpy.setPropScreenHeight(sinfo.HeightInPixels)
-	GetDisplayInfo().update()
-	dpy.setPropHasChanged(false)
-
 	dpy.setting = gio.NewSettings(displaySchema)
 	dpy.setPropDisplayMode(int16(dpy.setting.GetEnum(gsKeyDisplayMode)))
+	GetDisplayInfo().update()
+	dpy.setPropHasChanged(false)
 
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
@@ -124,6 +123,9 @@ type Display struct {
 
 	setting  *gio.Settings
 	blHelper *backlight.Backlight
+
+	eventLocker sync.Mutex
+	resetLocker sync.Mutex
 }
 
 func (dpy *Display) lockMonitors() {
@@ -156,6 +158,7 @@ func (dpy *Display) listener() {
 		if err != nil {
 			continue
 		}
+		dpy.eventLocker.Lock()
 		switch ee := e.(type) {
 		case randr.NotifyEvent:
 			switch ee.SubCode {
@@ -194,6 +197,7 @@ func (dpy *Display) listener() {
 
 			dpy.mapTouchScreen()
 		}
+		dpy.eventLocker.Unlock()
 	}
 }
 
@@ -229,6 +233,7 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
 	if (setter == brightnessSetterGamma) ||
 		(setter == brightnessSetterAuto && !isSupported) {
+		GetDisplayInfo().update()
 		op := GetDisplayInfo().QueryOutputs(output)
 		if op == 0 {
 			logger.Warning("[ChangeBrightness] query output failed:", output)
@@ -245,6 +250,8 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 }
 
 func (dpy *Display) ResetBrightness(output string) {
+	dpy.resetLocker.Lock()
+	defer dpy.resetLocker.Unlock()
 	if v, ok := LoadConfigDisplay(dpy).Brightness[output]; ok {
 		dpy.SetBrightness(output, v)
 	}
@@ -262,6 +269,15 @@ func (dpy *Display) JoinMonitor(a string, b string) error {
 	defer dpy.unlockMonitors()
 
 	ms := dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors
+	mm, ok := ms[a+joinSeparator+b]
+	if !ok {
+		mm, ok = ms[b+joinSeparator+a]
+	}
+	if ok {
+		dpy.setPropMonitors([]*Monitor{NewMonitor(dpy, mm)})
+		return nil
+	}
+
 	if ma, ok := ms[a]; ok {
 		if mb, ok := ms[b]; ok {
 			mc := mergeConfigMonitor(dpy, ma, mb)
@@ -402,6 +418,7 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 
 func (dpy *Display) SetPrimary(name string) error {
 	if err := dpy.changePrimary(name, true); err != nil {
+		logger.Warning("Set primary failed:", err)
 		return err
 	}
 	dpy.savePrimary(name)
@@ -437,7 +454,7 @@ func (dpy *Display) apply(auto bool) {
 			code += " --auto"
 		}
 
-		if dpy.cfg.Primary == m.Name {
+		if dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput == m.Name {
 			code += " --primary"
 		}
 	}
@@ -445,16 +462,18 @@ func (dpy *Display) apply(auto bool) {
 }
 
 func (dpy *Display) ResetChanges() {
+	dpy.resetLocker.Lock()
+	defer dpy.resetLocker.Unlock()
+
 	dpy.rebuildMonitors()
-	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {
-		logger.Warning("chnagePrimary :", dpy.cfg.Primary, err)
+	if err := dpy.changePrimary(dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput, true); err != nil {
+		logger.Warning("chnagePrimary :", dpy.cfg.Plans[dpy.cfg.CurrentPlanName], err)
 		runCode("xrandr --auto")
 	}
 
 	//apply the saved configurations.
 	dpy.Apply()
 	dpy.setPropHasChanged(false)
-
 	dpy.Brightness = make(map[string]float64)
 
 	for name, v := range dpy.cfg.Brightness {
@@ -477,6 +496,8 @@ func (dpy *Display) SaveChanges() {
 }
 
 func (dpy *Display) Reset() {
+	dpy.resetLocker.Lock()
+	defer dpy.resetLocker.Unlock()
 	dpy.rLockMonitors()
 	defer dpy.rUnlockMonitors()
 
@@ -531,8 +552,7 @@ func (dpy *Display) QueryOutputFeature(name string) int32 {
 func (dpy *Display) rebuildMonitors() {
 	dpy.cfg = LoadConfigDisplay(dpy)
 	dpy.cfg.attachCurrentMonitor(dpy)
-	dpy.saveDisplayMode(dpy.DisplayMode,
-		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+	dpy.cfg.Save()
 	dpy.cfg.ensureValid(dpy)
 
 	//must be invoked after LoadConfigDisplay(dpy)
@@ -541,7 +561,7 @@ func (dpy *Display) rebuildMonitors() {
 		m := NewMonitor(dpy, mcfg)
 		err := m.updateInfo()
 		if err != nil {
-			continue
+			m.setPropOpened(false)
 		}
 		monitors = append(monitors, m)
 	}

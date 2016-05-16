@@ -30,7 +30,6 @@ type ConfigDisplay struct {
 	CurrentPlanName string
 	Plans           map[string]*monitorGroup
 
-	Primary          string
 	Brightness       map[string]float64
 	MapToTouchScreen map[string]string
 }
@@ -42,10 +41,14 @@ var (
 	configLock        sync.RWMutex
 )
 
+func (dpy *Display) ListOutputNames() []string {
+	return GetDisplayInfo().ListNames()
+}
+
 func (dpy *Display) QueryCurrentPlanName() string {
 	names := GetDisplayInfo().ListNames()
 	sort.Strings(names)
-	return strings.Join(names, ",")
+	return strings.Join(names, ",") + fmt.Sprintf(",mode%v", dpy.DisplayMode)
 	//return base64.NewEncoding("1").EncodeToString([]byte(strings.Join(names, ",")))
 }
 
@@ -58,7 +61,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	//grab and build monitors information
 	monitors := &monitorGroup{
-		DefaultOutput: "",
+		DefaultOutput: dpy.Primary,
 		Monitors:      make(map[string]*ConfigMonitor),
 	}
 	for _, op := range GetDisplayInfo().ListOutputs() {
@@ -72,8 +75,6 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 
 	//save it at CurrentPlanName slot
 	cfg.Plans[cfg.CurrentPlanName] = monitors
-
-	cfg.Primary = dpy.Primary
 
 	for _, name := range GetDisplayInfo().ListNames() {
 		//if dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
@@ -149,13 +150,13 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 	//2. ensure primary is opened
 	primaryOk := false
 	for _, m := range opend {
-		if cfg.Primary == m.Name {
+		if cfg.Plans[cfg.CurrentPlanName].DefaultOutput == m.Name {
 			primaryOk = true
 			break
 		}
 	}
 	if !primaryOk {
-		cfg.Primary = any.Name
+		cfg.Plans[cfg.CurrentPlanName].DefaultOutput = any.Name
 	}
 
 	//4. avoid monitor allocation overlay
@@ -173,7 +174,8 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 		}
 	}
 	if !valid {
-		pm := cfg.Plans[cfg.CurrentPlanName].Monitors[cfg.Primary]
+		curGroup := cfg.Plans[cfg.CurrentPlanName]
+		pm := curGroup.Monitors[curGroup.DefaultOutput]
 		cx, cy, pw, ph := int16(0), int16(0), pm.Width, pm.Height
 		pm.X, pm.Y = 0, 0
 		logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", pm.Name, pm.X, pm.Y, pm.Width, pm.Height)
@@ -238,7 +240,7 @@ func (c *ConfigDisplay) Compare(cfg *ConfigDisplay) bool {
 		return false
 	}
 
-	if c.Primary != cfg.Primary {
+	if c.Plans[c.CurrentPlanName].DefaultOutput != cfg.Plans[cfg.CurrentPlanName].DefaultOutput {
 		return false
 	}
 
@@ -386,26 +388,17 @@ func (m1 *ConfigMonitor) Compare(m2 *ConfigMonitor) bool {
 
 func (dpy *Display) saveBrightness(output string, v float64) {
 	dpy.cfg.Brightness[output] = v
-
-	cfg := LoadConfigDisplay(dpy)
-	cfg.Brightness[output] = v
-	cfg.Save()
+	dpy.cfg.Save()
 }
 
 func (dpy *Display) savePrimary(output string) {
-	dpy.cfg.Primary = output
-
-	cfg := LoadConfigDisplay(dpy)
-	cfg.Primary = output
-	cfg.Save()
+	dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
+	dpy.cfg.Save()
 }
 
 func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
 	dpy.cfg.MapToTouchScreen[output] = touchscreen
-
-	cfg := LoadConfigDisplay(dpy)
-	cfg.MapToTouchScreen[output] = touchscreen
-	cfg.Save()
+	dpy.cfg.Save()
 }
 
 func (dpy *Display) saveDisplayMode(mode int16, output string) {
@@ -413,13 +406,7 @@ func (dpy *Display) saveDisplayMode(mode int16, output string) {
 	if mode == DisplayModeOnlyOne {
 		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
 	}
-
-	cfg := LoadConfigDisplay(dpy)
-	cfg.DisplayMode = mode
-	if mode == DisplayModeOnlyOne {
-		cfg.Plans[cfg.CurrentPlanName].DefaultOutput = output
-	}
-	cfg.Save()
+	dpy.cfg.Save()
 }
 
 func loadConfigFromFile(dpy *Display, file string) (*ConfigDisplay, error) {

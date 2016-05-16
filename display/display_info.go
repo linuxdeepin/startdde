@@ -32,6 +32,8 @@ var GetDisplayInfo = func() func() *DisplayInfo {
 }()
 
 func (info *DisplayInfo) ListNames() []string {
+	info.locker.Lock()
+	defer info.locker.Unlock()
 	var ret []string
 	for name, _ := range info.outputNames {
 		ret = append(ret, name)
@@ -39,6 +41,8 @@ func (info *DisplayInfo) ListNames() []string {
 	return ret
 }
 func (info *DisplayInfo) ListOutputs() []randr.Output {
+	info.locker.Lock()
+	defer info.locker.Unlock()
 	var ret []randr.Output
 	for _, op := range info.outputNames {
 		ret = append(ret, op)
@@ -47,6 +51,8 @@ func (info *DisplayInfo) ListOutputs() []randr.Output {
 }
 
 func (info *DisplayInfo) QueryModes(id randr.Mode) Mode {
+	info.locker.Lock()
+	defer info.locker.Unlock()
 	if op, ok := info.modes[id]; ok {
 		return op
 	} else {
@@ -55,6 +61,8 @@ func (info *DisplayInfo) QueryModes(id randr.Mode) Mode {
 	}
 }
 func (info *DisplayInfo) QueryOutputs(name string) randr.Output {
+	info.locker.Lock()
+	defer info.locker.Unlock()
 	if op, ok := info.outputNames[name]; ok {
 		return op
 	} else {

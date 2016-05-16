@@ -13,11 +13,31 @@ import "github.com/BurntSushi/xgb/xproto"
 import "github.com/BurntSushi/xgb/randr"
 import "github.com/BurntSushi/xgb/render"
 import "github.com/BurntSushi/xgb"
+import "strings"
 
 import "os/exec"
 import "math"
 
 var backlightAtom = getAtom(xcon, "Backlight")
+
+// see alse: gnome-desktop/libgnome-desktop/gnome-rr.c '_gnome_rr_output_name_is_builtin_display'
+func isBuiltinOuput(name string) bool {
+	name = strings.ToLower(name)
+	switch {
+	case strings.Contains(name, "lvds"):
+		// Most drivers use an "LVDS" prefix
+		fallthrough
+	case strings.Contains(name, "lcd"):
+		// fglrx uses "LCD" in some versions
+		fallthrough
+	case strings.Contains(name, "edp"):
+		// eDP is for internal built-in panel connections
+		fallthrough
+	case strings.Contains(name, "dsi"):
+		return true
+	}
+	return false
+}
 
 func runCode(code string) bool {
 	err := exec.Command("sh", "-c", code).Run()

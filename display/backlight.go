@@ -21,13 +21,23 @@ const (
 	backlightPath = "/com/deepin/daemon/helper/Backlight"
 )
 
+func (dpy *Display) getNumOfOpenedMonitor() int32 {
+	var num int32 = 0
+	for _, m := range dpy.Monitors {
+		if m.Opened {
+			num += 1
+		}
+	}
+	return num
+}
+
 func (dpy *Display) supportedBacklight(c *xgb.Conn, output randr.Output) bool {
 	if dpy.blHelper == nil {
 		return false
 	}
 
 	list, _ := dpy.blHelper.ListSysPath()
-	if !dpy.hasMultiOutputs() && (len(list) != 0) {
+	if (dpy.getNumOfOpenedMonitor() == 1) && (len(list) != 0) {
 		return true
 	}
 
@@ -139,12 +149,4 @@ func (dpy *Display) doSetBacklight(sysPath string, old, value float64) error {
 	}
 
 	return dpy.blHelper.SetBrightness(sysPath, tmp)
-}
-
-func (dpy *Display) hasMultiOutputs() bool {
-	if len(dpy.Monitors) > 1 {
-		return true
-	}
-
-	return dpy.Monitors[0].IsComposited
 }
