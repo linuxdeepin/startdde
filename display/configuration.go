@@ -77,11 +77,11 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	cfg.Plans[cfg.CurrentPlanName] = monitors
 
 	for _, name := range GetDisplayInfo().ListNames() {
-		//if dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
-		//cfg.Brightness[name] = getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
-		//} else {
-		cfg.Brightness[name] = 1
-		//}
+		if dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
+			cfg.Brightness[name] = dpy.getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
+		} else {
+			cfg.Brightness[name] = 1
+		}
 	}
 }
 

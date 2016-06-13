@@ -22,6 +22,9 @@ const (
 )
 
 func (dpy *Display) getNumOfOpenedMonitor() int32 {
+	dpy.lockMonitors()
+	defer dpy.unlockMonitors()
+
 	var num int32 = 0
 	for _, m := range dpy.Monitors {
 		if m.Opened {
@@ -57,7 +60,7 @@ func (dpy *Display) getBacklightSysPath(ty string) (string, error) {
 		return "", fmt.Errorf("Create backlight helper failed")
 	}
 
-	var key string
+	var key string = "raw"
 	switch {
 	case strings.Contains(ty, "raw"):
 		key = "raw"
