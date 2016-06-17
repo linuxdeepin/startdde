@@ -39,11 +39,6 @@ func (dpy *Display) supportedBacklight(c *xgb.Conn, output randr.Output) bool {
 		return false
 	}
 
-	list, _ := dpy.blHelper.ListSysPath()
-	if (dpy.getNumOfOpenedMonitor() == 1) && (len(list) != 0) {
-		return true
-	}
-
 	return hasPropBacklight(c, output)
 }
 

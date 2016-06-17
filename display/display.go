@@ -236,11 +236,12 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		GetDisplayInfo().update()
 		op := GetDisplayInfo().QueryOutputs(output)
 		if op == 0 {
-			logger.Warning("[ChangeBrightness] query output failed:", output)
-			return fmt.Errorf("Chan't find the '%v' output when change brightness", output)
+			logger.Warningf("[ChangeBrightness] query output '%v' failed, try backlight", output)
+			// TODO: check whether successfully by query backlight brightness
+			dpy.setBacklight(output, brightnessSetterBacklight, v)
+		} else {
+			setBrightness(xcon, op, v)
 		}
-
-		setBrightness(xcon, op, v)
 	} else {
 		dpy.setBacklight(output, setter, v)
 	}
