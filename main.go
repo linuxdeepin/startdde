@@ -19,7 +19,6 @@ package main
 import "C"
 import (
 	"flag"
-	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -33,8 +32,9 @@ var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm-switcher", "the win
 func main() {
 	C.gtkInit()
 	flag.Parse()
-
-	soundutils.PlaySystemSound(soundutils.EventLogin, "", false)
+	initObjSoundThemePlayer()
+	quitSoundThemePlayer()
+	go playLoginSound()
 
 	proxy.SetupProxy()
 
