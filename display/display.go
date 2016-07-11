@@ -212,6 +212,23 @@ func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
 	dpy.saveTouchScreen(output, touchscreen)
 }
 
+func (dpy *Display) getOutputBrightness(output string) float64 {
+	isSupported := dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
+	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
+	if (setter == brightnessSetterGamma) ||
+		(setter == brightnessSetterAuto && !isSupported) {
+		return dpy.Brightness[output]
+	}
+
+	return dpy.getBacklight(setter)
+}
+
+func (dpy *Display) RefreshBrightness() {
+	for output, _ := range dpy.Brightness {
+		dpy.setPropBrightness(output, dpy.getOutputBrightness(output))
+	}
+}
+
 //The range of brightness value is 0.1~1.
 //Generally speaking user can use media key to change brightness when the output
 //supports backlight, but we can't rely on this assumption.
