@@ -42,7 +42,8 @@ const (
 )
 
 var (
-	objLogin *login1.Manager
+	objLogin            *login1.Manager
+	objLoginSessionSelf *login1.Session
 )
 
 func (m *SessionManager) CanLogout() bool {
@@ -54,12 +55,17 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) RequestLogout() {
+	logger.Info("Request Logout")
 	if soundutils.CanPlayEvent() {
 		// Try to launch 'sound-theme-player'
 		playThemeSound("", "")
 		// Play sound
 		playThemeSound(soundutils.GetSoundTheme(),
 			soundutils.EventLogout)
+	}
+	err := objLoginSessionSelf.Terminate()
+	if err != nil {
+		logger.Warning("LoginSessionSelf Terminate failed:", err)
 	}
 	os.Exit(0)
 }
@@ -152,11 +158,18 @@ func (m *SessionManager) PowerOffChoose() {
 
 func initSession() {
 	var err error
+	const login1Dest = "org.freedesktop.login1"
+	const login1ObjPath = "/org/freedesktop/login1"
+	const login1SessionSelfObjPath = login1ObjPath + "/session/self"
 
-	objLogin, err = login1.NewManager("org.freedesktop.login1",
-		"/org/freedesktop/login1")
+	objLogin, err = login1.NewManager(login1Dest, login1ObjPath)
 	if err != nil {
 		panic(fmt.Errorf("New Login1 Failed: %s", err))
+	}
+
+	objLoginSessionSelf, err = login1.NewSession(login1Dest, login1SessionSelfObjPath)
+	if err != nil {
+		panic(fmt.Errorf("New Login1 session self Failed: %s", err))
 	}
 }
 
