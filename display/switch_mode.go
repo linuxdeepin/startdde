@@ -11,7 +11,6 @@ package display
 
 import (
 	"fmt"
-	"pkg.deepin.io/lib/utils"
 	"sort"
 	"strings"
 )
@@ -32,14 +31,9 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			return
 		}
 
-		prevMode := dpy.DisplayMode
 		dpy.syncDisplayMode(mode)
-		if prevMode == DisplayModeCustom {
-			dpy.rebuildMonitors()
-		} else {
-			dpy.cfg.attachCurrentMonitor(dpy)
-		}
-		dpy.saveDisplayMode(mode, "")
+		dpy.cfg.attachCurrentMonitor(dpy)
+		dpy.rebuildMonitors()
 
 		n := len(dpy.Monitors)
 		if n == 1 {
@@ -59,15 +53,10 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		dpy.apply(false)
 		dpy.cfg.Save()
 	case DisplayModeExtend:
-		prevMode := dpy.DisplayMode
+		logger.Debugf("-------------Switch to extend: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 		dpy.syncDisplayMode(mode)
-		if prevMode == DisplayModeCustom {
-			dpy.rebuildMonitors()
-		} else {
-			dpy.cfg.attachCurrentMonitor(dpy)
-		}
-		dpy.saveDisplayMode(mode, "")
 		dpy.joinExtendMode()
+		logger.Debugf("-------------Switch to extend done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	case DisplayModeOnlyOne:
 		func() {
 			dpy.lockMonitors()
@@ -79,14 +68,11 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 				return
 			}
 
-			prevMode := dpy.DisplayMode
 			dpy.syncDisplayMode(mode)
-			if prevMode == DisplayModeCustom {
-				dpy.rebuildMonitors()
-			} else {
-				dpy.cfg.attachCurrentMonitor(dpy)
-			}
-			dpy.saveDisplayMode(DisplayModeOnlyOne, outputName)
+			dpy.cfg.attachCurrentMonitor(dpy)
+			logger.Debugf("+++++++++++++++++++Switch only mode: '%s', %#v\n", dpy.cfg.CurrentPlanName, dpy.cfg.Plans)
+			dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput = outputName
+			dpy.rebuildMonitors()
 
 			for _, m := range dpy.Monitors {
 				dpy.SplitMonitor(m.Name)
@@ -109,27 +95,29 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			dpy.cfg.Save()
 		}()
 	case DisplayModeCustom:
-		if dpy.DisplayMode != DisplayModeCustom {
-			dpy.syncDisplayMode(mode)
-			if !utils.IsFileExist(_CustomConfigPath) {
-				dpy.joinExtendMode()
-			} else {
-				dpy.cfg = LoadConfigDisplay(dpy)
-			}
-			dpy.ResetChanges()
-			dpy.saveDisplayMode(mode, "")
-		}
+		logger.Debugf("-------------Switch to custom: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
+		dpy.syncDisplayMode(mode)
+		dpy.joinExtendMode()
+		logger.Debugf("-------------Switch to custom done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	}
 	dpy.detectChanged()
 }
 
 func (dpy *Display) joinExtendMode() {
-	for _, m := range dpy.Monitors {
-		dpy.SplitMonitor(m.Name)
+	added := dpy.cfg.attachCurrentMonitor(dpy)
+	dpy.rebuildMonitors()
+	if len(dpy.Monitors) < 1 {
+		return
 	}
+	if added {
+		// sort monitor by primary
+		dpy.sortMonitors()
+		dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput = dpy.Monitors[0].Name
+	}
+	logger.Debugf("~~~~~~~~~~~~~Join exten: '%s' %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
+	dpy.Primary = dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput
+	logger.Debugf("~~~~~~~~~~~~~Join extend primary: '%s'\n", dpy.Primary)
 
-	// sort monitor by primary
-	dpy.sortMonitors()
 	curX := int16(0)
 	for _, m := range dpy.Monitors {
 		m.changeSwitchOn(true)
@@ -140,7 +128,8 @@ func (dpy *Display) joinExtendMode() {
 	}
 	dpy.apply(false)
 	dpy.cfg.Save()
-	dpy.SetPrimary(dpy.Monitors[0].Name)
+	dpy.SetPrimary(dpy.Primary)
+	logger.Debugf("~~~~~~~~~~~~~Join exten done: '%s' %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 }
 
 func (dpy *Display) sortMonitors() {

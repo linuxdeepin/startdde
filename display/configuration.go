@@ -16,7 +16,6 @@ import "os"
 import "sync"
 import "strings"
 import "sort"
-import dutils "pkg.deepin.io/lib/utils"
 
 var hasCFG = false
 
@@ -35,10 +34,9 @@ type ConfigDisplay struct {
 }
 
 var (
-	homeDir           = os.Getenv("HOME")
-	_ConfigPath       = homeDir + "/.config/deepin_monitors.json"
-	_CustomConfigPath = homeDir + "/.config/deepin_monitors_custom.json"
-	configLock        sync.RWMutex
+	homeDir     = os.Getenv("HOME")
+	_ConfigPath = homeDir + "/.config/deepin_monitors.json"
+	configLock  sync.RWMutex
 )
 
 func (dpy *Display) ListOutputNames() []string {
@@ -52,10 +50,10 @@ func (dpy *Display) QueryCurrentPlanName() string {
 	//return base64.NewEncoding("1").EncodeToString([]byte(strings.Join(names, ",")))
 }
 
-func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
+func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) (added bool) {
 	cfg.CurrentPlanName = dpy.QueryCurrentPlanName()
 	if _, ok := cfg.Plans[cfg.CurrentPlanName]; ok {
-		return
+		return false
 	}
 	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
 
@@ -83,6 +81,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 			cfg.Brightness[name] = 1
 		}
 	}
+	return true
 }
 
 func createConfigDisplay(dpy *Display) *ConfigDisplay {
@@ -211,17 +210,9 @@ func LoadConfigDisplay(dpy *Display) *ConfigDisplay {
 	configLock.RLock()
 	defer configLock.RUnlock()
 
-	var config = _ConfigPath
-	if dpy.DisplayMode == DisplayModeCustom {
-		if dutils.IsFileExist(_CustomConfigPath) {
-			config = _CustomConfigPath
-		}
-	}
-
-	logger.Debug("[LoadConfigDisplay] file:", config)
-	cfg, err := loadConfigFromFile(dpy, config)
+	cfg, err := loadConfigFromFile(dpy, _ConfigPath)
 	if err != nil {
-		logger.Warningf("Load config '%s' failed: %v", config, err)
+		logger.Warningf("Load config '%s' failed: %v", _ConfigPath, err)
 		hasCFG = false
 		cfg = createConfigDisplay(dpy)
 		cfg.attachCurrentMonitor(dpy)
@@ -258,12 +249,7 @@ func (c *ConfigDisplay) Save() {
 	configLock.Lock()
 	defer configLock.Unlock()
 
-	var config = _ConfigPath
-	if c.DisplayMode == DisplayModeCustom {
-		config = _CustomConfigPath
-	}
-
-	fw, err := os.Create(config)
+	fw, err := os.Create(_ConfigPath)
 	if err != nil {
 		logger.Error("Cant create configure:", err)
 		return
@@ -272,7 +258,7 @@ func (c *ConfigDisplay) Save() {
 
 	err = json.NewEncoder(fw).Encode(c)
 	if err != nil {
-		logger.Warningf("Save config '%s' failed: %v", config, err)
+		logger.Warningf("Save config '%s' failed: %v", _ConfigPath, err)
 		return
 	}
 	hasCFG = true

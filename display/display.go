@@ -483,7 +483,17 @@ func (dpy *Display) ResetChanges() {
 	dpy.resetLocker.Lock()
 	defer dpy.resetLocker.Unlock()
 
+	dpy.cfg = LoadConfigDisplay(dpy)
+	dpy.cfg.attachCurrentMonitor(dpy)
+	if !dpy.cfg.ensureValid(dpy) {
+		logger.Infof("-------Invalid plan: %s, %#v\n", dpy.QueryCurrentPlanName(), dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
+		delete(dpy.cfg.Plans, dpy.QueryCurrentPlanName())
+		dpy.cfg.attachCurrentMonitor(dpy)
+	}
+	dpy.cfg.Save()
+	//must be invoked after LoadConfigDisplay(dpy)
 	dpy.rebuildMonitors()
+
 	if err := dpy.changePrimary(dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Plans[dpy.cfg.CurrentPlanName], err)
 		runCode("xrandr --auto")
@@ -538,6 +548,9 @@ func (dpy *Display) syncDisplayMode(mode int16) {
 	if mode != int16(dpy.setting.GetEnum(gsKeyDisplayMode)) {
 		dpy.setting.SetEnum(gsKeyDisplayMode, int32(mode))
 	}
+	if dpy.cfg != nil && dpy.cfg.DisplayMode != mode {
+		dpy.cfg.DisplayMode = mode
+	}
 	dpy.setPropDisplayMode(mode)
 }
 
@@ -568,12 +581,6 @@ func (dpy *Display) QueryOutputFeature(name string) int32 {
 }
 
 func (dpy *Display) rebuildMonitors() {
-	dpy.cfg = LoadConfigDisplay(dpy)
-	dpy.cfg.attachCurrentMonitor(dpy)
-	dpy.cfg.Save()
-	dpy.cfg.ensureValid(dpy)
-
-	//must be invoked after LoadConfigDisplay(dpy)
 	var monitors []*Monitor
 	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
 		m := NewMonitor(dpy, mcfg)
