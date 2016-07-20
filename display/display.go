@@ -178,6 +178,7 @@ func (dpy *Display) listener() {
 			dpy.setPropScreenHeight(ee.Height)
 			GetDisplayInfo().update()
 
+			logger.Debug("[listener] Screen event:", ee.Width, ee.Height, LastConfigTimeStamp, ee.ConfigTimestamp)
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
 				if dpy.cfg.CurrentPlanName != dpy.QueryCurrentPlanName() {
@@ -454,11 +455,13 @@ func (dpy *Display) disableChanged() bool {
 }
 
 func (dpy *Display) Apply() {
+	logger.Debug("[Apply] start, hasChanged:", dpy.HasChanged)
 	if dpy.disableChanged() {
 		logger.Warning("Display.Apply only can be used in Custom DisplayMode.")
 		return
 	}
 	dpy.apply(false)
+	logger.Debug("[Apply] done, hasChanged:", dpy.HasChanged)
 }
 
 func (dpy *Display) apply(auto bool) {
@@ -480,6 +483,8 @@ func (dpy *Display) apply(auto bool) {
 }
 
 func (dpy *Display) ResetChanges() {
+	logger.Debug("[ResetChanges] start, hasChanged:", dpy.HasChanged)
+	logger.Debugf("[ResetChanges] current primary: %s, monitors: %#v\n", dpy.Primary, dpy.Monitors)
 	dpy.resetLocker.Lock()
 	defer dpy.resetLocker.Unlock()
 
@@ -516,6 +521,7 @@ func (dpy *Display) ResetChanges() {
 			dpy.ChangeBrightness(mcfg.Name, 1)
 		}
 	}
+	logger.Debug("[ResetChanges] done, hasChanged:", dpy.HasChanged)
 }
 
 func (dpy *Display) SaveChanges() {
@@ -582,11 +588,17 @@ func (dpy *Display) QueryOutputFeature(name string) int32 {
 
 func (dpy *Display) rebuildMonitors() {
 	var monitors []*Monitor
-	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
+	group := dpy.cfg.Plans[dpy.cfg.CurrentPlanName]
+	for _, mcfg := range group.Monitors {
 		m := NewMonitor(dpy, mcfg)
 		err := m.updateInfo()
 		if err != nil {
 			m.setPropOpened(false)
+		} else {
+			// fixed Opened == false because crtc == 0 at monitor plugin
+			if group.DefaultOutput == m.Name && !m.Opened {
+				m.setPropOpened(true)
+			}
 		}
 		monitors = append(monitors, m)
 	}

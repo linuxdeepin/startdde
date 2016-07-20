@@ -24,6 +24,7 @@ const (
 )
 
 func (dpy *Display) SwitchMode(mode int16, outputName string) {
+	logger.Debug("[SwitchMode] start to :", mode, outputName)
 	switch mode {
 	case DisplayModeMirrors:
 		if len(dpy.Monitors) == 0 {
@@ -113,19 +114,19 @@ func (dpy *Display) joinExtendMode() {
 		// sort monitor by primary
 		dpy.sortMonitors()
 		dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput = dpy.Monitors[0].Name
-	}
-	logger.Debugf("~~~~~~~~~~~~~Join exten: '%s' %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
-	dpy.Primary = dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput
-	logger.Debugf("~~~~~~~~~~~~~Join extend primary: '%s'\n", dpy.Primary)
 
-	curX := int16(0)
-	for _, m := range dpy.Monitors {
-		m.changeSwitchOn(true)
-		m.cfg.Enabled = true
-		m.SetPos(curX, 0)
-		m.SetMode(m.BestMode.ID)
-		curX += int16(m.BestMode.Width)
+		curX := int16(0)
+		for _, m := range dpy.Monitors {
+			m.changeSwitchOn(true)
+			m.cfg.Enabled = true
+			m.SetPos(curX, 0)
+			m.SetMode(m.BestMode.ID)
+			curX += int16(m.BestMode.Width)
+		}
 	}
+	logger.Debugf("~~~~~~~~~~~~~Join exten added(%b): '%s' %#v\n",
+		added, dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
+	dpy.Primary = dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput
 	dpy.apply(false)
 	dpy.cfg.Save()
 	dpy.SetPrimary(dpy.Primary)
