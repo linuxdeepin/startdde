@@ -45,6 +45,9 @@ func (dpy *Display) ListOutputNames() []string {
 
 func (dpy *Display) QueryCurrentPlanName() string {
 	names := GetDisplayInfo().ListNames()
+	if len(names) == 0 {
+		return ""
+	}
 	sort.Strings(names)
 	return strings.Join(names, ",") + fmt.Sprintf(",mode%v", dpy.DisplayMode)
 	//return base64.NewEncoding("1").EncodeToString([]byte(strings.Join(names, ",")))

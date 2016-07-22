@@ -178,19 +178,28 @@ func (dpy *Display) listener() {
 			dpy.setPropScreenHeight(ee.Height)
 			GetDisplayInfo().update()
 
+			curPlan := dpy.QueryCurrentPlanName()
 			logger.Debug("[listener] Screen event:", ee.Width, ee.Height, LastConfigTimeStamp, ee.ConfigTimestamp)
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
-				if dpy.cfg.CurrentPlanName != dpy.QueryCurrentPlanName() {
-					logger.Info("Detect New ConfigTimestmap, try reset changes")
-					dpy.ResetChanges()
-					dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+				if dpy.cfg.CurrentPlanName != curPlan {
+					logger.Info("Detect New ConfigTimestmap, try reset changes, current plan:", curPlan)
+					if len(curPlan) == 0 {
+						dpy.cfg.CurrentPlanName = curPlan
+					} else {
+						dpy.ResetChanges()
+						dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+					}
 				}
 			}
 
 			//sync Monitor's state
 			for _, m := range dpy.Monitors {
 				m.updateInfo()
+			}
+
+			if len(curPlan) == 0 {
+				return
 			}
 
 			//changePrimary will try set an valid primary if dpy.Primary invalid
@@ -242,23 +251,25 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		return fmt.Errorf("Try change the brightness of %s to an invalid value(%v)", output, v)
 	}
 
+	op := GetDisplayInfo().QueryOutputs(output)
+	if op == 0 {
+		return fmt.Errorf("Invalid output: %v", output)
+	}
+
 	now := dpy.Brightness[output]
 	if v > now-0.01 && v < now+0.01 {
 		return nil
 	}
 
-	isSupported := dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(output))
+	isSupported := dpy.supportedBacklight(xcon, op)
 	setter := dpy.setting.GetString(gsKeyBrightnessSetter)
 	if (setter == brightnessSetterGamma) ||
 		(setter == brightnessSetterAuto && !isSupported) {
-		GetDisplayInfo().update()
-		op := GetDisplayInfo().QueryOutputs(output)
-		if op == 0 {
+		err := setBrightness(xcon, op, v)
+		if err != nil {
 			logger.Warningf("[ChangeBrightness] query output '%v' failed, try backlight", output)
 			// TODO: check whether successfully by query backlight brightness
 			dpy.setBacklight(output, brightnessSetterBacklight, v)
-		} else {
-			setBrightness(xcon, op, v)
 		}
 	} else {
 		dpy.setBacklight(output, setter, v)
@@ -287,7 +298,12 @@ func (dpy *Display) JoinMonitor(a string, b string) error {
 	dpy.lockMonitors()
 	defer dpy.unlockMonitors()
 
-	ms := dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors
+	mgroup, ok := dpy.cfg.Plans[dpy.cfg.CurrentPlanName]
+	if !ok {
+		return fmt.Errorf("Current plan invalid: %q", dpy.cfg.CurrentPlanName)
+	}
+
+	ms := mgroup.Monitors
 	mm, ok := ms[a+joinSeparator+b]
 	if !ok {
 		mm, ok = ms[b+joinSeparator+a]
@@ -323,6 +339,10 @@ func (dpy *Display) JoinMonitor(a string, b string) error {
 func (dpy *Display) SplitMonitor(a string) error {
 	dpy.lockMonitors()
 	defer dpy.unlockMonitors()
+
+	if len(GetDisplayInfo().ListOutputs()) == 0 {
+		return fmt.Errorf("No output be found")
+	}
 
 	var monitors []*Monitor
 	found := false
@@ -455,6 +475,10 @@ func (dpy *Display) disableChanged() bool {
 }
 
 func (dpy *Display) Apply() {
+	if len(GetDisplayInfo().ListOutputs()) == 0 {
+		return
+	}
+
 	logger.Debug("[Apply] start, hasChanged:", dpy.HasChanged)
 	if dpy.disableChanged() {
 		logger.Warning("Display.Apply only can be used in Custom DisplayMode.")
@@ -488,11 +512,17 @@ func (dpy *Display) ResetChanges() {
 	dpy.resetLocker.Lock()
 	defer dpy.resetLocker.Unlock()
 
+	curPlan := dpy.QueryCurrentPlanName()
+	if len(curPlan) == 0 {
+		logger.Warning("[ResetChanges] no output be found")
+		return
+	}
+
 	dpy.cfg = LoadConfigDisplay(dpy)
 	dpy.cfg.attachCurrentMonitor(dpy)
 	if !dpy.cfg.ensureValid(dpy) {
-		logger.Infof("-------Invalid plan: %s, %#v\n", dpy.QueryCurrentPlanName(), dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
-		delete(dpy.cfg.Plans, dpy.QueryCurrentPlanName())
+		logger.Infof("-------Invalid plan: %s, %#v\n", curPlan, dpy.cfg.Plans[curPlan])
+		delete(dpy.cfg.Plans, curPlan)
 		dpy.cfg.attachCurrentMonitor(dpy)
 	}
 	dpy.cfg.Save()
@@ -534,6 +564,10 @@ func (dpy *Display) Reset() {
 	defer dpy.resetLocker.Unlock()
 	dpy.rLockMonitors()
 	defer dpy.rUnlockMonitors()
+
+	if len(GetDisplayInfo().ListOutputs()) == 0 {
+		return
+	}
 
 	for _, m := range dpy.Monitors {
 		dpy.SetBrightness(m.Name, 1)

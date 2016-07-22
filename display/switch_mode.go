@@ -25,6 +25,10 @@ const (
 
 func (dpy *Display) SwitchMode(mode int16, outputName string) {
 	logger.Debug("[SwitchMode] start to :", mode, outputName)
+	if len(GetDisplayInfo().ListOutputs()) == 0 {
+		logger.Warning("No output be found")
+		return
+	}
 	switch mode {
 	case DisplayModeMirrors:
 		if len(dpy.Monitors) == 0 {

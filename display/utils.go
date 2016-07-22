@@ -9,6 +9,7 @@
 
 package display
 
+import "fmt"
 import "github.com/BurntSushi/xgb/xproto"
 import "github.com/BurntSushi/xgb/randr"
 import "github.com/BurntSushi/xgb/render"
@@ -239,7 +240,7 @@ func hasPropBacklight(c *xgb.Conn, output randr.Output) bool {
 	return true
 }
 
-func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
+func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) error {
 	if v < 0.1 {
 		logger.Warningf("setBrightness: %v is too small adjust to 0.1", v)
 		v = 0.1
@@ -251,23 +252,23 @@ func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) {
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
 	if err != nil {
 		logger.Errorf("GetOutputInfo(op=%d) failed: %v", op, err)
-		return
+		return err
 	}
 	if oinfo.Crtc == 0 || oinfo.Connection != randr.ConnectionConnected {
 		logger.Warning("Try setBrightness at an unready Output ", string(oinfo.Name))
-		return
+		return fmt.Errorf("Output '%s' unready", string(oinfo.Name))
 	}
 	gammaSize, err := randr.GetCrtcGammaSize(xcon, oinfo.Crtc).Reply()
 	if err != nil {
 		logger.Warning("GetCrtcGrammSize(crtc:%d) failed: %s", oinfo.Crtc, err.Error())
-		return
+		return err
 	}
 	if gammaSize.Size == 0 {
 		logger.Warning("GetCrtcGrammSize == zero")
-		return
+		return fmt.Errorf("Output '%s' has invalid gamma size", string(oinfo.Name))
 	}
 	red, green, blue := genGammaRamp(gammaSize.Size, v)
-	randr.SetCrtcGamma(xcon, oinfo.Crtc, gammaSize.Size, red, green, blue)
+	return randr.SetCrtcGammaChecked(xcon, oinfo.Crtc, gammaSize.Size, red, green, blue).Check()
 }
 
 func queryBestMode(op randr.Output) randr.Mode {
