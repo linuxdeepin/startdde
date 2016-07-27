@@ -53,6 +53,14 @@ func (m *SessionManager) Logout() {
 	m.launch(cmdShutdown, false)
 }
 
+func (m *SessionManager) terminate() {
+	err := objLoginSessionSelf.Terminate()
+	if err != nil {
+		logger.Warning("LoginSessionSelf Terminate failed:", err)
+	}
+	os.Exit(0)
+}
+
 func (m *SessionManager) RequestLogout() {
 	logger.Info("Request Logout")
 	quitPulseAudio()
@@ -64,15 +72,11 @@ func (m *SessionManager) RequestLogout() {
 		soundThemePlayerPlay(soundutils.GetSoundTheme(),
 			soundutils.EventLogout)
 	}
-	err := objLoginSessionSelf.Terminate()
-	if err != nil {
-		logger.Warning("LoginSessionSelf Terminate failed:", err)
-	}
-	os.Exit(0)
+	m.terminate()
 }
 
 func (m *SessionManager) ForceLogout() {
-	os.Exit(0)
+	m.terminate()
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
