@@ -315,6 +315,7 @@ func (m *Monitor) updateInfo() error {
 		logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
 		return err
 	}
+	logger.Debug("[Monitor Update] crtc info:", op, oinfo.Crtc)
 	if oinfo.Crtc == 0 {
 		m.changeSwitchOn(false)
 	} else {
@@ -336,6 +337,7 @@ func (m *Monitor) updateInfo() error {
 }
 
 func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
+	logger.Debugf("[NewMonitor] build from config: %#v\n", info)
 	m := &Monitor{}
 	m.cfg = info
 	m.Name = info.Name
@@ -369,6 +371,7 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 		m.setPropCurrentMode(m.queryModeBySize(info.Width, info.Height))
 	}
 
+	logger.Debugf("[NewMonitor] build finish: %#v\n", m)
 	return m
 }
 

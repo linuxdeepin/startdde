@@ -188,7 +188,7 @@ func (dpy *Display) listener() {
 						dpy.cfg.CurrentPlanName = curPlan
 					} else {
 						dpy.ResetChanges()
-						dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+						// dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
 					}
 				}
 			}
@@ -269,7 +269,8 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 		if err != nil {
 			logger.Warningf("[ChangeBrightness] query output '%v' failed, try backlight", output)
 			// TODO: check whether successfully by query backlight brightness
-			dpy.setBacklight(output, brightnessSetterBacklight, v)
+			//dpy.setBacklight(output, brightnessSetterBacklight, v)
+			return err
 		}
 	} else {
 		dpy.setBacklight(output, setter, v)
@@ -535,7 +536,7 @@ func (dpy *Display) ResetChanges() {
 	}
 
 	//apply the saved configurations.
-	dpy.Apply()
+	dpy.apply(false)
 	dpy.setPropHasChanged(false)
 	dpy.Brightness = make(map[string]float64)
 
@@ -602,7 +603,7 @@ func Start() {
 		return
 	}
 	dpy.ResetChanges()
-	dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+	// dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
 
 	go dpy.listener()
 
@@ -626,6 +627,7 @@ func (dpy *Display) rebuildMonitors() {
 	for _, mcfg := range group.Monitors {
 		m := NewMonitor(dpy, mcfg)
 		err := m.updateInfo()
+		logger.Debugf("[NewMonitor] after update: %#v, error: %v\n", m, err)
 		if err != nil {
 			m.setPropOpened(false)
 		} else {
@@ -634,6 +636,7 @@ func (dpy *Display) rebuildMonitors() {
 				m.setPropOpened(true)
 			}
 		}
+		logger.Debugf("[NewMonitor] after fixed: %#v\n", m)
 		monitors = append(monitors, m)
 	}
 	dpy.setPropMonitors(monitors)

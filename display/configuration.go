@@ -59,6 +59,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) (added bool) {
 		return false
 	}
 	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
+	hasCFG = false
 
 	//grab and build monitors information
 	monitors := &monitorGroup{
@@ -313,6 +314,7 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 	cfg.Name = string(oinfo.Name)
 	cfg.Outputs = append(cfg.Outputs, cfg.Name)
 
+	logger.Debugf("[CreateConfigMonitor] output '%v' info: %#v\n", op, oinfo)
 	if oinfo.Crtc != 0 && oinfo.Connection == randr.ConnectionConnected {
 		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
 		if err != nil {
@@ -332,12 +334,14 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 		cfg.Rotation, cfg.Reflect = 1, 0
 		//try opening all outputs if there hasn't configuration currently.
 		if !hasCFG {
+			logger.Debug("[CreateConfigMonitor] no config exist")
 			cfg.Enabled = true
 		} else {
 			cfg.Enabled = false
 		}
 	}
 
+	logger.Debugf("[CreateConfigMonitor] create finish: %#v\n", cfg)
 	return cfg, nil
 }
 
