@@ -85,6 +85,7 @@ var GetDisplay = func() func() *Display {
 	dpy.setPropDisplayMode(int16(dpy.setting.GetEnum(gsKeyDisplayMode)))
 	GetDisplayInfo().update()
 	dpy.setPropHasChanged(false)
+	dpy.cfg = LoadConfigDisplay(dpy)
 
 	randr.SelectInputChecked(xcon, Root, randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
 
@@ -180,11 +181,12 @@ func (dpy *Display) listener() {
 
 			curPlan := dpy.QueryCurrentPlanName()
 			logger.Debug("[listener] Screen event:", ee.Width, ee.Height, LastConfigTimeStamp, ee.ConfigTimestamp)
+			logger.Debugf("[Listener] current display config: %#v\n", dpy.cfg)
 			if LastConfigTimeStamp < ee.ConfigTimestamp {
 				LastConfigTimeStamp = ee.ConfigTimestamp
-				if dpy.cfg.CurrentPlanName != curPlan {
+				if dpy.cfg == nil || dpy.cfg.CurrentPlanName != curPlan {
 					logger.Info("Detect New ConfigTimestmap, try reset changes, current plan:", curPlan)
-					if len(curPlan) == 0 {
+					if dpy.cfg != nil && len(curPlan) == 0 {
 						dpy.cfg.CurrentPlanName = curPlan
 					} else {
 						dpy.ResetChanges()
@@ -508,8 +510,7 @@ func (dpy *Display) apply(auto bool) {
 }
 
 func (dpy *Display) ResetChanges() {
-	logger.Debug("[ResetChanges] start, hasChanged:", dpy.HasChanged)
-	logger.Debugf("[ResetChanges] current primary: %s, monitors: %#v\n", dpy.Primary, dpy.Monitors)
+	logger.Debugf("[ResetChanges] start, hasChanged: %v, primary: %s", dpy.HasChanged, dpy.Primary)
 	dpy.resetLocker.Lock()
 	defer dpy.resetLocker.Unlock()
 
@@ -610,6 +611,7 @@ func Start() {
 	for _, m := range dpy.Monitors {
 		m.updateInfo()
 	}
+	logger.Debugf("[Start] start finished: %#v\n", dpy.cfg)
 }
 
 func (dpy *Display) QueryOutputFeature(name string) int32 {
