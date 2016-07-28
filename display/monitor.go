@@ -233,6 +233,7 @@ func (m *Monitor) changeSwitchOn(v bool) error {
 
 func (m *Monitor) SwitchOn(v bool) error {
 	if err := m.changeSwitchOn(v); err != nil {
+		logger.Debugf("[SwitchOn] switch '%s' failed: %v", m.Name, err)
 		return err
 	}
 	m.cfg.Enabled = v
