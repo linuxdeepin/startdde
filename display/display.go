@@ -598,6 +598,10 @@ func (dpy *Display) syncDisplayMode(mode int16) {
 
 func Start() {
 	dpy := GetDisplay()
+	if len(GetDisplayInfo().ListNames()) == 0 {
+		logger.Debug("[Display Start] no output found, will join loop unless output connected")
+		fixEmptyOutput()
+	}
 	err := dbus.InstallOnSession(dpy)
 	if err != nil {
 		logger.Error("Can't install dbus display service on session:", err)
