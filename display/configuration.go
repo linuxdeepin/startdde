@@ -40,7 +40,9 @@ var (
 )
 
 func (dpy *Display) ListOutputNames() []string {
-	return GetDisplayInfo().ListNames()
+	names := GetDisplayInfo().ListNames()
+	sort.Strings(names)
+	return names
 }
 
 func (dpy *Display) QueryCurrentPlanName() string {
