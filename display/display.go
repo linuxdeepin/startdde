@@ -221,7 +221,10 @@ func (dpy *Display) mapTouchScreen() {
 
 func (dpy *Display) AssociateTouchScreen(output string, touchscreen string) {
 	//TODO: check name valid
-	dpy.saveTouchScreen(output, touchscreen)
+	dpy.cfg.MapToTouchScreen[output] = touchscreen
+	if dpy.DisplayMode != DisplayModeCustom {
+		dpy.cfg.Save()
+	}
 }
 
 func (dpy *Display) getOutputBrightness(output string) float64 {
@@ -293,7 +296,10 @@ func (dpy *Display) SetBrightness(output string, v float64) error {
 	if err := dpy.ChangeBrightness(output, v); err != nil {
 		return err
 	}
-	dpy.saveBrightness(output, v)
+	dpy.cfg.Brightness[output] = v
+	if dpy.DisplayMode != DisplayModeCustom {
+		dpy.cfg.Save()
+	}
 	return nil
 }
 
@@ -463,7 +469,11 @@ func (dpy *Display) SetPrimary(name string) error {
 		logger.Warning("Set primary failed:", err)
 		return err
 	}
-	dpy.savePrimary(name)
+	dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = name
+	// if custom mode, must call 'SaveChanges' to save config
+	if dpy.DisplayMode != DisplayModeCustom {
+		dpy.cfg.Save()
+	}
 	return nil
 }
 
