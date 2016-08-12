@@ -381,29 +381,6 @@ func (m1 *ConfigMonitor) Compare(m2 *ConfigMonitor) bool {
 	return true
 }
 
-func (dpy *Display) saveBrightness(output string, v float64) {
-	dpy.cfg.Brightness[output] = v
-	dpy.cfg.Save()
-}
-
-func (dpy *Display) savePrimary(output string) {
-	dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
-	dpy.cfg.Save()
-}
-
-func (dpy *Display) saveTouchScreen(output string, touchscreen string) {
-	dpy.cfg.MapToTouchScreen[output] = touchscreen
-	dpy.cfg.Save()
-}
-
-func (dpy *Display) saveDisplayMode(mode int16, output string) {
-	dpy.cfg.DisplayMode = mode
-	if mode == DisplayModeOnlyOne {
-		dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = output
-	}
-	dpy.cfg.Save()
-}
-
 func loadConfigFromFile(dpy *Display, file string) (*ConfigDisplay, error) {
 	fr, err := os.Open(file)
 	if err != nil {
