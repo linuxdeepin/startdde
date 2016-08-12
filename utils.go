@@ -138,11 +138,34 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 }
 
 func launch(name interface{}, list interface{}, timestamp uint32) error {
+	var appInfo *gio.AppInfo
+
 	switch o := name.(type) {
+	case *gio.AppInfo:
+		appInfo = o
+	case *gio.DesktopAppInfo:
+		appInfo = gio.ToAppInfo(o)
 	case string:
-		logger.Debug("string")
-		if !strings.HasSuffix(o, ".desktop") {
-			app, err := gio.AppInfoCreateFromCommandline(
+		if strings.HasSuffix(o, ".desktop") {
+			// maybe use AppInfoCreateFromCommandline with
+			// AppInfoCreateFlagsSupportsStartupNotification flag
+			var dInfo *gio.DesktopAppInfo
+			if path.IsAbs(o) {
+				dInfo = gio.NewDesktopAppInfoFromFilename(o)
+			} else {
+				dInfo = gio.NewDesktopAppInfo(o)
+			}
+			if dInfo == nil {
+				return errors.New("Launch failed")
+			}
+			defer dInfo.Unref()
+
+			if wmClass := dInfo.GetStartupWmClass(); wmClass != "" {
+				recordStartWMClass(o, wmClass)
+			}
+			appInfo = gio.ToAppInfo(dInfo)
+		} else {
+			cInfo, err := gio.AppInfoCreateFromCommandline(
 				o,
 				"",
 				gio.AppInfoCreateFlagsNone,
@@ -150,44 +173,19 @@ func launch(name interface{}, list interface{}, timestamp uint32) error {
 			if err != nil {
 				return err
 			}
-			defer app.Unref()
-
-			_, err = app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
-			return err
+			defer cInfo.Unref()
+			appInfo = cInfo
 		}
-
-		var app *gio.DesktopAppInfo
-		// maybe use AppInfoCreateFromCommandline with
-		// AppInfoCreateFlagsSupportsStartupNotification flag
-		if path.IsAbs(o) {
-			logger.Debug("the path to launch is abs")
-			app = gio.NewDesktopAppInfoFromFilename(o)
-		} else {
-			logger.Info("the path to launch is not abs")
-			app = gio.NewDesktopAppInfo(o)
-		}
-		if app == nil {
-			return errors.New("Launch failed")
-		}
-		defer app.Unref()
-
-		startupWMClass := app.GetStartupWmClass()
-		if startupWMClass != "" {
-			recordStartWMClass(o, startupWMClass)
-		}
-
-		_, err := app.Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
-		return err
-
-	case *gio.AppInfo, *gio.DesktopAppInfo:
-		_, err := name.(*gio.AppInfo).Launch(list.([]*gio.File), gio.GetGdkAppLaunchContext().SetTimestamp(timestamp))
-		return err
-
-	case *gio.File:
+	default:
 		return errors.New("not supported type now")
 	}
 
-	return errors.New("not suported type now")
+	ctx := gio.GetGdkAppLaunchContext()
+	ctx.SetTimestamp(timestamp)
+	_, err := appInfo.Launch(list.([]*gio.File), ctx)
+	ctx.Unref()
+
+	return err
 }
 
 func getDelayTime(o string) time.Duration {
