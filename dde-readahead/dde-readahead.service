@@ -1,0 +1,10 @@
+[Unit]
+Description=Read some files that necessary to DDE before DDE starts.
+
+[Service]
+ExecStart=/usr/lib/deepin-daemon/dde-readahead
+KillMode=process
+Type=simple
+
+[Install]
+WantedBy=multi-user.target
