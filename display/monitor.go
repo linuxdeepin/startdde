@@ -369,7 +369,12 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 		mode := queryBestMode(op)
 		modeinfo := GetDisplayInfo().QueryModes(mode)
 		m.setPropBestMode(modeinfo)
-		m.setPropCurrentMode(m.queryModeBySize(info.Width, info.Height))
+		// fix invalid width or height
+		curMode := m.queryModeBySize(info.Width, info.Height)
+		if curMode.Width == 0 || curMode.Height == 0 {
+			curMode = modeinfo
+		}
+		m.setPropCurrentMode(curMode)
 	}
 
 	logger.Debugf("[NewMonitor] build finish: %#v\n", m)
