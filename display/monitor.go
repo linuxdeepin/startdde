@@ -373,6 +373,9 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 		curMode := m.queryModeBySize(info.Width, info.Height)
 		if curMode.Width == 0 || curMode.Height == 0 {
 			curMode = modeinfo
+			m.cfg.Width = curMode.Width
+			m.cfg.Height = curMode.Height
+			m.cfg.RefreshRate = curMode.Rate
 		}
 		m.setPropCurrentMode(curMode)
 	}

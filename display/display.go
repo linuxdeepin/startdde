@@ -144,7 +144,11 @@ func (dpy *Display) rUnlockMonitors() {
 
 //plugging out an output wouldn't always rearrange screen allocation.
 func (dpy *Display) fixOutputNotClosed(op randr.Output) {
-	for _, present := range GetDisplayInfo().ListOutputs() {
+	outputs := GetDisplayInfo().ListOutputs()
+	if len(outputs) == 0 {
+		return
+	}
+	for _, present := range outputs {
 		if op == present {
 			return
 		}
@@ -195,19 +199,15 @@ func (dpy *Display) listener() {
 				}
 			}
 
-			//sync Monitor's state
-			for _, m := range dpy.Monitors {
-				m.updateInfo()
+			if len(curPlan) != 0 {
+				//sync Monitor's state
+				for _, m := range dpy.Monitors {
+					m.updateInfo()
+				}
+				//changePrimary will try set an valid primary if dpy.Primary invalid
+				dpy.changePrimary(dpy.Primary, true)
+				dpy.mapTouchScreen()
 			}
-
-			if len(curPlan) == 0 {
-				return
-			}
-
-			//changePrimary will try set an valid primary if dpy.Primary invalid
-			dpy.changePrimary(dpy.Primary, true)
-
-			dpy.mapTouchScreen()
 		}
 		dpy.eventLocker.Unlock()
 	}
