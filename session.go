@@ -93,13 +93,7 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
-	err := soundutils.SetShutdownSound(
-		soundutils.CanPlayEvent(),
-		soundutils.GetSoundTheme(),
-		soundutils.EventShutdown)
-	if err != nil {
-		logger.Warning("Set shutdown sound failed:", err)
-	}
+	preparePlayShutdownSound()
 	objLogin.PowerOff(true)
 }
 
@@ -121,6 +115,7 @@ func (m *SessionManager) Reboot() {
 }
 
 func (m *SessionManager) RequestReboot() {
+	preparePlayShutdownSound()
 	objLogin.Reboot(true)
 }
 

@@ -63,3 +63,13 @@ func quitPulseAudio() {
 		logger.Error("quit pulseaudio failed:", string(out))
 	}
 }
+
+func preparePlayShutdownSound() {
+	err := soundutils.SetShutdownSound(
+		soundutils.CanPlayEvent(),
+		soundutils.GetSoundTheme(),
+		soundutils.EventShutdown)
+	if err != nil {
+		logger.Warning("Set shutdown sound failed:", err)
+	}
+}
