@@ -41,7 +41,9 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	}
 
 	cmd.Env = append(os.Environ(), fmt.Sprintf("DDE_SESSION_PROCESS_COOKIE_ID=%s", id))
+	m.cookieLocker.Lock()
 	m.cookies[id] = make(chan time.Time, 1)
+	m.cookieLocker.Unlock()
 	startStamp := time.Now()
 
 	err := cmd.Start()
@@ -58,7 +60,9 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 
 	select {
 	case endStamp := <-m.cookies[id]:
+		m.cookieLocker.Lock()
 		delete(m.cookies, id)
+		m.cookieLocker.Unlock()
 		logger.Info(bin, "StartDuration:", endStamp.Sub(startStamp))
 		return true
 	case endStamp := <-time.After(launchTimeout):
