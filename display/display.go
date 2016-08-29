@@ -603,7 +603,6 @@ func (dpy *Display) syncDisplayMode(mode int16) {
 	if dpy.cfg != nil && dpy.cfg.DisplayMode != mode {
 		dpy.cfg.DisplayMode = mode
 	}
-	dpy.setPropDisplayMode(mode)
 }
 
 func Start() {
