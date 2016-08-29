@@ -57,15 +57,20 @@ func (dpy *Display) QueryCurrentPlanName() string {
 
 func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) (added bool) {
 	cfg.CurrentPlanName = dpy.QueryCurrentPlanName()
-	if _, ok := cfg.Plans[cfg.CurrentPlanName]; ok {
+	return cfg.attachMonitorPlan(dpy, cfg.CurrentPlanName, dpy.Primary)
+}
+
+func (cfg *ConfigDisplay) attachMonitorPlan(dpy *Display, planName, primary string) bool {
+	if _, ok := cfg.Plans[planName]; ok {
 		return false
 	}
-	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
+
+	logger.Info("attachMonitorPlan: build info", planName)
 	hasCFG = false
 
 	//grab and build monitors information
 	monitors := &monitorGroup{
-		DefaultOutput: dpy.Primary,
+		DefaultOutput: primary,
 		Monitors:      make(map[string]*ConfigMonitor),
 	}
 	for _, op := range GetDisplayInfo().ListOutputs() {
@@ -223,6 +228,7 @@ func LoadConfigDisplay(dpy *Display) *ConfigDisplay {
 		cfg = createConfigDisplay(dpy)
 		cfg.attachCurrentMonitor(dpy)
 		dpy.syncDisplayMode(cfg.DisplayMode)
+		dpy.setPropDisplayMode(cfg.DisplayMode)
 	} else {
 		hasCFG = true
 	}

@@ -37,6 +37,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		}
 
 		dpy.syncDisplayMode(mode)
+		dpy.DisplayMode = mode
 		dpy.cfg.attachCurrentMonitor(dpy)
 		dpy.rebuildMonitors()
 
@@ -56,11 +57,14 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			}
 		}
 		dpy.apply(false)
+		dpy.setPropDisplayMode(mode)
 		dpy.cfg.Save()
 	case DisplayModeExtend:
 		logger.Debugf("-------------Switch to extend: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 		dpy.syncDisplayMode(mode)
+		dpy.DisplayMode = mode
 		dpy.joinExtendMode()
+		dpy.setPropDisplayMode(mode)
 		logger.Debugf("-------------Switch to extend done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	case DisplayModeOnlyOne:
 		func() {
@@ -74,9 +78,10 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			}
 
 			dpy.syncDisplayMode(mode)
-			dpy.cfg.attachCurrentMonitor(dpy)
+			dpy.DisplayMode = mode
+			dpy.cfg.CurrentPlanName = outputName + "," + "mode3"
+			dpy.cfg.attachMonitorPlan(dpy, dpy.cfg.CurrentPlanName, outputName)
 			logger.Debugf("+++++++++++++++++++Switch only mode: '%s', %#v\n", dpy.cfg.CurrentPlanName, dpy.cfg.Plans)
-			dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput = outputName
 			dpy.rebuildMonitors()
 
 			for _, m := range dpy.Monitors {
@@ -97,12 +102,15 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 				}
 			}
 			dpy.apply(false)
+			dpy.setPropDisplayMode(mode)
 			dpy.cfg.Save()
 		}()
 	case DisplayModeCustom:
 		logger.Debugf("-------------Switch to custom: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 		dpy.syncDisplayMode(mode)
+		dpy.DisplayMode = mode
 		dpy.joinExtendMode()
+		dpy.setPropDisplayMode(mode)
 		logger.Debugf("-------------Switch to custom done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	}
 	dpy.detectChanged()
