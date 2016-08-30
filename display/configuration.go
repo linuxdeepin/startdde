@@ -317,7 +317,7 @@ func CreateConfigMonitor(dpy *Display, op randr.Output) (*ConfigMonitor, error) 
 	cfg.Outputs = append(cfg.Outputs, cfg.Name)
 
 	logger.Debugf("[CreateConfigMonitor] output '%v' info: %#v\n", op, oinfo)
-	if oinfo.Crtc != 0 && oinfo.Connection == randr.ConnectionConnected {
+	if hasCFG && oinfo.Crtc != 0 && oinfo.Connection == randr.ConnectionConnected {
 		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
 		if err != nil {
 			return nil, err
