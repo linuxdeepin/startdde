@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"os/exec"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/dbus"
 )
@@ -204,6 +205,8 @@ func startSession() {
 	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
 	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
 	os.Setenv("XDG_CURRENT_DESKTOP", "Deepin")
+
+	exec.Command("/usr/bin/dbus-update-activation-environment", "--systemd", "XDG_CURRENT_DESKTOP", "GNOME_DESKTOP_SESSION_ID").Run()
 
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
