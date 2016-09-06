@@ -27,6 +27,7 @@ const (
 	displaySchema         = "com.deepin.dde.display"
 	gsKeyBrightnessSetter = "brightness-setter"
 	gsKeyDisplayMode      = "display-mode"
+	gsKeyBrightness       = "brightness"
 
 	brightnessSetterAuto              = "auto"
 	brightnessSetterGamma             = "gamma"
@@ -83,6 +84,7 @@ var GetDisplay = func() func() *Display {
 	dpy.setPropScreenHeight(sinfo.HeightInPixels)
 	dpy.setting = gio.NewSettings(displaySchema)
 	dpy.setPropDisplayMode(int16(dpy.setting.GetEnum(gsKeyDisplayMode)))
+	dpy.initBrightnessManager()
 	GetDisplayInfo().update()
 	dpy.setPropHasChanged(false)
 	dpy.cfg = LoadConfigDisplay(dpy)
@@ -120,7 +122,10 @@ type Display struct {
 	HasChanged bool
 
 	Brightness map[string]float64
-	cfg        *ConfigDisplay
+
+	brightnessManager *brightnessMapManager
+
+	cfg *ConfigDisplay
 
 	setting  *gio.Settings
 	blHelper *backlight.Backlight
@@ -288,18 +293,17 @@ func (dpy *Display) ChangeBrightness(output string, v float64) error {
 func (dpy *Display) ResetBrightness(output string) {
 	dpy.resetLocker.Lock()
 	defer dpy.resetLocker.Unlock()
-	if v, ok := LoadConfigDisplay(dpy).Brightness[output]; ok {
-		dpy.SetBrightness(output, v)
+	dpy.brightnessManager.reset()
+	for output, _ := range dpy.Brightness {
+		dpy.SetBrightness(output, 1)
 	}
 }
 func (dpy *Display) SetBrightness(output string, v float64) error {
 	if err := dpy.ChangeBrightness(output, v); err != nil {
 		return err
 	}
-	dpy.cfg.Brightness[output] = v
-	if dpy.DisplayMode != DisplayModeCustom {
-		dpy.cfg.Save()
-	}
+
+	dpy.brightnessManager.set(output, v)
 	return nil
 }
 
@@ -551,16 +555,16 @@ func (dpy *Display) ResetChanges() {
 	dpy.setPropHasChanged(false)
 	dpy.Brightness = make(map[string]float64)
 
-	for name, v := range dpy.cfg.Brightness {
+	for name, v := range dpy.brightnessManager.core {
 		logger.Debug("Reset brightness:", name, v)
 		dpy.ChangeBrightness(name, v)
 	}
 
-	//dpy.cfg.Brightness may doesn't contain all output, so we must
+	//dpy.brightnessManager may doesn't contain all output, so we must
 	//reset this output's brightness to 1
 	for _, mcfg := range dpy.cfg.Plans[dpy.cfg.CurrentPlanName].Monitors {
-		if _, ok := dpy.cfg.Brightness[mcfg.Name]; !ok {
-			dpy.ChangeBrightness(mcfg.Name, 1)
+		if _, err := dpy.brightnessManager.get(mcfg.Name); err != nil {
+			dpy.SetBrightness(mcfg.Name, 1)
 		}
 	}
 	logger.Debug("[ResetChanges] done, hasChanged:", dpy.HasChanged)

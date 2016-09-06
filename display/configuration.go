@@ -29,7 +29,6 @@ type ConfigDisplay struct {
 	CurrentPlanName string
 	Plans           map[string]*monitorGroup
 
-	Brightness       map[string]float64
 	MapToTouchScreen map[string]string
 }
 
@@ -84,21 +83,12 @@ func (cfg *ConfigDisplay) attachMonitorPlan(dpy *Display, planName, primary stri
 
 	//save it at CurrentPlanName slot
 	cfg.Plans[cfg.CurrentPlanName] = monitors
-
-	for _, name := range GetDisplayInfo().ListNames() {
-		if dpy.supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
-			cfg.Brightness[name] = dpy.getBacklight(dpy.setting.GetString(gsKeyBrightnessSetter))
-		} else {
-			cfg.Brightness[name] = 1
-		}
-	}
 	return true
 }
 
 func createConfigDisplay(dpy *Display) *ConfigDisplay {
 	cfg := &ConfigDisplay{}
 	cfg.Plans = make(map[string]*monitorGroup)
-	cfg.Brightness = make(map[string]float64)
 	cfg.MapToTouchScreen = make(map[string]string)
 	cfg.DisplayMode = DisplayModeExtend
 
@@ -196,22 +186,6 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 				m.X, m.Y = cx, 0
 				logger.Debugf("Rearrange %s to (%d,%d,%d,%d)\n", m.Name, m.X, m.Y, m.Width, m.Height)
 			}
-		}
-	}
-	return true
-}
-
-func validBrightnessValue(v float64) bool {
-	if v < 0 || v > 1 {
-		return false
-	}
-	return true
-}
-
-func validConfig(r *ConfigDisplay) bool {
-	for _, v := range r.Brightness {
-		if !validBrightnessValue(v) {
-			return false
 		}
 	}
 	return true
@@ -395,17 +369,12 @@ func loadConfigFromFile(dpy *Display, file string) (*ConfigDisplay, error) {
 	defer fr.Close()
 
 	cfg := &ConfigDisplay{
-		Brightness:       make(map[string]float64),
 		Plans:            make(map[string]*monitorGroup),
 		MapToTouchScreen: make(map[string]string),
 	}
 	err = json.NewDecoder(fr).Decode(cfg)
 	if err != nil {
 		return nil, err
-	}
-
-	if !validConfig(cfg) {
-		return nil, fmt.Errorf("Invalid config file: %v", file)
 	}
 
 	return cfg, nil
