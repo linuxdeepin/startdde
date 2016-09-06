@@ -617,7 +617,7 @@ func Start() {
 		return
 	}
 	dpy.ResetChanges()
-	// dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+	dpy.SwitchMode(dpy.cfg.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
 
 	go dpy.listener()
 
