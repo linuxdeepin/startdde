@@ -52,10 +52,8 @@ func (dpy *Display) setPropPrimary(v string) {
 }
 
 func (dpy *Display) setPropDisplayMode(v int16) {
-	if dpy.DisplayMode != v {
-		dpy.DisplayMode = v
-		dbus.NotifyChange(dpy, "DisplayMode")
-	}
+	dpy.DisplayMode = v
+	dbus.NotifyChange(dpy, "DisplayMode")
 }
 
 func (dpy *Display) setPropMonitors(v []*Monitor) {
