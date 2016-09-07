@@ -57,14 +57,14 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 			}
 		}
 		dpy.apply(false)
-		dpy.setPropDisplayMode(mode)
+		dpy.setPropDisplayMode(DisplayModeMirrors)
 		dpy.cfg.Save()
 	case DisplayModeExtend:
 		logger.Debugf("-------------Switch to extend: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 		dpy.syncDisplayMode(mode)
 		dpy.DisplayMode = mode
 		dpy.joinExtendMode(false)
-		dpy.setPropDisplayMode(mode)
+		dpy.setPropDisplayMode(DisplayModeExtend)
 		logger.Debugf("-------------Switch to extend done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	case DisplayModeOnlyOne:
 		func() {
@@ -102,7 +102,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 				}
 			}
 			dpy.apply(false)
-			dpy.setPropDisplayMode(mode)
+			dpy.setPropDisplayMode(DisplayModeOnlyOne)
 			dpy.cfg.Save()
 		}()
 	case DisplayModeCustom:
@@ -110,7 +110,7 @@ func (dpy *Display) SwitchMode(mode int16, outputName string) {
 		dpy.syncDisplayMode(mode)
 		dpy.DisplayMode = mode
 		dpy.joinExtendMode(true)
-		dpy.setPropDisplayMode(mode)
+		dpy.setPropDisplayMode(DisplayModeCustom)
 		logger.Debugf("-------------Switch to custom done: '%s', %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	}
 	dpy.detectChanged()
