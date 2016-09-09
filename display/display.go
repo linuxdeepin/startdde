@@ -194,7 +194,7 @@ func (dpy *Display) listener() {
 						dpy.cfg.CurrentPlanName = curPlan
 					} else {
 						dpy.ResetChanges()
-						// dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
+						dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
 					}
 				}
 			}
