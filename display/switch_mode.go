@@ -134,11 +134,11 @@ func (dpy *Display) joinExtendMode(custom bool) {
 			m.changeSwitchOn(true)
 			m.cfg.Enabled = true
 			m.SetPos(curX, 0)
-			m.SetMode(m.BestMode.ID)
-			curX += int16(m.BestMode.Width)
+			m.SetMode(m.CurrentMode.ID)
+			curX += int16(m.CurrentMode.Width)
 		}
 	}
-	logger.Debugf("~~~~~~~~~~~~~Join exten added(%b): '%s' %#v\n",
+	logger.Debugf("~~~~~~~~~~~~~Join exten added(%v): '%s' %#v\n",
 		added, dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 	dpy.Primary = dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput
 	dpy.apply(false)
