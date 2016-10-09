@@ -11,10 +11,10 @@ package main
 
 import (
 	"fmt"
+	"gir/gio-2.0"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/lib/dbus"
-	"gir/gio-2.0"
 )
 
 const (
@@ -119,6 +119,14 @@ func (m *XSManager) getSettingsInSchema() []xsSetting {
 
 func (m *XSManager) handleGSettingsChanged() {
 	m.gs.Connect("changed", func(s *gio.Settings, key string) {
+		switch key {
+		case "xft-dpi":
+			return
+		case "scale-factor":
+			m.updateDPI()
+			return
+		}
+
 		info := gsInfos.getInfoByGSKey(key)
 		if info == nil {
 			return
@@ -141,6 +149,7 @@ func startXSettings() {
 		logger.Error("Start xsettings failed:", err)
 		return
 	}
+	m.updateDPI()
 
 	err = dbus.InstallOnSession(m)
 	if err != nil {

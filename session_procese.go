@@ -34,13 +34,14 @@ func genUuid() string {
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	id := genUuid()
 	cmd := exec.Command(bin, args...)
+	cmd.Env = os.Environ()
 
 	if !wait {
 		go cmd.Run()
 		return true
 	}
 
-	cmd.Env = append(os.Environ(), fmt.Sprintf("DDE_SESSION_PROCESS_COOKIE_ID=%s", id))
+	cmd.Env = append(cmd.Env, fmt.Sprintf("DDE_SESSION_PROCESS_COOKIE_ID=%s", id))
 	m.cookieLocker.Lock()
 	m.cookies[id] = make(chan time.Time, 1)
 	m.cookieLocker.Unlock()
