@@ -350,6 +350,10 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 	m.setPropOpened(info.Enabled)
 
 	m.Outputs = info.Outputs
+	if len(m.Outputs) == 0 {
+		return nil
+	}
+
 	runtime.SetFinalizer(m, func(o interface{}) { dbus.UnInstallObject(m) })
 	m.setPropIsComposited(len(m.Outputs) > 1)
 
@@ -365,7 +369,12 @@ func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
 		m.setPropBestMode(best)
 		m.setPropCurrentMode(best)
 	} else {
+		logger.Debug("[NewMonitor] update mode. outputs:", m.Outputs)
 		op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
+		if op == 0 {
+			return nil
+		}
+		logger.Debug("[NewMonitor] update mode. current randr output:", op)
 		mode := queryBestMode(op)
 		modeinfo := GetDisplayInfo().QueryModes(mode)
 		m.setPropBestMode(modeinfo)

@@ -536,10 +536,17 @@ func (dpy *Display) ResetChanges() {
 		logger.Infof("-------Invalid plan: %s, %#v\n", curPlan, dpy.cfg.Plans[curPlan])
 		delete(dpy.cfg.Plans, curPlan)
 		dpy.cfg.attachCurrentMonitor(dpy)
+		if !dpy.cfg.ensureValid(dpy) {
+			return
+		}
 	}
 	dpy.cfg.Save()
 	//must be invoked after LoadConfigDisplay(dpy)
 	dpy.rebuildMonitors()
+	if len(dpy.Monitors) == 0 {
+		logger.Error("[ResetChanges] monitor is empty")
+		return
+	}
 
 	if err := dpy.changePrimary(dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput, true); err != nil {
 		logger.Warning("chnagePrimary :", dpy.cfg.Plans[dpy.cfg.CurrentPlanName], err)
@@ -641,6 +648,9 @@ func (dpy *Display) rebuildMonitors() {
 	group := dpy.cfg.Plans[dpy.cfg.CurrentPlanName]
 	for _, mcfg := range group.Monitors {
 		m := NewMonitor(dpy, mcfg)
+		if m == nil {
+			continue
+		}
 		err := m.updateInfo()
 		logger.Debugf("[NewMonitor] after update: %#v, error: %v\n", m, err)
 		if err != nil {

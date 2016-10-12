@@ -138,9 +138,15 @@ func (dpy *Display) joinExtendMode(custom bool) {
 			curX += int16(m.CurrentMode.Width)
 		}
 	}
+	plan := dpy.QueryCurrentPlanName()
+	ms := dpy.cfg.Plans[plan]
+	logger.Debug("------------------[joinExtendMode] current monitors:", plan, ms)
+	if ms == nil {
+		return
+	}
 	logger.Debugf("~~~~~~~~~~~~~Join exten added(%v): '%s' %#v\n",
-		added, dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
-	dpy.Primary = dpy.cfg.Plans[dpy.QueryCurrentPlanName()].DefaultOutput
+		added, dpy.Primary, ms)
+	dpy.Primary = ms.DefaultOutput
 	dpy.apply(false)
 	dpy.cfg.Save()
 	dpy.SetPrimary(dpy.Primary)
