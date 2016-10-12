@@ -272,11 +272,14 @@ func setBrightness(xcon *xgb.Conn, op randr.Output, v float64) error {
 }
 
 func queryBestMode(op randr.Output) randr.Mode {
+	logger.Debug("[queryBestMode] query for:", op)
 	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-	if err != nil {
+	if err != nil || len(oinfo.Modes) == 0 {
 		logger.Warning("can't find best mode for ", op, "(oinfo:", oinfo, ") (err:", err, ")")
 		return 0
 	}
+
+	logger.Debug("[queryBestMode] query result:", oinfo.Modes)
 	return oinfo.Modes[0]
 }
 

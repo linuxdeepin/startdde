@@ -104,6 +104,10 @@ func (cfg *ConfigDisplay) ensureValid(dpy *Display) bool {
 	var opend []*ConfigMonitor
 	var any *ConfigMonitor
 	GetDisplayInfo().update()
+	if len(GetDisplayInfo().outputNames) == 0 {
+		logger.Error("[ensureValid]No available output")
+		return false
+	}
 
 	logger.Debug("[ensureValid] current plan:", cfg.CurrentPlanName, cfg)
 	for _, m := range cfg.Plans[cfg.CurrentPlanName].Monitors {
