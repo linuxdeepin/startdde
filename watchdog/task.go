@@ -16,8 +16,6 @@ import (
 const (
 	loopDuration       = time.Second * 10
 	admissibleDuration = time.Second * 2
-
-	maxLaunchTimes = 5
 )
 
 type taskInfo struct {
@@ -63,7 +61,7 @@ func (task *taskInfo) Launch() error {
 		task.Times = 0
 	}
 
-	if task.Times == maxLaunchTimes {
+	if maxLaunchTimes > 0 && task.Times == maxLaunchTimes {
 		task.failed = true
 		logger.Debugf("Launch '%s' failed: over max launch times",
 			task.Name)
