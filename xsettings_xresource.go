@@ -1,6 +1,7 @@
 package main
 
 //#cgo pkg-config: x11
+//#include <stdio.h>
 //#include <string.h>
 //#include <stdlib.h>
 //#include <X11/Xlib.h>
@@ -15,8 +16,13 @@ package main
 //    }
 //
 //    char *res = XResourceManagerString(dpy);
-//    char *ret = strdup(res);
+//    if (!res) {
+//        XCloseDisplay(dpy);
+//        fprintf(stderr, "No xresources data found!\n");
+//        return strdup("*customization:\t-color\n");
+//    }
 //
+//    char *ret = strdup(res);
 //    XCloseDisplay(dpy);
 //    return ret;
 //}
