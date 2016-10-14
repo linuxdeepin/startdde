@@ -10,12 +10,20 @@
 package watchdog
 
 import (
+	"os"
 	"pkg.deepin.io/lib/log"
+	"strconv"
+)
+
+const (
+	envMaxLaunchTimes = "DDE_WATCHDOG_MAX_LAUNCH_TIMES"
 )
 
 var (
 	logger   = log.NewLogger("daemon/watchdog")
 	_manager *Manager
+	// if times == 0, unlimit
+	maxLaunchTimes = 10
 )
 
 func Start() {
@@ -24,6 +32,14 @@ func Start() {
 	}
 
 	logger.BeginTracing()
+	times := os.Getenv(envMaxLaunchTimes)
+	if len(times) != 0 {
+		v, err := strconv.ParseInt(times, 10, 64)
+		if err == nil {
+			maxLaunchTimes = int(v)
+		}
+	}
+	logger.Debug("[WATCHDOG] max launch times:", maxLaunchTimes)
 	_manager = newManager()
 	_manager.AddTask(newDockTask())
 	_manager.AddTask(newDesktopTask())
