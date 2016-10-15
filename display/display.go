@@ -122,8 +122,9 @@ type Display struct {
 	Brightness map[string]float64
 	cfg        *ConfigDisplay
 
-	setting  *gio.Settings
-	blHelper *backlight.Backlight
+	setting     *gio.Settings
+	blHelper    *backlight.Backlight
+	eventTasker *eventTaskInfo
 
 	eventLocker sync.Mutex
 	resetLocker sync.Mutex
@@ -179,35 +180,19 @@ func (dpy *Display) listener() {
 			case randr.NotifyOutputProperty:
 			}
 		case randr.ScreenChangeNotifyEvent:
-			dpy.setPropScreenWidth(ee.Width)
-			dpy.setPropScreenHeight(ee.Height)
-			GetDisplayInfo().update()
-
-			curPlan := dpy.QueryCurrentPlanName()
-			logger.Debug("[listener] Screen event:", ee.Width, ee.Height, LastConfigTimeStamp, ee.ConfigTimestamp)
-			logger.Debugf("[Listener] current display config: %#v\n", dpy.cfg)
-			if LastConfigTimeStamp < ee.ConfigTimestamp {
-				LastConfigTimeStamp = ee.ConfigTimestamp
-				if dpy.cfg == nil || dpy.cfg.CurrentPlanName != curPlan {
-					logger.Info("Detect New ConfigTimestmap, try reset changes, current plan:", curPlan)
-					if dpy.cfg != nil && len(curPlan) == 0 {
-						dpy.cfg.CurrentPlanName = curPlan
-					} else {
-						dpy.ResetChanges()
-						dpy.SwitchMode(dpy.DisplayMode, dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput)
-					}
-				}
+			if dpy.eventTasker != nil {
+				logger.Debug("Terminate task:",
+					dpy.eventTasker.width,
+					dpy.eventTasker.height,
+					dpy.eventTasker.configTimestamp)
+				dpy.eventTasker.Terminate()
+				dpy.eventTasker = nil
 			}
+			dpy.eventTasker = newEventTaskInfo(ee.Width,
+				ee.Height, ee.ConfigTimestamp,
+				dpy.handleScreenEvent)
+			go dpy.eventTasker.Execute()
 
-			if len(curPlan) != 0 {
-				//sync Monitor's state
-				for _, m := range dpy.Monitors {
-					m.updateInfo()
-				}
-				//changePrimary will try set an valid primary if dpy.Primary invalid
-				dpy.changePrimary(dpy.Primary, true)
-				dpy.mapTouchScreen()
-			}
 		}
 		dpy.eventLocker.Unlock()
 	}
@@ -416,17 +401,22 @@ func (dpy *Display) detectChanged() {
 	dpy.setPropHasChanged(!dpy.cfg.Compare(cfg))
 }
 
-func (dpy *Display) canBePrimary(name string) *Monitor {
+func (dpy *Display) canBePrimary(name string) Monitor {
 	for _, m := range dpy.Monitors {
 		if m.Name == name && m.Opened {
-			return m
+			// the 'm' object maybe has been destroy when used
+			return *m
 		}
 	}
-	return nil
+	return Monitor{}
 }
 
 func (dpy *Display) changePrimary(name string, effectRect bool) error {
-	if m := dpy.canBePrimary(name); m != nil {
+	if len(GetDisplayInfo().ListOutputs()) == 0 {
+		return fmt.Errorf("[changePrimary] no output found")
+	}
+
+	if m := dpy.canBePrimary(name); m.Name == name {
 		dpy.setPropPrimary(name)
 		if effectRect {
 			dpy.setPropPrimaryRect(xproto.Rectangle{
@@ -440,24 +430,24 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 	}
 	//the output whose name is `name` didn't exists or disabled,
 
-	if dpy.canBePrimary(dpy.Primary) != nil {
+	if m := dpy.canBePrimary(dpy.Primary); m.Name == dpy.Primary {
 		return fmt.Errorf("can't set %s as primary, current primary %s wouldn't be changed", name, dpy.Primary)
 	}
 
 	//try set an primary
 	for _, m := range dpy.Monitors {
-		if dpy.canBePrimary(m.Name) != nil {
-			dpy.setPropPrimary(m.Name)
+		if v := dpy.canBePrimary(m.Name); v.Name == m.Name {
+			dpy.setPropPrimary(v.Name)
 			if effectRect {
 				dpy.setPropPrimaryRect(xproto.Rectangle{
-					X:      m.X,
-					Y:      m.Y,
-					Width:  m.Width,
-					Height: m.Height,
+					X:      v.X,
+					Y:      v.Y,
+					Width:  v.Width,
+					Height: v.Height,
 				})
 			}
 			return fmt.Errorf("can't set %s as primary, and current parimary %s is invalid. fallback to %s",
-				name, dpy.Primary, m.Name)
+				name, dpy.Primary, v.Name)
 		}
 	}
 	logger.Error("can't find any valid primary", name)
@@ -465,14 +455,26 @@ func (dpy *Display) changePrimary(name string, effectRect bool) error {
 }
 
 func (dpy *Display) SetPrimary(name string) error {
+	if name == dpy.Primary {
+		return nil
+	}
 	if err := dpy.changePrimary(name, true); err != nil {
 		logger.Warning("Set primary failed:", err)
 		return err
 	}
-	dpy.cfg.Plans[dpy.cfg.CurrentPlanName].DefaultOutput = name
-	// if custom mode, must call 'SaveChanges' to save config
-	if dpy.DisplayMode != DisplayModeCustom {
-		dpy.cfg.Save()
+	if dpy.cfg == nil {
+		logger.Warning("[SetPrimary] not found valid config for:", name)
+		return fmt.Errorf("Invalid display config")
+	}
+
+	plan := dpy.cfg.CurrentPlanName
+	ms, ok := dpy.cfg.Plans[plan]
+	if ok && ms != nil {
+		ms.DefaultOutput = name
+		// if custom mode, must call 'SaveChanges' to save config
+		if dpy.DisplayMode != DisplayModeCustom {
+			dpy.cfg.Save()
+		}
 	}
 	return nil
 }

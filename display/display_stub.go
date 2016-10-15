@@ -39,7 +39,6 @@ func (dpy *Display) setPropPrimaryRect(v xproto.Rectangle) {
 	if dpy.PrimaryRect != v {
 		dpy.PrimaryRect = v
 		dbus.NotifyChange(dpy, "PrimaryRect")
-
 		dbus.Emit(dpy, "PrimaryChanged", dpy.PrimaryRect)
 	}
 }
@@ -62,10 +61,15 @@ func (dpy *Display) setPropMonitors(v []*Monitor) {
 		m = nil
 	}
 
-	dpy.Monitors = v
-	for _, m := range dpy.Monitors {
-		dbus.InstallOnSession(m)
+	var tmp []*Monitor
+	for _, m := range v {
+		err := dbus.InstallOnSession(m)
+		if err != nil {
+			continue
+		}
+		tmp = append(tmp, m)
 	}
+	dpy.Monitors = tmp
 	dbus.NotifyChange(dpy, "Monitors")
 	dpy.changePrimary(dpy.Primary, false)
 }

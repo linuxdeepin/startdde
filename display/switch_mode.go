@@ -149,7 +149,7 @@ func (dpy *Display) joinExtendMode(custom bool) {
 	dpy.Primary = ms.DefaultOutput
 	dpy.apply(false)
 	dpy.cfg.Save()
-	dpy.SetPrimary(dpy.Primary)
+	dpy.changePrimary(dpy.Primary, true)
 	logger.Debugf("~~~~~~~~~~~~~Join exten done: '%s' %#v\n", dpy.Primary, dpy.cfg.Plans[dpy.QueryCurrentPlanName()])
 }
 
