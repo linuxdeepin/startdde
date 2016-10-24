@@ -19,6 +19,7 @@ import (
 
 	"github.com/howeyc/fsnotify"
 
+	"dbus/com/deepin/daemon/apps"
 	"gir/gio-2.0"
 	"gir/glib-2.0"
 	"pkg.deepin.io/lib/dbus"
@@ -47,12 +48,18 @@ type StartManager struct {
 	userAutostartPath string
 	AutostartChanged  func(string, string)
 	delayHandler      *mapDelayHandler
+	launchedRecorder  *apps.LaunchedRecorder
 }
 
 func newStartManager() *StartManager {
 	manager := &StartManager{}
 	manager.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		manager.emitSignalAutostartChanged)
+	var err error
+	manager.launchedRecorder, err = apps.NewLaunchedRecorder("com.deepin.daemon.Apps", "/com/deepin/daemon/Apps")
+	if err != nil {
+		logger.Warning("NewLaunchedRecorder failed:", err)
+	}
 	return manager
 }
 
@@ -71,6 +78,11 @@ func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool,
 	err := launch(name, list, timestamp)
 	if err != nil {
 		logger.Info("launch failed:", err)
+	}
+
+	// mark app launched
+	if m.launchedRecorder != nil {
+		m.launchedRecorder.MarkLaunched(name)
 	}
 	return err == nil, err
 }
