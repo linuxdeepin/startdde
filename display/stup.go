@@ -1,0 +1,194 @@
+package display
+
+import (
+	"fmt"
+	"github.com/BurntSushi/xgb/xproto"
+	"pkg.deepin.io/dde/api/drandr"
+	"pkg.deepin.io/lib/dbus"
+	"strings"
+)
+
+const (
+	dbusDest       = "com.deepin.daemon.TestDisplay"
+	dbusPath       = "/com/deepin/daemon/Display"
+	dbusIFC        = "com.deepin.daemon.Display"
+	monitorDBusIFC = "com.deepin.daemon.Display.Monitor"
+)
+
+func (dpy *Manager) GetDBusInfo() dbus.DBusInfo {
+	return dbus.DBusInfo{
+		Dest:       dbusDest,
+		ObjectPath: dbusPath,
+		Interface:  dbusIFC,
+	}
+}
+
+func (dpy *Manager) setPropHasChanged(v bool) {
+	if dpy.HasChanged == v {
+		return
+	}
+	dpy.HasChanged = true
+	dbus.NotifyChange(dpy, "HasChanged")
+}
+
+func (dpy *Manager) setPropDisplayMode(v uint8) {
+	if dpy.DisplayMode == v {
+		return
+	}
+	dpy.DisplayMode = v
+	dbus.NotifyChange(dpy, "DisplayMode")
+}
+
+func (dpy *Manager) setPropScreenSize(w, h uint16) {
+	if dpy.ScreenWidth != w {
+		dpy.ScreenWidth = w
+		dbus.NotifyChange(dpy, "ScreenWidth")
+	}
+	if dpy.ScreenHeight != h {
+		dpy.ScreenHeight = h
+		dbus.NotifyChange(dpy, "ScreenHeight")
+	}
+}
+
+func (dpy *Manager) setPropPrimary(v string) {
+	if dpy.Primary == v {
+		return
+	}
+	dpy.Primary = v
+	dbus.NotifyChange(dpy, "Primary")
+}
+
+func (dpy *Manager) setPropPrimaryRect(v xproto.Rectangle) {
+	if dpy.PrimaryRect.X != v.X || dpy.PrimaryRect.Y != v.Y ||
+		dpy.PrimaryRect.Width != v.Width || dpy.PrimaryRect.Height != v.Height {
+		dpy.PrimaryRect = v
+		dbus.NotifyChange(dpy, "PrimaryRect")
+	}
+}
+
+func (dpy *Manager) setPropMonitors(v MonitorInfos) {
+	// TODO: compare
+	dpy.Monitors = v
+	dbus.NotifyChange(dpy, "Monitors")
+}
+
+func (m *MonitorInfo) GetDBusInfo() dbus.DBusInfo {
+	name := strings.Replace(m.Name, "-", "_", -1)
+	return dbus.DBusInfo{
+		Dest:       dbusDest,
+		ObjectPath: fmt.Sprintf("%s/Monitor%s", dbusPath, name),
+		Interface:  monitorDBusIFC,
+	}
+}
+
+func (m *MonitorInfo) setPropEnabled(v bool) {
+	if m.Enabled == v {
+		return
+	}
+	m.Enabled = v
+	dbus.NotifyChange(m, "Enabled")
+}
+
+func (m *MonitorInfo) setPropConnected(v bool) {
+	if m.Connected == v {
+		return
+	}
+	m.Connected = v
+	dbus.NotifyChange(m, "Connected")
+}
+
+func (m *MonitorInfo) setPropX(v int16) {
+	if m.X == v {
+		return
+	}
+	m.X = v
+	dbus.NotifyChange(m, "X")
+}
+
+func (m *MonitorInfo) setPropY(v int16) {
+	if m.Y == v {
+		return
+	}
+	m.Y = v
+	dbus.NotifyChange(m, "Y")
+}
+
+func (m *MonitorInfo) setPropWidth(v uint16) {
+	if m.Width == v {
+		return
+	}
+	m.Width = v
+	dbus.NotifyChange(m, "Width")
+}
+
+func (m *MonitorInfo) setPropHeight(v uint16) {
+	if m.Height == v {
+		return
+	}
+	m.Height = v
+	dbus.NotifyChange(m, "Height")
+}
+
+func (m *MonitorInfo) setPropRefreshRate(v float64) {
+	if m.RefreshRate == v {
+		return
+	}
+	m.RefreshRate = v
+	dbus.NotifyChange(m, "RefreshRate")
+}
+
+func (m *MonitorInfo) setPropRotation(v uint16) {
+	if m.Rotation == v {
+		return
+	}
+	m.Rotation = v
+	dbus.NotifyChange(m, "Rotation")
+}
+
+func (m *MonitorInfo) setPropReflect(v uint16) {
+	if m.Reflect == v {
+		return
+	}
+	m.Reflect = v
+	dbus.NotifyChange(m, "Reflect")
+}
+
+func (m *MonitorInfo) setPropCurrentMode(mode drandr.ModeInfo) {
+	if m.CurrentMode.Equal(mode) {
+		return
+	}
+	m.CurrentMode = mode
+	dbus.NotifyChange(m, "CurrentMode")
+}
+
+func (m *MonitorInfo) setPropBestMode(mode drandr.ModeInfo) {
+	if m.BestMode.Equal(mode) {
+		return
+	}
+	m.BestMode = mode
+	dbus.NotifyChange(m, "BestMode")
+}
+
+func (m *MonitorInfo) setPropRotations(v []uint16) {
+	if uint16Splice(m.Rotations).equal(uint16Splice(v)) {
+		return
+	}
+	m.Rotations = v
+	dbus.NotifyChange(m, "Rotations")
+}
+
+func (m *MonitorInfo) setPropReflects(v []uint16) {
+	if uint16Splice(m.Reflects).equal(uint16Splice(v)) {
+		return
+	}
+	m.Reflects = v
+	dbus.NotifyChange(m, "Reflects")
+}
+
+func (m *MonitorInfo) setPropModes(v drandr.ModeInfos) {
+	if m.Modes.Equal(v) {
+		return
+	}
+	m.Modes = v
+	dbus.NotifyChange(m, "Modes")
+}

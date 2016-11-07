@@ -1,426 +1,367 @@
-/**
- * Copyright (C) 2014 Deepin Technology Co., Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- **/
-
 package display
 
-import "github.com/BurntSushi/xgb/randr"
-import "pkg.deepin.io/lib/dbus"
-import "fmt"
-import "strings"
-import "math"
-import "runtime"
-import "sort"
+import (
+	"encoding/json"
+	"fmt"
+	"github.com/BurntSushi/xgb/randr"
+	"pkg.deepin.io/dde/api/drandr"
+	"strings"
+	"sync"
+)
 
-const joinSeparator = "="
+type MonitorBaseInfo struct {
+	UUID        string // sum md5 of name and modes, for config
+	Name        string
+	Enabled     bool
+	X           int16
+	Y           int16
+	Width       uint16
+	Height      uint16
+	Rotation    uint16
+	Reflect     uint16
+	RefreshRate float64
+}
+type MonitorBaseInfos []*MonitorBaseInfo
 
-type Monitor struct {
-	cfg     *ConfigMonitor
-	Outputs []string
+type MonitorInfo struct {
+	locker sync.Mutex
+	cfg    *MonitorBaseInfo
 
-	BestMode Mode
+	// MonitorBaseInfo
+	// dbus unsupported inherit
+	uuid        string // sum md5 of name and modes, for config
+	Name        string
+	Enabled     bool
+	Connected   bool
+	X           int16
+	Y           int16
+	Width       uint16
+	Height      uint16
+	Rotation    uint16
+	Reflect     uint16
+	RefreshRate float64
+	Rotations   []uint16
+	Reflects    []uint16
+	BestMode    drandr.ModeInfo
+	CurrentMode drandr.ModeInfo
+	Modes       drandr.ModeInfos
+}
+type MonitorInfos []*MonitorInfo
 
-	IsComposited bool
-	Name         string
-	FullName     string
+func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+	if !m.Connected {
+		return ""
+	}
 
-	X int16
-	Y int16
+	var cmd = ""
+	cmd += " --output " + m.cfg.Name
+	if !m.cfg.Enabled {
+		cmd += " --off"
+		return cmd
+	}
 
-	Opened   bool
-	Rotation uint16
-	Reflect  uint16
+	if auto {
+		cmd += " --auto"
+	}
 
-	CurrentMode Mode
+	if m.cfg.Name == primary {
+		cmd += " --primary"
+	}
+	cmd = fmt.Sprintf("%s --mode %dx%d --rate %.2f --pos %dx%d --scale 1x1", cmd,
+		m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate, m.cfg.X, m.cfg.Y)
+	var ro string = "normal"
+	switch m.cfg.Rotation {
+	case randr.RotationRotate90:
+		ro = "left"
+	case randr.RotationRotate180:
+		ro = "inverted"
+	case randr.RotationRotate270:
+		ro = "right"
+	}
+	cmd += " --rotate " + ro
 
-	Width  uint16
-	Height uint16
+	var re string = "normal"
+	switch m.cfg.Reflect {
+	case randr.RotationReflectX:
+		re = "x"
+	case randr.RotationReflectY:
+		re = "y"
+	case randr.RotationReflectX | randr.RotationReflectY:
+		re = "xy"
+	}
+	cmd += " --reflect " + re
+	return cmd
 }
 
-func (m *Monitor) ListRotations() []uint16 {
-	set := newSetUint16()
-	for _, oname := range m.Outputs {
-		op := GetDisplayInfo().QueryOutputs(oname)
-		if op == 0 {
-			continue
-		}
-		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-		if err == nil && oinfo.Connection == randr.ConnectionConnected && oinfo.Crtc != 0 {
-			cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
-			if err != nil {
-				continue
-			}
-			set.Add(parseRotations(cinfo.Rotations)...)
-		}
-	}
-	r := set.Set()
-	sort.Sort(uint16Slice(r))
-	return r
-}
-func (m *Monitor) ListReflect() []uint16 {
-	set := newSetUint16()
-	for _, oname := range m.Outputs {
-		op := GetDisplayInfo().QueryOutputs(oname)
-		if op == 0 {
-			continue
-		}
-		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-		if err == nil && oinfo.Connection == randr.ConnectionConnected && oinfo.Crtc != 0 {
-			cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
-			if err != nil {
-				continue
-			}
-			set.Add(parseReflects(cinfo.Rotations)...)
-		}
-	}
-	r := set.Set()
-	sort.Sort(uint16Slice(r))
-	return r
+func (m *MonitorInfo) canDisable() bool {
+	return len(_dpy.Monitors.listConnected()) > 1
 }
 
-func FindMatchedMode(minfoGroup ...[]Mode) ([]Mode, error) {
-	countSet := make(map[string]int)
-	tmpSet := make(map[string]Mode)
-
-	for _, minfos := range minfoGroup {
-		for _, minfo := range mergeModeInfo(minfos) {
-			wh := fmt.Sprintf("%d%d", minfo.Width, minfo.Height)
-			countSet[wh] = countSet[wh] + 1
-			tmpSet[wh] = minfo
-		}
+func (m *MonitorInfo) doEnable(enabled bool) error {
+	if !enabled && !m.canDisable() {
+		return fmt.Errorf("Reject closed the last output")
 	}
-
-	for wh, count := range countSet {
-		if count < len(minfoGroup) {
-			delete(tmpSet, wh)
-		}
-	}
-
-	var sameModes []Mode
-	for _, minfo := range tmpSet {
-		sameModes = append(sameModes, minfo)
-	}
-
-	sort.Sort(Modes(sameModes))
-
-	if len(sameModes) == 0 {
-		return nil, fmt.Errorf("not found")
-	}
-	return sameModes, nil
+	m.setPropEnabled(enabled)
+	return nil
 }
 
-func mergeModeInfo(minfos []Mode) []Mode {
-	tmpSet := make(map[string]Mode)
-	for _, minfo := range minfos {
-		tmpSet[fmt.Sprintf("%d%d", minfo.Width, minfo.Height)] = minfo
+func (m *MonitorInfo) queryMode(v uint32) drandr.ModeInfo {
+	for _, info := range m.Modes {
+		if info.Id == v {
+			return info
+		}
 	}
-	var ret []Mode
-	for _, minfo := range tmpSet {
-		ret = append(ret, minfo)
-	}
-	return ret
+	return drandr.ModeInfo{}
 }
 
-func (m *Monitor) ListModes() []Mode {
-	set := make(map[Mode]int)
-	var allMode [][]Mode
-	for _, oname := range m.Outputs {
-		op := GetDisplayInfo().QueryOutputs(oname)
-		if op == 0 {
-			continue
-		}
-		oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-		if err != nil {
-			continue
-		}
-		var modeGroup []Mode
-		for _, m := range oinfo.Modes {
-			minfo := GetDisplayInfo().QueryModes(m)
-			//TODO: handle different refresh rate but same width/height modes
-			set[minfo] += 1
-			modeGroup = append(modeGroup, minfo)
-		}
-		allMode = append(allMode, modeGroup)
+func (m *MonitorInfo) doSetMode(v uint32) error {
+	info := m.queryMode(v)
+	if info.Id != v {
+		return fmt.Errorf("Invalid output mode: %v", v)
 	}
-	modes, err := FindMatchedMode(allMode...)
-	if err != nil {
-		logger.Warning("ListModes failed:", err)
-	}
-	return modes
+	m.setPropCurrentMode(info)
+	w, h := parseModeByRotation(info.Width, info.Height, m.Rotation)
+	m.setPropWidth(w)
+	m.setPropHeight(h)
+	m.setPropRefreshRate(info.Rate)
+	return nil
 }
 
-func (m *Monitor) changeRotation(v uint16) error {
-	switch v {
-	case 1, 2, 4, 8:
-		break
-	default:
-		err := fmt.Errorf("changeRotation with invalid value %v", v)
-		logger.Error(err)
-		return err
+func (m *MonitorInfo) doSetPosition(x, y int16) {
+	m.setPropX(x)
+	m.setPropY(y)
+}
+
+func (m *MonitorInfo) validRotation(v uint16) bool {
+	for _, r := range m.Rotations {
+		if r == v {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MonitorInfo) doSetRotation(v uint16) error {
+	if !m.validRotation(v) {
+		return fmt.Errorf("Invalid rotation valid: %v", v)
 	}
 	m.setPropRotation(v)
 	return nil
 }
 
-func (m *Monitor) SetRotation(v uint16) error {
-	if err := m.changeRotation(v); err != nil {
-		return err
+func (m *MonitorInfo) validReflect(v uint16) bool {
+	for _, r := range m.Reflects {
+		if r == v {
+			return true
+		}
 	}
-	m.cfg.Rotation = v
-	GetDisplay().detectChanged()
-	return nil
+	return false
 }
 
-func (m *Monitor) changeReflect(v uint16) error {
-	switch v {
-	case 0, 16, 32, 48:
-		break
-	default:
-		err := fmt.Errorf("SetReflect with invalid value %v", v)
-		logger.Error(err)
-		return err
+func (m *MonitorInfo) doSetReflect(v uint16) error {
+	if !m.validReflect(v) {
+		return fmt.Errorf("Invalid reflect valid: %v", v)
 	}
 	m.setPropReflect(v)
 	return nil
 }
-func (m *Monitor) SetReflect(v uint16) error {
-	if err := m.changeReflect(v); err != nil {
-		return err
+
+func toMonitorBaseInfo(output drandr.OutputInfo, uuid string) MonitorBaseInfo {
+	var info = MonitorBaseInfo{
+		UUID:     uuid,
+		Name:     output.Name,
+		Enabled:  output.Connection,
+		X:        output.Crtc.X,
+		Y:        output.Crtc.Y,
+		Width:    output.Crtc.Width,
+		Height:   output.Crtc.Height,
+		Rotation: output.Crtc.Rotation,
+		Reflect:  output.Crtc.Reflect,
 	}
-	m.cfg.Rotation = v
-	GetDisplay().detectChanged()
-	return nil
+	return info
 }
 
-func (m *Monitor) changePos(x, y int16) error {
-	m.setPropPos(x, y)
-	return nil
-}
-func (m *Monitor) SetPos(x, y int16) error {
-	if err := m.changePos(x, y); err != nil {
-		return err
+func parseModeByRotation(width, height, rotation uint16) (uint16, uint16) {
+	switch rotation {
+	case randr.RotationRotate90, randr.RotationRotate270:
+		return height, width
+	default:
+		return width, height
 	}
-	m.cfg.X, m.cfg.Y = x, y
-	GetDisplay().detectChanged()
-	return nil
 }
 
-func (m *Monitor) canCloseMonitor() bool {
-	n := 0
-	dpy := GetDisplay()
-
-	dpy.rLockMonitors()
-	defer dpy.rUnlockMonitors()
-	for _, _m := range dpy.Monitors {
-		if _m != m && _m.Opened {
-			n++
-		}
-	}
-	return n > 0
-}
-func (m *Monitor) changeSwitchOn(v bool) error {
-	if v == false && m.canCloseMonitor() == false {
-		return fmt.Errorf("reject close the last opened Output %s", m.Name)
-	}
-	m.setPropOpened(v)
-	return nil
-}
-
-func (m *Monitor) SwitchOn(v bool) error {
-	if err := m.changeSwitchOn(v); err != nil {
-		logger.Debugf("[SwitchOn] switch '%s' failed: %v", m.Name, err)
-		return err
-	}
-	m.cfg.Enabled = v
-	dpy := GetDisplay()
-	dpy.cfg.ensureValid(dpy)
-	dpy.detectChanged()
-	return nil
-}
-
-func (m *Monitor) changeMode(id randr.Mode) (*Mode, error) {
-	minfo := GetDisplayInfo().QueryModes(id)
-	if minfo.ID == 0 {
-		return nil, fmt.Errorf("can't find this mode:%d", id)
-	}
-
-	m.setPropCurrentMode(minfo)
-
-	w, h := parseRotationSize(m.Rotation, minfo.Width, minfo.Height)
-
-	m.setPropWidth(w)
-	m.setPropHeight(h)
-
-	return &minfo, nil
-}
-
-func (m *Monitor) SetMode(id uint32) error {
-	mode, err := m.changeMode(randr.Mode(id))
-	if err != nil {
-		return err
-	}
-	m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate = mode.Width, mode.Height, mode.Rate
-	GetDisplay().detectChanged()
-	return nil
-}
-
-func (m *Monitor) generateShell() string {
-	code := " "
-	names := strings.Split(m.Name, joinSeparator)
-	for _, name := range names {
-		code = fmt.Sprintf("%s --output %s", code, name)
-		if !m.cfg.Enabled {
-			code = fmt.Sprintf(" %s --off", code)
-			continue
-		}
-
-		code = fmt.Sprintf("%s --mode %dx%d --rate %f", code, m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate)
-
-		code = fmt.Sprintf(" %s --pos %dx%d", code, m.cfg.X, m.cfg.Y)
-
-		code = fmt.Sprintf("%s --scale 1x1", code)
-
-		switch m.cfg.Rotation {
-		case randr.RotationRotate90:
-			code = fmt.Sprintf("%s --rotate left", code)
-		case randr.RotationRotate180:
-			code = fmt.Sprintf("%s --rotate inverted", code)
-		case randr.RotationRotate270:
-			code = fmt.Sprintf("%s --rotate right", code)
-		default:
-			code = fmt.Sprintf("%s --rotate normal", code)
-		}
-		switch m.cfg.Reflect {
-		case randr.RotationReflectX:
-			code = fmt.Sprintf("%s --reflect x", code)
-		case randr.RotationReflectY:
-			code = fmt.Sprintf("%s --reflect y", code)
-		case randr.RotationReflectX | randr.RotationReflectY:
-			code = fmt.Sprintf("%s --reflect xy", code)
-		default:
-			code = fmt.Sprintf("%s --reflect normal", code)
-		}
-	}
-	return code + " "
-}
-
-func (m *Monitor) updateInfo() error {
-	op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
-	oinfo, err := randr.GetOutputInfo(xcon, op, LastConfigTimeStamp).Reply()
-	if err != nil {
-		logger.Warning(m.Name, "updateInfo error:", err, "outpu:", op)
-		return err
-	}
-	logger.Debug("[Monitor Update] crtc info:", op, oinfo.Crtc)
-	if oinfo.Crtc == 0 {
-		m.changeSwitchOn(false)
-	} else {
-		m.changeSwitchOn(true)
-		cinfo, err := randr.GetCrtcInfo(xcon, oinfo.Crtc, LastConfigTimeStamp).Reply()
-		if err != nil {
-			logger.Warning("UpdateInfo Failed:", (m.Name), oinfo.Crtc, err)
-			return err
-		}
-		rotation, reflect := parseRandR(cinfo.Rotation)
-		m.changeRotation(rotation)
-		m.changeReflect(reflect)
-
-		//Note: changeMode should after changeRotation
-		m.changePos(cinfo.X, cinfo.Y)
-		m.changeMode(cinfo.Mode)
-	}
-	return nil
-}
-
-func NewMonitor(dpy *Display, info *ConfigMonitor) *Monitor {
-	logger.Debugf("[NewMonitor] build from config: %#v\n", info)
-	m := &Monitor{}
-	m.cfg = info
-	m.Name = info.Name
-	m.setPropPos(info.X, info.Y)
-	m.setPropWidth(info.Width)
-	m.setPropHeight(info.Height)
-	m.setPropRotation(info.Rotation)
-	m.setPropReflect(info.Reflect)
-	m.setPropOpened(info.Enabled)
-
-	m.Outputs = info.Outputs
-	if len(m.Outputs) == 0 {
-		return nil
-	}
-
-	runtime.SetFinalizer(m, func(o interface{}) { dbus.UnInstallObject(m) })
-	m.setPropIsComposited(len(m.Outputs) > 1)
-
-	m.FullName = m.Name
-
-	if m.IsComposited {
-		best := Mode{}
-		for _, mode := range m.ListModes() {
-			if mode.Width+mode.Height > best.Width+best.Height {
-				best = mode
-			}
-		}
-		m.setPropBestMode(best)
-		m.setPropCurrentMode(best)
-	} else {
-		logger.Debug("[NewMonitor] update mode. outputs:", m.Outputs)
-		op := GetDisplayInfo().QueryOutputs(m.Outputs[0])
-		if op == 0 {
-			return nil
-		}
-		logger.Debug("[NewMonitor] update mode. current randr output:", op)
-		mode := queryBestMode(op)
-		modeinfo := GetDisplayInfo().QueryModes(mode)
-		m.setPropBestMode(modeinfo)
-		// fix invalid width or height
-		curMode := m.queryModeBySize(info.Width, info.Height)
-		if curMode.Width == 0 || curMode.Height == 0 {
-			curMode = modeinfo
-			m.cfg.Width = curMode.Width
-			m.cfg.Height = curMode.Height
-			m.cfg.RefreshRate = curMode.Rate
-		}
-		m.setPropCurrentMode(curMode)
-	}
-
-	logger.Debugf("[NewMonitor] build finish: %#v\n", m)
-	return m
-}
-
-func (m *Monitor) queryModeBySize(width, height uint16) Mode {
-	for _, m := range m.ListModes() {
-		if m.Width == width && m.Height == height {
+func (ms MonitorInfos) get(id string) *MonitorInfo {
+	for _, m := range ms {
+		if m.uuid == id {
 			return m
 		}
 	}
-	logger.Error("queryModeBySize error:", m.Name, width, height, m.ListModes())
-	return Mode{}
+	return nil
 }
 
-func (m *Monitor) ensureSize(w, h uint16) {
-	//find the nearest mode
-	delta := float64(w + h)
-	modeID := uint32(0)
-	for _, mInfo := range m.ListModes() {
-		t := math.Abs(float64((mInfo.Width + mInfo.Height) - (w + h)))
-		if t <= delta {
-			delta = t
-			modeID = mInfo.ID
-			if modeID == m.BestMode.ID {
-				break
-			}
+func (ms MonitorInfos) getByName(name string) *MonitorInfo {
+	for _, m := range ms {
+		if m.Name == name {
+			return m
 		}
 	}
-	if modeID != 0 {
-		m.changeMode(randr.Mode(modeID))
-		if delta != 0 {
-			logger.Warningf("Can't ensureSize(%s) to %d %d", m.Name, w, h)
+	return nil
+}
+
+func (ms MonitorInfos) listConnected() MonitorInfos {
+	var list MonitorInfos
+	for _, m := range ms {
+		if !m.Connected {
+			continue
+		}
+		list = append(list, m)
+	}
+	return list
+}
+
+func (ms MonitorInfos) numberOfConnected() int {
+	var cnt int = 0
+	for _, m := range ms {
+		if m.Connected {
+			cnt += 1
 		}
 	}
+	return cnt
+}
+
+func (ms MonitorInfos) canBePrimary(name string) *MonitorInfo {
+	for _, m := range ms {
+		if m.Name == name && m.Connected && m.Enabled {
+			return m
+		}
+	}
+	return nil
+}
+
+func (ms MonitorInfos) sort(primary string) MonitorInfos {
+	if ms.numberOfConnected() < 2 {
+		return ms
+	}
+	ms = ms.sortByNamType()
+	ms = ms.sortByPrimary(primary)
+	return ms
+}
+
+// sortByNamType preference put the bulit-in output at the top,
+// the extendable output should after the built-in
+func (ms MonitorInfos) sortByNamType() MonitorInfos {
+	var list MonitorInfos
+	for _, m := range ms {
+		if isBuiltinOuput(m.Name) {
+			list = append(MonitorInfos{m}, list...)
+		} else {
+			list = append(list, m)
+		}
+	}
+	return list
+}
+
+// sortByPrimary the primary output should at the first
+func (ms MonitorInfos) sortByPrimary(primary string) MonitorInfos {
+	if ms[0].Name == primary {
+		return ms
+	}
+
+	var list MonitorInfos
+	for _, m := range ms {
+		if m.Name == primary {
+			list = append(MonitorInfos{m}, list...)
+		} else {
+			list = append(list, m)
+		}
+	}
+	return list
+}
+
+// see alse: gnome-desktop/libgnome-desktop/gnome-rr.c
+//           '_gnome_rr_output_name_is_builtin_display'
+func isBuiltinOuput(name string) bool {
+	name = strings.ToLower(name)
+	switch {
+	case strings.Contains(name, "lvds"):
+		// Most drivers use an "LVDS" prefix
+		fallthrough
+	case strings.Contains(name, "lcd"):
+		// fglrx uses "LCD" in some versions
+		fallthrough
+	case strings.Contains(name, "edp"):
+		// eDP is for internal built-in panel connections
+		fallthrough
+	case strings.Contains(name, "dsi"):
+		return true
+	}
+	return false
+}
+
+func (ms MonitorInfos) getMonitorsId() string {
+	var ids []string
+	for _, m := range ms {
+		if !m.Connected {
+			continue
+		}
+		ids = append(ids, m.uuid)
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	return strings.Join(ids, ",")
+}
+
+func (ms MonitorInfos) getBaseInfos() MonitorBaseInfos {
+	var base MonitorBaseInfos
+	for _, m := range ms {
+		if !m.Connected {
+			continue
+		}
+		base = append(base, m.cfg)
+	}
+	return base
+}
+
+func (ms MonitorInfos) genCommandline(primary string, auto bool) string {
+	var cmd = "xrandr "
+	for _, m := range ms {
+		cmd += m.generateCommandline(primary, auto)
+	}
+	return cmd
+}
+
+func (ms MonitorInfos) isRotation() bool {
+	// check all connected monitor whether rotate the same diretion
+	var (
+		init     bool = false
+		rotation uint16
+	)
+	for _, m := range ms {
+		if !m.Connected {
+			continue
+		}
+		if !init {
+			init = true
+			rotation = m.Rotation
+			continue
+		}
+
+		if rotation != m.Rotation {
+			return false
+		}
+	}
+	return true
+}
+
+func (infos MonitorBaseInfos) String() string {
+	data, _ := json.Marshal(infos)
+	return string(data)
+}
+
+func (info *MonitorBaseInfo) String() string {
+	data, _ := json.Marshal(info)
+	return string(data)
 }
