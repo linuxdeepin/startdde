@@ -1,0 +1,25 @@
+#!/bin/sh
+# postinst script 
+# see: dh_installdeb(1)
+#DEBHELPER#
+
+
+case "$1" in
+    configure)
+
+	update-alternatives --install /usr/bin/x-session-manager x-session-manager \
+        /usr/bin/startdde 90
+
+	;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+	;;
+    *)
+
+	exit 1
+	;;
+esac
+
+exit 0
+
+
+
