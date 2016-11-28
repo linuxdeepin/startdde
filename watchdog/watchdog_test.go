@@ -45,6 +45,9 @@ func TestTaskInfo(t *testing.T) {
 		func() bool { return false },
 		func() error { return nil })
 	Convey("Test task state", t, func() {
+		task1.Enable(false)
+		So(task1.CanLaunch(), ShouldEqual, false)
+		task1.Enable(true)
 		So(task1.CanLaunch(), ShouldEqual, true)
 		task1.failed = true
 		So(task1.CanLaunch(), ShouldEqual, false)
@@ -57,13 +60,14 @@ func TestTaskInfo(t *testing.T) {
 		func() bool { return false },
 		func() error { return nil })
 	Convey("Test manager", t, func() {
-		m := newManager()
-		m.AddTask(task1)
+		var m = &Manager{
+			taskList: &taskInfos{task1},
+		}
 		So(m.IsTaskExist(task1.Name), ShouldEqual, true)
 		So(m.IsTaskExist(task2.Name), ShouldEqual, false)
 		task1.failed = true
 		So(m.HasRunning(), ShouldEqual, false)
-		m.AddTask(task2)
+		*m.taskList = append(*m.taskList, task2)
 		So(m.HasRunning(), ShouldEqual, true)
 	})
 }

@@ -10,6 +10,7 @@
 package watchdog
 
 import (
+	"sync"
 	"time"
 )
 
@@ -22,11 +23,14 @@ type taskInfo struct {
 	Name  string
 	Times int // continuous launch times
 
+	enabled       bool
 	failed        bool
 	prevTimestamp int64 // previous launch timestamp
 
 	isRunning func() bool
 	launcher  func() error
+
+	locker sync.Mutex
 }
 type taskInfos []*taskInfo
 
@@ -39,6 +43,7 @@ func newTaskInfo(name string,
 	var task = &taskInfo{
 		Name:          name,
 		Times:         0,
+		enabled:       true,
 		failed:        false,
 		prevTimestamp: time.Now().Unix(),
 		isRunning:     isRunning,
@@ -62,7 +67,9 @@ func (task *taskInfo) Launch() error {
 	}
 
 	if maxLaunchTimes > 0 && task.Times == maxLaunchTimes {
+		task.locker.Lock()
 		task.failed = true
+		task.locker.Unlock()
 		logger.Debugf("Launch '%s' failed: over max launch times",
 			task.Name)
 	}
@@ -72,13 +79,32 @@ func (task *taskInfo) Launch() error {
 }
 
 func (task *taskInfo) CanLaunch() bool {
-	if task.failed {
+	task.locker.Lock()
+	if !task.enabled || task.failed {
+		task.locker.Unlock()
 		return false
 	}
+	task.locker.Unlock()
 
 	return (task.isRunning() == false)
 }
 
 func (task *taskInfo) Over() bool {
+	task.locker.Lock()
+	defer task.locker.Unlock()
 	return task.failed
+}
+
+func (task *taskInfo) Enable(enabled bool) {
+	task.locker.Lock()
+	defer task.locker.Unlock()
+	if task.enabled == enabled {
+		return
+	}
+
+	if enabled {
+		task.failed = false
+		task.Times = 0
+	}
+	task.enabled = enabled
 }
