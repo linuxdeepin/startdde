@@ -10,11 +10,21 @@ func (dpy *Manager) ListOutputNames() []string {
 }
 
 func (dpy *Manager) SetPrimary(primary string) error {
-	err := dpy.doSetPrimary(primary, true)
+	m := dpy.Monitors.getByName(primary)
+	if m == nil {
+		return fmt.Errorf("Invalid monitor name: %s", primary)
+	}
+	err := doAction(m.generateCommandline(primary, false))
 	if err != nil {
+		logger.Warning("[SetPrimary] do action failed:", err)
 		return err
 	}
-	return dpy.Save()
+	dpy.setPropPrimary(primary)
+	return nil
+}
+
+func (dpy *Manager) SetBrightness(name string, value float64) error {
+	return dpy.doSetBrightness(value, name)
 }
 
 func (dpy *Manager) SwitchMode(mode uint8, name string) error {
@@ -55,7 +65,7 @@ func (dpy *Manager) ApplyChanges() error {
 	// 		return err
 	// 	}
 	// }
-	err := dpy.doApply(false)
+	err := dpy.doApply(dpy.Primary, false)
 	if err != nil {
 		logger.Error("Apply changes failed:", err)
 		return err
@@ -88,8 +98,15 @@ func (dpy *Manager) ResetChanges() error {
 		m := dpy.Monitors.getByName(info.Name)
 		dpy.updateMonitorFromBaseInfo(m, info)
 	}
+
+	err := dpy.doApply(cMonitor.Primary, false)
+	if err != nil {
+		logger.Warning("[ResetChanges] apply failed:", err)
+		return err
+	}
 	dpy.doSetPrimary(cMonitor.Primary, true)
-	return dpy.doApply(false)
+	dpy.resetBrightness()
+	return nil
 }
 
 func (dpy *Manager) Save() error {
@@ -109,6 +126,7 @@ func (dpy *Manager) Save() error {
 	}
 	dpy.config.set(id, &cMonitor)
 
+	dpy.SaveBrightness()
 	return dpy.config.writeFile()
 }
 
@@ -124,5 +142,12 @@ func (dpy *Manager) DeleteCustomConfig() error {
 func (dpy *Manager) Reset() error {
 	// remove config file
 	os.Remove(dpy.config.filename)
-	return dpy.SwitchMode(DisplayModeExtend, "")
+	err := dpy.SwitchMode(DisplayModeExtend, "")
+	if err != nil {
+		logger.Error("[Reset] switch to extend failed:", err)
+		return err
+	}
+	dpy.setting.Reset(gsKeyBrightness)
+	dpy.resetBrightness()
+	return nil
 }

@@ -25,6 +25,8 @@ const (
 const (
 	displaySchemaId  = "com.deepin.dde.display"
 	gsKeyDisplayMode = "display-mode"
+	gsKeyBrightness  = "brightness"
+	gsKeySetter      = "brightness-setter"
 )
 
 type Manager struct {
@@ -41,10 +43,12 @@ type Manager struct {
 	Primary      string
 	PrimaryRect  xproto.Rectangle
 	Monitors     MonitorInfos
+	Brightness   map[string]float64
 	// TODO: brightness
 	// TODO: touchscreen output map
 
 	setting     *gio.Settings
+	ifcLocker   sync.Mutex
 	eventLocker sync.Mutex
 }
 
@@ -83,6 +87,7 @@ func newManager() (*Manager, error) {
 		config:       config,
 		ScreenWidth:  sinfo.WidthInPixels,
 		ScreenHeight: sinfo.HeightInPixels,
+		Brightness:   make(map[string]float64),
 	}
 	m.setting, err = utils.CheckAndNewGSettings(displaySchemaId)
 	if err != nil {
@@ -109,6 +114,8 @@ func (dpy *Manager) init() {
 	if err != nil {
 		logger.Error("Try apply settings failed for init:", err)
 	}
+
+	dpy.resetBrightness()
 }
 
 func (dpy *Manager) switchToMirror() error {
@@ -131,7 +138,7 @@ func (dpy *Manager) switchToMirror() error {
 	}
 
 	cmd := "xrandr "
-	dpy.Primary = connected[0].Name
+	primary := connected[0].Name
 	for i, m := range connected {
 		m.Enable(true)
 		m.SetPosition(0, 0)
@@ -139,13 +146,18 @@ func (dpy *Manager) switchToMirror() error {
 		m.SetRotation(1)
 		m.SetReflect(0)
 		if i != 0 {
-			cmd += fmt.Sprintf(" --same-as %s ", dpy.Primary)
+			cmd += fmt.Sprintf(" --same-as %s ", primary)
 		} else {
-			cmd += m.generateCommandline(dpy.Primary, false)
+			cmd += m.generateCommandline(primary, false)
 		}
 	}
-	dpy.doSetPrimary(dpy.Primary, true)
-	return doAction(cmd)
+
+	err = doAction(cmd)
+	if err != nil {
+		logger.Errorf("[switchToMirror] apply (%s) failed: %v", cmd, err)
+		return err
+	}
+	return dpy.doSetPrimary(primary, true)
 }
 
 func (dpy *Manager) switchToExtend() error {
@@ -158,18 +170,22 @@ func (dpy *Manager) switchToExtend() error {
 		startx int16 = 0
 		cmd          = "xrandr "
 	)
-	dpy.Primary = connected[0].Name
+	primary := connected[0].Name
 	for _, m := range connected {
 		m.Enable(true)
 		m.SetPosition(startx, 0)
 		m.SetMode(m.BestMode.Id)
 		m.SetRotation(1)
 		m.SetReflect(0)
-		cmd += m.generateCommandline(dpy.Primary, false)
+		cmd += m.generateCommandline(primary, false)
 		startx += int16(m.Width)
 	}
-	dpy.doSetPrimary(dpy.Primary, true)
-	return doAction(cmd)
+	err := doAction(cmd)
+	if err != nil {
+		logger.Errorf("[switchToExtend] apply (%s) failed: %v", cmd, err)
+		return err
+	}
+	return dpy.doSetPrimary(primary, true)
 }
 
 func (dpy *Manager) switchToOnlyOne(name string) error {
@@ -192,12 +208,15 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 			m.SetMode(m.BestMode.Id)
 			m.SetRotation(1)
 			m.SetReflect(0)
-			dpy.Primary = m.Name
 		}
-		cmd += m.generateCommandline(dpy.Primary, false)
+		cmd += m.generateCommandline(name, false)
 	}
-	dpy.doSetPrimary(dpy.Primary, true)
-	return doAction(cmd)
+	err = doAction(cmd)
+	if err != nil {
+		logger.Errorf("[switchToOnlyOne] apply (%s) failed: %v", cmd, err)
+		return err
+	}
+	return dpy.doSetPrimary(name, true)
 }
 
 func (dpy *Manager) switchToCustom() error {
@@ -240,11 +259,11 @@ func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 		m := dpy.Monitors.getByName(info.Name)
 		dpy.updateMonitorFromBaseInfo(m, info)
 	}
-	dpy.doSetPrimary(cMonitor.Primary, true)
-	err := dpy.doApply(false)
+	err := dpy.doApply(cMonitor.Primary, false)
 	if err != nil {
 		return err
 	}
+	dpy.doSetPrimary(cMonitor.Primary, true)
 	dpy.rotateInputPointor()
 	return nil
 }
@@ -322,7 +341,7 @@ func (dpy *Manager) updateMonitors() {
 		}
 		dpy.Monitors = append(dpy.Monitors, m)
 	}
-	dpy.Monitors = dpy.Monitors.sort(dpy.Primary)
+	dpy.Monitors = dpy.Monitors.sort()
 }
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
@@ -486,9 +505,9 @@ func (dpy *Manager) fixOutputNotClosed(outputId randr.Output) {
 			return
 		}
 	}
-	dpy.doApply(true)
+	dpy.doApply(dpy.Primary, true)
 }
 
-func (dpy *Manager) doApply(auto bool) error {
-	return doAction(dpy.Monitors.genCommandline(dpy.Primary, auto))
+func (dpy *Manager) doApply(primary string, auto bool) error {
+	return doAction(dpy.Monitors.genCommandline(primary, auto))
 }

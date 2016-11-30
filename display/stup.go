@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	dbusDest       = "com.deepin.daemon.TestDisplay"
+	dbusDest       = "com.deepin.daemon.Display"
 	dbusPath       = "/com/deepin/daemon/Display"
 	dbusIFC        = "com.deepin.daemon.Display"
 	monitorDBusIFC = "com.deepin.daemon.Display.Monitor"
@@ -70,6 +70,15 @@ func (dpy *Manager) setPropMonitors(v MonitorInfos) {
 	// TODO: compare
 	dpy.Monitors = v
 	dbus.NotifyChange(dpy, "Monitors")
+}
+
+func (dpy *Manager) setPropBrightness(v map[string]float64) {
+	// if jsonMarshal(dpy.Brightness) == jsonMarshal(v) {
+	// 	return
+	// }
+
+	dpy.Brightness = v
+	dbus.NotifyChange(dpy, "Brightness")
 }
 
 func (m *MonitorInfo) GetDBusInfo() dbus.DBusInfo {

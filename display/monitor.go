@@ -240,12 +240,12 @@ func (ms MonitorInfos) canBePrimary(name string) *MonitorInfo {
 	return nil
 }
 
-func (ms MonitorInfos) sort(primary string) MonitorInfos {
+func (ms MonitorInfos) sort() MonitorInfos {
 	if ms.numberOfConnected() < 2 {
 		return ms
 	}
 	ms = ms.sortByNamType()
-	ms = ms.sortByPrimary(primary)
+	// ms = ms.sortByPrimary(primary)
 	return ms
 }
 
