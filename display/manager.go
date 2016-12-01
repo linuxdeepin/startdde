@@ -28,6 +28,7 @@ const (
 	gsKeyDisplayMode = "display-mode"
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
+	gsKeyMapOutput   = "map-output"
 )
 
 type Manager struct {
@@ -45,8 +46,7 @@ type Manager struct {
 	PrimaryRect  xproto.Rectangle
 	Monitors     MonitorInfos
 	Brightness   map[string]float64
-	// TODO: brightness
-	// TODO: touchscreen output map
+	TouchMap     map[string]string
 
 	setting     *gio.Settings
 	ifcLocker   sync.Mutex
@@ -72,6 +72,12 @@ func newManager() (*Manager, error) {
 		return nil, err
 	}
 
+	s, err := utils.CheckAndNewGSettings(displaySchemaId)
+	if err != nil {
+		conn.Close()
+		return nil, err
+	}
+
 	config, err := newConfigManagerFromFile(configFile)
 	if err != nil {
 		config = &configManager{
@@ -89,14 +95,10 @@ func newManager() (*Manager, error) {
 		ScreenWidth:  sinfo.WidthInPixels,
 		ScreenHeight: sinfo.HeightInPixels,
 		Brightness:   make(map[string]float64),
+		TouchMap:     make(map[string]string),
 	}
-	m.setting, err = utils.CheckAndNewGSettings(displaySchemaId)
-	if err != nil {
-		logger.Warning("No found gsetting schema, your config will not be recorded")
-		m.setting = nil
-	} else {
-		m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
-	}
+	m.setting = s
+	m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
 	return &m, nil
 }
 
@@ -116,7 +118,39 @@ func (dpy *Manager) init() {
 		logger.Error("Try apply settings failed for init:", err)
 	}
 
-	dpy.resetBrightness()
+	dpy.initBrightness()
+	dpy.initTouchMap()
+}
+
+func (dpy *Manager) initTouchMap() {
+	value := dpy.setting.GetString(gsKeyMapOutput)
+	if len(value) == 0 {
+		dpy.TouchMap = make(map[string]string)
+		dpy.setPropTouchMap(dpy.TouchMap)
+		return
+	}
+
+	err := jsonUnmarshal(value, &dpy.TouchMap)
+	if err != nil {
+		logger.Warningf("[initTouchMap] unmarshal (%s) failed: %v",
+			value, err)
+		return
+	}
+
+	for touch, output := range dpy.TouchMap {
+		dpy.doSetTouchMap(touch, output)
+	}
+	dpy.setPropTouchMap(dpy.TouchMap)
+}
+
+func (dpy *Manager) doSetTouchMap(output, touch string) error {
+	info := dpy.outputInfos.QueryByName(output)
+	if len(info.Name) == 0 {
+		return fmt.Errorf("Invalid output name: %s", output)
+	}
+
+	// TODO: check touch validity
+	return doAction(fmt.Sprintf("xinput --map-to-output %s %s", touch, output))
 }
 
 func (dpy *Manager) switchToMirror() error {

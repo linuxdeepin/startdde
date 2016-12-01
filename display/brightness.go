@@ -1,7 +1,6 @@
 package display
 
 import (
-	"encoding/json"
 	"fmt"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
@@ -18,13 +17,14 @@ func (dpy *Manager) SupportedBacklight(name string) bool {
 	return brightness.HasPropBacklight(info.Id, dpy.conn)
 }
 
-func (dpy *Manager) resetBrightness() {
+func (dpy *Manager) initBrightness() {
 	value := dpy.setting.GetString(gsKeyBrightness)
 	tmp := make(map[string]float64)
 	if len(value) != 0 {
 		err := jsonUnmarshal(value, &tmp)
 		if err != nil {
-			logger.Warning("[resetBrightness] unmarshal failed:", value)
+			logger.Warningf("[initBrightness] unmarshal (%s) failed: %v",
+				value, err)
 		}
 	}
 
@@ -65,13 +65,4 @@ func (dpy *Manager) doSetBrightness(value float64, name string) error {
 	dpy.Brightness[name] = value
 	dpy.setPropBrightness(dpy.Brightness)
 	return nil
-}
-
-func jsonMarshal(v interface{}) string {
-	data, _ := json.Marshal(v)
-	return string(data)
-}
-
-func jsonUnmarshal(data string, ret interface{}) error {
-	return json.Unmarshal([]byte(data), ret)
 }

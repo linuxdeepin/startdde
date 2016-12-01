@@ -81,6 +81,11 @@ func (dpy *Manager) setPropBrightness(v map[string]float64) {
 	dbus.NotifyChange(dpy, "Brightness")
 }
 
+func (dpy *Manager) setPropTouchMap(v map[string]string) {
+	dpy.TouchMap = v
+	dbus.NotifyChange(dpy, "TouchMap")
+}
+
 func (m *MonitorInfo) GetDBusInfo() dbus.DBusInfo {
 	name := strings.Replace(m.Name, "-", "_", -1)
 	return dbus.DBusInfo{

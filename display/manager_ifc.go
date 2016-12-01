@@ -106,7 +106,7 @@ func (dpy *Manager) ResetChanges() error {
 		return err
 	}
 	dpy.doSetPrimary(cMonitor.Primary, true)
-	dpy.resetBrightness()
+	dpy.initBrightness()
 	return nil
 }
 
@@ -149,6 +149,25 @@ func (dpy *Manager) Reset() error {
 		return err
 	}
 	dpy.setting.Reset(gsKeyBrightness)
-	dpy.resetBrightness()
+	dpy.initBrightness()
+	dpy.setting.Reset(gsKeyMapOutput)
+	dpy.initTouchMap()
+	return nil
+}
+
+func (dpy *Manager) AssociateTouch(output, touch string) error {
+	if dpy.TouchMap[touch] == output {
+		return nil
+	}
+
+	err := dpy.doSetTouchMap(output, touch)
+	if err != nil {
+		logger.Warning("[AssociateTouch] set failed:", err)
+		return err
+	}
+
+	dpy.TouchMap[touch] = output
+	dpy.setPropTouchMap(dpy.TouchMap)
+	dpy.setting.SetString(gsKeyMapOutput, jsonMarshal(dpy.TouchMap))
 	return nil
 }

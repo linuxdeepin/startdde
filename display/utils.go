@@ -1,6 +1,7 @@
 package display
 
 import (
+	"encoding/json"
 	"os/exec"
 	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/api/dxinput/utils"
@@ -52,4 +53,13 @@ func rotateInputPointor(rotation uint16) {
 func doAction(cmd string) error {
 	logger.Debug("Command:", cmd)
 	return exec.Command("/bin/sh", "-c", "exec "+cmd).Run()
+}
+
+func jsonMarshal(v interface{}) string {
+	data, _ := json.Marshal(v)
+	return string(data)
+}
+
+func jsonUnmarshal(data string, ret interface{}) error {
+	return json.Unmarshal([]byte(data), ret)
 }
