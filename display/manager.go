@@ -11,6 +11,7 @@ import (
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/utils"
+	"sort"
 	"sync"
 )
 
@@ -323,6 +324,8 @@ func (dpy *Manager) updateMonitors() {
 		err := dpy.updateMonitor(m)
 		if err != nil {
 			m.setPropConnected(false)
+		} else {
+			m.setPropConnected(true)
 		}
 	}
 
@@ -346,6 +349,10 @@ func (dpy *Manager) updateMonitors() {
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
 	id, modes := dpy.sumOutputUUID(output)
+	// handle different rate but some width/height mode
+	sort.Sort(modes)
+	modes = modes.FilterBySize()
+
 	if m := dpy.Monitors.get(id); m != nil {
 		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %#v",
 			id, output)
@@ -369,8 +376,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 		Reflects:    output.Crtc.Reflects,
 		BestMode:    modes.Best(),
 		CurrentMode: modes.QueryBySize(base.Width, base.Height),
-		// TODO: handle different rate but some width/height mode
-		Modes: modes,
+		Modes:       modes,
 	}
 	info.RefreshRate = info.CurrentMode.Rate
 

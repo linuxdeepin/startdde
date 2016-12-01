@@ -14,9 +14,10 @@ func (dpy *Manager) SetPrimary(primary string) error {
 	if m == nil {
 		return fmt.Errorf("Invalid monitor name: %s", primary)
 	}
-	err := doAction(m.generateCommandline(primary, false))
+	var cmd = fmt.Sprintf("xrandr %s", m.generateCommandline(primary, false))
+	err := doAction(cmd)
 	if err != nil {
-		logger.Warning("[SetPrimary] do action failed:", err)
+		logger.Warningf("[SetPrimary] do action(%s) failed: %v", cmd, err)
 		return err
 	}
 	dpy.setPropPrimary(primary)

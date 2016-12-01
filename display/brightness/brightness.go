@@ -31,8 +31,8 @@ func init() {
 }
 
 func Set(value float64, setter string, output uint32, conn *xgb.Conn) error {
-	if value < 0.01 {
-		value = 0.01
+	if value < 0.1 {
+		value = 0.1
 	} else if value > 1 {
 		value = 1
 	}
