@@ -38,15 +38,16 @@ type Manager struct {
 	config         *configManager
 	lastConfigTime xproto.Timestamp
 
-	HasChanged   bool
-	DisplayMode  uint8
-	ScreenWidth  uint16
-	ScreenHeight uint16
-	Primary      string
-	PrimaryRect  xproto.Rectangle
-	Monitors     MonitorInfos
-	Brightness   map[string]float64
-	TouchMap     map[string]string
+	HasChanged      bool
+	HasCustomConfig bool
+	DisplayMode     uint8
+	ScreenWidth     uint16
+	ScreenHeight    uint16
+	Primary         string
+	PrimaryRect     xproto.Rectangle
+	Monitors        MonitorInfos
+	Brightness      map[string]float64
+	TouchMap        map[string]string
 
 	setting     *gio.Settings
 	ifcLocker   sync.Mutex
@@ -104,14 +105,13 @@ func newManager() (*Manager, error) {
 
 func (dpy *Manager) init() {
 	if len(dpy.outputInfos) == 0 {
+		// TODO: wait for output connected
 		logger.Warning("No output plugin")
 		return
 	}
 
 	dpy.updateMonitors()
-	if len(dpy.Primary) == 0 {
-		dpy.Primary = dpy.Monitors[0].Name
-	}
+	dpy.doSetPrimary(dpy.Monitors[0].Name, true)
 
 	err := dpy.tryApplyConfig()
 	if err != nil {
@@ -120,6 +120,7 @@ func (dpy *Manager) init() {
 
 	dpy.initBrightness()
 	dpy.initTouchMap()
+	dpy.setPropHasCustomConfig(dpy.config.get(dpy.Monitors.getMonitorsId()) != nil)
 }
 
 func (dpy *Manager) initTouchMap() {
@@ -274,7 +275,11 @@ func (dpy *Manager) tryApplyConfig() error {
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		// no config found, switch to extend mode
-		return dpy.switchToExtend()
+		dpy.config.set(id, &configMonitor{
+			Primary:   dpy.Primary,
+			BaseInfos: dpy.Monitors.getBaseInfos(),
+		})
+		return dpy.config.writeFile()
 	}
 	return dpy.applyConfigSettings(cMonitor)
 }
@@ -455,7 +460,7 @@ func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseI
 	}
 
 	logger.Debugf("Monitor: %s, base: %s", m.Name, base)
-	m.cfg = base
+	m.cfg = base.Duplicate()
 	return nil
 }
 
@@ -484,6 +489,12 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 func (dpy *Manager) detectHasChanged() {
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
+	if len(dpy.outputInfos) != 1 && dpy.DisplayMode != DisplayModeCustom {
+		// if multi-output and not custom mode, nothing
+		dpy.setPropHasChanged(false)
+		return
+	}
+
 	for _, m := range dpy.Monitors {
 		if !dpy.isMonitorChanged(m) {
 			continue

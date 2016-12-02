@@ -58,7 +58,12 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 		logger.Errorf("Switch mode to %d failed: %v", mode, err)
 		return err
 	}
+
+	if mode == DisplayModeCustom {
+		dpy.setPropHasCustomConfig(true)
+	}
 	dpy.setPropDisplayMode(mode)
+	dpy.setPropHasChanged(false)
 	return dpy.Save()
 }
 
@@ -98,13 +103,12 @@ func (dpy *Manager) ResetChanges() error {
 		return fmt.Errorf("No output connected")
 	}
 
-	cMonitor := dpy.config.get("id")
+	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		logger.Warning("No config found for:", id)
 		return fmt.Errorf("No config found for '%s'", id)
 	}
 	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
 	for _, info := range cMonitor.BaseInfos {
 		m := dpy.Monitors.getByName(info.Name)
 		dpy.updateMonitorFromBaseInfo(m, info)
@@ -113,10 +117,13 @@ func (dpy *Manager) ResetChanges() error {
 	err := dpy.doApply(cMonitor.Primary, false)
 	if err != nil {
 		logger.Warning("[ResetChanges] apply failed:", err)
+		monitorsLocker.Unlock()
 		return err
 	}
 	dpy.doSetPrimary(cMonitor.Primary, true)
 	dpy.initBrightness()
+	monitorsLocker.Unlock()
+	dpy.detectHasChanged()
 	return nil
 }
 
@@ -138,7 +145,14 @@ func (dpy *Manager) Save() error {
 	dpy.config.set(id, &cMonitor)
 
 	dpy.SaveBrightness()
-	return dpy.config.writeFile()
+	err := dpy.config.writeFile()
+	if err != nil {
+		logger.Error("Save config failed:", err)
+		return err
+	}
+
+	dpy.detectHasChanged()
+	return nil
 }
 
 func (dpy *Manager) DeleteCustomConfig() error {
@@ -147,6 +161,7 @@ func (dpy *Manager) DeleteCustomConfig() error {
 		// no config found
 		return nil
 	}
+	dpy.setPropHasCustomConfig(false)
 	return dpy.config.writeFile()
 }
 

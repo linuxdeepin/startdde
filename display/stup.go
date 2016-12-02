@@ -27,8 +27,16 @@ func (dpy *Manager) setPropHasChanged(v bool) {
 	if dpy.HasChanged == v {
 		return
 	}
-	dpy.HasChanged = true
+	dpy.HasChanged = v
 	dbus.NotifyChange(dpy, "HasChanged")
+}
+
+func (dpy *Manager) setPropHasCustomConfig(v bool) {
+	if dpy.HasCustomConfig == v {
+		return
+	}
+	dpy.HasCustomConfig = v
+	dbus.NotifyChange(dpy, "HasCustomConfig")
 }
 
 func (dpy *Manager) setPropDisplayMode(v uint8) {
@@ -36,6 +44,7 @@ func (dpy *Manager) setPropDisplayMode(v uint8) {
 		return
 	}
 	dpy.DisplayMode = v
+	dpy.setting.SetEnum(gsKeyDisplayMode, int32(v))
 	dbus.NotifyChange(dpy, "DisplayMode")
 }
 

@@ -381,6 +381,21 @@ func (infos MonitorBaseInfos) String() string {
 	return string(data)
 }
 
+func (info *MonitorBaseInfo) Duplicate() *MonitorBaseInfo {
+	return &MonitorBaseInfo{
+		UUID:        info.UUID,
+		Name:        info.Name,
+		Enabled:     info.Enabled,
+		X:           info.X,
+		Y:           info.Y,
+		Width:       info.Width,
+		Height:      info.Height,
+		Rotation:    info.Rotation,
+		Reflect:     info.Reflect,
+		RefreshRate: info.RefreshRate,
+	}
+}
+
 func (info *MonitorBaseInfo) String() string {
 	data, _ := json.Marshal(info)
 	return string(data)
