@@ -96,7 +96,15 @@ func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
 }
 
 func (m *MonitorInfo) canDisable() bool {
-	return len(_dpy.Monitors.listConnected()) > 1
+	connected := _dpy.Monitors.listConnected()
+	var count = 0
+	for _, v := range connected {
+		if !v.Enabled {
+			continue
+		}
+		count += 1
+	}
+	return count > 1
 }
 
 func (m *MonitorInfo) doEnable(enabled bool) error {
@@ -354,6 +362,18 @@ func (ms MonitorInfos) isRotation() bool {
 		}
 	}
 	return true
+}
+
+func (infos MonitorInfos) FoundCommonModes() drandr.ModeInfos {
+	var modeGroup []drandr.ModeInfos
+	for _, m := range infos {
+		if !m.Connected {
+			continue
+		}
+		modeGroup = append(modeGroup, m.Modes)
+	}
+
+	return drandr.FindCommonModes(modeGroup...)
 }
 
 func (infos MonitorBaseInfos) String() string {

@@ -3,10 +3,20 @@ package display
 import (
 	"fmt"
 	"os"
+	"pkg.deepin.io/dde/api/drandr"
 )
 
 func (dpy *Manager) ListOutputNames() []string {
 	return dpy.outputInfos.ListNames()
+}
+
+func (dpy *Manager) ListOutputsCommonModes() (drandr.ModeInfos, error) {
+	connected, err := dpy.multiOutputCheck()
+	if err != nil {
+		return nil, err
+	}
+
+	return connected.FoundCommonModes(), nil
 }
 
 func (dpy *Manager) SetPrimary(primary string) error {

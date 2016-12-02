@@ -156,18 +156,10 @@ func (dpy *Manager) doSetTouchMap(output, touch string) error {
 func (dpy *Manager) switchToMirror() error {
 	connected, err := dpy.multiOutputCheck()
 	if err != nil {
-		return nil
+		return err
 	}
 
-	var modeGroup []drandr.ModeInfos
-	for _, m := range connected {
-		if !m.Connected {
-			continue
-		}
-		modeGroup = append(modeGroup, m.Modes)
-	}
-
-	modes := drandr.FindCommonModes(modeGroup...)
+	modes := connected.FoundCommonModes()
 	if len(modes) == 0 {
 		return fmt.Errorf("Not found common mode")
 	}
@@ -177,11 +169,11 @@ func (dpy *Manager) switchToMirror() error {
 	for i, m := range connected {
 		m.Enable(true)
 		m.SetPosition(0, 0)
-		m.SetMode(modes[0].Id)
+		m.SetModeBySize(modes[0].Width, modes[0].Height)
 		m.SetRotation(1)
 		m.SetReflect(0)
 		if i != 0 {
-			cmd += fmt.Sprintf(" --same-as %s ", primary)
+			cmd += fmt.Sprintf(" --output %s --same-as %s ", m.Name, primary)
 		} else {
 			cmd += m.generateCommandline(primary, false)
 		}
@@ -433,6 +425,8 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 	defer m.locker.Unlock()
 	id, modes := dpy.sumOutputUUID(oinfo)
 	m.uuid = id
+	sort.Sort(modes)
+	modes = modes.FilterBySize()
 	m.setPropModes(modes)
 	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", id, oinfo.Crtc)
 	if oinfo.Crtc.Id == 0 {

@@ -1,5 +1,9 @@
 package display
 
+import (
+	"fmt"
+)
+
 func (m *MonitorInfo) Enable(enabled bool) error {
 	m.locker.Lock()
 	defer m.locker.Unlock()
@@ -25,6 +29,16 @@ func (m *MonitorInfo) SetMode(v uint32) error {
 	m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate = m.CurrentMode.Width, m.CurrentMode.Height, m.CurrentMode.Rate
 	_dpy.detectHasChanged()
 	return nil
+}
+
+func (m *MonitorInfo) SetModeBySize(w, h uint16) error {
+	mode := m.Modes.QueryBySize(w, h)
+	if mode.Id == 0 {
+		logger.Warning("Invalid mode size:", w, h)
+		return fmt.Errorf("The mode size %dx%d invalid", w, h)
+	}
+
+	return m.SetMode(mode.Id)
 }
 
 func (m *MonitorInfo) SetPosition(x, y int16) error {
