@@ -1,0 +1,31 @@
+Source: startdde
+Section: admin
+Priority: extra
+Maintainer: Deepin Sysdev <sysdev@deepin.com>
+Build-Depends: debhelper (>= 9), pkg-config, golang-go,
+ libsqlite3-dev,
+ golang-dlib-dev,
+ golang-github-burntsushi-xgbutil-dev,
+ golang-github-howeyc-fsnotify-dev,
+ dde-go-dbus-factory(>= 2.92.1),
+ dde-api-dev(>= 3.0.8),
+Standards-Version: 3.9.5
+Homepage: http://github.com/linuxdeepin/startdde
+
+Package: startdde
+Architecture: any
+Provides: x-session-manager
+Depends: ${shlibs:Depends},
+ ${misc:Depends},
+ dde-daemon (>> 2.93.0),
+ gvfs-bin,
+ deepin-wm-switcher,
+ deepin-wm | deepin-metacity,
+ deepin-desktop-schemas (>> 2.91.2),
+ dde-desktop, dde-dock, dde-launcher,
+ dde-session-ui,
+ libgnome2-bin,
+Conflicts: deepin-session
+Breaks: startdde(<= 2.91.1)
+Description: starter of deepin desktop environment
+ starter of deepin desktop environment.

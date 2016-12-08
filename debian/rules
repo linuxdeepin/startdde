@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+export GOPATH := /usr/share/gocode
+
+%:
+	dh $@ 
+
+override_dh_shlibdeps:
+	dh_shlibdeps 
+
+override_dh_auto_install:
+	dh_auto_install --destdir=debian/tmp
+
+ifdef USE_GCCGO
+override_dh_strip:
+	true
+endif
