@@ -196,3 +196,9 @@ func (dpy *Manager) AssociateTouch(output, touch string) error {
 	dpy.setting.SetString(gsKeyMapOutput, jsonMarshal(dpy.TouchMap))
 	return nil
 }
+
+func (dpy *Manager) RefreshBrightness() {
+	for k, v := range dpy.Brightness {
+		dpy.doSetBrightness(v, k)
+	}
+}
