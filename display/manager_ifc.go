@@ -64,6 +64,9 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 	}
 	dpy.setPropDisplayMode(mode)
 	dpy.setPropHasChanged(false)
+	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
+		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
+	}
 	return dpy.Save()
 }
 
@@ -151,6 +154,9 @@ func (dpy *Manager) Save() error {
 		return err
 	}
 
+	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
+		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
+	}
 	dpy.detectHasChanged()
 	return nil
 }

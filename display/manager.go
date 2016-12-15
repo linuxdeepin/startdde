@@ -29,6 +29,7 @@ const (
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
+	gsKeyPrimary     = "primary"
 )
 
 type Manager struct {
@@ -100,6 +101,7 @@ func newManager() (*Manager, error) {
 	}
 	m.setting = s
 	m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
+	m.Primary = m.setting.GetString(gsKeyPrimary)
 	return &m, nil
 }
 
@@ -111,7 +113,10 @@ func (dpy *Manager) init() {
 	}
 
 	dpy.updateMonitors()
-	dpy.doSetPrimary(dpy.Monitors[0].Name, true)
+	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
+		dpy.Primary = dpy.Monitors[0].Name
+		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
+	}
 
 	err := dpy.tryApplyConfig()
 	if err != nil {
