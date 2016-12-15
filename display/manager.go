@@ -67,7 +67,7 @@ func newManager() (*Manager, error) {
 		return nil, err
 	}
 
-	oinfos, minfos, err := drandr.GetScreenInfo(conn)
+	screenInfo, err := drandr.GetScreenInfo(conn)
 	if err != nil {
 		conn.Close()
 		return nil, err
@@ -87,14 +87,14 @@ func newManager() (*Manager, error) {
 		}
 	}
 
-	sinfo := xproto.Setup(conn).DefaultScreen(conn)
+	sw, sh := screenInfo.GetScreenSize()
 	var m = Manager{
 		conn:         conn,
-		outputInfos:  oinfos.ListConnectionOutputs().ListValidOutputs(),
-		modeInfos:    minfos,
+		outputInfos:  screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs(),
+		modeInfos:    screenInfo.Modes,
 		config:       config,
-		ScreenWidth:  sinfo.WidthInPixels,
-		ScreenHeight: sinfo.HeightInPixels,
+		ScreenWidth:  sw,
+		ScreenHeight: sh,
 		Brightness:   make(map[string]float64),
 		TouchMap:     make(map[string]string),
 	}

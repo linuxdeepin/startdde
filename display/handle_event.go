@@ -46,17 +46,17 @@ func (dpy *Manager) handleOutputChanged(ev randr.NotifyEvent) {
 func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 	// firstly compare plan whether equal
 	oldLen := len(dpy.outputInfos)
-	oinfos, minfos, err := drandr.GetScreenInfo(dpy.conn)
+	screenInfo, err := drandr.GetScreenInfo(dpy.conn)
 	if err != nil {
 		logger.Error("Get screen info failed:", err)
 		return
 	}
-	dpy.outputInfos, dpy.modeInfos = oinfos.ListConnectionOutputs().ListValidOutputs(), minfos
+	dpy.outputInfos, dpy.modeInfos = screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs(), screenInfo.Modes
 	dpy.updateMonitors()
 	logger.Debug("[Event] compare:", dpy.lastConfigTime, ev.ConfigTimestamp, oldLen, len(dpy.outputInfos))
 	if dpy.lastConfigTime < ev.ConfigTimestamp {
 		if oldLen != len(dpy.outputInfos) {
-			logger.Infof("Detect new output config, try to apply it: %#v", oinfos)
+			logger.Infof("Detect new output config, try to apply it: %#v", screenInfo.Outputs)
 			dpy.lastConfigTime = ev.ConfigTimestamp
 			err := dpy.tryApplyConfig()
 			if err != nil {
