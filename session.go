@@ -224,10 +224,7 @@ func startSession() {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
-	// dde-desktop and dde-dock-trash-plugin reply on deepin-file-manager-backend
-	// to run properly.
 	go func() {
-		manager.launch("/usr/lib/deepin-daemon/deepin-file-manager-backend", true)
 		manager.launch("/usr/bin/dde-desktop", true)
 		wg.Done()
 	}()

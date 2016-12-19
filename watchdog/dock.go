@@ -9,14 +9,9 @@
 
 package watchdog
 
-import (
-	"dbus/com/deepin/dde/dock"
-)
-
 const (
 	dockName = "dde-dock"
-	dockDest = "com.deepin.dde.dock"
-	dockPath = "/com/deepin/dde/dock"
+	dockDest = "com.deepin.dde.Dock"
 )
 
 func isDockRunning() bool {
@@ -24,13 +19,7 @@ func isDockRunning() bool {
 }
 
 func launchDock() error {
-	caller, err := dock.NewDock(dockDest, dockPath)
-	if err != nil {
-		return err
-	}
-
-	_, err = caller.Xid()
-	return err
+	return startService(dockDest)
 }
 
 func newDockTask() *taskInfo {

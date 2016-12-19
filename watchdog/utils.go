@@ -13,18 +13,49 @@ import (
 	"dbus/org/freedesktop/dbus"
 )
 
-func isDBusDestExist(dest string) bool {
-	daemon, err := dbus.NewDBusDaemon("org.freedesktop.DBus", "/")
+var dbusDaemon *dbus.DBusDaemon
+
+func initDBusDaemon() error {
+	if dbusDaemon != nil {
+		return nil
+	}
+
+	var err error
+	dbusDaemon, err = dbus.NewDBusDaemon("org.freedesktop.DBus", "/")
 	if err != nil {
+		dbusDaemon = nil
+		return err
+	}
+	return nil
+}
+
+func destroyDBusDaemon() {
+	if dbusDaemon == nil {
+		return
+	}
+	dbus.DestroyDBusDaemon(dbusDaemon)
+}
+
+func isDBusDestExist(dest string) bool {
+	if err := initDBusDaemon(); err != nil {
 		return false
 	}
-	defer dbus.DestroyDBusDaemon(daemon)
 
-	names, err := daemon.ListNames()
+	names, err := dbusDaemon.ListNames()
 	if err != nil {
 		return false
 	}
 	return isItemInList(dest, names)
+}
+
+func startService(dest string) error {
+	if err := initDBusDaemon(); err != nil {
+		return err
+	}
+
+	// flag unused
+	_, err := dbusDaemon.StartServiceByName(dest, 0)
+	return err
 }
 
 func isItemInList(item string, list []string) bool {

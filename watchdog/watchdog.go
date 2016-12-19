@@ -54,6 +54,7 @@ func Stop() {
 
 	_manager.QuitLoop()
 	_manager = nil
+	destroyDBusDaemon()
 	logger.EndTracing()
 	return
 }
