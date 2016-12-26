@@ -74,20 +74,22 @@ func GetMax(setter string) (int32, error) {
 
 func HasPropBacklight(output uint32, conn *xgb.Conn) bool {
 	op := randr.Output(output)
-	prop, err := randr.GetOutputProperty(conn, op, backlightAtom, xproto.AtomAny,
+	prop, err := randr.GetOutputProperty(conn, op,
+		getBacklightAtom(conn), xproto.AtomAny,
 		0, 1, false, false).Reply()
 	if err != nil {
 		fmt.Printf("Get output(%v) backlight prop failed: %v\n", op, err)
 		return false
 	}
 
-	pinfo, err := randr.QueryOutputProperty(conn, op, backlightAtom).Reply()
+	pinfo, err := randr.QueryOutputProperty(conn, op, getBacklightAtom(conn)).Reply()
 	if err != nil {
 		fmt.Printf("Qeury output(%v) backlight prop failed: %v\n", op, err)
 		return false
 	}
 
 	if prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
+		fmt.Println("~~~~~~~~~hasPropBacklight [False]:", prop.NumItems, pinfo.Range, pinfo.ValidValues)
 		return false
 	}
 	return true
@@ -242,7 +244,7 @@ func getBacklightAtom(conn *xgb.Conn) xproto.Atom {
 		return backlightAtom
 	}
 
-	var name = "backlight"
+	var name = "Backlight"
 	reply, err := xproto.InternAtom(conn, false, uint16(len(name)), name).Reply()
 	if err != nil {
 		return xproto.AtomNone
