@@ -43,6 +43,8 @@ func (dpy *Manager) handleOutputChanged(ev randr.NotifyEvent) {
 	}
 }
 
+var autoOpenTimes int = 0
+
 func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 	// firstly compare plan whether equal
 	oldLen := len(dpy.outputInfos)
@@ -51,7 +53,17 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 		logger.Error("Get screen info failed:", err)
 		return
 	}
-	dpy.outputInfos, dpy.modeInfos = screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs(), screenInfo.Modes
+	outputInfos := screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs()
+	if oldLen != len(outputInfos) && dpy.isOutputCrtcInvalid(outputInfos) && autoOpenTimes < 2 {
+		// only try 2 times
+		autoOpenTimes += 1
+		doAction("xrandr --auto")
+		return
+	}
+	autoOpenTimes = 0
+
+	dpy.outputInfos = outputInfos
+	dpy.modeInfos = screenInfo.Modes
 	dpy.updateMonitors()
 	logger.Debug("[Event] compare:", dpy.lastConfigTime, ev.ConfigTimestamp, oldLen, len(dpy.outputInfos))
 	if dpy.lastConfigTime < ev.ConfigTimestamp {
@@ -68,4 +80,14 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 	dpy.setPropScreenSize(ev.Width, ev.Height)
 	dpy.doSetPrimary(dpy.Primary, true) // update if monitor mode changed
 	// TODO: map touchscreen
+}
+
+func (dpy *Manager) isOutputCrtcInvalid(infos drandr.OutputInfos) bool {
+	// output connected, but no crtc
+	for _, info := range infos {
+		if info.Crtc.Id == 0 || info.Crtc.Width == 0 || info.Crtc.Height == 0 {
+			return true
+		}
+	}
+	return false
 }

@@ -117,6 +117,7 @@ func (dpy *Manager) init() {
 		dpy.Primary = dpy.Monitors[0].Name
 		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
 	}
+	dpy.doSetPrimary(dpy.Primary, true)
 
 	err := dpy.tryApplyConfig()
 	if err != nil {
@@ -261,6 +262,9 @@ func (dpy *Manager) switchToCustom() error {
 	}
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
+		if dpy.DisplayMode != DisplayModeMirror {
+			dpy.switchToExtend()
+		}
 		dpy.config.set(id, &configMonitor{
 			Primary:   dpy.Primary,
 			BaseInfos: dpy.Monitors.getBaseInfos(),
@@ -280,6 +284,7 @@ func (dpy *Manager) tryApplyConfig() error {
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		// no config found, switch to extend mode
+		dpy.switchToExtend()
 		dpy.config.set(id, &configMonitor{
 			Primary:   dpy.Primary,
 			BaseInfos: dpy.Monitors.getBaseInfos(),
