@@ -50,6 +50,8 @@ type Manager struct {
 	Brightness      map[string]float64
 	TouchMap        map[string]string
 
+	// TODO: add mutex locker in used
+	allMonitors MonitorInfos
 	setting     *gio.Settings
 	ifcLocker   sync.Mutex
 	eventLocker sync.Mutex
@@ -361,7 +363,7 @@ func (dpy *Manager) updateMonitors() {
 	defer monitorsLocker.Unlock()
 	// Not rebuild monitor object, just update it.
 	// If disconnection, mark it.
-	for _, m := range dpy.Monitors {
+	for _, m := range dpy.allMonitors {
 		err := dpy.updateMonitor(m)
 		if err != nil {
 			m.setPropConnected(false)
@@ -383,9 +385,10 @@ func (dpy *Manager) updateMonitors() {
 				oinfo, err)
 			continue
 		}
-		dpy.Monitors = append(dpy.Monitors, m)
+		dpy.allMonitors = append(dpy.allMonitors, m)
 	}
-	dpy.Monitors = dpy.Monitors.sort()
+	dpy.allMonitors = dpy.allMonitors.sort()
+	dpy.setPropMonitors(dpy.allMonitors.listConnected())
 }
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
@@ -394,7 +397,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 	sort.Sort(modes)
 	modes = modes.FilterBySize()
 
-	if m := dpy.Monitors.get(id); m != nil {
+	if m := dpy.allMonitors.get(id); m != nil {
 		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %#v",
 			id, output)
 	}
@@ -515,7 +518,7 @@ func (dpy *Manager) detectHasChanged() {
 }
 
 func (dpy *Manager) rotateInputPointor() {
-	connected := dpy.Monitors.listConnected()
+	connected := dpy.Monitors
 	if len(connected) == 0 {
 		return
 	}
@@ -527,7 +530,7 @@ func (dpy *Manager) rotateInputPointor() {
 }
 
 func (dpy *Manager) multiOutputCheck() (MonitorInfos, error) {
-	connected := dpy.Monitors.listConnected()
+	connected := dpy.Monitors
 	if len(connected) == 0 {
 		return nil, fmt.Errorf("No connected output found")
 	}
