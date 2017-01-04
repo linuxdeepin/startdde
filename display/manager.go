@@ -176,11 +176,19 @@ func (dpy *Manager) switchToMirror() error {
 	cmd := "xrandr "
 	primary := connected[0].Name
 	for i, m := range connected {
-		m.Enable(true)
-		m.SetPosition(0, 0)
-		m.SetModeBySize(modes[0].Width, modes[0].Height)
-		m.SetRotation(1)
-		m.SetReflect(0)
+		m.cfg.Enabled = true
+		m.doEnable(true)
+		m.cfg.X = 0
+		m.cfg.Y = 0
+		m.doSetPosition(0, 0)
+		m.cfg.Rotation = 1
+		m.doSetRotation(1)
+		m.cfg.Reflect = 0
+		m.doSetReflect(0)
+		mode := m.Modes.QueryBySize(modes[0].Width, modes[0].Height)
+		m.cfg.Width = mode.Width
+		m.cfg.Height = mode.Height
+		m.doSetMode(mode.Id)
 		if i != 0 {
 			cmd += fmt.Sprintf(" --output %s --same-as %s ", m.Name, primary)
 		} else {
@@ -208,11 +216,18 @@ func (dpy *Manager) switchToExtend() error {
 	)
 	primary := connected[0].Name
 	for _, m := range connected {
-		m.Enable(true)
-		m.SetPosition(startx, 0)
-		m.SetMode(m.BestMode.Id)
-		m.SetRotation(1)
-		m.SetReflect(0)
+		m.cfg.Enabled = true
+		m.doEnable(true)
+		m.cfg.X = startx
+		m.cfg.Y = 0
+		m.doSetPosition(startx, 0)
+		m.cfg.Rotation = 1
+		m.doSetRotation(1)
+		m.cfg.Reflect = 0
+		m.doSetReflect(0)
+		m.cfg.Width = m.BestMode.Width
+		m.cfg.Height = m.BestMode.Height
+		m.doSetMode(m.BestMode.Id)
 		cmd += m.generateCommandline(primary, false)
 		startx += int16(m.Width)
 	}
@@ -237,13 +252,21 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 	cmd := "xrandr "
 	for _, m := range connected {
 		if m.Name != name {
-			m.Enable(false)
+			m.cfg.Enabled = false
+			m.doEnable(false)
 		} else {
-			m.Enable(true)
-			m.SetPosition(0, 0)
-			m.SetMode(m.BestMode.Id)
-			m.SetRotation(1)
-			m.SetReflect(0)
+			m.cfg.Enabled = true
+			m.doEnable(true)
+			m.cfg.X = 0
+			m.cfg.Y = 0
+			m.doSetPosition(0, 0)
+			m.cfg.Rotation = 1
+			m.doSetRotation(1)
+			m.cfg.Reflect = 0
+			m.doSetReflect(0)
+			m.cfg.Width = m.BestMode.Width
+			m.cfg.Height = m.BestMode.Height
+			m.doSetMode(m.BestMode.Id)
 		}
 		cmd += m.generateCommandline(name, false)
 	}
