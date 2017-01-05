@@ -175,7 +175,7 @@ func (dpy *Manager) switchToMirror() error {
 
 	cmd := "xrandr "
 	primary := connected[0].Name
-	for i, m := range connected {
+	for _, m := range connected {
 		m.cfg.Enabled = true
 		m.doEnable(true)
 		m.cfg.X = 0
@@ -189,11 +189,7 @@ func (dpy *Manager) switchToMirror() error {
 		m.cfg.Width = mode.Width
 		m.cfg.Height = mode.Height
 		m.doSetMode(mode.Id)
-		if i != 0 {
-			cmd += fmt.Sprintf(" --output %s --same-as %s ", m.Name, primary)
-		} else {
-			cmd += m.generateCommandline(primary, false)
-		}
+		cmd += m.generateCommandline(primary, false)
 	}
 
 	err = doAction(cmd)
