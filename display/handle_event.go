@@ -77,7 +77,7 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 			dpy.setPropHasCustomConfig(dpy.config.get(dpy.Monitors.getMonitorsId()) != nil)
 		}
 	}
-	dpy.setPropScreenSize(ev.Width, ev.Height)
+	dpy.updateScreenSize()
 	dpy.doSetPrimary(dpy.Primary, true) // update if monitor mode changed
 	// TODO: map touchscreen
 }

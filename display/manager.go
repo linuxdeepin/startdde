@@ -588,3 +588,26 @@ func (dpy *Manager) fixOutputNotClosed(outputId randr.Output) {
 func (dpy *Manager) doApply(primary string, auto bool) error {
 	return doAction(dpy.Monitors.genCommandline(primary, auto))
 }
+
+func (dpy *Manager) updateScreenSize() {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
+
+	w, h := uint16(0), uint16(0)
+	for _, monitor := range dpy.Monitors {
+		if !monitor.Connected || !monitor.Enabled {
+			continue
+		}
+
+		t1 := uint16(monitor.X) + monitor.Width
+		t2 := uint16(monitor.Y) + monitor.Height
+		if w < t1 {
+			w = t1
+		}
+		if h < t2 {
+			h = t2
+
+		}
+	}
+	dpy.setPropScreenSize(w, h)
+}
