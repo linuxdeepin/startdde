@@ -26,6 +26,7 @@ type ConfigDisplay struct {
 	MapToTouchScreen map[string]string
 }
 
+var outputBlacklistFile = "/usr/share/startdde/output.blacklist"
 var _ConfigPath = os.Getenv("HOME") + "/.config/deepin_monitors.json"
 var configLock sync.RWMutex
 
@@ -41,7 +42,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	if _, ok := cfg.Plans[cfg.CurrentPlanName]; ok {
 		return
 	}
-	logger.Info("attachCurrentMonitor: build info", cfg.CurrentPlanName)
+	logger.Debug("attachCurrentMonitor: build info", cfg.CurrentPlanName)
 
 	//grab and build monitors information
 	monitors := &monitorGroup{
@@ -60,7 +61,7 @@ func (cfg *ConfigDisplay) attachCurrentMonitor(dpy *Display) {
 	//save it at CurrentPlanName slot
 	cfg.Plans[cfg.CurrentPlanName] = monitors
 
-	cfg.Primary = dpy.Primary
+	cfg.Primary = guessPrimary(GetDisplayInfo().ListNames())
 
 	for _, name := range GetDisplayInfo().ListNames() {
 		if supportedBacklight(xcon, GetDisplayInfo().QueryOutputs(name)) {
@@ -413,4 +414,84 @@ func (dpy *Display) saveDisplayMode(mode int16, output string) {
 		cfg.Plans[cfg.CurrentPlanName].DefaultOutput = output
 	}
 	cfg.Save()
+}
+
+// guessPrimary priority using vga or hdmi
+func guessPrimary(names []string) string {
+	length := len(names)
+	if length == 0 {
+		return ""
+	}
+
+	if length == 1 {
+		return names[0]
+	}
+
+	primary, ok := findItemInList(names, "VGA")
+	if ok {
+		return primary
+	}
+
+	primary, ok = findItemInList(names, "DVI")
+	if ok {
+		return primary
+	}
+
+	primary, ok = findItemInList(names, "HDMI")
+	if ok {
+		return primary
+	}
+
+	primary, ok = findItemInList(names, "DP")
+	if ok {
+		return primary
+	}
+
+	return names[0]
+}
+
+func findItemInList(list []string, item string) (string, bool) {
+	itemLen := len(item)
+	for _, v := range list {
+		if len(v) < itemLen {
+			continue
+		}
+
+		if v[:itemLen] == item {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func getOutputBlacklist(file string) []string {
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		logger.Debug("=========Read blacklist file failed:", err)
+		return nil
+	}
+
+	lines := strings.Split(string(content), "\n")
+	var blacklist []string
+	for _, v := range lines {
+		if v == "" {
+			continue
+		}
+		blacklist = append(blacklist, strings.TrimSpace(v))
+	}
+	logger.Debug("==========Blacklist:", blacklist)
+	return blacklist
+}
+
+func disableOutputsInBlacklist() {
+	if len(outputBlacklist) == 0 {
+		return
+	}
+
+	var cmd = "xrandr "
+	for _, v := range outputBlacklist {
+		cmd += " --output " + v + " --off "
+	}
+	logger.Debugf("Will disable outputs: %v, \n\tCommandline: %s", outputBlacklist, cmd)
+	runCode(cmd)
 }

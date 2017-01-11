@@ -3,6 +3,7 @@ package display
 import "github.com/BurntSushi/xgb/randr"
 import "regexp"
 import "sync"
+import "time"
 
 type DisplayInfo struct {
 	locker      sync.Mutex
@@ -10,6 +11,8 @@ type DisplayInfo struct {
 	outputNames map[string]randr.Output
 	badOutputs  map[string]randr.Output
 }
+
+var outputBlacklist = getOutputBlacklist(outputBlacklistFile)
 
 var GetDisplayInfo = func() func() *DisplayInfo {
 	info := &DisplayInfo{
@@ -98,14 +101,57 @@ func (info *DisplayInfo) update() {
 
 		if (len(resource.Outputs) > 1) && isBadOutput(string(oinfo.Name), oinfo.Crtc) {
 			info.badOutputs[string(oinfo.Name)] = op
-			logger.Infof("detect a bad output[%s:%d], it wouldn't autoopen until user involved.", string(oinfo.Name), op)
+			logger.Debugf("detect a bad output[%s:%d], it wouldn't autoopen until user involved.", string(oinfo.Name), op)
 			continue
 		}
-		info.outputNames[string(oinfo.Name)] = op
+
+		_, ok := findItemInList(outputBlacklist, string(oinfo.Name))
+		if !ok {
+			info.outputNames[string(oinfo.Name)] = op
+		}
 	}
 
 	info.modes = make(map[randr.Mode]Mode)
 	for _, minfo := range resource.Modes {
 		info.modes[randr.Mode(minfo.Id)] = buildMode(minfo)
+	}
+}
+
+func ensureOutputsReady() {
+	var cnt = 0
+	for {
+		if cnt > 3 {
+			logger.Debug("==========Not try, return")
+			return
+		}
+
+		resource, err := randr.GetScreenResources(xcon, Root).Reply()
+		if err != nil {
+			logger.Error("GetScreenResouces failed", err)
+			return
+		}
+		var ready = true
+		for _, op := range resource.Outputs {
+			oinfo, err := randr.GetOutputInfo(xcon, op, resource.ConfigTimestamp).Reply()
+			if err != nil {
+				continue
+			}
+			if oinfo.Connection != randr.ConnectionConnected {
+				continue
+			}
+			logger.Debug("=========Connected output:", string(oinfo.Name), oinfo.Crtc)
+			if oinfo.Crtc == 0 {
+				ready = false
+				break
+			}
+		}
+
+		if ready {
+			logger.Debug("============Output ready!")
+			return
+		}
+		cnt += 1
+		runCode("xrandr --auto")
+		time.Sleep(time.Second * 1)
 	}
 }

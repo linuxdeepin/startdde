@@ -448,6 +448,8 @@ func (dpy *Display) Reset() {
 }
 
 func Start() {
+	ensureOutputsReady()
+	disableOutputsInBlacklist()
 	dpy := GetDisplay()
 	err := dbus.InstallOnSession(dpy)
 	if err != nil {
