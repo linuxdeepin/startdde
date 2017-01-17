@@ -71,6 +71,8 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 }
 
 func (dpy *Manager) ApplyChanges() error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	if !dpy.HasChanged {
 		return nil
 	}
