@@ -2,24 +2,21 @@ package brightness
 
 import (
 	"dbus/com/deepin/daemon/helper/backlight"
+	"errors"
 	"fmt"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
+	displayBl "pkg.deepin.io/lib/backlight/display"
 )
 
 const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
-	SetterRaw       = "backlight-raw"
-	SetterPlatform  = "backlight-platform"
-	SetterFirmware  = "backlight-firmware"
 )
 
-var (
-	helper *backlight.Backlight
-)
+var helper *backlight.Backlight
 
 func init() {
 	var err error
@@ -30,96 +27,57 @@ func init() {
 	}
 }
 
-func Set(value float64, setter string, output uint32, conn *xgb.Conn) error {
+func Set(value float64, setter string, outputId uint32, conn *xgb.Conn) error {
 	if value < 0.1 {
 		value = 0.1
 	} else if value > 1 {
 		value = 1
 	}
 
+	output := randr.Output(outputId)
 	switch setter {
+	case SetterBacklight:
+		return setBacklight(value, output, conn)
 	case SetterGamma:
-		return setGammaSize(value, randr.Output(output), conn)
-	case SetterBacklight, SetterRaw, SetterPlatform, SetterFirmware:
-		return setBacklight(value, setter)
+		return setGammaSize(value, output, conn)
 	}
-
-	if helper != nil && HasPropBacklight(output, conn) {
-		return setBacklight(value, SetterBacklight)
+	// case SetterAuto
+	if supportBacklight(output, conn) {
+		return setBacklight(value, output, conn)
 	}
-
-	return setGammaSize(value, randr.Output(output), conn)
+	return setGammaSize(value, output, conn)
 }
 
-func Get(setter string, output uint32, conn *xgb.Conn) (float64, error) {
-	if helper == nil || !HasPropBacklight(output, conn) {
-		// TODO: get brightness from xrandr
+func Get(setter string, outputId uint32, conn *xgb.Conn) (float64, error) {
+	output := randr.Output(outputId)
+	switch setter {
+	case SetterBacklight:
+		return getBacklight(output, conn)
+	case SetterGamma:
 		return 1, nil
 	}
-	return doGetBacklight(setter)
+
+	// case SetterAuto
+	if supportBacklight(output, conn) {
+		return getBacklight(output, conn)
+	}
+	return 1, nil
 }
 
-func GetMax(setter string) (int32, error) {
+func supportBacklight(output randr.Output, conn *xgb.Conn) bool {
 	if helper == nil {
-		return 0, fmt.Errorf("Failed to initialize backlight helper")
+		return false
 	}
-
-	sysPath := getSysPath(setter)
-	if len(sysPath) == 0 {
-		return 0, fmt.Errorf("No backlight syspath found")
+	if !hasBacklightProp(output, conn) {
+		return false
 	}
-
-	return helper.GetMaxBrightness(sysPath)
+	c, _ := getDisplayBlController(output, conn)
+	return c != nil
 }
 
-func HasPropBacklight(output uint32, conn *xgb.Conn) bool {
-	op := randr.Output(output)
-	prop, err := randr.GetOutputProperty(conn, op,
-		getBacklightAtom(conn), xproto.AtomAny,
-		0, 1, false, false).Reply()
-	if err != nil {
-		fmt.Printf("Get output(%v) backlight prop failed: %v\n", op, err)
-		return false
-	}
-
-	pinfo, err := randr.QueryOutputProperty(conn, op, getBacklightAtom(conn)).Reply()
-	if err != nil {
-		fmt.Printf("Qeury output(%v) backlight prop failed: %v\n", op, err)
-		return false
-	}
-
-	if prop.NumItems != 1 || !pinfo.Range || len(pinfo.ValidValues) != 2 {
-		fmt.Println("~~~~~~~~~hasPropBacklight [False]:", prop.NumItems, pinfo.Range, pinfo.ValidValues)
-		return false
-	}
-	return true
-}
-
-func doGetBacklight(setter string) (float64, error) {
-	if helper == nil {
-		return 0, fmt.Errorf("Failed to initialize backlight helper")
-	}
-
-	sysPath := getSysPath(setter)
-	if len(sysPath) == 0 {
-		return 0, fmt.Errorf("No backlight syspath found")
-	}
-
-	v, err := helper.GetBrightness(sysPath)
-	if err != nil {
-		return 0, err
-	}
-
-	max, err := helper.GetMaxBrightness(sysPath)
-	if err != nil {
-		return 0, err
-	}
-
-	if max < 1 {
-		return 0, fmt.Errorf("Failed to get max brightness for %s", sysPath)
-	}
-
-	return float64(v) / float64(max), nil
+func SupportBacklight(outputId uint32, conn *xgb.Conn) bool {
+	output := randr.Output(outputId)
+	return supportBacklight(output, conn)
 }
 
 func setGammaSize(value float64, output randr.Output, conn *xgb.Conn) error {
@@ -163,92 +121,106 @@ func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {
 	return
 }
 
-func setBacklight(value float64, setter string) error {
-	if helper == nil {
-		return fmt.Errorf("Failed to initialize backlight helper")
-	}
+var backlightAtom, edidAtom xproto.Atom
 
-	if setter != SetterBacklight {
-		return doSetByBacklight(value, setter)
-	}
-
-	for _, p := range getSysPathList() {
-		max, err := helper.GetMaxBrightness(p)
-		if err != nil || max < 1 {
-			continue
-		}
-
-		helper.SetBrightness(p, int32(float64(max)*value))
-	}
-	return nil
-}
-
-func doSetByBacklight(value float64, setter string) error {
-	if isBrightnessEqual(value, setter) {
-		return nil
-	}
-
-	sysPath := getSysPath(setter)
-	if len(sysPath) == 0 {
-		return fmt.Errorf("No backlight syspath found")
-	}
-
-	max, err := helper.GetMaxBrightness(sysPath)
-	if err != nil {
-		return err
-	}
-	if max < 1 {
-		return fmt.Errorf("Failed to get max brightness for %s", sysPath)
-	}
-
-	return helper.SetBrightness(sysPath, int32(float64(max)*value))
-}
-
-func getSysPath(setter string) string {
-	var ty string
-	switch setter {
-	case SetterBacklight, SetterRaw:
-		ty = "raw"
-	case SetterPlatform:
-		ty = "platform"
-	case SetterFirmware:
-		ty = "firmware"
-	default:
-		ty = "raw"
-	}
-
-	sysPath, _ := helper.GetSysPathByType(ty)
-	return sysPath
-}
-
-func getSysPathList() []string {
-	list, _ := helper.ListSysPath()
-	return list
-}
-
-func isBrightnessEqual(value float64, setter string) bool {
-	cur, err := doGetBacklight(setter)
-	if err != nil {
-		return false
-	}
-	if value < cur+0.001 && value > cur-0.001 {
-		return true
-	}
-	return false
-}
-
-var backlightAtom xproto.Atom = 0
+const (
+	backlightAtomName = "Backlight"
+	edidAtomName      = "EDID"
+)
 
 func getBacklightAtom(conn *xgb.Conn) xproto.Atom {
 	if backlightAtom != 0 {
 		return backlightAtom
 	}
 
-	var name = "Backlight"
-	reply, err := xproto.InternAtom(conn, false, uint16(len(name)), name).Reply()
+	atom, err := getAtom(conn, backlightAtomName)
 	if err != nil {
 		return xproto.AtomNone
 	}
-	backlightAtom = reply.Atom
+	backlightAtom = atom
 	return backlightAtom
+}
+
+func getEDIDAtom(conn *xgb.Conn) xproto.Atom {
+	if edidAtom != 0 {
+		return edidAtom
+	}
+
+	atom, err := getAtom(conn, edidAtomName)
+	if err != nil {
+		return xproto.AtomNone
+	}
+	edidAtom = atom
+	return edidAtom
+}
+
+func getAtom(conn *xgb.Conn, name string) (xproto.Atom, error) {
+	reply, err := xproto.InternAtom(conn, false, uint16(len(name)), name).Reply()
+	if err != nil {
+		fmt.Println("get %q atom failed:", name, err)
+		return 0, err
+	}
+	return reply.Atom, nil
+}
+
+func hasBacklightProp(output randr.Output, conn *xgb.Conn) bool {
+	backlightProp, err := randr.QueryOutputProperty(conn, output, getBacklightAtom(conn)).Reply()
+	if err != nil {
+		return false
+	}
+	return backlightProp.Range && len(backlightProp.ValidValues) == 2
+}
+
+var errNotFoundBacklightController = errors.New("not found backlight controller")
+
+func getDisplayBlController(output randr.Output, conn *xgb.Conn) (*displayBl.Controller, error) {
+	// get output device edid
+	edidAtom := getEDIDAtom(conn)
+	edidProp, err := randr.GetOutputProperty(conn, output,
+		edidAtom,           // Property
+		xproto.AtomInteger, // Type
+		0,                  // LongOffset
+		128,                // LongLength
+		false,              //Delete
+		false,              //Pending
+	).Reply()
+
+	if err != nil {
+		return nil, err
+	}
+	// get backlight controller
+	controllers, err := displayBl.List()
+	if err != nil {
+		return nil, err
+	}
+	if c := controllers.GetByEDID(edidProp.Data); c != nil {
+		return c, nil
+	}
+	return nil, errNotFoundBacklightController
+}
+
+func setBacklight(value float64, output randr.Output, conn *xgb.Conn) error {
+	controller, err := getDisplayBlController(output, conn)
+	if err != nil {
+		return err
+	}
+
+	br := int32(float64(controller.MaxBrightness) * value)
+	const displayBacklight = 1
+	fmt.Printf("help set brightness %q max %v value %v br %v\n",
+		controller.Name, controller.MaxBrightness, value, br)
+	return helper.SetBrightness(displayBacklight, controller.Name, br)
+}
+
+func getBacklight(output randr.Output, conn *xgb.Conn) (float64, error) {
+	controller, err := getDisplayBlController(output, conn)
+	if err != nil {
+		return 0.0, err
+	}
+
+	br, err := controller.GetBrightness()
+	if err != nil {
+		return 0.0, err
+	}
+	return float64(br) / float64(controller.MaxBrightness), err
 }

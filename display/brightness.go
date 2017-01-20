@@ -14,7 +14,7 @@ func (dpy *Manager) SupportedBacklight(name string) bool {
 	if len(info.Name) == 0 {
 		return false
 	}
-	return brightness.HasPropBacklight(info.Id, dpy.conn)
+	return brightness.SupportBacklight(info.Id, dpy.conn)
 }
 
 func (dpy *Manager) initBrightness() {
