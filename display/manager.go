@@ -519,8 +519,9 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 }
 
 func (dpy *Manager) detectHasChanged() {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
+	// Comment out the two following lines, because of deadlock. But why?
+	// monitorsLocker.Lock()
+	// defer monitorsLocker.Unlock()
 	if len(dpy.outputInfos) != 1 && dpy.DisplayMode != DisplayModeCustom {
 		// if multi-output and not custom mode, nothing
 		dpy.setPropHasChanged(false)
