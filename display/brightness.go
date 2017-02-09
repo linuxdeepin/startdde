@@ -51,10 +51,6 @@ func (dpy *Manager) doSetBrightness(value float64, name string) error {
 		return fmt.Errorf("Invalid output name: %s", name)
 	}
 
-	if v, ok := dpy.Brightness[name]; ok && (value > v-0.001 && value < v+0.001) {
-		return nil
-	}
-
 	err := brightness.Set(value, dpy.setting.GetString(gsKeySetter),
 		info.Id, dpy.conn)
 	if err != nil {
@@ -62,6 +58,12 @@ func (dpy *Manager) doSetBrightness(value float64, name string) error {
 		return err
 	}
 
+	oldValue := dpy.Brightness[name]
+	if oldValue == value {
+		return nil
+	}
+
+	// update brightness of the output
 	dpy.Brightness[name] = value
 	dpy.setPropBrightness(dpy.Brightness)
 	return nil
