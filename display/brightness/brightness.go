@@ -28,8 +28,8 @@ func init() {
 }
 
 func Set(value float64, setter string, outputId uint32, conn *xgb.Conn) error {
-	if value < 0.1 {
-		value = 0.1
+	if value < 0 {
+		value = 0
 	} else if value > 1 {
 		value = 1
 	}
@@ -64,20 +64,25 @@ func Get(setter string, outputId uint32, conn *xgb.Conn) (float64, error) {
 	return 1, nil
 }
 
+func getBacklightController(output randr.Output, conn *xgb.Conn) *displayBl.Controller {
+	if !hasBacklightProp(output, conn) {
+		return nil
+	}
+	c, _ := getDisplayBlController(output, conn)
+	return c
+}
+
+func GetBacklightController(outputId uint32, conn *xgb.Conn) *displayBl.Controller {
+	output := randr.Output(outputId)
+	return getBacklightController(output, conn)
+}
+
 func supportBacklight(output randr.Output, conn *xgb.Conn) bool {
 	if helper == nil {
 		return false
 	}
-	if !hasBacklightProp(output, conn) {
-		return false
-	}
-	c, _ := getDisplayBlController(output, conn)
+	c := getBacklightController(output, conn)
 	return c != nil
-}
-
-func SupportBacklight(outputId uint32, conn *xgb.Conn) bool {
-	output := randr.Output(outputId)
-	return supportBacklight(output, conn)
 }
 
 func setGammaSize(value float64, output randr.Output, conn *xgb.Conn) error {

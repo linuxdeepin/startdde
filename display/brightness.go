@@ -2,19 +2,75 @@ package display
 
 import (
 	"fmt"
+	"math"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
+
+type InvalidOutputNameError struct {
+	Name string
+}
+
+func (err InvalidOutputNameError) Error() string {
+	return fmt.Sprintf("invalid output name %q", err.Name)
+}
 
 func (dpy *Manager) SaveBrightness() {
 	dpy.setting.SetString(gsKeyBrightness, jsonMarshal(dpy.Brightness))
 }
 
-func (dpy *Manager) SupportedBacklight(name string) bool {
-	info := dpy.outputInfos.QueryByName(name)
-	if len(info.Name) == 0 {
-		return false
+func (dpy *Manager) ChangeBrightness(raised bool) {
+	brightnessMap := dpy.Brightness
+	var step float64 = 0.05
+	if !raised {
+		step = -step
 	}
-	return brightness.SupportBacklight(info.Id, dpy.conn)
+
+	for _, info := range dpy.outputInfos {
+		v, ok := brightnessMap[info.Name]
+		if !ok {
+			v = 1.0
+		}
+
+		var br float64
+		setBr := true
+
+		blCtrl := brightness.GetBacklightController(info.Id, dpy.conn)
+		if blCtrl != nil {
+			max := blCtrl.MaxBrightness
+			cur, err := blCtrl.GetBrightness()
+			if err == nil {
+				// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
+				hv := float64(cur) / float64(max)
+				avg := (v + hv) / 2
+				delta := (v - hv) / avg
+				logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
+
+				if math.Abs(delta) > 0.05 {
+					logger.Debug("backlight actual brightness is not set")
+					setBr = false
+					br = hv
+				}
+			}
+		}
+
+		if setBr {
+			br = v + step
+			if br > 1.0 {
+				br = 1.0
+			}
+			if br < 0.0 {
+				br = 0.0
+			}
+			logger.Debug("[changeBrightness] will set to:", info.Name, br)
+			dpy.doSetBrightness(br, info.Name)
+		} else {
+			logger.Debug("[changeBrightness] will update to:", info.Name, br)
+			dpy.doSetBrightnessFake(br, info.Name)
+		}
+
+	}
+
+	dpy.SaveBrightness()
 }
 
 func (dpy *Manager) initBrightness() {
@@ -45,17 +101,19 @@ func (dpy *Manager) initBrightness() {
 	}
 }
 
-func (dpy *Manager) doSetBrightness(value float64, name string) error {
+func (dpy *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
 	info := dpy.outputInfos.QueryByName(name)
-	if len(info.Name) == 0 {
-		return fmt.Errorf("Invalid output name: %s", name)
+	if info.Name == "" {
+		return InvalidOutputNameError{name}
 	}
 
-	err := brightness.Set(value, dpy.setting.GetString(gsKeySetter),
-		info.Id, dpy.conn)
-	if err != nil {
-		logger.Error("Set brightness to %v for %s failed: %v", value, name, err)
-		return err
+	if !fake {
+		err := brightness.Set(value, dpy.setting.GetString(gsKeySetter),
+			info.Id, dpy.conn)
+		if err != nil {
+			logger.Error("Set brightness to %v for %s failed: %v", value, name, err)
+			return err
+		}
 	}
 
 	oldValue := dpy.Brightness[name]
@@ -67,4 +125,12 @@ func (dpy *Manager) doSetBrightness(value float64, name string) error {
 	dpy.Brightness[name] = value
 	dpy.setPropBrightness(dpy.Brightness)
 	return nil
+}
+
+func (dpy *Manager) doSetBrightness(value float64, name string) error {
+	return dpy.doSetBrightnessAux(false, value, name)
+}
+
+func (dpy *Manager) doSetBrightnessFake(value float64, name string) error {
+	return dpy.doSetBrightnessAux(true, value, name)
 }
