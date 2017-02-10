@@ -30,24 +30,23 @@ prepare:
 startdde:
 	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -v -o startdde
 
-readahead:
-	cd dde-readahead; go build -v -o dde-readahead
+dde-readahead/dde-readahead:
+	cd dde-readahead; env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -v -o dde-readahead
 
-build: prepare startdde readahead
+build: prepare startdde dde-readahead/dde-readahead
 
 install:
-	mkdir -p ${DESTDIR}${PREFIX}/bin
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
-	mkdir -p ${DESTDIR}/usr/lib/deepin-daemon/
-	cp -f dde-readahead/dde-readahead ${DESTDIR}/usr/lib/deepin-daemon/
-	mkdir -p ${DESTDIR}/lib/systemd/system/
-	cp -f dde-readahead/dde-readahead.service ${DESTDIR}/lib/systemd/system/
+	install -Dm755 dde-readahead/dde-readahead ${DESTDIR}/${PREFIX}/lib/deepin-daemon/dde-readahead
+	install -Dm644 dde-readahead/dde-readahead.service ${DESTDIR}/lib/systemd/system/dde-readahead.service
 	mkdir -p ${DESTDIR}/lib/systemd/system/multi-user.target.wants/
-	ln -s /lib/systemd/system/dde-readahead.service ${DESTDIR}/lib/systemd/system/multi-user.target.wants/
+	ln -s /lib/systemd/system/dde-readahead.service ${DESTDIR}/lib/systemd/system/multi-user.target.wants/dde-readahead.service
 
 clean:
-	rm -rf ${GOPATH_DIR} startdde dde-readahead/dde-readahead
+	-rm -rf ${GOPATH_DIR}
+	-rm -f startdde
+	-rm -f dde-readahead/dde-readahead
 
 rebuild: clean build
