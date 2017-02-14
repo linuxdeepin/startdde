@@ -20,6 +20,10 @@ func (dpy *Manager) ListOutputsCommonModes() (drandr.ModeInfos, error) {
 }
 
 func (dpy *Manager) SetPrimary(primary string) error {
+	if dpy.Primary == primary {
+		return nil
+	}
+
 	m := dpy.Monitors.getByName(primary)
 	if m == nil {
 		return fmt.Errorf("Invalid monitor name: %s", primary)
@@ -31,6 +35,7 @@ func (dpy *Manager) SetPrimary(primary string) error {
 		return err
 	}
 	dpy.setPropPrimary(primary)
+	dpy.setPropHasChanged(true)
 	return nil
 }
 
