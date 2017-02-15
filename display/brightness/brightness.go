@@ -14,6 +14,8 @@ const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
+
+	edidAtomName = "EDID"
 )
 
 var helper *backlight.Backlight
@@ -64,15 +66,7 @@ func Get(setter string, outputId uint32, conn *xgb.Conn) (float64, error) {
 	return 1, nil
 }
 
-func getBacklightController(output randr.Output, conn *xgb.Conn) *displayBl.Controller {
-	if !hasBacklightProp(output, conn) {
-		return nil
-	}
-	c, _ := getDisplayBlController(output, conn)
-	return c
-}
-
-func GetBacklightController(outputId uint32, conn *xgb.Conn) *displayBl.Controller {
+func GetBacklightController(outputId uint32, conn *xgb.Conn) (*displayBl.Controller, error) {
 	output := randr.Output(outputId)
 	return getBacklightController(output, conn)
 }
@@ -81,7 +75,7 @@ func supportBacklight(output randr.Output, conn *xgb.Conn) bool {
 	if helper == nil {
 		return false
 	}
-	c := getBacklightController(output, conn)
+	c, _ := getBacklightController(output, conn)
 	return c != nil
 }
 
@@ -126,25 +120,7 @@ func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {
 	return
 }
 
-var backlightAtom, edidAtom xproto.Atom
-
-const (
-	backlightAtomName = "Backlight"
-	edidAtomName      = "EDID"
-)
-
-func getBacklightAtom(conn *xgb.Conn) xproto.Atom {
-	if backlightAtom != 0 {
-		return backlightAtom
-	}
-
-	atom, err := getAtom(conn, backlightAtomName)
-	if err != nil {
-		return xproto.AtomNone
-	}
-	backlightAtom = atom
-	return backlightAtom
-}
+var edidAtom xproto.Atom
 
 func getEDIDAtom(conn *xgb.Conn) xproto.Atom {
 	if edidAtom != 0 {
@@ -168,17 +144,9 @@ func getAtom(conn *xgb.Conn, name string) (xproto.Atom, error) {
 	return reply.Atom, nil
 }
 
-func hasBacklightProp(output randr.Output, conn *xgb.Conn) bool {
-	backlightProp, err := randr.QueryOutputProperty(conn, output, getBacklightAtom(conn)).Reply()
-	if err != nil {
-		return false
-	}
-	return backlightProp.Range && len(backlightProp.ValidValues) == 2
-}
-
 var errNotFoundBacklightController = errors.New("not found backlight controller")
 
-func getDisplayBlController(output randr.Output, conn *xgb.Conn) (*displayBl.Controller, error) {
+func getBacklightController(output randr.Output, conn *xgb.Conn) (*displayBl.Controller, error) {
 	// get output device edid
 	edidAtom := getEDIDAtom(conn)
 	edidProp, err := randr.GetOutputProperty(conn, output,
@@ -205,20 +173,20 @@ func getDisplayBlController(output randr.Output, conn *xgb.Conn) (*displayBl.Con
 }
 
 func setBacklight(value float64, output randr.Output, conn *xgb.Conn) error {
-	controller, err := getDisplayBlController(output, conn)
+	controller, err := getBacklightController(output, conn)
 	if err != nil {
 		return err
 	}
 
 	br := int32(float64(controller.MaxBrightness) * value)
-	const displayBacklight = 1
+	const backlightTypeDisplay = 1
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
-	return helper.SetBrightness(displayBacklight, controller.Name, br)
+	return helper.SetBrightness(backlightTypeDisplay, controller.Name, br)
 }
 
 func getBacklight(output randr.Output, conn *xgb.Conn) (float64, error) {
-	controller, err := getDisplayBlController(output, conn)
+	controller, err := getBacklightController(output, conn)
 	if err != nil {
 		return 0.0, err
 	}

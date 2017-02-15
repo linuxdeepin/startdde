@@ -34,8 +34,9 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 		var br float64
 		setBr := true
 
-		blCtrl := brightness.GetBacklightController(info.Id, dpy.conn)
-		if blCtrl != nil {
+		if blCtrl, err := brightness.GetBacklightController(info.Id, dpy.conn); err != nil {
+			logger.Debugf("get output %q backlight controller failed: %v", info.Name, err)
+		} else {
 			max := blCtrl.MaxBrightness
 			cur, err := blCtrl.GetBrightness()
 			if err == nil {
