@@ -74,8 +74,7 @@ func (m *StartManager) Launch(name string) (bool, error) {
 }
 
 func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
-	list := make([]*gio.File, 0)
-	err := launch(name, list, timestamp)
+	err := launch(name, timestamp)
 	if err != nil {
 		logger.Info("launch failed:", err)
 	}

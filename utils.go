@@ -10,7 +10,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,8 +21,8 @@ import (
 	"os/exec"
 	"time"
 
-	"gir/gio-2.0"
 	"gir/glib-2.0"
+	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 )
 
 func Exist(name string) bool {
@@ -137,55 +136,12 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 	return nil
 }
 
-func launch(name interface{}, list interface{}, timestamp uint32) error {
-	var appInfo *gio.AppInfo
-
-	switch o := name.(type) {
-	case *gio.AppInfo:
-		appInfo = o
-	case *gio.DesktopAppInfo:
-		appInfo = gio.ToAppInfo(o)
-	case string:
-		if strings.HasSuffix(o, ".desktop") {
-			// maybe use AppInfoCreateFromCommandline with
-			// AppInfoCreateFlagsSupportsStartupNotification flag
-			var dInfo *gio.DesktopAppInfo
-			if path.IsAbs(o) {
-				dInfo = gio.NewDesktopAppInfoFromFilename(o)
-			} else {
-				dInfo = gio.NewDesktopAppInfo(o)
-			}
-			if dInfo == nil {
-				return errors.New("Launch failed")
-			}
-			defer dInfo.Unref()
-
-			if wmClass := dInfo.GetStartupWmClass(); wmClass != "" {
-				recordStartWMClass(o, wmClass)
-			}
-			appInfo = gio.ToAppInfo(dInfo)
-		} else {
-			cInfo, err := gio.AppInfoCreateFromCommandline(
-				o,
-				"",
-				gio.AppInfoCreateFlagsNone,
-			)
-			if err != nil {
-				return err
-			}
-			defer cInfo.Unref()
-			appInfo = cInfo
-		}
-	default:
-		return errors.New("not supported type now")
+func launch(file string, timestamp uint32) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(file)
+	if err != nil {
+		return err
 	}
-
-	ctx := gio.GetGdkAppLaunchContext()
-	ctx.SetTimestamp(timestamp)
-	_, err := appInfo.Launch(list.([]*gio.File), ctx)
-	ctx.Unref()
-
-	return err
+	return appInfo.Launch(timestamp, nil)
 }
 
 func getDelayTime(o string) time.Duration {
