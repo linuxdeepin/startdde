@@ -10,8 +10,8 @@
 package main
 
 import (
-	"pkg.deepin.io/lib/dbus"
 	"os/user"
+	"pkg.deepin.io/lib/dbus"
 )
 
 const (

@@ -19,6 +19,8 @@ package main
 import "C"
 import (
 	"flag"
+	"github.com/BurntSushi/xgbutil"
+	"os"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -30,6 +32,13 @@ var debug = flag.Bool("d", false, "debug")
 var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm-switcher", "the window manager used by dde")
 
 func main() {
+	// init x conn
+	xu, err := xgbutil.NewConn()
+	if err != nil {
+		logger.Warning(err)
+		os.Exit(1)
+	}
+
 	C.gtkInit()
 	flag.Parse()
 	initObjSoundThemePlayer()
@@ -38,11 +47,11 @@ func main() {
 
 	proxy.SetupProxy()
 
-	startXSettings()
+	startXSettings(xu.Conn())
 
 	startDisplay()
 
-	startSession()
+	startSession(xu)
 
 	watchdog.Start()
 

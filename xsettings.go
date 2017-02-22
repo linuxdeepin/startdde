@@ -36,15 +36,12 @@ type xsSetting struct {
 	value interface{} // int32, string, [4]int16
 }
 
-func NewXSManager() (*XSManager, error) {
-	var m = &XSManager{}
-
-	var err error
-	m.conn, err = xgb.NewConn()
-	if err != nil {
-		return nil, err
+func NewXSManager(conn *xgb.Conn) (*XSManager, error) {
+	var m = &XSManager{
+		conn: conn,
 	}
 
+	var err error
 	m.owner, err = createSettingWindow(m.conn)
 	if err != nil {
 		m.conn.Close()
@@ -143,8 +140,8 @@ func (m *XSManager) handleGSettingsChanged() {
 	m.gs.GetString("theme-name")
 }
 
-func startXSettings() {
-	m, err := NewXSManager()
+func startXSettings(conn *xgb.Conn) {
+	m, err := NewXSManager(conn)
 	if err != nil {
 		logger.Error("Start xsettings failed:", err)
 		return

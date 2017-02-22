@@ -22,6 +22,9 @@ import (
 	"dbus/com/deepin/daemon/apps"
 	"gir/gio-2.0"
 	"gir/glib-2.0"
+	"github.com/BurntSushi/xgbutil"
+	"pkg.deepin.io/lib/appinfo"
+	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
 )
 
@@ -49,10 +52,13 @@ type StartManager struct {
 	AutostartChanged  func(string, string)
 	delayHandler      *mapDelayHandler
 	launchedRecorder  *apps.LaunchedRecorder
+	launchContext     *appinfo.AppLaunchContext
 }
 
-func newStartManager() *StartManager {
+func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	manager := &StartManager{}
+
+	manager.launchContext = appinfo.NewAppLaunchContext(xu)
 	manager.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		manager.emitSignalAutostartChanged)
 	var err error
@@ -74,9 +80,9 @@ func (m *StartManager) Launch(name string) (bool, error) {
 }
 
 func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
-	err := launch(name, timestamp)
+	err := launch(name, timestamp, m.launchContext)
 	if err != nil {
-		logger.Info("launch failed:", err)
+		logger.Warning("launch failed:", err)
 	}
 
 	// mark app launched
@@ -84,6 +90,15 @@ func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool,
 		m.launchedRecorder.MarkLaunched(name)
 	}
 	return err == nil, err
+}
+
+func launch(file string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(file)
+	if err != nil {
+		return err
+	}
+	ctx.SetTimestamp(timestamp)
+	return appInfo.Launch(nil, ctx)
 }
 
 const (
@@ -524,9 +539,9 @@ func (m *StartManager) IsAutostart(name string) bool {
 	return m.isAutostart(name)
 }
 
-func startStartManager() {
+func startStartManager(xu *xgbutil.XUtil) {
 	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
-	START_MANAGER = newStartManager()
+	START_MANAGER = newStartManager(xu)
 	if err := dbus.InstallOnSession(START_MANAGER); err != nil {
 		logger.Error("Install StartManager Failed:", err)
 	}

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/xgbutil"
 	"os/exec"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/dbus"
@@ -186,7 +187,7 @@ func (manager *SessionManager) launchWindowManager() {
 	manager.launch(*windowManagerBin, false)
 }
 
-func startSession() {
+func startSession(xu *xgbutil.XUtil) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -215,7 +216,7 @@ func startSession() {
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)
-	startStartManager()
+	startStartManager(xu)
 
 	// dde-launcher is fast enough now, there's no need to start it at the begnning
 	// of every session.

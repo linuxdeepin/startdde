@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"gir/glib-2.0"
-	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 )
 
 func Exist(name string) bool {
@@ -134,14 +133,6 @@ func saveKeyFile(file *glib.KeyFile, path string) error {
 		return err
 	}
 	return nil
-}
-
-func launch(file string, timestamp uint32) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(file)
-	if err != nil {
-		return err
-	}
-	return appInfo.Launch(timestamp, nil)
 }
 
 func getDelayTime(o string) time.Duration {
