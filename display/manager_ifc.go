@@ -132,8 +132,8 @@ func (dpy *Manager) ResetChanges() error {
 	}
 	dpy.doSetPrimary(cMonitor.Primary, true)
 	dpy.initBrightness()
+	dpy.setPropHasChanged(false)
 	monitorsLocker.Unlock()
-	dpy.detectHasChanged()
 	return nil
 }
 
@@ -161,10 +161,10 @@ func (dpy *Manager) Save() error {
 		return err
 	}
 
+	dpy.setPropHasChanged(false)
 	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
 		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
 	}
-	dpy.detectHasChanged()
 	return nil
 }
 

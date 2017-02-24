@@ -411,17 +411,14 @@ func (dpy *Manager) updateMonitors() {
 }
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
-	id, modes := dpy.sumOutputUUID(output)
-	// handle different rate but some width/height mode
-	sort.Sort(modes)
-	modes = modes.FilterBySize()
-
+	id := dpy.sumOutputUUID(output)
 	if m := dpy.allMonitors.get(id); m != nil {
 		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %#v",
 			id, output)
 	}
 
 	base := toMonitorBaseInfo(output, id)
+	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
 		cfg:         &base,
 		uuid:        base.UUID,
@@ -460,12 +457,9 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
-	id, modes := dpy.sumOutputUUID(oinfo)
-	m.uuid = id
-	sort.Sort(modes)
-	modes = modes.FilterBySize()
-	m.setPropModes(modes)
-	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", id, oinfo.Crtc)
+	m.uuid = dpy.sumOutputUUID(oinfo)
+	m.setPropModes(dpy.getModesByIds(oinfo.Modes))
+	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", m.uuid, oinfo.Crtc)
 	if oinfo.Crtc.Id == 0 {
 		m.doEnable(false)
 	} else {
@@ -496,13 +490,12 @@ func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseI
 	return nil
 }
 
-func (dpy *Manager) sumOutputUUID(output drandr.OutputInfo) (string, drandr.ModeInfos) {
-	var (
-		id    string
-		modes = dpy.getModesByIds(output.Modes)
-	)
-	id, _ = utils.SumStrMd5(output.Name + modes.String())
-	return id, modes
+func (dpy *Manager) sumOutputUUID(output drandr.OutputInfo) string {
+	id, _ := utils.SumStrMd5(string(output.EDID))
+	if id == "" {
+		id = output.Name
+	}
+	return id
 }
 
 func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
@@ -515,6 +508,9 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 		}
 		modes = append(modes, mode)
 	}
+	// handle different rate but some width/height mode
+	sort.Sort(modes)
+	modes = modes.FilterBySize()
 	return modes
 }
 

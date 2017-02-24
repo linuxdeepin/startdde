@@ -29,7 +29,7 @@ type MonitorInfo struct {
 
 	// MonitorBaseInfo
 	// dbus unsupported inherit
-	uuid        string // sum md5 of name and modes, for config
+	uuid        string // sum md5 of edid, for config
 	Name        string
 	Enabled     bool
 	Connected   bool
@@ -328,7 +328,7 @@ func (ms MonitorInfos) getBaseInfos() MonitorBaseInfos {
 		if !m.Connected {
 			continue
 		}
-		base = append(base, m.cfg)
+		base = append(base, m.cfg.Duplicate())
 	}
 	return base
 }
