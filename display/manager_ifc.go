@@ -118,22 +118,13 @@ func (dpy *Manager) ResetChanges() error {
 		logger.Warning("No config found for:", id)
 		return fmt.Errorf("No config found for '%s'", id)
 	}
-	monitorsLocker.Lock()
-	for _, info := range cMonitor.BaseInfos {
-		m := dpy.Monitors.getByName(info.Name)
-		dpy.updateMonitorFromBaseInfo(m, info)
-	}
-
-	err := dpy.doApply(cMonitor.Primary, false)
+	err := dpy.applyConfigSettings(cMonitor)
 	if err != nil {
-		logger.Warning("[ResetChanges] apply failed:", err)
-		monitorsLocker.Unlock()
+		logger.Warning("[ResetChanges] apply config failed:", err)
 		return err
 	}
-	dpy.doSetPrimary(cMonitor.Primary, true)
 	dpy.initBrightness()
 	dpy.setPropHasChanged(false)
-	monitorsLocker.Unlock()
 	return nil
 }
 

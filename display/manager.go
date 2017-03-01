@@ -318,9 +318,27 @@ func (dpy *Manager) tryApplyConfig() error {
 func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
+	var corrected bool = false
 	for _, info := range cMonitor.BaseInfos {
-		m := dpy.Monitors.getByName(info.Name)
+		m := dpy.Monitors.get(info.UUID)
+		if m == nil {
+			logger.Errorf("Config has invalid info: %#v", info)
+			continue
+		}
+
+		// Sometime output name changed after driver updated
+		// so modified
+		if m.Name != info.Name {
+			corrected = true
+			if cMonitor.Primary == info.Name {
+				cMonitor.Primary = m.Name
+			}
+			info.Name = m.Name
+		}
 		dpy.updateMonitorFromBaseInfo(m, info)
+	}
+	if corrected {
+		dpy.config.writeFile()
 	}
 	err := dpy.doApply(cMonitor.Primary, false)
 	if err != nil {
