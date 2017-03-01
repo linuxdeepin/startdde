@@ -74,7 +74,6 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 			if err != nil {
 				logger.Error("Apply failed for event:", err)
 			}
-			dpy.setPropHasCustomConfig(dpy.config.get(dpy.Monitors.getMonitorsId()) != nil)
 		}
 	}
 	dpy.updateScreenSize()

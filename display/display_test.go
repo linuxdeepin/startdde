@@ -92,3 +92,9 @@ func TestConfigManager(t *testing.T) {
 		So(manager.get(id), ShouldBeNil)
 	})
 }
+
+func TestConfigVersion(t *testing.T) {
+	Convey("Test config version", t, func() {
+		So(isVersionRight("3.0", "testdata/config.version"), ShouldEqual, true)
+	})
+}

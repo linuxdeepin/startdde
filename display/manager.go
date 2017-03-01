@@ -10,8 +10,10 @@ import (
 	"pkg.deepin.io/dde/api/drandr"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
 	"sort"
+	"strings"
 	"sync"
 )
 
@@ -30,6 +32,7 @@ const (
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
 	gsKeyPrimary     = "primary"
+	gsKeyCustomMode  = "current-custom-mode"
 )
 
 type Manager struct {
@@ -40,11 +43,12 @@ type Manager struct {
 	lastConfigTime xproto.Timestamp
 
 	HasChanged      bool
-	HasCustomConfig bool
 	DisplayMode     uint8
 	ScreenWidth     uint16
 	ScreenHeight    uint16
 	Primary         string
+	CurrentCustomId string
+	CustomIdList    []string
 	PrimaryRect     xproto.Rectangle
 	Monitors        MonitorInfos
 	Brightness      map[string]float64
@@ -104,6 +108,7 @@ func newManager() (*Manager, error) {
 	m.setting = s
 	m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
 	m.Primary = m.setting.GetString(gsKeyPrimary)
+	m.CurrentCustomId = m.setting.GetString(gsKeyCustomMode)
 	return &m, nil
 }
 
@@ -121,6 +126,13 @@ func (dpy *Manager) init() {
 	}
 	dpy.doSetPrimary(dpy.Primary, true)
 
+	// check config version
+	dpy.checkConfigVersion()
+
+	dpy.setPropCustomIdList(dpy.getCustomIdList())
+	if !strv.Strv(dpy.CustomIdList).Contains(dpy.CurrentCustomId) {
+		dpy.syncCurrentCustomId("")
+	}
 	err := dpy.tryApplyConfig()
 	if err != nil {
 		logger.Error("Try apply settings failed for init:", err)
@@ -128,7 +140,6 @@ func (dpy *Manager) init() {
 
 	dpy.initBrightness()
 	dpy.initTouchMap()
-	dpy.setPropHasCustomConfig(dpy.config.get(dpy.Monitors.getMonitorsId()) != nil)
 }
 
 func (dpy *Manager) initTouchMap() {
@@ -274,25 +285,33 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 	return dpy.doSetPrimary(name, true)
 }
 
-func (dpy *Manager) switchToCustom() error {
+func (dpy *Manager) switchToCustom(name string) error {
 	// firstly find the matched config,
 	// then update monitors from config, finaly apply these config.
 	id := dpy.Monitors.getMonitorsId()
 	if len(id) == 0 {
 		return fmt.Errorf("No output connected")
 	}
+	id = name + "+" + id
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		if dpy.DisplayMode != DisplayModeMirror {
 			dpy.switchToExtend()
 		}
 		dpy.config.set(id, &configMonitor{
+			Name:      name,
 			Primary:   dpy.Primary,
 			BaseInfos: dpy.Monitors.getBaseInfos(),
 		})
+		dpy.syncCurrentCustomId(name)
+		dpy.setPropCustomIdList(dpy.getCustomIdList())
 		return dpy.config.writeFile()
 	}
-	return dpy.applyConfigSettings(cMonitor)
+	err := dpy.applyConfigSettings(cMonitor)
+	if err == nil {
+		dpy.syncCurrentCustomId(name)
+	}
+	return err
 }
 
 func (dpy *Manager) tryApplyConfig() error {
@@ -302,23 +321,26 @@ func (dpy *Manager) tryApplyConfig() error {
 	}
 
 	id := dpy.Monitors.getMonitorsId()
+	if dpy.DisplayMode == DisplayModeCustom {
+		id = dpy.CurrentCustomId + "+" + id
+	}
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		// no config found, switch to extend mode
-		dpy.switchToExtend()
-		dpy.config.set(id, &configMonitor{
-			Primary:   dpy.Primary,
-			BaseInfos: dpy.Monitors.getBaseInfos(),
-		})
-		return dpy.config.writeFile()
+		return dpy.SwitchMode(DisplayModeExtend, "")
 	}
-	return dpy.applyConfigSettings(cMonitor)
+	err := dpy.applyConfigSettings(cMonitor)
+	if err == nil {
+		dpy.syncCurrentCustomId(cMonitor.Name)
+	}
+	return err
 }
 
 func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
 	var corrected bool = false
+	logger.Debugf("============[applyConfigSettings] config: %#v", cMonitor)
 	for _, info := range cMonitor.BaseInfos {
 		m := dpy.Monitors.get(info.UUID)
 		if m == nil {
@@ -495,6 +517,7 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 }
 
 func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseInfo) error {
+	logger.Info("=========[updateMonitorFromBaseInfo] args:", m, base)
 	m.locker.Lock()
 	defer m.locker.Unlock()
 	oinfo := dpy.outputInfos.QueryByName(m.Name)
@@ -625,4 +648,26 @@ func (dpy *Manager) updateScreenSize() {
 		}
 	}
 	dpy.setPropScreenSize(w, h)
+}
+
+func (dpy *Manager) isIdDeletable(id string) bool {
+	return dpy.CurrentCustomId != id
+}
+
+func (dpy *Manager) syncCurrentCustomId(id string) {
+	dpy.setPropCurrentCustomId(id)
+	dpy.setting.SetString(gsKeyCustomMode, id)
+}
+
+func (dpy *Manager) getCustomIdList() []string {
+	id := dpy.Monitors.getMonitorsId()
+	set := dpy.config.getIdList()
+	var tmp []string
+	for k, v := range set {
+		if strings.Contains(k, id) {
+			tmp = append(tmp, v)
+		}
+	}
+	sort.Strings(tmp)
+	return tmp
 }

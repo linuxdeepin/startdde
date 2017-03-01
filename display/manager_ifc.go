@@ -60,7 +60,11 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 	case DisplayModeOnlyOne:
 		err = dpy.switchToOnlyOne(name)
 	case DisplayModeCustom:
-		err = dpy.switchToCustom()
+		if name == "" {
+			logger.Warning("Must input custom mode name")
+			return fmt.Errorf("Empty custom mode name")
+		}
+		err = dpy.switchToCustom(name)
 	default:
 		logger.Warning("Invalid display mode:", mode)
 		return fmt.Errorf("Invalid display mode: %d", mode)
@@ -70,9 +74,6 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 		return err
 	}
 
-	if mode == DisplayModeCustom {
-		dpy.setPropHasCustomConfig(true)
-	}
 	dpy.setPropDisplayMode(mode)
 	dpy.setPropHasChanged(false)
 	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
@@ -119,6 +120,10 @@ func (dpy *Manager) ResetChanges() error {
 		return fmt.Errorf("No output connected")
 	}
 
+	if dpy.DisplayMode == DisplayModeCustom {
+		id = dpy.CurrentCustomId
+	}
+
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		logger.Warning("No config found for:", id)
@@ -144,6 +149,10 @@ func (dpy *Manager) Save() error {
 		logger.Warning("No output connected")
 		return fmt.Errorf("No output connected")
 	}
+
+	if dpy.DisplayMode == DisplayModeCustom {
+		id = dpy.CurrentCustomId
+	}
 	cMonitor := configMonitor{
 		Primary:   dpy.Primary,
 		BaseInfos: dpy.Monitors.getBaseInfos(),
@@ -163,19 +172,35 @@ func (dpy *Manager) Save() error {
 	return nil
 }
 
-func (dpy *Manager) DeleteCustomConfig() error {
-	id := dpy.Monitors.getMonitorsId()
+func (dpy *Manager) DeleteCustomMode(id string) error {
+	if id == "" {
+		logger.Warning("Empty mode id")
+		return fmt.Errorf("The mode id is empty")
+	}
+
+	if !dpy.isIdDeletable(id) {
+		logger.Warningf("The mode '%s' was used currently", id)
+		return fmt.Errorf("'%s' was used currently", id)
+	}
+
 	if !dpy.config.delete(id) {
-		// no config found
+		// no config id found
 		return nil
 	}
-	dpy.setPropHasCustomConfig(false)
+
+	dpy.setPropCustomIdList(dpy.getCustomIdList())
 	return dpy.config.writeFile()
 }
 
 func (dpy *Manager) Reset() error {
 	// remove config file
 	os.Remove(dpy.config.filename)
+	dpy.config = &configManager{
+		BaseGroup: make(map[string]*configMonitor),
+		filename:  configFile,
+	}
+	dpy.syncCurrentCustomId("")
+	dpy.setPropCustomIdList(dpy.getCustomIdList())
 	err := dpy.SwitchMode(DisplayModeExtend, "")
 	if err != nil {
 		logger.Error("[Reset] switch to extend failed:", err)

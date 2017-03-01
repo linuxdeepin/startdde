@@ -5,6 +5,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/dde/api/drandr"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/strv"
 	"strings"
 )
 
@@ -29,14 +30,6 @@ func (dpy *Manager) setPropHasChanged(v bool) {
 	}
 	dpy.HasChanged = v
 	dbus.NotifyChange(dpy, "HasChanged")
-}
-
-func (dpy *Manager) setPropHasCustomConfig(v bool) {
-	if dpy.HasCustomConfig == v {
-		return
-	}
-	dpy.HasCustomConfig = v
-	dbus.NotifyChange(dpy, "HasCustomConfig")
 }
 
 func (dpy *Manager) setPropDisplayMode(v uint8) {
@@ -65,6 +58,22 @@ func (dpy *Manager) setPropPrimary(v string) {
 	}
 	dpy.Primary = v
 	dbus.NotifyChange(dpy, "Primary")
+}
+
+func (dpy *Manager) setPropCurrentCustomId(id string) {
+	if dpy.CurrentCustomId == id {
+		return
+	}
+	dpy.CurrentCustomId = id
+	dbus.NotifyChange(dpy, "CurrentCustomId")
+}
+
+func (dpy *Manager) setPropCustomIdList(list []string) {
+	if strv.Strv(dpy.CustomIdList).Equal(strv.Strv(list)) {
+		return
+	}
+	dpy.CustomIdList = list
+	dbus.NotifyChange(dpy, "CustomIdList")
 }
 
 func (dpy *Manager) setPropPrimaryRect(v xproto.Rectangle) {

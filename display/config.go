@@ -9,6 +9,7 @@ import (
 )
 
 type configMonitor struct {
+	Name      string
 	Primary   string
 	BaseInfos MonitorBaseInfos
 }
@@ -75,6 +76,14 @@ func (config *configManager) writeFile() error {
 		return err
 	}
 	return ioutil.WriteFile(config.filename, data, 0644)
+}
+
+func (config *configManager) getIdList() map[string]string {
+	var set = make(map[string]string)
+	for k, v := range config.BaseGroup {
+		set[k] = v.Name
+	}
+	return set
 }
 
 func (config *configManager) String() string {
