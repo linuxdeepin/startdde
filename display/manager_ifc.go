@@ -40,7 +40,13 @@ func (dpy *Manager) SetPrimary(primary string) error {
 }
 
 func (dpy *Manager) SetBrightness(name string, value float64) error {
-	return dpy.doSetBrightness(value, name)
+	err := dpy.doSetBrightness(value, name)
+	if err != nil {
+		logger.Warning("Failed to set brightness:", name, value, err)
+		return err
+	}
+	dpy.SaveBrightness()
+	return nil
 }
 
 func (dpy *Manager) SwitchMode(mode uint8, name string) error {
@@ -123,7 +129,6 @@ func (dpy *Manager) ResetChanges() error {
 		logger.Warning("[ResetChanges] apply config failed:", err)
 		return err
 	}
-	dpy.initBrightness()
 	dpy.setPropHasChanged(false)
 	return nil
 }
@@ -145,7 +150,6 @@ func (dpy *Manager) Save() error {
 	}
 	dpy.config.set(id, &cMonitor)
 
-	dpy.SaveBrightness()
 	err := dpy.config.writeFile()
 	if err != nil {
 		logger.Error("Save config failed:", err)
