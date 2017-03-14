@@ -10,7 +10,6 @@ import (
 	"pkg.deepin.io/dde/api/drandr"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
 	"sort"
 	"strings"
@@ -33,6 +32,8 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyPrimary     = "primary"
 	gsKeyCustomMode  = "current-custom-mode"
+
+	customModeDelim = "+"
 )
 
 type Manager struct {
@@ -130,9 +131,6 @@ func (dpy *Manager) init() {
 	dpy.checkConfigVersion()
 
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
-	if !strv.Strv(dpy.CustomIdList).Contains(dpy.CurrentCustomId) {
-		dpy.syncCurrentCustomId("")
-	}
 	err := dpy.tryApplyConfig()
 	if err != nil {
 		logger.Error("Try apply settings failed for init:", err)
@@ -292,7 +290,7 @@ func (dpy *Manager) switchToCustom(name string) error {
 	if len(id) == 0 {
 		return fmt.Errorf("No output connected")
 	}
-	id = name + "+" + id
+	id = name + customModeDelim + id
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		if dpy.DisplayMode != DisplayModeMirror {
@@ -322,7 +320,7 @@ func (dpy *Manager) tryApplyConfig() error {
 
 	id := dpy.Monitors.getMonitorsId()
 	if dpy.DisplayMode == DisplayModeCustom {
-		id = dpy.CurrentCustomId + "+" + id
+		id = dpy.CurrentCustomId + customModeDelim + id
 	}
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
@@ -331,7 +329,10 @@ func (dpy *Manager) tryApplyConfig() error {
 	}
 	err := dpy.applyConfigSettings(cMonitor)
 	if err == nil {
-		dpy.syncCurrentCustomId(cMonitor.Name)
+		dpy.setPropCustomIdList(dpy.getCustomIdList())
+		if cMonitor.Name != "" {
+			dpy.syncCurrentCustomId(cMonitor.Name)
+		}
 	}
 	return err
 }
@@ -517,7 +518,6 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 }
 
 func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseInfo) error {
-	logger.Info("=========[updateMonitorFromBaseInfo] args:", m, base)
 	m.locker.Lock()
 	defer m.locker.Unlock()
 	oinfo := dpy.outputInfos.QueryByName(m.Name)
@@ -664,7 +664,11 @@ func (dpy *Manager) getCustomIdList() []string {
 	set := dpy.config.getIdList()
 	var tmp []string
 	for k, v := range set {
-		if strings.Contains(k, id) {
+		if v == "" {
+			continue
+		}
+		list := strings.Split(k, customModeDelim)
+		if list[len(list)-1] == id {
 			tmp = append(tmp, v)
 		}
 	}

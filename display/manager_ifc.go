@@ -79,6 +79,7 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
 		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
 	}
+	dpy.setPropCustomIdList(dpy.getCustomIdList())
 	return dpy.Save()
 }
 
@@ -121,7 +122,7 @@ func (dpy *Manager) ResetChanges() error {
 	}
 
 	if dpy.DisplayMode == DisplayModeCustom {
-		id = dpy.CurrentCustomId
+		id = dpy.CurrentCustomId + customModeDelim + id
 	}
 
 	cMonitor := dpy.config.get(id)
@@ -150,12 +151,13 @@ func (dpy *Manager) Save() error {
 		return fmt.Errorf("No output connected")
 	}
 
-	if dpy.DisplayMode == DisplayModeCustom {
-		id = dpy.CurrentCustomId
-	}
 	cMonitor := configMonitor{
 		Primary:   dpy.Primary,
 		BaseInfos: dpy.Monitors.getBaseInfos(),
+	}
+	if dpy.DisplayMode == DisplayModeCustom {
+		cMonitor.Name = dpy.CurrentCustomId
+		id = dpy.CurrentCustomId + customModeDelim + id
 	}
 	dpy.config.set(id, &cMonitor)
 
@@ -172,18 +174,24 @@ func (dpy *Manager) Save() error {
 	return nil
 }
 
-func (dpy *Manager) DeleteCustomMode(id string) error {
-	if id == "" {
-		logger.Warning("Empty mode id")
-		return fmt.Errorf("The mode id is empty")
+func (dpy *Manager) DeleteCustomMode(name string) error {
+	if name == "" {
+		logger.Warning("Empty mode name")
+		return fmt.Errorf("The mode name is empty")
 	}
 
-	if !dpy.isIdDeletable(id) {
-		logger.Warningf("The mode '%s' was used currently", id)
-		return fmt.Errorf("'%s' was used currently", id)
+	id := dpy.Monitors.getMonitorsId()
+	if len(id) == 0 {
+		logger.Warning("No output connected")
+		return fmt.Errorf("No output connected")
 	}
 
-	if !dpy.config.delete(id) {
+	if !dpy.isIdDeletable(name) {
+		logger.Warningf("The mode '%s' was used currently", name)
+		return fmt.Errorf("'%s' was used currently", name)
+	}
+
+	if !dpy.config.delete(name + customModeDelim + id) {
 		// no config id found
 		return nil
 	}

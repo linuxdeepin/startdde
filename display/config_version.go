@@ -6,7 +6,7 @@ import (
 	"path"
 )
 
-const _confVersion = "3.1"
+const _confVersion = "3.2"
 
 var (
 	confVersionFile = os.Getenv("HOME") + "/.config/deepin/startdde/config.version"
