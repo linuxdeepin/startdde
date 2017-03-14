@@ -187,6 +187,30 @@ func (manager *SessionManager) launchWindowManager() {
 	manager.launch(*windowManagerBin, false)
 }
 
+func exportEnvironments(env []string) {
+	var willExport []string
+	for _, e := range env {
+		if os.Getenv(e) != "" {
+			willExport = append(willExport, e)
+		}
+	}
+	exec.Command("/usr/bin/dbus-update-activation-environment",
+		append([]string{"--systemd"}, willExport...)...).Run()
+}
+
+func setupEnvironments() {
+	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
+	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
+	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
+	os.Setenv("XDG_CURRENT_DESKTOP", "Deepin")
+
+	exportEnvironments([]string{
+		"GNOME_DESKTOP_SESSION_ID",
+		"XDG_CURRENT_DESKTOP",
+		"SSH_AUTH_SOCK",
+	})
+}
+
 func startSession(xu *xgbutil.XUtil) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -197,19 +221,14 @@ func startSession(xu *xgbutil.XUtil) {
 
 	initSession()
 
-	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
-	// https://tower.im/projects/8162ac3745044ca29f9f3d21beaeb93d/todos/d51f8f2a317740cca3af15384d34e79f/
-	os.Setenv("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated")
-	os.Setenv("XDG_CURRENT_DESKTOP", "Deepin")
-
-	exec.Command("/usr/bin/dbus-update-activation-environment", "--systemd", "XDG_CURRENT_DESKTOP", "GNOME_DESKTOP_SESSION_ID").Run()
-
 	manager := newSessionManager()
 	err := dbus.InstallOnSession(manager)
 	if err != nil {
 		logger.Error("Install Session DBus Failed:", err)
 		return
 	}
+
+	setupEnvironments()
 
 	manager.setPropStage(SessionStageInitBegin)
 	manager.launchWindowManager()
