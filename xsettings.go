@@ -147,6 +147,7 @@ func startXSettings(conn *xgb.Conn) {
 		return
 	}
 	m.updateDPI()
+	go m.updateFirefoxDPI()
 
 	err = dbus.InstallOnSession(m)
 	if err != nil {

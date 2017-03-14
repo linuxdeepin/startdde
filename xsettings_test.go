@@ -10,6 +10,8 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	C "launchpad.net/gocheck"
 	"testing"
 )
@@ -179,4 +181,59 @@ func (*testWrapper) TestNewXSItemColor(c *C.C) {
 	c.Check(v1.blue, C.Equals, value[1])
 	c.Check(v1.green, C.Equals, value[2])
 	c.Check(v1.alpha, C.Equals, value[3])
+}
+
+func (*testWrapper) TestGetFirefoxConfigs(c *C.C) {
+	configs, _ := getFirefoxConfigs("testdata/firefox")
+	c.Check(len(configs), C.Equals, 1)
+	c.Check(configs[0], C.Equals, "testdata/firefox/xxx.default/prefs.js")
+}
+
+func (*testWrapper) TestSetFirefoxDPI(c *C.C) {
+	var infos = []struct {
+		file     string
+		contents string
+	}{
+		{
+			file: "testdata/firefox/xxx.default/prefs.js",
+			contents: `# Mozilla User Preferences
+
+user_pref("layout.css.devPixelsPerPx", "1.35")
+user_pref("toolkit.telemetry.previousBuildID", "20160803004522");
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+`,
+		},
+		{
+			file: "testdata/firefox/xxx.default/prefs_multi.js",
+			contents: `# Mozilla User Preferences
+
+#user_pref("layout.css.devPixelsPerPx", "1.555")
+user_pref("layout.css.devPixelsPerPx", "1.35")
+user_pref("toolkit.telemetry.previousBuildID", "20160803004522");
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+`,
+		},
+		{
+			file: "testdata/firefox/xxx.default/prefs_none.js",
+			contents: `# Mozilla User Preferences
+
+user_pref("toolkit.telemetry.previousBuildID", "20160803004522");
+user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
+`,
+		},
+	}
+
+	for _, info := range infos {
+		err := setFirefoxDPI(1.35, info.file)
+		if err != nil {
+			fmt.Println("Failed to set firefox dpi:", info.file, err)
+			continue
+		}
+		contents, err := ioutil.ReadFile(info.file)
+		if err != nil {
+			fmt.Println("Failed to read file:", info.file, err)
+			continue
+		}
+		c.Check(string(contents), C.Equals, info.contents)
+	}
 }

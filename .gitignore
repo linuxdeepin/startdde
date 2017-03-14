@@ -10,7 +10,6 @@ test_main.go
 # temporary
 core
 try/
-*.js
 *~
 *.orig
 .tag*
