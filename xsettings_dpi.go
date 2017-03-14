@@ -54,7 +54,8 @@ var ffDir = path.Join(os.Getenv("HOME"), ".mozilla/firefox")
 func (m *XSManager) updateFirefoxDPI() {
 	scale := m.gs.GetDouble("scale-factor")
 	if scale == 0 {
-		return
+		// firefox default value: -1
+		scale = -1
 	}
 
 	configs, err := getFirefoxConfigs(ffDir)
@@ -64,7 +65,7 @@ func (m *XSManager) updateFirefoxDPI() {
 	}
 
 	for _, config := range configs {
-		err = setFirefoxDPI(scale, config)
+		err = setFirefoxDPI(scale, config, config)
 		if err != nil {
 			logger.Warning("Failed to set firefox dpi:", config, err)
 		}
@@ -87,12 +88,13 @@ func getFirefoxConfigs(dir string) ([]string, error) {
 	return configs, nil
 }
 
-func setFirefoxDPI(value float64, file string) error {
-	contents, err := ioutil.ReadFile(file)
+func setFirefoxDPI(value float64, src, dest string) error {
+	contents, err := ioutil.ReadFile(src)
 	if err != nil {
 		return err
 	}
 	lines := strings.Split(string(contents), "\n")
+	target := fmt.Sprintf("%s \"%.2f\");", ffKeyPixels, value)
 	found := false
 	for i, line := range lines {
 		if line == "" || line[0] == '#' {
@@ -101,14 +103,24 @@ func setFirefoxDPI(value float64, file string) error {
 		if !strings.Contains(line, ffKeyPixels) {
 			continue
 		}
+
+		if line == target {
+			return nil
+		}
+
 		tmp := strings.Split(ffKeyPixels, ",")[0] + ", " +
-			fmt.Sprintf("\"%.2f\")", value)
+			fmt.Sprintf("\"%.2f\");", value)
 		lines[i] = tmp
 		found = true
 		break
 	}
 	if !found {
-		return nil
+		if value == -1 {
+			return nil
+		}
+		tmp := lines[len(lines)-1]
+		lines[len(lines)-1] = target
+		lines = append(lines, tmp)
 	}
-	return ioutil.WriteFile(file, []byte(strings.Join(lines, "\n")), 0644)
+	return ioutil.WriteFile(dest, []byte(strings.Join(lines, "\n")), 0644)
 }
