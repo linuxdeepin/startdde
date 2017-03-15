@@ -301,8 +301,8 @@ func (dpy *Manager) switchToCustom(name string) error {
 			Primary:   dpy.Primary,
 			BaseInfos: dpy.Monitors.getBaseInfos(),
 		})
-		dpy.syncCurrentCustomId(name)
 		dpy.setPropCustomIdList(dpy.getCustomIdList())
+		dpy.syncCurrentCustomId(name)
 		return dpy.config.writeFile()
 	}
 	err := dpy.applyConfigSettings(cMonitor)
@@ -651,6 +651,9 @@ func (dpy *Manager) updateScreenSize() {
 }
 
 func (dpy *Manager) isIdDeletable(id string) bool {
+	if dpy.DisplayMode != DisplayModeCustom {
+		return true
+	}
 	return dpy.CurrentCustomId != id
 }
 

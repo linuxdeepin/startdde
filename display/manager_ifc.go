@@ -197,6 +197,9 @@ func (dpy *Manager) DeleteCustomMode(name string) error {
 	}
 
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
+	if dpy.CurrentCustomId == name {
+		dpy.syncCurrentCustomId("")
+	}
 	return dpy.config.writeFile()
 }
 
@@ -207,8 +210,8 @@ func (dpy *Manager) Reset() error {
 		BaseGroup: make(map[string]*configMonitor),
 		filename:  configFile,
 	}
-	dpy.syncCurrentCustomId("")
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
+	dpy.syncCurrentCustomId("")
 	err := dpy.SwitchMode(DisplayModeExtend, "")
 	if err != nil {
 		logger.Error("[Reset] switch to extend failed:", err)
