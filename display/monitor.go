@@ -137,6 +137,16 @@ func (m *MonitorInfo) doSetMode(v uint32) error {
 	return nil
 }
 
+func (m *MonitorInfo) doSetModeBySize(w, h uint16) error {
+	mode := m.Modes.QueryBySize(w, h)
+	if mode.Id == 0 {
+		logger.Warning("Invalid mode size:", w, h)
+		return fmt.Errorf("The mode size %dx%d invalid", w, h)
+	}
+
+	return m.doSetMode(mode.Id)
+}
+
 func (m *MonitorInfo) doSetPosition(x, y int16) {
 	m.setPropX(x)
 	m.setPropY(y)

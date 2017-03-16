@@ -138,6 +138,7 @@ func (dpy *Manager) init() {
 
 	dpy.initBrightness()
 	dpy.initTouchMap()
+	dpy.updateScreenSize()
 }
 
 func (dpy *Manager) initTouchMap() {
@@ -454,8 +455,8 @@ func (dpy *Manager) updateMonitors() {
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
 	id := dpy.sumOutputUUID(output)
 	if m := dpy.allMonitors.get(id); m != nil {
-		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %#v",
-			id, output)
+		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %s",
+			id, output.Name)
 	}
 
 	base := toMonitorBaseInfo(output, id)
@@ -480,6 +481,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 		Modes:       modes,
 	}
 	info.RefreshRate = info.CurrentMode.Rate
+	info.Width, info.Height = parseModeByRotation(info.Width, info.Height, info.Rotation)
 
 	// There should be no error occurs
 	// if info.CurrentMode.Width == 0 || info.CurrentMode.Height == 0 {
@@ -512,7 +514,12 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 		m.doSetReflect(oinfo.Crtc.Reflect)
 		// change mode should after change rotation
 		m.doSetPosition(oinfo.Crtc.X, oinfo.Crtc.Y)
-		m.doSetMode(oinfo.Crtc.Mode)
+		err := m.doSetMode(oinfo.Crtc.Mode)
+		if err != nil {
+			logger.Warningf("[updateMonitor] Set mode '%v' failed: %v", oinfo.Crtc.Mode, err)
+			w, h := parseModeByRotation(oinfo.Crtc.Width, oinfo.Crtc.Height, m.Rotation)
+			m.doSetModeBySize(w, h)
+		}
 	}
 	return nil
 }
