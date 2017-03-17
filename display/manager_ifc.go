@@ -99,6 +99,7 @@ func (dpy *Manager) ApplyChanges() error {
 	// 		return err
 	// 	}
 	// }
+	logger.Debug("[ApplyChanges] Will apply:", dpy.Monitors.genCommandline(dpy.Primary, false))
 	err := dpy.doApply(dpy.Primary, false)
 	if err != nil {
 		logger.Error("Apply changes failed:", err)
@@ -140,8 +141,11 @@ func (dpy *Manager) ResetChanges() error {
 }
 
 func (dpy *Manager) Save() error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	if len(dpy.outputInfos) != 1 && dpy.DisplayMode != DisplayModeCustom {
 		// if multi-output and not custom mode, nothing
+		logger.Debug("[Save] multi output and not in custom mode")
 		return nil
 	}
 
@@ -175,6 +179,8 @@ func (dpy *Manager) Save() error {
 }
 
 func (dpy *Manager) DeleteCustomMode(name string) error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	if name == "" {
 		logger.Warning("Empty mode name")
 		return fmt.Errorf("The mode name is empty")
