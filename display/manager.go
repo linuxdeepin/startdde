@@ -108,6 +108,10 @@ func newManager() (*Manager, error) {
 	}
 	m.setting = s
 	m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
+	if m.DisplayMode == DisplayModeUnknow {
+		m.setPropDisplayMode(DisplayModeExtend)
+		m.DisplayMode = DisplayModeExtend
+	}
 	m.Primary = m.setting.GetString(gsKeyPrimary)
 	m.CurrentCustomId = m.setting.GetString(gsKeyCustomMode)
 	return &m, nil
