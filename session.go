@@ -242,7 +242,7 @@ func startSession(xu *xgbutil.XUtil) {
 	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(2)
 
 	go func() {
 		manager.launch("/usr/bin/dde-desktop", true)
@@ -256,11 +256,6 @@ func startSession(xu *xgbutil.XUtil) {
 		manager.launch("/usr/bin/dde-launcher", false)
 
 		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
-		wg.Done()
-	}()
-
-	go func() {
-		manager.launch("/usr/lib/deepin-daemon/dde-osd", false)
 		wg.Done()
 	}()
 
