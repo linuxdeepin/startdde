@@ -259,3 +259,41 @@ func (dpy *Manager) RefreshBrightness() {
 		dpy.doSetBrightness(v, k)
 	}
 }
+
+// ModifyConfigName Modify the custom config display name
+func (dpy *Manager) ModifyConfigName(name, newName string) error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
+	if name == "" || newName == "" {
+		logger.Warning("Empty mode name")
+		return fmt.Errorf("The mode name is empty")
+	}
+
+	id := dpy.Monitors.getMonitorsId()
+	if len(id) == 0 {
+		logger.Warning("No output connected")
+		return fmt.Errorf("No output connected")
+	}
+
+	dest := newName + customModeDelim + id
+	if destInfo := dpy.config.get(dest); destInfo != nil {
+		logger.Warning("The target mode name exists:", newName)
+		return fmt.Errorf("The name '%s' has exists", newName)
+	}
+
+	src := name + customModeDelim + id
+	srcInfo := dpy.config.get(src)
+	if srcInfo == nil {
+		logger.Warningf("The config '%s' not exists", name)
+		return fmt.Errorf("Invalid config name '%s'", name)
+	}
+	srcInfo.Name = newName
+	dpy.config.set(dest, srcInfo)
+	dpy.config.delete(src)
+	dpy.config.writeFile()
+	dpy.setPropCustomIdList(dpy.getCustomIdList())
+	if name == dpy.CurrentCustomId {
+		dpy.syncCurrentCustomId(newName)
+	}
+	return nil
+}
