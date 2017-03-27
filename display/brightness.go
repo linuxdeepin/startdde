@@ -14,7 +14,7 @@ func (err InvalidOutputNameError) Error() string {
 	return fmt.Sprintf("invalid output name %q", err.Name)
 }
 
-func (dpy *Manager) SaveBrightness() {
+func (dpy *Manager) saveBrightness() {
 	dpy.setting.SetString(gsKeyBrightness, jsonMarshal(dpy.Brightness))
 }
 
@@ -71,7 +71,7 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 
 	}
 
-	dpy.SaveBrightness()
+	dpy.saveBrightness()
 }
 
 func (dpy *Manager) initBrightness() {

@@ -39,13 +39,20 @@ func (dpy *Manager) SetPrimary(primary string) error {
 	return nil
 }
 
+func (dpy *Manager) SetAndSaveBrightness(name string, value float64) error {
+	err := dpy.SetBrightness(name, value)
+	if err == nil {
+		dpy.saveBrightness()
+	}
+	return err
+}
+
 func (dpy *Manager) SetBrightness(name string, value float64) error {
 	err := dpy.doSetBrightness(value, name)
 	if err != nil {
 		logger.Warning("Failed to set brightness:", name, value, err)
 		return err
 	}
-	dpy.SaveBrightness()
 	return nil
 }
 
