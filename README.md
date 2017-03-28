@@ -12,22 +12,15 @@ user's custom applications which compliant with xdg autostart specification.
 - pkg-config
 - golang-go
 - coffeescript
-- sqlite3
-- webkitgtk
-- [deepin-webkit](https://github.com/linuxdeepin/deepin-webkit)
 - [go-dlib](https://github.com/linuxdeepin/go-lib)
 - [go-xgb](https://github.com/BurntSushi/xgb)
 - [go-xgbutil](https://github.com/BurntSushi/xgbutil)
 - [go-fsnotify](https://github.com/howeyc/fsnotify)
 - [dde-dbus-factory](https://github.com/linuxdeepin/dbus-factory)
-- gail-3-dev
-- gstreamer-plugins-base-1.0
-
 
 ### Runtime dependencies
 
-- dde-daemon (>= 0.0.1+20140731174758)
-- dde-workspace
+- dde-daemon
 - deepin-wm-switcher
 - deepin-wm | deepin-compiz | compiz
 
