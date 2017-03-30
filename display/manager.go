@@ -177,6 +177,8 @@ func (dpy *Manager) doSetTouchMap(output, touch string) error {
 }
 
 func (dpy *Manager) switchToMirror() error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	connected, err := dpy.multiOutputCheck()
 	if err != nil {
 		return err
@@ -215,6 +217,12 @@ func (dpy *Manager) switchToMirror() error {
 }
 
 func (dpy *Manager) switchToExtend() error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
+	return dpy.doSwitchToExtend()
+}
+
+func (dpy *Manager) doSwitchToExtend() error {
 	connected := dpy.Monitors.listConnected()
 	if len(connected) == 0 {
 		return nil
@@ -250,6 +258,8 @@ func (dpy *Manager) switchToExtend() error {
 }
 
 func (dpy *Manager) switchToOnlyOne(name string) error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	connected, err := dpy.multiOutputCheck()
 	if err != nil {
 		return nil
@@ -289,6 +299,8 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 }
 
 func (dpy *Manager) switchToCustom(name string) error {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	// firstly find the matched config,
 	// then update monitors from config, finaly apply these config.
 	id := dpy.Monitors.getMonitorsId()
@@ -299,7 +311,7 @@ func (dpy *Manager) switchToCustom(name string) error {
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		if dpy.DisplayMode != DisplayModeMirror {
-			dpy.switchToExtend()
+			dpy.doSwitchToExtend()
 		}
 		dpy.config.set(id, &configMonitor{
 			Name:      name,
@@ -332,6 +344,8 @@ func (dpy *Manager) tryApplyConfig() error {
 		// no config found, switch to extend mode
 		return dpy.SwitchMode(DisplayModeExtend, "")
 	}
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	err := dpy.applyConfigSettings(cMonitor)
 	if err == nil {
 		dpy.setPropCustomIdList(dpy.getCustomIdList())
@@ -343,8 +357,6 @@ func (dpy *Manager) tryApplyConfig() error {
 }
 
 func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
 	var corrected bool = false
 	logger.Debugf("============[applyConfigSettings] config: %#v", cMonitor)
 	for _, info := range cMonitor.BaseInfos {

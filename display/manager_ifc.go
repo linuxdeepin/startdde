@@ -11,6 +11,8 @@ func (dpy *Manager) ListOutputNames() []string {
 }
 
 func (dpy *Manager) ListOutputsCommonModes() (drandr.ModeInfos, error) {
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	connected, err := dpy.multiOutputCheck()
 	if err != nil {
 		return nil, err
@@ -81,12 +83,14 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 		return err
 	}
 
+	monitorsLocker.Lock()
 	dpy.setPropDisplayMode(mode)
 	dpy.setPropHasChanged(false)
 	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
 		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
 	}
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
+	monitorsLocker.Unlock()
 	return dpy.Save()
 }
 
@@ -121,6 +125,8 @@ func (dpy *Manager) ResetChanges() error {
 		return nil
 	}
 
+	monitorsLocker.Lock()
+	defer monitorsLocker.Unlock()
 	// firstly to find the matched config,
 	// then update monitors from config, finaly apply it.
 	id := dpy.Monitors.getMonitorsId()
