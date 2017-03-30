@@ -60,7 +60,7 @@ func (m *XSManager) updateFirefoxDPI() {
 
 	configs, err := getFirefoxConfigs(ffDir)
 	if err != nil {
-		logger.Warning("Failed to get firefox configs:", err)
+		logger.Debug("Failed to get firefox configs:", err)
 		return
 	}
 
