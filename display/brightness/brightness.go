@@ -39,7 +39,7 @@ func Set(value float64, setter string, outputId uint32, conn *xgb.Conn) error {
 	output := randr.Output(outputId)
 	switch setter {
 	case SetterBacklight:
-		return setBacklight(value, output, conn)
+		return setBacklightOnlyOne(value)
 	case SetterGamma:
 		return setGammaSize(value, output, conn)
 	}
@@ -54,7 +54,7 @@ func Get(setter string, outputId uint32, conn *xgb.Conn) (float64, error) {
 	output := randr.Output(outputId)
 	switch setter {
 	case SetterBacklight:
-		return getBacklight(output, conn)
+		return getBacklightOnlyOne()
 	case SetterGamma:
 		return 1, nil
 	}
@@ -177,12 +177,7 @@ func setBacklight(value float64, output randr.Output, conn *xgb.Conn) error {
 	if err != nil {
 		return err
 	}
-
-	br := int32(float64(controller.MaxBrightness) * value)
-	const backlightTypeDisplay = 1
-	fmt.Printf("help set brightness %q max %v value %v br %v\n",
-		controller.Name, controller.MaxBrightness, value, br)
-	return helper.SetBrightness(backlightTypeDisplay, controller.Name, br)
+	return _setBacklight(value, controller)
 }
 
 func getBacklight(output randr.Output, conn *xgb.Conn) (float64, error) {
@@ -190,10 +185,53 @@ func getBacklight(output randr.Output, conn *xgb.Conn) (float64, error) {
 	if err != nil {
 		return 0.0, err
 	}
+	return _getBacklight(controller)
+}
 
+func _setBacklight(value float64, controller *displayBl.Controller) error {
+	br := int32(float64(controller.MaxBrightness) * value)
+	const backlightTypeDisplay = 1
+	fmt.Printf("help set brightness %q max %v value %v br %v\n",
+		controller.Name, controller.MaxBrightness, value, br)
+	return helper.SetBrightness(backlightTypeDisplay, controller.Name, br)
+}
+
+func _getBacklight(controller *displayBl.Controller) (float64, error) {
 	br, err := controller.GetBrightness()
 	if err != nil {
 		return 0.0, err
 	}
-	return float64(br) / float64(controller.MaxBrightness), err
+	return float64(br) / float64(controller.MaxBrightness), nil
+}
+
+// there is only one backlight controller
+func getBacklightControllerOnlyOne() (*displayBl.Controller, error) {
+	controllers, err := displayBl.List()
+	if err != nil {
+		return nil, err
+	}
+	if len(controllers) > 1 {
+		return nil, errors.New("found more than one backlight controller")
+	}
+	if len(controllers) == 0 {
+		return nil, errNotFoundBacklightController
+	}
+	// len(controllers) is 1
+	return controllers[0], nil
+}
+
+func getBacklightOnlyOne() (float64, error) {
+	controller, err := getBacklightControllerOnlyOne()
+	if err != nil {
+		return 0.0, err
+	}
+	return _getBacklight(controller)
+}
+
+func setBacklightOnlyOne(value float64) error {
+	controller, err := getBacklightControllerOnlyOne()
+	if err != nil {
+		return err
+	}
+	return _setBacklight(value, controller)
 }
