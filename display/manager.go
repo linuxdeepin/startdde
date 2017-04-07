@@ -478,23 +478,28 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 	base := toMonitorBaseInfo(output, id)
 	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
-		cfg:         &base,
-		uuid:        base.UUID,
-		Name:        base.Name,
-		Enabled:     base.Enabled,
-		Connected:   true,
-		X:           base.X,
-		Y:           base.Y,
-		Width:       base.Width,
-		Height:      base.Height,
-		Rotation:    base.Rotation,
-		Reflect:     base.Reflect,
-		RefreshRate: base.RefreshRate,
-		Rotations:   output.Crtc.Rotations,
-		Reflects:    output.Crtc.Reflects,
-		BestMode:    modes.Best(),
-		CurrentMode: modes.QueryBySize(base.Width, base.Height),
-		Modes:       modes,
+		cfg:            &base,
+		uuid:           base.UUID,
+		Name:           base.Name,
+		Enabled:        base.Enabled,
+		Connected:      true,
+		X:              base.X,
+		Y:              base.Y,
+		Width:          base.Width,
+		Height:         base.Height,
+		Rotation:       base.Rotation,
+		Reflect:        base.Reflect,
+		RefreshRate:    base.RefreshRate,
+		Rotations:      output.Crtc.Rotations,
+		Reflects:       output.Crtc.Reflects,
+		CurrentMode:    modes.QueryBySize(base.Width, base.Height),
+		Modes:          modes,
+		PreferredModes: dpy.getModesByIds(output.PreferredModes),
+	}
+	if len(info.PreferredModes) != 0 {
+		info.BestMode = info.PreferredModes.Best()
+	} else {
+		info.BestMode = info.Modes.Best()
 	}
 	info.RefreshRate = info.CurrentMode.Rate
 	info.Width, info.Height = parseModeByRotation(info.Width, info.Height, info.Rotation)
@@ -525,7 +530,11 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 		m.doEnable(true)
 		m.setPropRotations(oinfo.Crtc.Rotations)
 		m.setPropReflects(oinfo.Crtc.Reflects)
-		m.setPropBestMode(m.Modes.Best())
+		if len(m.PreferredModes) != 0 {
+			m.setPropBestMode(m.PreferredModes.Best())
+		} else {
+			m.setPropBestMode(m.Modes.Best())
+		}
 		m.doSetRotation(oinfo.Crtc.Rotation)
 		m.doSetReflect(oinfo.Crtc.Reflect)
 		// change mode should after change rotation

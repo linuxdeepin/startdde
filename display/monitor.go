@@ -29,22 +29,23 @@ type MonitorInfo struct {
 
 	// MonitorBaseInfo
 	// dbus unsupported inherit
-	uuid        string // sum md5 of edid, for config
-	Name        string
-	Enabled     bool
-	Connected   bool
-	X           int16
-	Y           int16
-	Width       uint16
-	Height      uint16
-	Rotation    uint16
-	Reflect     uint16
-	RefreshRate float64
-	Rotations   []uint16
-	Reflects    []uint16
-	BestMode    drandr.ModeInfo
-	CurrentMode drandr.ModeInfo
-	Modes       drandr.ModeInfos
+	uuid           string // sum md5 of edid, for config
+	Name           string
+	Enabled        bool
+	Connected      bool
+	X              int16
+	Y              int16
+	Width          uint16
+	Height         uint16
+	Rotation       uint16
+	Reflect        uint16
+	RefreshRate    float64
+	Rotations      []uint16
+	Reflects       []uint16
+	BestMode       drandr.ModeInfo
+	CurrentMode    drandr.ModeInfo
+	Modes          drandr.ModeInfos
+	PreferredModes drandr.ModeInfos
 }
 type MonitorInfos []*MonitorInfo
 
