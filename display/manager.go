@@ -521,7 +521,8 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
-	m.uuid = dpy.sumOutputUUID(oinfo)
+	// EDID maybe changed because some reasons, but the display device not changed.
+	// m.uuid = dpy.sumOutputUUID(oinfo)
 	m.setPropModes(dpy.getModesByIds(oinfo.Modes))
 	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", m.uuid, oinfo.Crtc)
 	if oinfo.Crtc.Id == 0 {
