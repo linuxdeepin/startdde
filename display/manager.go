@@ -55,6 +55,8 @@ type Manager struct {
 	Brightness      map[string]float64
 	TouchMap        map[string]string
 
+	disableList []string
+
 	// TODO: add mutex locker in used
 	allMonitors MonitorInfos
 	setting     *gio.Settings
@@ -114,6 +116,7 @@ func newManager() (*Manager, error) {
 	}
 	m.Primary = m.setting.GetString(gsKeyPrimary)
 	m.CurrentCustomId = m.setting.GetString(gsKeyCustomMode)
+	m.outputInfos, m.disableList = m.filterOutputs(m.outputInfos)
 	return &m, nil
 }
 
@@ -124,6 +127,7 @@ func (dpy *Manager) init() {
 		return
 	}
 
+	dpy.disableOutputs()
 	dpy.updateMonitors()
 	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
 		dpy.Primary = dpy.Monitors[0].Name
@@ -465,6 +469,7 @@ func (dpy *Manager) updateMonitors() {
 		dpy.allMonitors = append(dpy.allMonitors, m)
 	}
 	dpy.allMonitors = dpy.allMonitors.sort()
+	dpy.sortByPriority()
 	dpy.setPropMonitors(dpy.allMonitors.listConnected())
 }
 

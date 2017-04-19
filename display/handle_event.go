@@ -39,6 +39,7 @@ func (dpy *Manager) handleOutputChanged(ev randr.NotifyEvent) {
 			randr.RotationRotate0, nil)
 	}
 	if info.Mode == 0 || info.Crtc == 0 {
+		// TODO: if info in blacklist, what happen?
 		dpy.fixOutputNotClosed(info.Output)
 	}
 }
@@ -54,15 +55,20 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 		return
 	}
 	outputInfos := screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs()
-	if oldLen != len(outputInfos) && dpy.isOutputCrtcInvalid(outputInfos) && autoOpenTimes < 2 {
+	tmpInfos, tmpList := dpy.filterOutputs(outputInfos)
+	if oldLen != len(tmpInfos) && dpy.isOutputCrtcInvalid(tmpInfos) && autoOpenTimes < 2 {
 		// only try 2 times
 		autoOpenTimes += 1
 		doAction("xrandr --auto")
 		return
 	}
+	if autoOpenTimes != 0 || (len(tmpList) != 0 && len(tmpList) != len(dpy.disableList)) {
+		dpy.disableList = tmpList
+		dpy.disableOutputs()
+	}
 	autoOpenTimes = 0
 
-	dpy.outputInfos = outputInfos
+	dpy.outputInfos = tmpInfos
 	dpy.modeInfos = screenInfo.Modes
 	dpy.updateMonitors()
 	logger.Debug("[Event] compare:", dpy.lastConfigTime, ev.ConfigTimestamp, oldLen, len(dpy.outputInfos))
