@@ -71,6 +71,10 @@ var (
 	configFile     = os.Getenv("HOME") + "/.config/deepin/startdde/display.json"
 )
 
+func SetLogLevel(level log.Priority) {
+	logger.SetLogLevel(level)
+}
+
 func newManager() (*Manager, error) {
 	conn, err := xgb.NewConn()
 	if err != nil {

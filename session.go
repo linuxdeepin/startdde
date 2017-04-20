@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
 )
 
 type SessionManager struct {
@@ -157,6 +158,16 @@ func (m *SessionManager) RequestLock() error {
 
 func (m *SessionManager) PowerOffChoose() {
 	m.launch(cmdShutdown, false)
+}
+
+func (m *SessionManager) ToggleDebug() {
+	if logger.GetLogLevel() == log.LevelDebug {
+		doSetLogLevel(log.LevelInfo)
+		logger.Debug("Debug mode disabled")
+	} else {
+		doSetLogLevel(log.LevelDebug)
+		logger.Debug("Debug mode enabled")
+	}
 }
 
 func initSession() {

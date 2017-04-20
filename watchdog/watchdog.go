@@ -58,3 +58,7 @@ func Stop() {
 	logger.EndTracing()
 	return
 }
+
+func SetLogLevel(level log.Priority) {
+	logger.SetLogLevel(level)
+}

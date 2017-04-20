@@ -21,6 +21,7 @@ import (
 	"flag"
 	"github.com/BurntSushi/xgbutil"
 	"os"
+	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -49,11 +50,17 @@ func main() {
 
 	startXSettings(xu.Conn())
 
-	startDisplay()
+	go display.Start()
 
 	startSession(xu)
 
 	watchdog.Start()
 
 	C.gtk_main()
+}
+
+func doSetLogLevel(level log.Priority) {
+	logger.SetLogLevel(level)
+	display.SetLogLevel(level)
+	watchdog.SetLogLevel(level)
 }
