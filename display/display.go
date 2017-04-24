@@ -229,6 +229,7 @@ func (dpy *Display) JoinMonitor(a string, b string) error {
 				}
 			}
 			newMonitors = append(newMonitors, NewMonitor(dpy, mc))
+			newMonitors = sortMonitors(newMonitors)
 			dpy.setPropMonitors(newMonitors)
 		} else {
 			return fmt.Errorf("Can't find Monitor %s\n", b)
@@ -257,6 +258,7 @@ func (dpy *Display) SplitMonitor(a string) error {
 		}
 	}
 	if found {
+		monitors = sortMonitors(monitors)
 		dpy.setPropMonitors(monitors)
 		return nil
 	} else {
@@ -399,6 +401,7 @@ func (dpy *Display) ResetChanges() {
 		m.updateInfo()
 		monitors = append(monitors, m)
 	}
+	monitors = sortMonitors(monitors)
 	dpy.setPropMonitors(monitors)
 
 	if err := dpy.changePrimary(dpy.cfg.Primary, true); err != nil {

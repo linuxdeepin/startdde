@@ -427,6 +427,7 @@ func guessPrimary(names []string) string {
 		return names[0]
 	}
 
+	sort.Strings(names)
 	primary, ok := findItemInList(names, "VGA")
 	if ok {
 		return primary
