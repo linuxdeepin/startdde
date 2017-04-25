@@ -470,6 +470,7 @@ func (dpy *Manager) updateMonitors() {
 				oinfo, err)
 			continue
 		}
+		logger.Info("[updateMonitors] add monitor:", m.Name, m.X, m.Y, m.Width, m.Height)
 		dpy.allMonitors = append(dpy.allMonitors, m)
 	}
 	dpy.allMonitors = dpy.allMonitors.sort()
@@ -478,13 +479,11 @@ func (dpy *Manager) updateMonitors() {
 }
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
-	id := dpy.sumOutputUUID(output)
-	if m := dpy.allMonitors.get(id); m != nil {
-		return nil, fmt.Errorf("Output '%s' monitor has exist, info: %s",
-			id, output.Name)
+	if m := dpy.allMonitors.getByName(output.Name); m != nil {
+		return nil, fmt.Errorf("Output '%s' has exist in monitors", output.Name)
 	}
 
-	base := toMonitorBaseInfo(output, id)
+	base := toMonitorBaseInfo(output, dpy.sumOutputUUID(output))
 	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
 		cfg:            &base,
