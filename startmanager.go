@@ -26,6 +26,7 @@ import (
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/utils"
 )
 
 const (
@@ -568,4 +569,14 @@ func isAppInList(app string, apps []string) bool {
 		}
 	}
 	return false
+}
+
+func getAutostartDelay() int32 {
+	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		logger.Error("Failed to get autostart delay:", err)
+		return 0
+	}
+	defer s.Unref()
+	return s.GetInt("autostart-delay")
 }

@@ -277,7 +277,15 @@ func startSession(xu *xgbutil.XUtil) {
 	manager.setPropStage(SessionStageAppsBegin)
 
 	if !*debug {
-		startAutostartProgram()
+		delay := getAutostartDelay()
+		logger.Debug("Autostart delay seconds:", delay)
+		if delay > 0 {
+			time.AfterFunc(time.Second*time.Duration(delay), func() {
+				startAutostartProgram()
+			})
+		} else {
+			startAutostartProgram()
+		}
 	}
 	manager.setPropStage(SessionStageAppsEnd)
 }
