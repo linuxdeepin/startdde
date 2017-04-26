@@ -176,7 +176,9 @@ func (dpy *Manager) Save() error {
 		cMonitor.Name = dpy.CurrentCustomId
 		id = dpy.CurrentCustomId + customModeDelim + id
 	}
+	logger.Debug("++++++++++[Save] before:", dpy.config.String())
 	dpy.config.set(id, &cMonitor)
+	logger.Debug("++++++++++[Save] after:", dpy.config.String())
 
 	err := dpy.config.writeFile()
 	if err != nil {

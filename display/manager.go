@@ -11,6 +11,7 @@ import (
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/utils"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -133,6 +134,7 @@ func (dpy *Manager) init() {
 
 	dpy.disableOutputs()
 	dpy.updateMonitors()
+	logger.Debug("-----After init:", dpy.Monitors.getMonitorsId())
 	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
 		dpy.Primary = dpy.Monitors[0].Name
 		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
@@ -312,11 +314,13 @@ func (dpy *Manager) switchToCustom(name string) error {
 	// firstly find the matched config,
 	// then update monitors from config, finaly apply these config.
 	id := dpy.Monitors.getMonitorsId()
+	logger.Debug("---------[switchToCustom] now id:", id)
 	if len(id) == 0 {
 		return fmt.Errorf("No output connected")
 	}
 	id = name + customModeDelim + id
 	cMonitor := dpy.config.get(id)
+	logger.Debug("----------[switchToCustom] config manager:", dpy.config.String())
 	if cMonitor == nil {
 		if dpy.DisplayMode != DisplayModeMirror {
 			dpy.doSwitchToExtend()
@@ -356,6 +360,7 @@ func (dpy *Manager) tryApplyConfig() error {
 	defer monitorsLocker.Unlock()
 	err := dpy.applyConfigSettings(cMonitor)
 	if err == nil {
+		dpy.setPropDisplayMode(DisplayModeCustom)
 		dpy.setPropCustomIdList(dpy.getCustomIdList())
 		if cMonitor.Name != "" {
 			dpy.syncCurrentCustomId(cMonitor.Name)
@@ -366,7 +371,8 @@ func (dpy *Manager) tryApplyConfig() error {
 
 func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	var corrected bool = false
-	logger.Debugf("============[applyConfigSettings] config: %#v", cMonitor)
+	logger.Debugf("============[applyConfigSettings] config: %#v", cMonitor.String())
+	logger.Debugf("============[applyConfigSettings] monitors: %#v", dpy.Monitors.getMonitorsId())
 	for _, info := range cMonitor.BaseInfos {
 		m := dpy.Monitors.get(info.UUID)
 		if m == nil {
@@ -460,7 +466,7 @@ func (dpy *Manager) updateMonitors() {
 	for _, oinfo := range dpy.outputInfos {
 		m, err := dpy.outputToMonitorInfo(oinfo)
 		if err != nil {
-			logger.Debug("[updateMonitor] Error:", err)
+			logger.Debug("[updateMonitors] Error:", err)
 			continue
 		}
 
@@ -479,15 +485,16 @@ func (dpy *Manager) updateMonitors() {
 }
 
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
-	if m := dpy.allMonitors.getByName(output.Name); m != nil {
+	id := dpy.sumOutputUUID(output)
+	// check output whether exists
+	if m := dpy.allMonitors.get(id); m != nil {
 		return nil, fmt.Errorf("Output '%s' has exist in monitors", output.Name)
 	}
 
-	base := toMonitorBaseInfo(output, dpy.sumOutputUUID(output))
+	base := toMonitorBaseInfo(output, id)
 	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
 		cfg:            &base,
-		uuid:           base.UUID,
 		Name:           base.Name,
 		Enabled:        base.Enabled,
 		Connected:      true,
@@ -530,9 +537,12 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 	// EDID maybe changed because some reasons, but the display device not changed.
-	// m.uuid = dpy.sumOutputUUID(oinfo)
+	id := dpy.sumOutputUUID(oinfo)
+	if id != m.cfg.UUID {
+		m.cfg.UUID = id
+	}
 	m.setPropModes(dpy.getModesByIds(oinfo.Modes))
-	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", m.uuid, oinfo.Crtc)
+	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", m.cfg.UUID, oinfo.Crtc)
 	if oinfo.Crtc.Id == 0 {
 		m.doEnable(false)
 	} else {
@@ -572,12 +582,18 @@ func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseI
 	return nil
 }
 
+var numReg = regexp.MustCompile(`-?[0-9]`)
+
 func (dpy *Manager) sumOutputUUID(output drandr.OutputInfo) string {
-	id, _ := utils.SumStrMd5(string(output.EDID))
-	if id == "" {
-		id = output.Name
+	if len(output.EDID) < 128 {
+		return output.Name
 	}
-	return id
+
+	id, _ := utils.SumStrMd5(string(output.EDID[:128]))
+	if id == "" {
+		return output.Name
+	}
+	return numReg.ReplaceAllString(output.Name, "") + id
 }
 
 func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
@@ -706,6 +722,8 @@ func (dpy *Manager) syncCurrentCustomId(id string) {
 func (dpy *Manager) getCustomIdList() []string {
 	id := dpy.Monitors.getMonitorsId()
 	set := dpy.config.getIdList()
+	logger.Debug("~~~~~~~~~[getCustomIdList] id:", id)
+	logger.Debug("---------[getCustomIdList] set:", set)
 	var tmp []string
 	for k, v := range set {
 		if v == "" {

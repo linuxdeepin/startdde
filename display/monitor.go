@@ -29,7 +29,6 @@ type MonitorInfo struct {
 
 	// MonitorBaseInfo
 	// dbus unsupported inherit
-	uuid           string // sum md5 of edid, for config
 	Name           string
 	Enabled        bool
 	Connected      bool
@@ -213,7 +212,7 @@ func parseModeByRotation(width, height, rotation uint16) (uint16, uint16) {
 
 func (ms MonitorInfos) get(id string) *MonitorInfo {
 	for _, m := range ms {
-		if m.uuid == id {
+		if m.cfg.UUID == id {
 			return m
 		}
 	}
@@ -325,7 +324,7 @@ func (ms MonitorInfos) getMonitorsId() string {
 		if !m.Connected {
 			continue
 		}
-		ids = append(ids, m.uuid)
+		ids = append(ids, m.cfg.UUID)
 	}
 	if len(ids) == 0 {
 		return ""
