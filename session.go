@@ -31,8 +31,10 @@ type SessionManager struct {
 }
 
 const (
-	cmdLock     = "/usr/bin/dde-lock"
-	cmdShutdown = "/usr/bin/dde-shutdown"
+	cmdShutdown      = "/usr/bin/dde-shutdown"
+	lockFrontDest    = "com.deepin.dde.lockFront"
+	lockFrontIfc     = lockFrontDest
+	lockFrontObjPath = "/com/deepin/dde/lockFront"
 )
 
 const (
@@ -152,8 +154,11 @@ func (m *SessionManager) RequestHibernate() {
 }
 
 func (m *SessionManager) RequestLock() error {
-	m.launch(cmdLock, false)
-	return nil
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	return conn.Object(lockFrontDest, lockFrontObjPath).Call(lockFrontIfc+".Show", 0).Store()
 }
 
 func (m *SessionManager) PowerOffChoose() {
