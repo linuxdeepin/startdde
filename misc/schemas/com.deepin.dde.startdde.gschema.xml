@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema path="/com/deepin/dde/startdde/" id="com.deepin.dde.startdde">
+    <key type="b" name="enable-dock">
+      <default>false</default>
+      <summary>Whether enable dock</summary>
+      <description>Set this to TRUE will launch dock when DDE startup.</description>
+    </key>
+    <key type="b" name="enable-desktop">
+      <default>false</default>
+      <summary>Whether enable desktop</summary>
+      <description>Set this to TRUE will launch desktop when DDE startup.</description>
+    </key>
+    <key type="b" name="enable-launcher">
+      <default>false</default>
+      <summary>Whether enable launcher</summary>
+      <description>Set this to TRUE will launch launcher when DDE startup.</description>
+    </key>
+  </schema>
+</schemalist>

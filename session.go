@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"pkg.linuxdeepin.com/lib/dbus"
+	"pkg.linuxdeepin.com/lib/gio-2.0"
+	"pkg.linuxdeepin.com/lib/utils"
 	"time"
 )
 
@@ -29,8 +31,16 @@ const (
 	SessionStageAppsEnd
 )
 
+const (
+	ddeSchemaId          = "com.deepin.dde.startdde"
+	ddeKeyEnableDock     = "enable-dock"
+	ddeKeyEnableDesktop  = "enable-desktop"
+	ddeKeyEnableLauncher = "enable-launcher"
+)
+
 var (
-	objLogin *login1.Manager
+	objLogin   *login1.Manager
+	ddeSetting *gio.Settings
 )
 
 func (m *SessionManager) CanLogout() bool {
@@ -146,6 +156,10 @@ func initSession() {
 	if err != nil {
 		panic(fmt.Errorf("New Login1 Failed: %s", err))
 	}
+
+	if utils.IsGSchemaExist(ddeSchemaId) {
+		ddeSetting = gio.NewSettings(ddeSchemaId)
+	}
 }
 
 func newSessionManager() *SessionManager {
@@ -197,11 +211,21 @@ func startSession() {
 	manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
 
 	//manager.ShowGuideOnce()
-	//manager.launch("/usr/bin/dde-launcher", false, "--hidden")
-
-	//manager.launch("/usr/bin/dde-desktop", true)
-	//manager.launch("/usr/bin/dde-dock", true)
-	//manager.launch("/usr/bin/dde-dock-applets", false)
+	if ddeSetting != nil {
+		if ddeSetting.GetBoolean(ddeKeyEnableDock) {
+			logger.Debug("Launch dock")
+			manager.launch("/usr/bin/dde-dock", true)
+			manager.launch("/usr/bin/dde-dock-applets", false)
+		}
+		if ddeSetting.GetBoolean(ddeKeyEnableDesktop) {
+			logger.Debug("Launch desktop")
+			manager.launch("/usr/bin/dde-desktop", true)
+		}
+		if ddeSetting.GetBoolean(ddeKeyEnableLauncher) {
+			logger.Debug("Launch launcher")
+			manager.launch("/usr/bin/dde-launcher", false, "--hidden")
+		}
+	}
 
 	manager.setPropStage(SessionStageCoreEnd)
 

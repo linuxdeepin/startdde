@@ -18,6 +18,7 @@ build:
 install:
 	mkdir -p ${DESTDIR}${PREFIX}/bin && cp startdde ${DESTDIR}${PREFIX}/bin
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions && cp misc/*.desktop ${DESTDIR}${PREFIX}/share/xsessions
+	mkdir -p ${DESTDIR}${PREFIX}/share/glib-2.0/schemas && cp misc/schemas/* ${DESTDIR}${PREFIX}/share/glib-2.0/schemas
 	echo "Install dialogUI"
 	cd dialogUI/build && make DESTDIR=${DESTDIR} install
 
