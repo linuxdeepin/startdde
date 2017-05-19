@@ -253,10 +253,6 @@ func startSession(xu *xgbutil.XUtil) {
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager(xu)
 
-	// dde-launcher is fast enough now, there's no need to start it at the begnning
-	// of every session.
-	// manager.launch("/usr/bin/dde-launcher", false, "--hidden")
-
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -269,7 +265,9 @@ func startSession(xu *xgbutil.XUtil) {
 		// dde-session-initializer contains backend of dock, launcher currently
 		manager.launch("/usr/lib/deepin-daemon/dde-session-initializer", true)
 		manager.launch("/usr/bin/dde-dock", true)
-		manager.launch("/usr/bin/dde-launcher", false)
+		// dde-launcher is fast enough now, there's no need to start it at the begnning
+		// of every session.
+		// manager.launch("/usr/bin/dde-launcher", false)
 
 		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
 		wg.Done()
