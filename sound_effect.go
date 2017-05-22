@@ -42,7 +42,7 @@ func soundThemePlayerPlay(theme, event string) {
 		logger.Warning("Play sound theme failed: soundThemePlayer is nil")
 		return
 	}
-	err := objSoundThemePlayer.Play(theme, event)
+	err := objSoundThemePlayer.Play(theme, event, soundutils.GetSoundPlayer())
 	if err != nil {
 		logger.Warningf("Play sound theme failed: theme %q, event %q, error: %v", theme, event, err)
 	}

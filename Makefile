@@ -28,10 +28,10 @@ prepare:
 		fi
 
 startdde:
-	env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -v -o startdde
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -v -o startdde
 
 dde-readahead/dde-readahead:
-	cd dde-readahead; env GOPATH="${GOPATH}:${CURDIR}/${GOPATH_DIR}" ${GOBUILD} -v -o dde-readahead
+	cd dde-readahead; env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -v -o dde-readahead
 
 build: prepare startdde dde-readahead/dde-readahead
 
