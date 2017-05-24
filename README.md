@@ -17,12 +17,14 @@ user's custom applications which compliant with xdg autostart specification.
 - [go-xgbutil](https://github.com/BurntSushi/xgbutil)
 - [go-fsnotify](https://github.com/howeyc/fsnotify)
 - [dde-dbus-factory](https://github.com/linuxdeepin/dbus-factory)
+- [go-gir-generator](https://github.com/linuxdeepin/go-gir-generator)
+* [dde-api](https://github.com/linuxdeepin/dde-api)
 
 ### Runtime dependencies
 
 - dde-daemon
 - deepin-wm-switcher
-- deepin-wm | deepin-compiz | compiz
+- deepin-wm | deepin-metacity
 
 ## Installation
 
