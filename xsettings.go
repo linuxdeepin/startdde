@@ -121,6 +121,7 @@ func (m *XSManager) handleGSettingsChanged() {
 			return
 		case "scale-factor":
 			m.updateDPI()
+			m.updateXResources()
 			return
 		}
 
@@ -147,6 +148,7 @@ func startXSettings(conn *xgb.Conn) {
 		return
 	}
 	m.updateDPI()
+	m.updateXResources()
 	go m.updateFirefoxDPI()
 
 	err = dbus.InstallOnSession(m)

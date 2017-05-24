@@ -55,23 +55,32 @@ type xresourceInfo struct {
 type xresourceInfos []*xresourceInfo
 
 func updateXResources(changes xresourceInfos) {
+	var infos xresourceInfos
 	res := C.get_xresources()
 	data := C.GoString(res)
 	C.free(unsafe.Pointer(res))
 	if len(data) == 0 {
-		return
-	}
-
-	infos := unmarshalXResources(data)
-	for _, v := range changes {
-		infos = infos.UpdateProperty(v.key, v.value)
+		logger.Debug("--------No xresource found, created")
+		infos = append(infos, &xresourceInfo{
+			key:   "*customization",
+			value: "-color",
+		})
+		infos = append(infos, changes...)
+	} else {
+		logger.Debug("------------Info from read:", data)
+		infos = unmarshalXResources(data)
+		for _, v := range changes {
+			logger.Debug("-----updateXResources info:", v.key, v.value)
+			infos = infos.UpdateProperty(v.key, v.value)
+		}
 	}
 	data = marshalXResources(infos)
+	logger.Debug("[updateXResources] will set to:", data)
 	res = C.CString(data)
 	defer C.free(unsafe.Pointer(res))
 	ret := C.set_xresources(res, C.ulong(len(data)))
 	if ret != C.int(0) {
-		fmt.Println("Set xresource failed:", data)
+		logger.Error("Failed to set xresource:", data)
 	}
 }
 

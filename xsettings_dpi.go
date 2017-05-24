@@ -19,7 +19,7 @@ const (
 // TODO: update 'antialias, hinting, hintstyle, rgba, cursor-theme, cursor-size'
 func (m *XSManager) updateDPI() {
 	scale := m.gs.GetDouble("scale-factor")
-	if scale == 0 {
+	if scale <= 0 {
 		return
 	}
 
@@ -41,6 +41,13 @@ func (m *XSManager) updateDPI() {
 		},
 	})
 
+}
+
+func (m *XSManager) updateXResources() {
+	scale := m.gs.GetDouble("scale-factor")
+	if scale <= 0 {
+		scale = 1
+	}
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
 			key:   "Xft.dpi",
@@ -53,7 +60,7 @@ var ffDir = path.Join(os.Getenv("HOME"), ".mozilla/firefox")
 
 func (m *XSManager) updateFirefoxDPI() {
 	scale := m.gs.GetDouble("scale-factor")
-	if scale == 0 {
+	if scale <= 0 {
 		// firefox default value: -1
 		scale = -1
 	}
