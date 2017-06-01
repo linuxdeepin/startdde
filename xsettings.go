@@ -22,8 +22,6 @@ const (
 )
 
 type XSManager struct {
-	PropList []string
-
 	conn  *xgb.Conn
 	owner xproto.Window
 

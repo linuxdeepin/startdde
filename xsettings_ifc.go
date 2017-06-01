@@ -19,6 +19,19 @@ var (
 	errPropTypeNotMatch = fmt.Errorf("This property's type not match")
 )
 
+func (m *XSManager) ListProps() string {
+	datas, err := getSettingPropValue(m.owner, m.conn)
+	if err != nil {
+		return ""
+	}
+
+	infos := marshalSettingData(datas)
+	if infos == nil || len(infos.items) == 0 {
+		return ""
+	}
+	return infos.items.listProps()
+}
+
 func (m *XSManager) SetInteger(prop string, v int32) error {
 	var setting = xsSetting{
 		sType: settingTypeInteger,

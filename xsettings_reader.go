@@ -12,6 +12,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -67,6 +68,17 @@ type xsDataInfo struct {
 	numSettings int32
 
 	items xsItemInfos
+}
+
+func (infos xsItemInfos) listProps() string {
+	var content = "["
+	for i, info := range infos {
+		if i != 0 {
+			content += ","
+		}
+		content += fmt.Sprintf("%q", info.header.name)
+	}
+	return content + "]"
 }
 
 func (info *xsDataInfo) getEnabledProps() []string {

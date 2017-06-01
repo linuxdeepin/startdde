@@ -26,8 +26,3 @@ func (m *XSManager) GetDBusInfo() dbus.DBusInfo {
 		Interface:  xsDBusIFC,
 	}
 }
-
-func (m *XSManager) setPropPropList(props []string) {
-	m.PropList = props
-	dbus.NotifyChange(m, "PropList")
-}
