@@ -20,7 +20,7 @@ const (
 func (m *XSManager) updateDPI() {
 	scale := m.gs.GetDouble("scale-factor")
 	if scale <= 0 {
-		return
+		scale = 1
 	}
 
 	// TODO: update QT DPI
@@ -49,6 +49,14 @@ func (m *XSManager) updateXResources() {
 		scale = 1
 	}
 	updateXResources(xresourceInfos{
+		&xresourceInfo{
+			key:   "Xcursor.theme",
+			value: m.gs.GetString("gtk-cursor-theme-name"),
+		},
+		&xresourceInfo{
+			key:   "Xcursor.size",
+			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
+		},
 		&xresourceInfo{
 			key:   "Xft.dpi",
 			value: fmt.Sprintf("%v", int32(DPI_FALLBACK*scale)),
