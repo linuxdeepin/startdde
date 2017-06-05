@@ -298,7 +298,7 @@ func (ms MonitorInfos) sortByPrimary(primary string) MonitorInfos {
 	return list
 }
 
-// see alse: gnome-desktop/libgnome-desktop/gnome-rr.c
+// see also: gnome-desktop/libgnome-desktop/gnome-rr.c
 //           '_gnome_rr_output_name_is_builtin_display'
 func isBuiltinOuput(name string) bool {
 	name = strings.ToLower(name)
