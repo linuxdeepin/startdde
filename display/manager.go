@@ -512,9 +512,9 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 		PreferredModes: dpy.getModesByIds(output.PreferredModes),
 	}
 	if len(info.PreferredModes) != 0 {
-		info.BestMode = info.PreferredModes.Best()
+		info.BestMode = info.PreferredModes.Max()
 	} else {
-		info.BestMode = info.Modes.Best()
+		info.BestMode = info.Modes.Max()
 	}
 	info.RefreshRate = info.CurrentMode.Rate
 	info.Width, info.Height = parseModeByRotation(info.Width, info.Height, info.Rotation)
@@ -549,10 +549,11 @@ func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
 		m.doEnable(true)
 		m.setPropRotations(oinfo.Crtc.Rotations)
 		m.setPropReflects(oinfo.Crtc.Reflects)
+		m.setPropPreferredModes(dpy.getModesByIds(oinfo.PreferredModes))
 		if len(m.PreferredModes) != 0 {
-			m.setPropBestMode(m.PreferredModes.Best())
+			m.setPropBestMode(m.PreferredModes.Max())
 		} else {
-			m.setPropBestMode(m.Modes.Best())
+			m.setPropBestMode(m.Modes.Max())
 		}
 		m.doSetRotation(oinfo.Crtc.Rotation)
 		m.doSetReflect(oinfo.Crtc.Reflect)
@@ -604,11 +605,12 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 			logger.Warning("[getModesByIds] Invalid mode id:", v)
 			continue
 		}
+		// handle different rate but some width/height mode
+		if t := modes.QueryBySize(mode.Width, mode.Height); t.Id != 0 {
+			continue
+		}
 		modes = append(modes, mode)
 	}
-	// handle different rate but some width/height mode
-	sort.Sort(modes)
-	modes = modes.FilterBySize()
 	return modes
 }
 

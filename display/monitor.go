@@ -262,17 +262,17 @@ func (ms MonitorInfos) sort() MonitorInfos {
 	if ms.numberOfConnected() < 2 {
 		return ms
 	}
-	ms = ms.sortByNamType()
+	ms = ms.sortByNameType()
 	// ms = ms.sortByPrimary(primary)
 	return ms
 }
 
-// sortByNamType preference put the bulit-in output at the top,
+// sortByNameType preference put the bulit-in output at the top,
 // the extendable output should after the built-in
-func (ms MonitorInfos) sortByNamType() MonitorInfos {
+func (ms MonitorInfos) sortByNameType() MonitorInfos {
 	var list MonitorInfos
 	for _, m := range ms {
-		if isBuiltinOuput(m.Name) {
+		if isBuiltinOutput(m.Name) {
 			list = append(MonitorInfos{m}, list...)
 		} else {
 			list = append(list, m)
@@ -300,7 +300,7 @@ func (ms MonitorInfos) sortByPrimary(primary string) MonitorInfos {
 
 // see also: gnome-desktop/libgnome-desktop/gnome-rr.c
 //           '_gnome_rr_output_name_is_builtin_display'
-func isBuiltinOuput(name string) bool {
+func isBuiltinOutput(name string) bool {
 	name = strings.ToLower(name)
 	switch {
 	case strings.Contains(name, "lvds"):

@@ -224,3 +224,11 @@ func (m *MonitorInfo) setPropModes(v drandr.ModeInfos) {
 	m.Modes = v
 	dbus.NotifyChange(m, "Modes")
 }
+
+func (m *MonitorInfo) setPropPreferredModes(v drandr.ModeInfos) {
+	if m.PreferredModes.Equal(v) {
+		return
+	}
+	m.PreferredModes = v
+	dbus.NotifyChange(m, "PreferredModes")
+}
