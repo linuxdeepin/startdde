@@ -26,7 +26,6 @@ func (dpy *Manager) checkConfigVersion() {
 	err := os.Remove(configFile)
 	if err != nil {
 		logger.Warning("Failed to delete config:", err)
-		return
 	}
 
 	err = os.MkdirAll(path.Dir(confVersionFile), 0755)
@@ -37,7 +36,6 @@ func (dpy *Manager) checkConfigVersion() {
 	err = ioutil.WriteFile(confVersionFile, []byte(_confVersion), 0644)
 	if err != nil {
 		logger.Warning("Failed to wirte version file:", err)
-		return
 	}
 	dpy.setPropDisplayMode(DisplayModeExtend)
 }
