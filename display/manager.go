@@ -137,7 +137,6 @@ func (dpy *Manager) init() {
 	logger.Debug("-----After init:", dpy.Monitors.getMonitorsId())
 	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
 		dpy.Primary = dpy.Monitors[0].Name
-		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
 	}
 	dpy.doSetPrimary(dpy.Primary, true)
 
@@ -342,9 +341,18 @@ func (dpy *Manager) switchToCustom(name string) error {
 }
 
 func (dpy *Manager) tryApplyConfig() error {
-	if len(dpy.outputInfos) != 1 && dpy.DisplayMode != DisplayModeCustom {
+	outputLen := len(dpy.outputInfos)
+	if outputLen != 1 && dpy.DisplayMode != DisplayModeCustom {
 		// if multi-output and not custom mode, switch to the special mode
-		return dpy.SwitchMode(dpy.DisplayMode, dpy.Primary)
+		primary := dpy.Primary
+		if dpy.DisplayMode == DisplayModeOnlyOne {
+			name := dpy.setting.GetString(gsKeyPrimary)
+			if name != "" {
+				primary = name
+			}
+		}
+		logger.Info("-----------[tryApplyConfig] will switch to mode:", dpy.DisplayMode, primary)
+		return dpy.SwitchMode(dpy.DisplayMode, primary)
 	}
 
 	id := dpy.Monitors.getMonitorsId()
@@ -354,13 +362,15 @@ func (dpy *Manager) tryApplyConfig() error {
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
 		// no config found, switch to extend mode
+		if outputLen == 1 {
+			return dpy.switchToExtend()
+		}
 		return dpy.SwitchMode(DisplayModeExtend, "")
 	}
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
 	err := dpy.applyConfigSettings(cMonitor)
 	if err == nil {
-		dpy.setPropDisplayMode(DisplayModeCustom)
 		dpy.setPropCustomIdList(dpy.getCustomIdList())
 		if cMonitor.Name != "" {
 			dpy.syncCurrentCustomId(cMonitor.Name)

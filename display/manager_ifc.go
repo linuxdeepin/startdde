@@ -68,6 +68,9 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 		err = dpy.switchToExtend()
 	case DisplayModeOnlyOne:
 		err = dpy.switchToOnlyOne(name)
+		if err == nil {
+			dpy.setting.SetString(gsKeyPrimary, name)
+		}
 	case DisplayModeCustom:
 		if name == "" {
 			logger.Warning("Must input custom mode name")
@@ -86,11 +89,12 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 	monitorsLocker.Lock()
 	dpy.setPropDisplayMode(mode)
 	dpy.setPropHasChanged(false)
-	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
-		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
-	}
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
 	monitorsLocker.Unlock()
+
+	if mode != DisplayModeCustom {
+		return nil
+	}
 	return dpy.Save()
 }
 
@@ -187,9 +191,6 @@ func (dpy *Manager) Save() error {
 	}
 
 	dpy.setPropHasChanged(false)
-	if dpy.Primary != dpy.setting.GetString(gsKeyPrimary) {
-		dpy.setting.SetString(gsKeyPrimary, dpy.Primary)
-	}
 	return nil
 }
 
