@@ -49,8 +49,16 @@ func (dpy *Manager) SetAndSaveBrightness(name string, value float64) error {
 	return err
 }
 
+func (dpy *Manager) GetBrightness() map[string]float64 {
+	dpy.brightnessMutex.RLock()
+	defer dpy.brightnessMutex.RUnlock()
+	return dpy.Brightness
+}
+
 func (dpy *Manager) SetBrightness(name string, value float64) error {
+	dpy.brightnessMutex.Lock()
 	err := dpy.doSetBrightness(value, name)
+	dpy.brightnessMutex.Unlock()
 	if err != nil {
 		logger.Warning("Failed to set brightness:", name, value, err)
 		return err
@@ -264,9 +272,11 @@ func (dpy *Manager) AssociateTouch(output, touch string) error {
 }
 
 func (dpy *Manager) RefreshBrightness() {
+	dpy.brightnessMutex.Lock()
 	for k, v := range dpy.Brightness {
 		dpy.doSetBrightness(v, k)
 	}
+	dpy.brightnessMutex.Unlock()
 }
 
 // ModifyConfigName Modify the custom config display name

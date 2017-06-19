@@ -53,7 +53,9 @@ type Manager struct {
 	CustomIdList    []string
 	PrimaryRect     xproto.Rectangle
 	Monitors        MonitorInfos
+	// TODO rename Brightness to brightness, prefer to use GetBrightness() to get the brightness info
 	Brightness      map[string]float64
+	brightnessMutex sync.RWMutex
 	TouchMap        map[string]string
 
 	disableList []string

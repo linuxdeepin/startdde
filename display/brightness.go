@@ -15,18 +15,22 @@ func (err InvalidOutputNameError) Error() string {
 }
 
 func (dpy *Manager) saveBrightness() {
-	dpy.setting.SetString(gsKeyBrightness, jsonMarshal(dpy.Brightness))
+	dpy.brightnessMutex.RLock()
+	jsonStr := jsonMarshal(dpy.Brightness)
+	dpy.brightnessMutex.RUnlock()
+	dpy.setting.SetString(gsKeyBrightness, jsonStr)
 }
 
 func (dpy *Manager) ChangeBrightness(raised bool) {
-	brightnessMap := dpy.Brightness
 	var step float64 = 0.05
 	if !raised {
 		step = -step
 	}
 
 	for _, info := range dpy.outputInfos {
-		v, ok := brightnessMap[info.Name]
+		dpy.brightnessMutex.RLock()
+		v, ok := dpy.Brightness[info.Name]
+		dpy.brightnessMutex.RUnlock()
 		if !ok {
 			v = 1.0
 		}
@@ -63,12 +67,15 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 				br = 0.0
 			}
 			logger.Debug("[changeBrightness] will set to:", info.Name, br)
+			dpy.brightnessMutex.Lock()
 			dpy.doSetBrightness(br, info.Name)
+			dpy.brightnessMutex.Unlock()
 		} else {
 			logger.Debug("[changeBrightness] will update to:", info.Name, br)
+			dpy.brightnessMutex.Lock()
 			dpy.doSetBrightnessFake(br, info.Name)
+			dpy.brightnessMutex.Unlock()
 		}
-
 	}
 
 	dpy.saveBrightness()
@@ -124,7 +131,7 @@ func (dpy *Manager) doSetBrightnessAux(fake bool, value float64, name string) er
 
 	// update brightness of the output
 	dpy.Brightness[name] = value
-	dpy.setPropBrightness(dpy.Brightness)
+	dpy.notifyBrightnessChange()
 	return nil
 }
 

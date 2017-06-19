@@ -90,12 +90,7 @@ func (dpy *Manager) setPropMonitors(v MonitorInfos) {
 	dbus.NotifyChange(dpy, "Monitors")
 }
 
-func (dpy *Manager) setPropBrightness(v map[string]float64) {
-	// if jsonMarshal(dpy.Brightness) == jsonMarshal(v) {
-	// 	return
-	// }
-
-	dpy.Brightness = v
+func (dpy *Manager) notifyBrightnessChange() {
 	dbus.NotifyChange(dpy, "Brightness")
 }
 
