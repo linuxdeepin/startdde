@@ -140,7 +140,7 @@ func (dpy *Manager) ResetChanges() error {
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
 	// firstly to find the matched config,
-	// then update monitors from config, finaly apply it.
+	// then update monitors from config, finally apply it.
 	id := dpy.Monitors.getMonitorsId()
 	if len(id) == 0 {
 		logger.Warning("No connected monitor found")

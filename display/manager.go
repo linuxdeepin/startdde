@@ -313,7 +313,7 @@ func (dpy *Manager) switchToCustom(name string) error {
 	monitorsLocker.Lock()
 	defer monitorsLocker.Unlock()
 	// firstly find the matched config,
-	// then update monitors from config, finaly apply these config.
+	// then update monitors from config, finally apply these config.
 	id := dpy.Monitors.getMonitorsId()
 	logger.Debug("---------[switchToCustom] now id:", id)
 	if len(id) == 0 {
