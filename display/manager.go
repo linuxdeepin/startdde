@@ -358,7 +358,7 @@ func (dpy *Manager) tryApplyConfig() error {
 	}
 
 	id := dpy.Monitors.getMonitorsId()
-	if dpy.DisplayMode == DisplayModeCustom {
+	if outputLen != 1 && dpy.DisplayMode == DisplayModeCustom {
 		id = dpy.CurrentCustomId + customModeDelim + id
 	}
 	cMonitor := dpy.config.get(id)

@@ -147,7 +147,7 @@ func (dpy *Manager) ResetChanges() error {
 		return fmt.Errorf("No output connected")
 	}
 
-	if dpy.DisplayMode == DisplayModeCustom {
+	if len(dpy.outputInfos) != 1 && dpy.DisplayMode == DisplayModeCustom {
 		id = dpy.CurrentCustomId + customModeDelim + id
 	}
 
@@ -184,7 +184,7 @@ func (dpy *Manager) Save() error {
 		Primary:   dpy.Primary,
 		BaseInfos: dpy.Monitors.getBaseInfos(),
 	}
-	if dpy.DisplayMode == DisplayModeCustom {
+	if len(dpy.outputInfos) != 1 && dpy.DisplayMode == DisplayModeCustom {
 		cMonitor.Name = dpy.CurrentCustomId
 		id = dpy.CurrentCustomId + customModeDelim + id
 	}
