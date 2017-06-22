@@ -491,8 +491,7 @@ func (dpy *Manager) updateMonitors() {
 		logger.Info("[updateMonitors] add monitor:", m.Name, m.X, m.Y, m.Width, m.Height)
 		dpy.allMonitors = append(dpy.allMonitors, m)
 	}
-	dpy.allMonitors = dpy.allMonitors.sort()
-	dpy.sortByPriority()
+	dpy.sortMonitors()
 	dpy.setPropMonitors(dpy.allMonitors.listConnected())
 }
 

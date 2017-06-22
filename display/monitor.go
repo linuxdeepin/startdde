@@ -20,6 +20,8 @@ type MonitorBaseInfo struct {
 	Rotation    uint16
 	Reflect     uint16
 	RefreshRate float64
+
+	nameType string
 }
 type MonitorBaseInfos []*MonitorBaseInfo
 
@@ -197,6 +199,7 @@ func toMonitorBaseInfo(output drandr.OutputInfo, uuid string) MonitorBaseInfo {
 		Height:   output.Crtc.Height,
 		Rotation: output.Crtc.Rotation,
 		Reflect:  output.Crtc.Reflect,
+		nameType: strings.ToLower(numReg.ReplaceAllString(output.Name, "")),
 	}
 	return info
 }
@@ -258,44 +261,89 @@ func (ms MonitorInfos) canBePrimary(name string) *MonitorInfo {
 	return nil
 }
 
-func (ms MonitorInfos) sort() MonitorInfos {
+func (ms MonitorInfos) sort(prority []string) MonitorInfos {
 	if ms.numberOfConnected() < 2 {
 		return ms
 	}
 	ms = ms.sortByNameType()
-	// ms = ms.sortByPrimary(primary)
+	ms = ms.sortByPrority(prority)
 	return ms
 }
 
 // sortByNameType preference put the bulit-in output at the top,
 // the extendable output should after the built-in
 func (ms MonitorInfos) sortByNameType() MonitorInfos {
-	var list MonitorInfos
-	for _, m := range ms {
-		if isBuiltinOutput(m.Name) {
-			list = append(MonitorInfos{m}, list...)
-		} else {
-			list = append(list, m)
+	var (
+		builtin MonitorInfos
+		vga     MonitorInfos
+		dvi     MonitorInfos
+		dp      MonitorInfos
+		hdmi    MonitorInfos
+		other   MonitorInfos
+	)
+	for _, info := range ms {
+		switch info.cfg.nameType {
+		case "edp", "lvds", "lcd", "dsi":
+			builtin = append(builtin, info)
+		case "vga":
+			vga = append(vga, info)
+		case "dvi":
+			dvi = append(dvi, info)
+		case "dp":
+			dp = append(dp, info)
+		case "hdmi":
+			hdmi = append(hdmi, info)
+		default:
+			other = append(other, info)
 		}
 	}
-	return list
+
+	var ret MonitorInfos
+	if len(builtin) != 0 {
+		ret = append(ret, builtin...)
+	}
+	if len(vga) != 0 {
+		ret = append(ret, vga...)
+	}
+	if len(dvi) != 0 {
+		ret = append(ret, dvi...)
+	}
+	if len(dp) != 0 {
+		ret = append(ret, dp...)
+	}
+	if len(hdmi) != 0 {
+		ret = append(ret, hdmi...)
+	}
+	if len(other) != 0 {
+		ret = append(ret, other...)
+	}
+	return ret
 }
 
-// sortByPrimary the primary output should at the first
-func (ms MonitorInfos) sortByPrimary(primary string) MonitorInfos {
-	if ms[0].Name == primary {
+func (ms MonitorInfos) sortByPrority(prority []string) MonitorInfos {
+	if len(prority) == 0 {
 		return ms
 	}
 
-	var list MonitorInfos
-	for _, m := range ms {
-		if m.Name == primary {
-			list = append(MonitorInfos{m}, list...)
-		} else {
-			list = append(list, m)
+	var ret MonitorInfos
+	for _, v := range prority {
+		info := ms.getByName(v)
+		if info == nil {
+			continue
 		}
+		ret = append(ret, info)
 	}
-	return list
+	if len(ret) == 0 {
+		return ms
+	}
+
+	for _, info := range ms {
+		if tmp := ret.getByName(info.Name); tmp != nil {
+			continue
+		}
+		ret = append(ret, info)
+	}
+	return ret
 }
 
 // see also: gnome-desktop/libgnome-desktop/gnome-rr.c

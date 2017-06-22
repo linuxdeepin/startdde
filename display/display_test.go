@@ -10,6 +10,7 @@ func TestMonitor(t *testing.T) {
 	Convey("Monitor test", t, func() {
 		var base = MonitorBaseInfo{
 			Name:        "LVDS-1",
+			UUID:        "xxxxlvds-1",
 			Enabled:     true,
 			X:           0,
 			Y:           0,
@@ -21,7 +22,6 @@ func TestMonitor(t *testing.T) {
 		}
 		var lvds = &MonitorInfo{
 			cfg:       &base,
-			uuid:      "xxxxlvds-1",
 			Name:      base.Name,
 			Enabled:   true,
 			Connected: true,
@@ -37,9 +37,9 @@ func TestMonitor(t *testing.T) {
 
 		var base1 = base
 		base1.Name = "eDP-1"
+		base1.UUID = "xxxxedp-1"
 		var edp = &MonitorInfo{
 			cfg:       &base1,
-			uuid:      "xxxxedp-1",
 			Name:      base1.Name,
 			Enabled:   true,
 			Connected: true,

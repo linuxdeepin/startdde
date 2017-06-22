@@ -48,30 +48,13 @@ func (dpy *Manager) disableOutputs() {
 	}
 }
 
-func (dpy *Manager) sortByPriority() {
+func (dpy *Manager) sortMonitors() {
 	var list = dpy.setting.GetStrv(gsKeyPriority)
 	if len(list) == 0 {
 		return
 	}
 	logger.Debugf("----------Priority: %v", list)
 	logger.Debugf("----------Monitors: %#v", dpy.allMonitors)
-	var infos MonitorInfos
-	for _, v := range list {
-		info := dpy.allMonitors.getByName(v)
-		if info == nil {
-			continue
-		}
-		infos = append(infos, info)
-	}
-	if len(infos) == 0 {
-		return
-	}
-
-	for _, info := range dpy.allMonitors {
-		if tmp := infos.getByName(info.Name); tmp == nil {
-			infos = append(infos, info)
-		}
-	}
-	dpy.allMonitors = infos
+	dpy.allMonitors = dpy.allMonitors.sort(list)
 	logger.Debugf("----------Monitors DONE: %#v", dpy.allMonitors)
 }
