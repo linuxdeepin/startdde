@@ -46,6 +46,11 @@ func main() {
 	quitSoundThemePlayer()
 	go playLoginSound()
 
+	err = showWelcome(true)
+	if err != nil {
+		logger.Warning("Failed to show welcome:", err)
+	}
+
 	proxy.SetupProxy()
 
 	startXSettings(xu.Conn())
@@ -53,6 +58,11 @@ func main() {
 	go display.Start()
 
 	startSession(xu)
+
+	err = showWelcome(false)
+	if err != nil {
+		logger.Warning("Failed to exit welcome:", err)
+	}
 
 	watchdog.Start()
 

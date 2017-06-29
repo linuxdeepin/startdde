@@ -10,6 +10,7 @@
 package main
 
 import (
+	"dbus/com/deepin/dde/welcome"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -227,4 +228,29 @@ func execAndWait(timeout int, name string, arg ...string) (stdout, stderr string
 		}
 	}
 	return
+}
+
+var _ddeWelcome *welcome.Welcome
+
+func getDDEWelcome() (*welcome.Welcome, error) {
+	if _ddeWelcome != nil {
+		return _ddeWelcome, nil
+	}
+
+	var err error
+	_ddeWelcome, err = welcome.NewWelcome("com.deepin.dde.Welcome",
+		"/com/deepin/dde/Welcome")
+	return _ddeWelcome, err
+}
+
+func showWelcome(showing bool) error {
+	wel, err := getDDEWelcome()
+	if err != nil {
+		return err
+	}
+
+	if showing {
+		return wel.Show()
+	}
+	return wel.Exit()
 }
