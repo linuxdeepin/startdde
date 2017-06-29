@@ -285,6 +285,7 @@ func startSession(xu *xgbutil.XUtil) {
 
 	go func() {
 		manager.launch("/usr/bin/dde-desktop", true)
+		manager.launch("/usr/bin/dde-file-manager", true, "-d")
 		wg.Done()
 	}()
 
