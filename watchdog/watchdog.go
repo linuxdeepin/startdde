@@ -43,6 +43,7 @@ func Start() {
 	_manager = newManager()
 	_manager.AddTask(newDockTask())
 	_manager.AddTask(newDesktopTask())
+	_manager.AddTask(newDDEPolkitAgent())
 	go _manager.StartLoop()
 	return
 }
