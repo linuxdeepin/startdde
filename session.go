@@ -214,6 +214,13 @@ func isInVM() (bool, error) {
 }
 
 func (manager *SessionManager) launchWindowManager() {
+	wmCmd := getWindowManager()
+	if wmCmd != "" {
+		logger.Debug("Will launch the user special wm:", wmCmd)
+		manager.launch(wmCmd, false)
+		return
+	}
+
 	inVM, err := isInVM()
 	if inVM {
 		logger.Debug("launchWindowManager in VM")

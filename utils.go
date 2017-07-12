@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"pkg.deepin.io/lib/utils"
 	"strings"
 
 	"bytes"
@@ -253,4 +254,24 @@ func showWelcome(showing bool) error {
 		return wel.Show()
 	}
 	return wel.Exit()
+}
+
+func getWindowManager() string {
+	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		logger.Error("Failed to get window manager:", err)
+		return ""
+	}
+	defer s.Unref()
+	return s.GetString("wm-cmd")
+}
+
+func getAutostartDelay() int32 {
+	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		logger.Error("Failed to get autostart delay:", err)
+		return 0
+	}
+	defer s.Unref()
+	return s.GetInt("autostart-delay")
 }
