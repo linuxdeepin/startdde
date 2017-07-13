@@ -44,6 +44,8 @@ func main() {
 	flag.Parse()
 	initObjSoundThemePlayer()
 	quitSoundThemePlayer()
+
+	tryLaunchWMChooser()
 	go playLoginSound()
 
 	err = showWelcome(true)
