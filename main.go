@@ -48,9 +48,12 @@ func main() {
 	tryLaunchWMChooser()
 	go playLoginSound()
 
-	err = showWelcome(true)
-	if err != nil {
-		logger.Warning("Failed to show welcome:", err)
+	canLaunch := canLaunchWelcome()
+	if canLaunch {
+		err = showWelcome(true)
+		if err != nil {
+			logger.Warning("Failed to show welcome:", err)
+		}
 	}
 
 	proxy.SetupProxy()
@@ -61,9 +64,11 @@ func main() {
 
 	startSession(xu)
 
-	err = showWelcome(false)
-	if err != nil {
-		logger.Warning("Failed to exit welcome:", err)
+	if canLaunch {
+		err = showWelcome(false)
+		if err != nil {
+			logger.Warning("Failed to exit welcome:", err)
+		}
 	}
 
 	watchdog.Start()

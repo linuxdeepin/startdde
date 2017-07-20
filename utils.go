@@ -244,6 +244,17 @@ func getDDEWelcome() (*welcome.Welcome, error) {
 	return _ddeWelcome, err
 }
 
+func canLaunchWelcome() bool {
+	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		logger.Error("Failed to connect startdde setting:", err)
+		return true
+	}
+	defer s.Unref()
+
+	return s.GetBoolean("launch-welcome")
+}
+
 func showWelcome(showing bool) error {
 	wel, err := getDDEWelcome()
 	if err != nil {
