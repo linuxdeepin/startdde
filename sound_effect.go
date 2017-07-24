@@ -28,12 +28,12 @@ import (
 var objSoundThemePlayer *soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
-	logger.Info("PlaySystemSound EventLogin")
-	err := soundutils.PlaySystemSound(soundutils.EventLogin, "", true)
+	logger.Info("PlaySystemSound DesktopLogin")
+	err := soundutils.PlaySystemSound(soundutils.EventDesktopLogin, "", true)
 	if err != nil {
-		logger.Warning("PlaySystemSound EventLogin failed:", err)
+		logger.Warning("PlaySystemSound DesktopLogin failed:", err)
 	}
-	logger.Info("PlaySystemSound EventLogin done")
+	logger.Info("PlaySystemSound DesktopLogin done")
 }
 
 func initObjSoundThemePlayer() {
@@ -76,9 +76,9 @@ func quitPulseAudio() {
 
 func preparePlayShutdownSound() {
 	err := soundutils.SetShutdownSound(
-		soundutils.CanPlayEvent(soundutils.EventShutdown),
+		soundutils.CanPlayEvent(soundutils.EventSystemShutdown),
 		soundutils.GetSoundTheme(),
-		soundutils.EventShutdown)
+		soundutils.EventSystemShutdown)
 	if err != nil {
 		logger.Warning("Set shutdown sound failed:", err)
 	}

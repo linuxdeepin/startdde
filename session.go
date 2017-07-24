@@ -83,12 +83,12 @@ func (m *SessionManager) RequestLogout() {
 	autostop.LaunchAutostopScripts(logger)
 	quitPulseAudio()
 
-	if soundutils.CanPlayEvent(soundutils.EventLogout) {
+	if soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		// Try to launch 'sound-theme-player'
 		soundThemePlayerPlay("", "")
 		// Play sound
 		soundThemePlayerPlay(soundutils.GetSoundTheme(),
-			soundutils.EventLogout)
+			soundutils.EventDesktopLogout)
 	}
 	m.terminate()
 }
