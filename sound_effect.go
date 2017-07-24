@@ -66,7 +66,7 @@ func quitPulseAudio() {
 
 func preparePlayShutdownSound() {
 	err := soundutils.SetShutdownSound(
-		soundutils.CanPlayEvent(),
+		soundutils.CanPlayEvent(soundutils.EventShutdown),
 		soundutils.GetSoundTheme(),
 		soundutils.EventShutdown)
 	if err != nil {

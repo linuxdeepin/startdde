@@ -73,7 +73,7 @@ func (m *SessionManager) RequestLogout() {
 	logger.Info("Request Logout")
 	quitPulseAudio()
 
-	if soundutils.CanPlayEvent() {
+	if soundutils.CanPlayEvent(soundutils.EventLogout) {
 		// Try to launch 'sound-theme-player'
 		soundThemePlayerPlay("", "")
 		// Play sound
