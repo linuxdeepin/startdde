@@ -107,7 +107,7 @@ func newManager() (*Manager, error) {
 	sw, sh := screenInfo.GetScreenSize()
 	var m = Manager{
 		conn:         conn,
-		outputInfos:  screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs(),
+		outputInfos:  screenInfo.Outputs.ListConnectionOutputs(),
 		modeInfos:    screenInfo.Modes,
 		config:       config,
 		ScreenWidth:  sw,

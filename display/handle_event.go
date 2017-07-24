@@ -54,11 +54,11 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 		logger.Error("Get screen info failed:", err)
 		return
 	}
-	outputInfos := screenInfo.Outputs.ListConnectionOutputs().ListValidOutputs()
+	outputInfos := screenInfo.Outputs.ListConnectionOutputs()
 	tmpInfos, tmpList := dpy.filterOutputs(outputInfos)
 	if oldLen != len(tmpInfos) && dpy.isOutputCrtcInvalid(tmpInfos) && autoOpenTimes < 2 {
 		// only try 2 times
-		autoOpenTimes += 1
+		autoOpenTimes++
 		doAction("xrandr --auto")
 		return
 	}
