@@ -72,14 +72,14 @@ func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
 	dpy.modeInfos = screenInfo.Modes
 	dpy.updateMonitors()
 	logger.Debug("[Event] compare:", dpy.lastConfigTime, ev.ConfigTimestamp, oldLen, len(dpy.outputInfos))
-	if dpy.lastConfigTime < ev.ConfigTimestamp {
-		if oldLen != len(dpy.outputInfos) {
-			logger.Infof("Detect new output config, try to apply it: %#v", screenInfo.Outputs)
-			dpy.lastConfigTime = ev.ConfigTimestamp
-			err := dpy.tryApplyConfig()
-			if err != nil {
-				logger.Error("Apply failed for event:", err)
-			}
+	// some platform the config timestamp maybe equal between twice event, so not check
+	// if dpy.lastConfigTime < ev.ConfigTimestamp {
+	if oldLen != len(dpy.outputInfos) {
+		logger.Infof("Detect new output config, try to apply it: %#v", screenInfo.Outputs)
+		dpy.lastConfigTime = ev.ConfigTimestamp
+		err := dpy.tryApplyConfig()
+		if err != nil {
+			logger.Error("Apply failed for event:", err)
 		}
 	}
 	dpy.updateScreenSize()
