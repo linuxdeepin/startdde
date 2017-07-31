@@ -11,8 +11,8 @@ package main
 
 import (
 	"fmt"
+	C "gopkg.in/check.v1"
 	"io/ioutil"
-	C "launchpad.net/gocheck"
 	"os"
 	"pkg.deepin.io/lib/utils"
 	"testing"
