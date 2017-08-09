@@ -32,13 +32,26 @@ func (m *MonitorInfo) SetMode(v uint32) error {
 }
 
 func (m *MonitorInfo) SetModeBySize(w, h uint16) error {
-	mode := m.Modes.QueryBySize(w, h)
-	if mode.Id == 0 {
+	matches := m.Modes.QueryBySize(w, h)
+	if len(matches) == 0 {
 		logger.Warning("Invalid mode size:", w, h)
 		return fmt.Errorf("The mode size %dx%d invalid", w, h)
 	}
 
-	return m.SetMode(mode.Id)
+	return m.SetMode(matches[0].Id)
+}
+
+func (m *MonitorInfo) SetRefreshRate(rate float64) error {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+	err := m.doSetRefreshRate(rate)
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	m.cfg.RefreshRate = rate
+	_dpy.detectHasChanged()
+	return nil
 }
 
 func (m *MonitorInfo) SetPosition(x, y int16) error {

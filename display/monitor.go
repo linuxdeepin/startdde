@@ -140,13 +140,23 @@ func (m *MonitorInfo) doSetMode(v uint32) error {
 }
 
 func (m *MonitorInfo) doSetModeBySize(w, h uint16) error {
-	mode := m.Modes.QueryBySize(w, h)
-	if mode.Id == 0 {
+	matches := m.Modes.QueryBySize(w, h)
+	if len(matches) == 0 {
 		logger.Warning("Invalid mode size:", w, h)
 		return fmt.Errorf("The mode size %dx%d invalid", w, h)
 	}
 
-	return m.doSetMode(mode.Id)
+	// only set the first mode
+	return m.doSetMode(matches[0].Id)
+}
+
+func (m *MonitorInfo) doSetRefreshRate(rate float64) error {
+	matches := m.Modes.QueryBySize(m.Width, m.Height)
+	if !matches.HasRefreshRate(rate) {
+		return fmt.Errorf("Invalid refresh rate: %v", rate)
+	}
+	m.setPropRefreshRate(rate)
+	return nil
 }
 
 func (m *MonitorInfo) doSetPosition(x, y int16) {

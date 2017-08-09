@@ -212,7 +212,7 @@ func (dpy *Manager) switchToMirror() error {
 		m.doSetRotation(1)
 		m.cfg.Reflect = 0
 		m.doSetReflect(0)
-		mode := m.Modes.QueryBySize(modes[0].Width, modes[0].Height)
+		mode := m.Modes.QueryBySize(modes[0].Width, modes[0].Height)[0]
 		m.cfg.Width = mode.Width
 		m.cfg.Height = mode.Height
 		m.doSetMode(mode.Id)
@@ -518,7 +518,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 		RefreshRate:    base.RefreshRate,
 		Rotations:      output.Crtc.Rotations,
 		Reflects:       output.Crtc.Reflects,
-		CurrentMode:    modes.QueryBySize(base.Width, base.Height),
+		CurrentMode:    modes.QueryBySize(base.Width, base.Height)[0],
 		Modes:          modes,
 		PreferredModes: dpy.getModesByIds(output.PreferredModes),
 	}
@@ -617,7 +617,7 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 			continue
 		}
 		// handle different rate but some width/height mode
-		if t := modes.QueryBySize(mode.Width, mode.Height); t.Id != 0 {
+		if matches := modes.QueryBySize(mode.Width, mode.Height); len(matches) != 0 {
 			continue
 		}
 		modes = append(modes, mode)
