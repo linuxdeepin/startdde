@@ -286,33 +286,34 @@ func startSession(xu *xgbutil.XUtil) {
 	go func() {
 		// dde-session-initializer contains backend of dock, launcher currently
 		manager.launch("/usr/lib/deepin-daemon/dde-session-initializer", true)
-		manager.launch("/usr/bin/dde-dock", true)
+		manager.launch("/usr/bin/dde-dock", false)
 		// dde-launcher is fast enough now, there's no need to start it at the begnning
 		// of every session.
 		// manager.launch("/usr/bin/dde-launcher", false)
-
-		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", false)
 		wg.Done()
 	}()
 
 	wg.Wait()
 
-	manager.setPropStage(SessionStageCoreEnd)
+	go func() {
+		// dde-session-daemon must be launched done before startAutostartProgram
+		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
+		manager.setPropStage(SessionStageCoreEnd)
 
-	manager.setPropStage(SessionStageAppsBegin)
-
-	if !*debug {
-		delay := getAutostartDelay()
-		logger.Debug("Autostart delay seconds:", delay)
-		if delay > 0 {
-			time.AfterFunc(time.Second*time.Duration(delay), func() {
+		manager.setPropStage(SessionStageAppsBegin)
+		if !*debug {
+			delay := getAutostartDelay()
+			logger.Debug("Autostart delay seconds:", delay)
+			if delay > 0 {
+				time.AfterFunc(time.Second*time.Duration(delay), func() {
+					startAutostartProgram()
+				})
+			} else {
 				startAutostartProgram()
-			})
-		} else {
-			startAutostartProgram()
+			}
 		}
-	}
-	manager.setPropStage(SessionStageAppsEnd)
+		manager.setPropStage(SessionStageAppsEnd)
+	}()
 }
 
 func tryLaunchWMChooser() {
