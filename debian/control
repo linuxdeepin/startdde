@@ -5,7 +5,6 @@ Maintainer: Deepin Sysdev <sysdev@deepin.com>
 Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  golang-dlib-dev,
  golang-github-burntsushi-xgbutil-dev,
- golang-github-howeyc-fsnotify-dev,
  dde-go-dbus-factory(>= 2.92.1),
  dde-api-dev(>= 3.0.8),
 Standards-Version: 3.9.5

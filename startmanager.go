@@ -16,13 +16,11 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"github.com/howeyc/fsnotify"
-
 	"dbus/com/deepin/daemon/apps"
 	"gir/gio-2.0"
 	"gir/glib-2.0"
 	"github.com/BurntSushi/xgbutil"
+	"pkg.deepin.io/lib/fsnotify"
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
