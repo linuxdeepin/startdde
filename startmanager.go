@@ -13,8 +13,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/howeyc/fsnotify"
@@ -26,6 +29,8 @@ import (
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/strv"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 const (
@@ -45,28 +50,55 @@ const (
 	TryExecKey             = "TryExec"
 	GnomeDelayKey          = "X-GNOME-Autostart-Delay"
 	DeepinAutostartExecKey = "X-Deepin-Autostart-Exec"
+	proxychainsBinary      = "proxychains4"
+	gSchemaLauncher        = "com.deepin.dde.launcher"
+	gKeyAppsUseProxy       = "apps-use-proxy"
 )
 
 type StartManager struct {
-	userAutostartPath string
-	AutostartChanged  func(string, string)
-	delayHandler      *mapDelayHandler
-	launchedRecorder  *apps.LaunchedRecorder
-	launchContext     *appinfo.AppLaunchContext
+	userAutostartPath   string
+	AutostartChanged    func(string, string)
+	delayHandler        *mapDelayHandler
+	launchedRecorder    *apps.LaunchedRecorder
+	launchContext       *appinfo.AppLaunchContext
+	proxyChainsConfFile string
+	proxyChainsBin      string
+
+	settings     *gio.Settings
+	appsUseProxy strv.Strv
+	mu           sync.Mutex
 }
 
 func newStartManager(xu *xgbutil.XUtil) *StartManager {
-	manager := &StartManager{}
+	m := &StartManager{}
 
-	manager.launchContext = appinfo.NewAppLaunchContext(xu)
-	manager.delayHandler = newMapDelayHandler(100*time.Millisecond,
-		manager.emitSignalAutostartChanged)
+	m.settings = gio.NewSettings(gSchemaLauncher)
+
+	m.appsUseProxy = strv.Strv(m.settings.GetStrv(gKeyAppsUseProxy))
+
+	m.settings.Connect("changed::"+gKeyAppsUseProxy, func(settings *gio.Settings, key string) {
+		if key != gKeyAppsUseProxy {
+			return
+		}
+		m.mu.Lock()
+		m.appsUseProxy = strv.Strv(settings.GetStrv(gKeyAppsUseProxy))
+		m.mu.Unlock()
+		logger.Debug("update appsUseProxy")
+	})
+
+	m.proxyChainsConfFile = filepath.Join(basedir.GetUserConfigDir(), "deepin", "proxychains.conf")
+	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
+	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
+
+	m.launchContext = appinfo.NewAppLaunchContext(xu)
+	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
+		m.emitSignalAutostartChanged)
 	var err error
-	manager.launchedRecorder, err = apps.NewLaunchedRecorder("com.deepin.daemon.Apps", "/com/deepin/daemon/Apps")
+	m.launchedRecorder, err = apps.NewLaunchedRecorder("com.deepin.daemon.Apps", "/com/deepin/daemon/Apps")
 	if err != nil {
 		logger.Warning("NewLaunchedRecorder failed:", err)
 	}
-	return manager
+	return m
 }
 
 var START_MANAGER *StartManager
@@ -80,7 +112,7 @@ func (m *StartManager) Launch(name string) (bool, error) {
 }
 
 func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
-	err := launch(name, timestamp, m.launchContext)
+	err := m.launch(name, timestamp, m.launchContext)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -92,12 +124,42 @@ func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool,
 	return err == nil, err
 }
 
-func launch(file string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
+func (m *StartManager) shouldUseProxy(file string) bool {
+	m.mu.Lock()
+	if !m.appsUseProxy.Contains(file) {
+		m.mu.Unlock()
+		return false
+	}
+	m.mu.Unlock()
+
+	if _, err := os.Stat(m.proxyChainsConfFile); err != nil {
+		return false
+	}
+
+	if m.proxyChainsBin == "" {
+		// try get proxyChainsBin again
+		m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
+		if m.proxyChainsBin == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func (m *StartManager) launch(file string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
 	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(file)
 	if err != nil {
 		return err
 	}
 	ctx.SetTimestamp(timestamp)
+
+	if m.shouldUseProxy(file) {
+		cmd := appInfo.GetCommandline()
+		cmd = fmt.Sprintf("%s -f %s %s", m.proxyChainsBin, m.proxyChainsConfFile, cmd)
+		logger.Debugf("launch: use proxy, cmd %q", cmd)
+		appInfo.SetString(desktopappinfo.MainSection, desktopappinfo.KeyExec, cmd)
+	}
+
 	return appInfo.Launch(nil, ctx)
 }
 
