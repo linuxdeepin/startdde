@@ -20,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -71,6 +72,7 @@ func (m *SessionManager) terminate() {
 
 func (m *SessionManager) RequestLogout() {
 	logger.Info("Request Logout")
+	autostop.LaunchAutostopScripts(logger)
 	quitPulseAudio()
 
 	if soundutils.CanPlayEvent(soundutils.EventLogout) {
