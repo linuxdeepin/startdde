@@ -282,9 +282,8 @@ func (info *typeGSKeyInfo) getKeyValue(s *gio.Settings) interface{} {
 		v := s.GetBoolean(info.gsKey)
 		if v {
 			return int32(1)
-		} else {
-			return int32(0)
 		}
+		return int32(0)
 	case gsKeyTypeInt:
 		return int32(s.GetInt(info.gsKey))
 	case gsKeyTypeString:

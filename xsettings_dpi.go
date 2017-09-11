@@ -27,20 +27,44 @@ func (m *XSManager) updateDPI() {
 	// QT_SCALE_FACTOR will cause dde-dock not show
 	// os.Setenv("QT_SCALE_FACTOR", fmt.Sprintf("%v", scale))
 
+	var infos []xsSetting
 	scaledDPI := int32(float64(DPI_FALLBACK*1024) * scale)
-	if scaledDPI == m.gs.GetInt("xft-dpi") {
-		return
-	}
-
-	m.gs.SetInt("xft-dpi", scaledDPI)
-	m.setSettings([]xsSetting{
-		{
+	if scaledDPI != m.gs.GetInt("xft-dpi") {
+		m.gs.SetInt("xft-dpi", scaledDPI)
+		infos = append(infos, xsSetting{
 			sType: settingTypeInteger,
 			prop:  "Xft/DPI",
 			value: scaledDPI,
-		},
-	})
+		})
+	}
 
+	// update window scale and cursor size
+	windowScale := m.gs.GetInt("window-scale")
+	cursorSize := m.gs.GetInt("gtk-cursor-theme-size")
+	v, _ := m.GetInteger("Gdk/WindowScalingFactor")
+	if v != windowScale {
+		infos = append(infos, xsSetting{
+			sType: settingTypeInteger,
+			prop:  "Gdk/WindowScalingFactor",
+			value: windowScale,
+		}, xsSetting{
+			sType: settingTypeInteger,
+			prop:  "Gdk/UnscaledDPI",
+			value: scaledDPI,
+		}, xsSetting{
+			sType: settingTypeInteger,
+			prop:  "Gtk/CursorThemeSize",
+			value: windowScale * cursorSize,
+		})
+	}
+
+	if len(infos) != 0 {
+		err := m.setSettings(infos)
+		if err != nil {
+			logger.Warning("Failed to update dpi:", err)
+		}
+		m.updateXResources()
+	}
 }
 
 func (m *XSManager) updateXResources() {
@@ -48,6 +72,7 @@ func (m *XSManager) updateXResources() {
 	if scale <= 0 {
 		scale = 1
 	}
+	windowScale := m.gs.GetInt("window-scale")
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
 			key:   "Xcursor.theme",
@@ -55,7 +80,7 @@ func (m *XSManager) updateXResources() {
 		},
 		&xresourceInfo{
 			key:   "Xcursor.size",
-			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
+			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")*windowScale),
 		},
 		&xresourceInfo{
 			key:   "Xft.dpi",

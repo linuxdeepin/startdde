@@ -119,7 +119,6 @@ func (m *XSManager) handleGSettingsChanged() {
 			return
 		case "scale-factor":
 			m.updateDPI()
-			m.updateXResources()
 			return
 		case "gtk-cursor-theme-name":
 			updateXResources(xresourceInfos{
@@ -135,6 +134,9 @@ func (m *XSManager) handleGSettingsChanged() {
 					value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
 				},
 			})
+		case "window-scale":
+			m.updateDPI()
+			return
 		}
 
 		info := gsInfos.getInfoByGSKey(key)
