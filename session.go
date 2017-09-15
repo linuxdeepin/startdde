@@ -289,7 +289,7 @@ func startSession(xu *xgbutil.XUtil) {
 		// dde-session-initializer contains backend of dock, launcher currently
 		manager.launch("/usr/lib/deepin-daemon/dde-session-initializer", true)
 		manager.launch("/usr/bin/dde-dock", false)
-		// dde-launcher is fast enough now, there's no need to start it at the begnning
+		// dde-launcher is fast enough now, there's no need to start it at the beginning
 		// of every session.
 		// manager.launch("/usr/bin/dde-launcher", false)
 		wg.Done()
