@@ -28,12 +28,10 @@ import (
 
 	"github.com/BurntSushi/xgbutil"
 	"os/exec"
-	"path/filepath"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 type SessionManager struct {
@@ -214,17 +212,6 @@ func newSessionManager() *SessionManager {
 	return m
 }
 
-func isInVM() (bool, error) {
-	cmd := exec.Command("systemd-detect-virt", "-v", "-q")
-	err := cmd.Start()
-	if err != nil {
-		return false, err
-	}
-
-	err = cmd.Wait()
-	return err == nil, nil
-}
-
 func (manager *SessionManager) launchWindowManager() {
 	wmCmd := getWindowManager()
 	if wmCmd != "" {
@@ -326,25 +313,4 @@ func startSession(xu *xgbutil.XUtil) {
 		}
 		manager.setPropStage(SessionStageAppsEnd)
 	}()
-}
-
-func tryLaunchWMChooser() {
-	inVM, err := isInVM()
-	if err != nil {
-		logger.Warning("launchWindowManager detect VM failed:", err)
-		return
-	}
-
-	if !inVM {
-		return
-	}
-
-	logger.Debug("launchWindowManager in VM")
-	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin-wm-switcher", "config.json")
-	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		err := exec.Command("dde-wm-chooser", "-c", cfgFile).Run()
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
 }

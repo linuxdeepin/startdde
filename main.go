@@ -55,7 +55,7 @@ func main() {
 	initObjSoundThemePlayer()
 	quitSoundThemePlayer()
 
-	tryLaunchWMChooser()
+	tryMatchVM()
 	go playLoginSound()
 
 	canLaunch := canLaunchWelcome()
@@ -70,7 +70,14 @@ func main() {
 
 	startXSettings(xu.Conn())
 
-	go display.Start()
+	go func() {
+		display.Start()
+		inVM, _ := isInVM()
+		if inVM {
+			logger.Debug("try to correct vm resolution")
+			correctVMResolution()
+		}
+	}()
 
 	startSession(xu)
 
