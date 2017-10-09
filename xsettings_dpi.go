@@ -59,6 +59,9 @@ func (m *XSManager) updateDPI() {
 
 	// update window scale and cursor size
 	windowScale := m.gs.GetInt("window-scale")
+	if windowScale > 1 {
+		scaledDPI = int32(DPI_FALLBACK * 1024)
+	}
 	cursorSize := m.gs.GetInt("gtk-cursor-theme-size")
 	v, _ := m.GetInteger("Gdk/WindowScalingFactor")
 	if v != windowScale {
