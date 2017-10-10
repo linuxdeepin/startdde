@@ -90,10 +90,6 @@ func (m *XSManager) updateDPI() {
 }
 
 func (m *XSManager) updateXResources() {
-	scale := m.gs.GetDouble("scale-factor")
-	if scale <= 0 {
-		scale = 1
-	}
 	windowScale := m.gs.GetInt("window-scale")
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
@@ -104,9 +100,10 @@ func (m *XSManager) updateXResources() {
 			key:   "Xcursor.size",
 			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")*windowScale),
 		},
+		// Set xresource dpi to default, replace with 'QT_SCALE_FACTOR'
 		&xresourceInfo{
 			key:   "Xft.dpi",
-			value: fmt.Sprintf("%v", int32(DPI_FALLBACK*scale)),
+			value: fmt.Sprintf("%v", int32(DPI_FALLBACK)),
 		},
 	})
 }
