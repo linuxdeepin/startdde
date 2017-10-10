@@ -171,7 +171,7 @@ func (m *MonitorInfo) doSetModeBySize(w, h uint16) error {
 
 func (m *MonitorInfo) doSetRefreshRate(rate float64) error {
 	matches := m.Modes.QueryBySize(m.Width, m.Height)
-	if !matches.HasRefreshRate(rate) {
+	if len(matches) == 0 || !matches.HasRefreshRate(rate) {
 		return fmt.Errorf("Invalid refresh rate: %v", rate)
 	}
 	m.setPropRefreshRate(rate)

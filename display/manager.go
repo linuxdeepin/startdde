@@ -537,9 +537,11 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 		RefreshRate:    base.RefreshRate,
 		Rotations:      output.Crtc.Rotations,
 		Reflects:       output.Crtc.Reflects,
-		CurrentMode:    modes.QueryBySize(base.Width, base.Height)[0],
 		Modes:          modes,
 		PreferredModes: dpy.getModesByIds(output.PreferredModes),
+	}
+	if tmp := modes.QueryBySize(base.Width, base.Height); len(tmp) != 0 {
+		info.CurrentMode = tmp[0]
 	}
 	if len(info.PreferredModes) != 0 {
 		info.BestMode = info.PreferredModes.Max()
