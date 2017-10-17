@@ -32,6 +32,7 @@ import (
 	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/pulse"
 )
 
 type SessionManager struct {
@@ -83,7 +84,7 @@ func (m *SessionManager) RequestLogout() {
 	autostop.LaunchAutostopScripts(logger)
 	quitPulseAudio()
 
-	if soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
+	if !isSpeakerMuted() && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		// Try to launch 'sound-theme-player'
 		soundThemePlayerPlay("", "")
 		// Play sound
@@ -318,4 +319,20 @@ func startSession(xu *xgbutil.XUtil) {
 		}
 		manager.setPropStage(SessionStageAppsEnd)
 	}()
+}
+
+func isSpeakerMuted() bool {
+	var ctx = pulse.GetContext()
+	if ctx == nil {
+		return false
+	}
+
+	dsink := ctx.GetDefaultSink()
+	for _, s := range ctx.GetSinkList() {
+		if s.Name != dsink {
+			continue
+		}
+		return s.Mute
+	}
+	return false
 }
