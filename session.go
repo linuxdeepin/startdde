@@ -274,7 +274,7 @@ func startSession(xu *xgbutil.XUtil) {
 	startStartManager(xu)
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		manager.launch("/usr/bin/dde-desktop", true)
@@ -289,6 +289,11 @@ func startSession(xu *xgbutil.XUtil) {
 		// dde-launcher is fast enough now, there's no need to start it at the beginning
 		// of every session.
 		// manager.launch("/usr/bin/dde-launcher", false)
+		wg.Done()
+	}()
+
+	go func() {
+		manager.launch("/usr/lib/deepin-notifications/deepin-notifications", false)
 		wg.Done()
 	}()
 
