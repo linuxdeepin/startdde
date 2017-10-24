@@ -164,6 +164,15 @@ func getAtom(conn *xgb.Conn, name string) (xproto.Atom, error) {
 }
 
 var errNotFoundBacklightController = errors.New("not found backlight controller")
+var controllers displayBl.Controllers
+
+func init() {
+	var err error
+	controllers, err = displayBl.List()
+	if err != nil {
+		fmt.Println("failed to list backlight controller:", err)
+	}
+}
 
 func getBacklightController(output randr.Output, conn *xgb.Conn) (*displayBl.Controller, error) {
 	// get output device edid
@@ -181,10 +190,6 @@ func getBacklightController(output randr.Output, conn *xgb.Conn) (*displayBl.Con
 		return nil, err
 	}
 	// get backlight controller
-	controllers, err := displayBl.List()
-	if err != nil {
-		return nil, err
-	}
 	if c := controllers.GetByEDID(edidProp.Data); c != nil {
 		return c, nil
 	}
@@ -225,10 +230,6 @@ func _getBacklight(controller *displayBl.Controller) (float64, error) {
 
 // there is only one backlight controller
 func getBacklightControllerOnlyOne() (*displayBl.Controller, error) {
-	controllers, err := displayBl.List()
-	if err != nil {
-		return nil, err
-	}
 	if len(controllers) > 1 {
 		return nil, errors.New("found more than one backlight controller")
 	}
