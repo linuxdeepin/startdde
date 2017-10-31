@@ -56,7 +56,10 @@ func main() {
 	quitSoundThemePlayer()
 
 	tryMatchVM()
-	go playLoginSound()
+	go func() {
+		removeEventSoundCache()
+		playLoginSound()
+	} ()
 
 	canLaunch := canLaunchWelcome()
 	if canLaunch {

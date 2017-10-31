@@ -20,12 +20,32 @@
 package main
 
 import (
-	"dbus/com/deepin/api/soundthemeplayer"
 	"os/exec"
+
+	"dbus/com/deepin/api/soundthemeplayer"
+
 	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/lib/xdg/basedir"
+	"path/filepath"
+	"os"
 )
 
 var objSoundThemePlayer *soundthemeplayer.SoundThemePlayer
+
+func removeEventSoundCache() {
+	cacheDir := basedir.GetUserCacheDir()
+	matches, err := filepath.Glob(cacheDir + "/event-sound-cache.tdb*")
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	for _, file := range matches {
+		err := os.Remove(file)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+}
 
 func playLoginSound() {
 	logger.Info("PlaySystemSound DesktopLogin")
