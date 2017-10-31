@@ -35,6 +35,7 @@ import (
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
+	"syscall"
 )
 
 var logger = log.NewLogger("startdde")
@@ -42,7 +43,23 @@ var logger = log.NewLogger("startdde")
 var debug = flag.Bool("d", false, "debug")
 var windowManagerBin = flag.String("wm", "/usr/bin/deepin-wm-switcher", "the window manager used by dde")
 
+func reapZombies() {
+	// We must reap children process even we hasn't create anyone at this moment,
+	// Because the startdde may be launched by exec syscall
+	// in another existed process, like /usr/sbin/lighdm-session does.
+	// NOTE: Don't use signal.Ignore(syscall.SIGCHILD), otherwise os/exec wouldn't work properly.
+	//       And simply ignore SIGCHILD hasn't any helpful in here.
+	for {
+		pid, err := syscall.Wait4(-1, nil, syscall.WNOHANG, nil)
+		if err != nil || pid == 0 {
+			break
+		}
+	}
+}
+
 func main() {
+	reapZombies()
+
 	// init x conn
 	xu, err := xgbutil.NewConn()
 	if err != nil {
