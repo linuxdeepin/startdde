@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [3.1.18] - 2017-11-3
+* reap children processes
+* remove sound event cache before playing
+* launch deepin-notifications on session start
+
 ## [3.1.17] - 2017-10-25
 *   brightness: only call displayBl.List once in init ([4a232f17](4a232f17))
 *   update soundutils event name ([634a9451](634a9451))
