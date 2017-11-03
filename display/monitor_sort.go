@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"path"
 	"pkg.linuxdeepin.com/lib/utils"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -89,6 +90,8 @@ func getCardId(name string) string {
 	return cardIdMap[name]
 }
 
+var numReg = regexp.MustCompile(`-?[0-9]`)
+
 func genConnectedIdMap(dir string) {
 	finfos, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -111,9 +114,11 @@ func genConnectedIdMap(dir string) {
 			continue
 		}
 
+		var idPrefix = name
 		array := strings.Split(name, "-")
 		if len(array) > 1 {
 			name = strings.Join(array[1:], "")
+			idPrefix = strings.Join(array[1:], "-")
 		}
 
 		logger.Debug("[genConnectedIdMap] -------card name:", name)
@@ -122,6 +127,7 @@ func genConnectedIdMap(dir string) {
 			continue
 		}
 		md5, _ := utils.SumStrMd5(string(contents))
+		md5 = numReg.ReplaceAllString(idPrefix, "") + md5
 		logger.Debug("[genConnectedIdMap] -------card id:", md5)
 		cardIdMap[name] = md5
 	}
