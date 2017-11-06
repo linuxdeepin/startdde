@@ -43,7 +43,7 @@ func tryMatchVM() {
 	}
 
 	logger.Debug("launchWindowManager in VM")
-	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin-wm-switcher", "config.json")
+	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin", "deepin-wm-switcher", "config.json")
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
 		err := exec.Command("dde-wm-chooser", "-c", cfgFile).Run()
 		if err != nil {
