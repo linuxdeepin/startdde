@@ -119,10 +119,11 @@ func (dpy *Manager) SwitchMode(mode uint8, name string) error {
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
 	monitorsLocker.Unlock()
 
-	if mode != DisplayModeCustom {
-		return nil
-	}
-	return dpy.Save()
+	// if mode != DisplayModeCustom {
+	// 	return nil
+	// }
+	// return dpy.Save()
+	return nil
 }
 
 func (dpy *Manager) ApplyChanges() error {

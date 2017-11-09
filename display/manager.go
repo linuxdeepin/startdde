@@ -421,6 +421,7 @@ func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 			info.Name = m.Name
 		}
 		dpy.updateMonitorFromBaseInfo(m, info)
+		m.doEnable(true)
 	}
 	if corrected {
 		dpy.config.writeFile()
@@ -429,8 +430,8 @@ func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	if err != nil {
 		return err
 	}
-	dpy.doSetPrimary(cMonitor.Primary, true)
 	dpy.rotateInputPointor()
+	dpy.doSetPrimary(cMonitor.Primary, true)
 	return nil
 }
 
@@ -440,10 +441,10 @@ func (dpy *Manager) doSetPrimary(name string, effectRect bool) error {
 		dpy.setPropPrimary(name)
 		if effectRect {
 			dpy.setPropPrimaryRect(xproto.Rectangle{
-				X:      m.X,
-				Y:      m.Y,
-				Width:  m.Width,
-				Height: m.Height,
+				X:      m.cfg.X,
+				Y:      m.cfg.Y,
+				Width:  m.cfg.Width,
+				Height: m.cfg.Height,
 			})
 		}
 		return nil
