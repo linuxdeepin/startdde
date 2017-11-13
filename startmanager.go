@@ -41,6 +41,7 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 
 	"github.com/BurntSushi/xgbutil"
+	"pkg.deepin.io/dde/startdde/swapsched"
 )
 
 const (
@@ -117,21 +118,60 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
 
-func (m *StartManager) Launch(name string) (bool, error) {
-	return m.LaunchWithTimestamp(name, 0)
+func (m *StartManager) Launch(desktopFile string) (bool, error) {
+	return m.LaunchWithTimestamp(desktopFile, 0)
 }
 
-func (m *StartManager) LaunchWithTimestamp(name string, timestamp uint32) (bool, error) {
-	err := m.launch(name, timestamp, m.launchContext)
+func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32) (bool, error) {
+	err := m.LaunchApp(desktopFile, timestamp, nil)
+	return err == nil, err
+}
+
+func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
+	err := m.launchApp(desktopFile, timestamp, files, m.launchContext)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
 
 	// mark app launched
 	if m.launchedRecorder != nil {
-		m.launchedRecorder.MarkLaunched(name)
+		m.launchedRecorder.MarkLaunched(desktopFile)
 	}
-	return err == nil, err
+	return err
+}
+
+func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
+	err := m.launchAppAction(desktopFile, action, timestamp, m.launchContext)
+	if err != nil {
+		logger.Warning("launch failed:", err)
+	}
+	// mark app launched
+	if m.launchedRecorder != nil {
+		m.launchedRecorder.MarkLaunched(desktopFile)
+	}
+	return err
+}
+
+func (m *StartManager) RunCommand(exe string, args []string) error {
+	var uiApp *swapsched.UIApp
+	var err error
+	if swapSchedDispatcher != nil {
+		uiApp, err = swapSchedDispatcher.NewApp(exe)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		}
+	}
+
+	var cmd *exec.Cmd
+	if uiApp != nil {
+		args = append([]string{"-g", "memory:" + uiApp.GetCGroup(), exe}, args...)
+		cmd = exec.Command("cgexec", args...)
+	} else {
+		cmd = exec.Command(exe, args...)
+	}
+
+	err = cmd.Start()
+	return waitCmd(cmd, err, uiApp)
 }
 
 func (m *StartManager) shouldUseProxy(file string) bool {
@@ -156,21 +196,106 @@ func (m *StartManager) shouldUseProxy(file string) bool {
 	return true
 }
 
-func (m *StartManager) launch(file string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(file)
+func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
 	}
-	ctx.SetTimestamp(timestamp)
 
-	if m.shouldUseProxy(file) {
-		cmd := appInfo.GetCommandline()
-		cmd = fmt.Sprintf("%s -f %s %s", m.proxyChainsBin, m.proxyChainsConfFile, cmd)
-		logger.Debugf("launch: use proxy, cmd %q", cmd)
-		appInfo.SetString(desktopappinfo.MainSection, desktopappinfo.KeyExec, cmd)
+	var targetAction desktopappinfo.DesktopAction
+	actions := appInfo.GetActions()
+	for _, action := range actions {
+		if action.Section == actionSection {
+			targetAction = action
+		}
 	}
 
-	return appInfo.Launch(nil, ctx)
+	if targetAction.Section == "" {
+		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
+	}
+
+	var cmdPrefixes []string
+	var uiApp *swapsched.UIApp
+	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
+		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		} else {
+			logger.Debug("launch: use cgexec")
+			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+		}
+	}
+
+	if m.shouldUseProxy(desktopFile) {
+		logger.Debug("launch: use proxy")
+		cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+	}
+
+	logger.Debug("cmd prefiexs:", cmdPrefixes)
+	ctx.Lock()
+	ctx.SetTimestamp(timestamp)
+	ctx.SetCmdPrefixes(cmdPrefixes)
+	cmd, err := targetAction.StartCommand(nil, ctx)
+	ctx.Unlock()
+	return waitCmd(cmd, err, uiApp)
+}
+
+func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	if err != nil {
+		return err
+	}
+
+	var cmdPrefixes []string
+	var uiApp *swapsched.UIApp
+	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
+		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		} else {
+			logger.Debug("launch: use cgexec")
+			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+		}
+	}
+
+	if m.shouldUseProxy(desktopFile) {
+		logger.Debug("launch: use proxy")
+		cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+	}
+
+	logger.Debug("cmd prefiexs:", cmdPrefixes)
+	ctx.Lock()
+	ctx.SetCmdPrefixes(cmdPrefixes)
+	ctx.SetTimestamp(timestamp)
+	cmd, err := appInfo.StartCommand(files, ctx)
+	ctx.Unlock()
+	return waitCmd(cmd, err, uiApp)
+}
+
+func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
+	if uiApp != nil {
+		swapSchedDispatcher.AddApp(uiApp)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			logger.Warning(err)
+		}
+		if uiApp != nil {
+			uiApp.SetStateEnd()
+		}
+	}()
+	return nil
+}
+
+func isDEComponent(appInfo *desktopappinfo.DesktopAppInfo) bool {
+	isDEComponent, _ := appInfo.GetBool(desktopappinfo.MainSection, "X-Deepin-DEComponent")
+	return isDEComponent
 }
 
 const (
@@ -628,7 +753,7 @@ func startAutostartProgram() {
 				time.Sleep(delayTime)
 			}
 
-			START_MANAGER.Launch(path)
+			START_MANAGER.LaunchApp(path, 0, nil)
 		}(path)
 	}
 }

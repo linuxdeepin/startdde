@@ -20,16 +20,19 @@
 package main
 
 import (
-	"dbus/org/freedesktop/login1"
 	"fmt"
 	"os"
+	"os/exec"
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/xgbutil"
-	"os/exec"
-	"pkg.deepin.io/dde/api/soundutils"
+	"dbus/org/freedesktop/login1"
+
 	"pkg.deepin.io/dde/startdde/autostop"
+	"pkg.deepin.io/dde/startdde/swapsched"
+
+	"github.com/BurntSushi/xgbutil"
+	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/pulse"
@@ -61,6 +64,7 @@ const (
 var (
 	objLogin            *login1.Manager
 	objLoginSessionSelf *login1.Session
+	swapSchedDispatcher *swapsched.Dispatcher
 )
 
 func (m *SessionManager) CanLogout() bool {
@@ -188,6 +192,24 @@ func (m *SessionManager) ToggleDebug() {
 	}
 }
 
+func callSwapSchedHelperPrepare(sessionID string) error {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	const dest = "com.deepin.daemon.SwapSchedHelper"
+	obj := sysBus.Object(dest, "/com/deepin/daemon/SwapSchedHelper")
+	return obj.Call(dest+".Prepare", 0, sessionID).Store()
+}
+
+var enableSwapSched = true
+
+func init() {
+	if os.Getenv("DISABLE_SWAP_SCHED") == "1" {
+		enableSwapSched = false
+	}
+}
+
 func initSession() {
 	var err error
 	const login1Dest = "org.freedesktop.login1"
@@ -196,12 +218,40 @@ func initSession() {
 
 	objLogin, err = login1.NewManager(login1Dest, login1ObjPath)
 	if err != nil {
-		panic(fmt.Errorf("New Login1 Failed: %s", err))
+		panic(fmt.Errorf("new Login1 Failed: %s", err))
 	}
 
 	objLoginSessionSelf, err = login1.NewSession(login1Dest, login1SessionSelfObjPath)
 	if err != nil {
-		panic(fmt.Errorf("New Login1 session self Failed: %s", err))
+		panic(fmt.Errorf("new Login1 session self Failed: %s", err))
+	}
+
+	if enableSwapSched {
+		initSwapSched()
+	} else {
+		logger.Info("swap sched disabled")
+	}
+}
+
+func initSwapSched() {
+	sessionID := objLoginSessionSelf.Id.Get()
+
+	err := callSwapSchedHelperPrepare(sessionID)
+	if err != nil {
+		logger.Warning("call SwapSchedHelper.Prepare error:", err)
+	}
+
+	swapsched.SetLogger(logger)
+	swapSchedDispatcher, err = swapsched.NewDispatcher(swapsched.TuneConfig{
+		RootCGroup: sessionID + "@dde/uiapps",
+		MemoryLock: false,
+	})
+
+	if err == nil {
+		go swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
+		go swapSchedDispatcher.Balance()
+	} else {
+		logger.Warning("failed to new swap sched dispatcher:", err)
 	}
 }
 
