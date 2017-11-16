@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [3.1.19] - 2017-11-16
+* fix primary rectangle wrong when output off
+* correct deepin-wm-switcher config file path
+
+
 ## [3.1.18] - 2017-11-3
 * reap children processes
 * remove sound event cache before playing
@@ -12,14 +17,14 @@
 
 ## [3.1.16] - 2017-10-12
 ### Added
-* Add window widget scale factor
-* Add virtual machine resolution corrector
-* Add 'autostop' to execute some shells before logout
-* Add option to start the app with proxychains
+* add window widget scale factor
+* add virtual machine resolution corrector
+* add 'autostop' to execute some shells before logout
+* add option to start the app with proxychains
 
 ### Changed
-* Not scaled xresource dpi
-* Update license
+* not scaled xresource dpi
+* update license
 
 ### Fixed
-* Fix display modes index out
+* fix display modes index out
