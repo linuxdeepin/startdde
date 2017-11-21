@@ -440,11 +440,12 @@ func (dpy *Manager) doSetPrimary(name string, effectRect bool) error {
 	if m != nil {
 		dpy.setPropPrimary(name)
 		if effectRect {
+			w, h := parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
 			dpy.setPropPrimaryRect(xproto.Rectangle{
 				X:      m.cfg.X,
 				Y:      m.cfg.Y,
-				Width:  m.cfg.Width,
-				Height: m.cfg.Height,
+				Width:  w,
+				Height: h,
 			})
 		}
 		return nil

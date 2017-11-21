@@ -133,22 +133,25 @@ func (dpy *Manager) ApplyChanges() error {
 		return nil
 	}
 
-	// err := dpy.doSetPrimary(dpy.Primary, true)
-	// if err != nil {
-	// 	logger.Error("Set primary failed:", dpy.Primary, err)
-	// 	err = dpy.trySetPrimary(true)
-	// 	if err != nil {
-	// 		logger.Error("Try set primary failed:", err)
-	// 		return err
-	// 	}
-	// }
 	logger.Debug("[ApplyChanges] Will apply:", dpy.Monitors.genCommandline(dpy.Primary, false))
 	err := dpy.doApply(dpy.Primary, false)
 	if err != nil {
 		logger.Error("Apply changes failed:", err)
 		return err
 	}
+
 	dpy.rotateInputPointor()
+
+	err = dpy.doSetPrimary(dpy.Primary, true)
+	if err != nil {
+		logger.Error("Set primary failed:", dpy.Primary, err)
+		err = dpy.trySetPrimary(true)
+		if err != nil {
+			logger.Error("Try set primary failed:", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
