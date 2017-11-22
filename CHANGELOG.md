@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+
+## [3.1.20] - 2017-11-22
+* fix(display): sync primary rectangle when apply changes
+
+
 ## [3.1.19] - 2017-11-16
 * fix primary rectangle wrong when output off
 * correct deepin-wm-switcher config file path
