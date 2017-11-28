@@ -1,6 +1,11 @@
 ## [Unreleased]
 
 
+## [3.1.21] - 2017-11-28
+* display: sync primary settings from commandline
+* disable logout sound if speaker muted
+
+
 ## [3.1.20] - 2017-11-22
 * fix(display): sync primary rectangle when apply changes
 
