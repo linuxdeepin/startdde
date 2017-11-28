@@ -142,7 +142,7 @@ func (dpy *Manager) ApplyChanges() error {
 
 	dpy.rotateInputPointor()
 
-	err = dpy.doSetPrimary(dpy.Primary, true)
+	err = dpy.doSetPrimary(dpy.Primary, true, true)
 	if err != nil {
 		logger.Error("Set primary failed:", dpy.Primary, err)
 		err = dpy.trySetPrimary(true)

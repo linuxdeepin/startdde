@@ -159,7 +159,7 @@ func (dpy *Manager) init() {
 	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
 		dpy.Primary = dpy.Monitors[0].Name
 	}
-	dpy.doSetPrimary(dpy.Primary, true)
+	dpy.doSetPrimary(dpy.Primary, true, false)
 
 	// check config version
 	dpy.checkConfigVersion()
@@ -243,7 +243,7 @@ func (dpy *Manager) switchToMirror() error {
 		logger.Errorf("[switchToMirror] apply (%s) failed: %v", cmd, err)
 		return err
 	}
-	return dpy.doSetPrimary(primary, true)
+	return dpy.doSetPrimary(primary, true, true)
 }
 
 func (dpy *Manager) switchToExtend() error {
@@ -284,7 +284,7 @@ func (dpy *Manager) doSwitchToExtend() error {
 		logger.Errorf("[switchToExtend] apply (%s) failed: %v", cmd, err)
 		return err
 	}
-	return dpy.doSetPrimary(primary, true)
+	return dpy.doSetPrimary(primary, true, true)
 }
 
 func (dpy *Manager) switchToOnlyOne(name string) error {
@@ -325,7 +325,7 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 		logger.Errorf("[switchToOnlyOne] apply (%s) failed: %v", cmd, err)
 		return err
 	}
-	return dpy.doSetPrimary(name, true)
+	return dpy.doSetPrimary(name, true, true)
 }
 
 func (dpy *Manager) switchToCustom(name string) error {
@@ -431,19 +431,34 @@ func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 		return err
 	}
 	dpy.rotateInputPointor()
-	dpy.doSetPrimary(cMonitor.Primary, true)
+	dpy.doSetPrimary(cMonitor.Primary, true, true)
 	return nil
 }
 
-func (dpy *Manager) doSetPrimary(name string, effectRect bool) error {
+func (dpy *Manager) doSetPrimary(name string, effectRect, useConfig bool) error {
 	m := dpy.Monitors.canBePrimary(name)
 	if m != nil {
 		dpy.setPropPrimary(name)
 		if effectRect {
-			w, h := parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
+			var (
+				x int16
+				y int16
+				w uint16
+				h uint16
+			)
+
+			if useConfig {
+				x = m.cfg.X
+				y = m.cfg.Y
+				w, h = parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
+			} else {
+				x = m.X
+				y = m.Y
+				w, h = parseModeByRotation(m.Width, m.Height, m.Rotation)
+			}
 			dpy.setPropPrimaryRect(xproto.Rectangle{
-				X:      m.cfg.X,
-				Y:      m.cfg.Y,
+				X:      x,
+				Y:      y,
 				Width:  w,
 				Height: h,
 			})
