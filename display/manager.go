@@ -451,10 +451,12 @@ func (dpy *Manager) doSetPrimary(name string, effectRect, useConfig bool) error 
 				x = m.cfg.X
 				y = m.cfg.Y
 				w, h = parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
+				logger.Debug("------------Config rect:", x, y, w, h, m.cfg.Rotation)
 			} else {
 				x = m.X
 				y = m.Y
-				w, h = parseModeByRotation(m.Width, m.Height, m.Rotation)
+				w, h = m.Width, m.Height
+				logger.Debug("------------Monitor rect:", x, y, w, h, m.Rotation)
 			}
 			dpy.setPropPrimaryRect(xproto.Rectangle{
 				X:      x,
