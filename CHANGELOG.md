@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 
+## [3.1.22] - 2017-11-29
+* display: fix primary rect wrong after rotation
+
+
 ## [3.1.21] - 2017-11-28
 * display: sync primary settings from commandline
 * disable logout sound if speaker muted
