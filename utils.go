@@ -20,20 +20,22 @@
 package main
 
 import (
-	"dbus/com/deepin/dde/welcome"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"path"
-	"pkg.deepin.io/lib/utils"
-	"strings"
-
-	"bytes"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"dbus/com/deepin/dde/welcome"
+
 	"gir/glib-2.0"
+	"pkg.deepin.io/lib/utils"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 func Exist(name string) bool {
@@ -295,4 +297,34 @@ func getAutostartDelay() int32 {
 	}
 	defer s.Unref()
 	return s.GetInt("autostart-delay")
+}
+
+const (
+	AppDirName = "applications"
+	desktopExt = ".desktop"
+)
+
+func getAppDirs() []string {
+	dataDirs := basedir.GetSystemDataDirs()
+	dataDirs = append(dataDirs, basedir.GetUserDataDir())
+	var dirs []string
+	for _, dir := range dataDirs {
+		dirs = append(dirs, path.Join(dir, AppDirName))
+	}
+	return dirs
+}
+
+func getAppIdByFilePath(file string, appDirs []string) string {
+	file = filepath.Clean(file)
+	var desktopId string
+	for _, dir := range appDirs {
+		if strings.HasPrefix(file, dir) {
+			desktopId, _ = filepath.Rel(dir, file)
+			break
+		}
+	}
+	if desktopId == "" {
+		return ""
+	}
+	return strings.TrimSuffix(desktopId, desktopExt)
 }

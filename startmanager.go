@@ -64,6 +64,7 @@ const (
 	proxychainsBinary      = "proxychains4"
 	gSchemaLauncher        = "com.deepin.dde.launcher"
 	gKeyAppsUseProxy       = "apps-use-proxy"
+	gKeyAppsDisabeScaling  = "apps-disable-scaling"
 )
 
 type StartManager struct {
@@ -75,26 +76,36 @@ type StartManager struct {
 	proxyChainsConfFile string
 	proxyChainsBin      string
 
-	settings     *gio.Settings
-	appsUseProxy strv.Strv
-	mu           sync.Mutex
+	appsDir            []string
+	settings           *gio.Settings
+	appsUseProxy       strv.Strv
+	appsDisableScaling strv.Strv
+	mu                 sync.Mutex
 }
 
 func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	m := &StartManager{}
 
+	m.appsDir = getAppDirs()
 	m.settings = gio.NewSettings(gSchemaLauncher)
 
 	m.appsUseProxy = strv.Strv(m.settings.GetStrv(gKeyAppsUseProxy))
+	m.appsDisableScaling = strv.Strv(m.settings.GetStrv(gKeyAppsDisabeScaling))
 
-	m.settings.Connect("changed::"+gKeyAppsUseProxy, func(settings *gio.Settings, key string) {
-		if key != gKeyAppsUseProxy {
+	m.settings.Connect("changed", func(settings *gio.Settings, key string) {
+		switch key {
+		case gKeyAppsUseProxy:
+			m.mu.Lock()
+			m.appsUseProxy = strv.Strv(settings.GetStrv(key))
+			m.mu.Unlock()
+		case gKeyAppsDisabeScaling:
+			m.mu.Lock()
+			m.appsDisableScaling = strv.Strv(settings.GetStrv(key))
+			m.mu.Unlock()
+		default:
 			return
 		}
-		m.mu.Lock()
-		m.appsUseProxy = strv.Strv(settings.GetStrv(gKeyAppsUseProxy))
-		m.mu.Unlock()
-		logger.Debug("update appsUseProxy")
+		logger.Debug("update ", key)
 	})
 
 	m.proxyChainsConfFile = filepath.Join(basedir.GetUserConfigDir(), "deepin", "proxychains.conf")
@@ -174,9 +185,13 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	return waitCmd(cmd, err, uiApp)
 }
 
-func (m *StartManager) shouldUseProxy(file string) bool {
+func (m *StartManager) getAppIdByFilePath(file string) string {
+	return getAppIdByFilePath(file, m.appsDir)
+}
+
+func (m *StartManager) shouldUseProxy(id string) bool {
 	m.mu.Lock()
-	if !m.appsUseProxy.Contains(file) {
+	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
 		return false
 	}
@@ -194,6 +209,65 @@ func (m *StartManager) shouldUseProxy(file string) bool {
 		}
 	}
 	return true
+}
+
+func (m *StartManager) shouldDisableScaling(id string) bool {
+	m.mu.Lock()
+	contains := m.appsDisableScaling.Contains(id)
+	m.mu.Unlock()
+	return contains
+}
+
+type IStartCommand interface {
+	StartCommand(files []string, ctx *appinfo.AppLaunchContext) (*exec.Cmd, error)
+}
+
+func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
+	ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
+
+	desktopFile := appInfo.GetFileName()
+	var err error
+	var cmdPrefixes []string
+	var uiApp *swapsched.UIApp
+	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
+		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		} else {
+			logger.Debug("launch: use cgexec")
+			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+		}
+	}
+
+	appId := m.getAppIdByFilePath(desktopFile)
+	if appId != "" {
+		if m.shouldUseProxy(appId) {
+			logger.Debug("launch: use proxy")
+			cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+		}
+		if m.shouldDisableScaling(appId) {
+			logger.Debug("launch: disable scaling")
+			cmdPrefixes = append(cmdPrefixes, "/usr/bin/env", "GDK_SCALE=1",
+				"QT_SCALE_FACTOR=1")
+		}
+	}
+
+	logger.Debug("cmd prefiexs:", cmdPrefixes)
+	ctx.Lock()
+	ctx.SetTimestamp(timestamp)
+	ctx.SetCmdPrefixes(cmdPrefixes)
+	cmd, err := iStartCmd.StartCommand(nil, ctx)
+	ctx.Unlock()
+	return waitCmd(cmd, err, uiApp)
+}
+
+func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	if err != nil {
+		return err
+	}
+
+	return m.launch(appInfo, timestamp, ctx, appInfo)
 }
 
 func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
@@ -214,62 +288,7 @@ func (m *StartManager) launchAppAction(desktopFile, actionSection string, timest
 		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
 	}
 
-	var cmdPrefixes []string
-	var uiApp *swapsched.UIApp
-	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
-		if err != nil {
-			logger.Warning("dispatcher.NewApp error:", err)
-		} else {
-			logger.Debug("launch: use cgexec")
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
-		}
-	}
-
-	if m.shouldUseProxy(desktopFile) {
-		logger.Debug("launch: use proxy")
-		cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
-	}
-
-	logger.Debug("cmd prefiexs:", cmdPrefixes)
-	ctx.Lock()
-	ctx.SetTimestamp(timestamp)
-	ctx.SetCmdPrefixes(cmdPrefixes)
-	cmd, err := targetAction.StartCommand(nil, ctx)
-	ctx.Unlock()
-	return waitCmd(cmd, err, uiApp)
-}
-
-func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
-	if err != nil {
-		return err
-	}
-
-	var cmdPrefixes []string
-	var uiApp *swapsched.UIApp
-	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
-		if err != nil {
-			logger.Warning("dispatcher.NewApp error:", err)
-		} else {
-			logger.Debug("launch: use cgexec")
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
-		}
-	}
-
-	if m.shouldUseProxy(desktopFile) {
-		logger.Debug("launch: use proxy")
-		cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
-	}
-
-	logger.Debug("cmd prefiexs:", cmdPrefixes)
-	ctx.Lock()
-	ctx.SetCmdPrefixes(cmdPrefixes)
-	ctx.SetTimestamp(timestamp)
-	cmd, err := appInfo.StartCommand(files, ctx)
-	ctx.Unlock()
-	return waitCmd(cmd, err, uiApp)
+	return m.launch(appInfo, timestamp, ctx, &targetAction)
 }
 
 func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
