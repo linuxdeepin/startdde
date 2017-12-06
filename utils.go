@@ -159,9 +159,9 @@ func getDelayTime(o string) time.Duration {
 		return 0
 	}
 
-	num, err := f.GetInteger(glib.KeyFileDesktopGroup, GnomeDelayKey)
+	num, err := f.GetInteger(glib.KeyFileDesktopGroup, KeyXGnomeAutostartDelay)
 	if err != nil {
-		logger.Debug("get", GnomeDelayKey, "failed", err)
+		logger.Debug("get", KeyXGnomeAutostartDelay, "failed", err)
 		return 0
 	}
 

@@ -24,47 +24,40 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"dbus/com/deepin/daemon/apps"
+
 	"gir/gio-2.0"
-	"gir/glib-2.0"
+	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/fsnotify"
+	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
 
 	"github.com/BurntSushi/xgbutil"
-	"pkg.deepin.io/dde/startdde/swapsched"
 )
 
 const (
-	_OBJECT = "com.deepin.SessionManager"
-	_PATH   = "/com/deepin/StartManager"
-	_INTER  = "com.deepin.StartManager"
+	startManagerObjPath   = "/com/deepin/StartManager"
+	startManagerInterface = "com.deepin.StartManager"
 
-	_WritePerm os.FileMode = 0200
-)
+	autostartDir      = "autostart"
+	proxychainsBinary = "proxychains4"
 
-const (
-	_AUTOSTART             = "autostart"
-	DESKTOP_ENV            = "Deepin"
-	HiddenKey              = "Hidden"
-	OnlyShowInKey          = "OnlyShowIn"
-	NotShowInKey           = "NotShowIn"
-	TryExecKey             = "TryExec"
-	GnomeDelayKey          = "X-GNOME-Autostart-Delay"
-	DeepinAutostartExecKey = "X-Deepin-Autostart-Exec"
-	proxychainsBinary      = "proxychains4"
 	gSchemaLauncher        = "com.deepin.dde.launcher"
 	gKeyAppsUseProxy       = "apps-use-proxy"
-	gKeyAppsDisabeScaling  = "apps-disable-scaling"
+	gKeyAppsDisableScaling = "apps-disable-scaling"
+
+	KeyXGnomeAutostartDelay = "X-GNOME-Autostart-Delay"
+	KeyXDeepinCreatedBy     = "X-Deepin-CreatedBy"
+	KeyXDeepinAppID         = "X-Deepin-AppID"
 )
 
 type StartManager struct {
@@ -90,7 +83,7 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	m.settings = gio.NewSettings(gSchemaLauncher)
 
 	m.appsUseProxy = strv.Strv(m.settings.GetStrv(gKeyAppsUseProxy))
-	m.appsDisableScaling = strv.Strv(m.settings.GetStrv(gKeyAppsDisabeScaling))
+	m.appsDisableScaling = strv.Strv(m.settings.GetStrv(gKeyAppsDisableScaling))
 
 	m.settings.Connect("changed", func(settings *gio.Settings, key string) {
 		switch key {
@@ -98,7 +91,7 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 			m.mu.Lock()
 			m.appsUseProxy = strv.Strv(settings.GetStrv(key))
 			m.mu.Unlock()
-		case gKeyAppsDisabeScaling:
+		case gKeyAppsDisableScaling:
 			m.mu.Lock()
 			m.appsDisableScaling = strv.Strv(settings.GetStrv(key))
 			m.mu.Unlock()
@@ -126,7 +119,11 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 var START_MANAGER *StartManager
 
 func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
+	return dbus.DBusInfo{
+		Dest:       START_DDE_DEST,
+		ObjectPath: startManagerObjPath,
+		Interface:  startManagerInterface,
+	}
 }
 
 func (m *StartManager) Launch(desktopFile string) (bool, error) {
@@ -226,6 +223,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
 
 	desktopFile := appInfo.GetFileName()
+	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
 	var uiApp *swapsched.UIApp
@@ -261,8 +259,27 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	return waitCmd(cmd, err, uiApp)
 }
 
+func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo, error) {
+	dai, err := desktopappinfo.NewDesktopAppInfoFromFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	if !dai.IsInstalled() {
+		createdBy, _ := dai.GetString(desktopappinfo.MainSection, KeyXDeepinCreatedBy)
+		if createdBy != "" {
+			appId, _ := dai.GetString(desktopappinfo.MainSection, KeyXDeepinAppID)
+			dai1 := desktopappinfo.NewDesktopAppInfo(appId)
+			if dai1 != nil {
+				dai = dai1
+			}
+		}
+	}
+	return dai, nil
+}
+
 func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
 	}
@@ -271,7 +288,7 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 }
 
 func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
 	}
@@ -351,9 +368,9 @@ func (m *StartManager) listenAutostartFileEvents() {
 		for {
 			select {
 			case ev := <-watcher.Event:
-				name := path.Clean(ev.Name)
-				basename := path.Base(name)
-				matched, err := path.Match(`[^#.]*.desktop`, basename)
+				name := filepath.Clean(ev.Name)
+				basename := filepath.Base(name)
+				matched, err := filepath.Match(`[^#.]*.desktop`, basename)
 				if err != nil {
 					logger.Warning(err)
 				}
@@ -371,8 +388,8 @@ func (m *StartManager) listenAutostartFileEvents() {
 }
 
 // filepath.Walk will walk through the whole directory tree
-func scanDir(d string, fn func(path string, info os.FileInfo) bool) {
-	f, err := os.Open(d)
+func scanDir(dir string, fn func(dir string, info os.FileInfo) bool) {
+	f, err := os.Open(dir)
 	defer func() {
 		if f != nil {
 			f.Close()
@@ -384,135 +401,56 @@ func scanDir(d string, fn func(path string, info os.FileInfo) bool) {
 		return
 	}
 	// get all file info
-	infos, err := f.Readdir(0)
+	fileInfoList, err := f.Readdir(0)
 	if err != nil {
 		logger.Warning("scanDir Readdir error:", err)
 	}
 
-	for _, info := range infos {
-		if fn(d, info) {
+	for _, info := range fileInfoList {
+		if fn(dir, info) {
 			break
 		}
 	}
 }
 
 func (m *StartManager) getUserAutostart(name string) string {
-	return path.Join(m.getUserAutostartDir(), path.Base(name))
+	return filepath.Join(m.getUserAutostartDir(), filepath.Base(name))
 }
 
 func (m *StartManager) isUserAutostart(name string) bool {
-	if path.IsAbs(name) {
+	if filepath.IsAbs(name) {
 		if Exist(name) {
-			return path.Dir(name) == m.getUserAutostartDir()
+			return filepath.Dir(name) == m.getUserAutostartDir()
 		}
 		return false
 	} else {
-		return Exist(path.Join(m.getUserAutostartDir(), name))
+		return Exist(filepath.Join(m.getUserAutostartDir(), name))
 	}
 }
 
-func showInDeepinAux(file *gio.DesktopAppInfo, keyname string) bool {
-	s := file.GetString(keyname)
-	if s == "" {
+func (m *StartManager) isAutostartAux(filename string) bool {
+	dai, err := desktopappinfo.NewDesktopAppInfoFromFile(filename)
+	if err != nil {
 		return false
 	}
 
-	for _, env := range strings.Split(s, ";") {
-		if strings.ToLower(env) == strings.ToLower(DESKTOP_ENV) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func (m *StartManager) showInDeepin(file *gio.DesktopAppInfo) bool {
-	if file.HasKey(NotShowInKey) {
-		return !showInDeepinAux(file, NotShowInKey)
-	} else if file.HasKey(OnlyShowInKey) {
-		return showInDeepinAux(file, OnlyShowInKey)
-	}
-
-	return true
-}
-
-func findExec(_path, cmd string, exist chan<- bool) {
-	found := false
-
-	scanDir(_path, func(p string, info os.FileInfo) bool {
-		if !info.IsDir() && info.Name() == cmd {
-			found = true
-			return true
-		}
-		return false
-	})
-
-	exist <- found
-	return
-}
-
-func (m *StartManager) hasValidTryExecKey(file *gio.DesktopAppInfo) bool {
-	// name := file.GetFilename()
-	if !file.HasKey(TryExecKey) {
-		// logger.Info(name, "No TryExec Key")
-		return true
-	}
-
-	cmd := file.GetString(TryExecKey)
-	if cmd == "" {
-		// logger.Info(name, "TryExecKey is empty")
-		return true
-	}
-
-	if path.IsAbs(cmd) {
-		// logger.Info(cmd, "is exist?", Exist(cmd))
-		if !Exist(cmd) {
-			return false
-		}
-
-		stat, err := os.Lstat(cmd)
-		if err != nil {
-			return false
-		}
-
-		return (stat.Mode().Perm() & 0111) != 0
-	} else {
-		paths := strings.Split(os.Getenv("PATH"), ":")
-		exist := make(chan bool)
-		for _, _path := range paths {
-			go findExec(_path, cmd, exist)
-		}
-
-		for _ = range paths {
-			if t := <-exist; t {
-				return true
-			}
-		}
-
+	// ignore key NoDisplay
+	if dai.GetIsHiden() {
 		return false
 	}
-}
-
-func (m *StartManager) isAutostartAux(name string) bool {
-	file := gio.NewDesktopAppInfoFromFilename(name)
-	if file == nil {
-		return false
-	}
-	defer file.Unref()
-
-	return m.hasValidTryExecKey(file) && !file.GetIsHidden() && m.showInDeepin(file)
+	return dai.GetShowIn(nil)
 }
 
 func lowerBaseName(name string) string {
-	return strings.ToLower(path.Base(name))
+	return strings.ToLower(filepath.Base(name))
 }
 
 func (m *StartManager) isSystemStart(name string) bool {
-	if path.IsAbs(name) {
+	if filepath.IsAbs(name) {
 		if !Exist(name) {
 			return false
 		}
-		d := path.Dir(name)
+		d := filepath.Dir(name)
 		for i, dir := range m.autostartDirs() {
 			if i == 0 {
 				continue
@@ -525,19 +463,18 @@ func (m *StartManager) isSystemStart(name string) bool {
 	} else {
 		return Exist(m.getSysAutostart(name))
 	}
-
 }
+
 func (m *StartManager) getSysAutostart(name string) string {
 	sysPath := ""
-	for i, d := range m.autostartDirs() {
-		if i == 0 {
+	for idx, dir := range m.autostartDirs() {
+		if idx == 0 {
 			continue
 		}
-		scanDir(d,
-			func(p string, info os.FileInfo) bool {
-				if lowerBaseName(name) == strings.ToLower(info.Name()) {
-					sysPath = path.Join(p,
-						info.Name())
+		scanDir(dir,
+			func(dir0 string, fileInfo os.FileInfo) bool {
+				if lowerBaseName(name) == strings.ToLower(fileInfo.Name()) {
+					sysPath = filepath.Join(dir0, fileInfo.Name())
 					return true
 				}
 				return false
@@ -550,23 +487,23 @@ func (m *StartManager) getSysAutostart(name string) string {
 	return sysPath
 }
 
-func (m *StartManager) isAutostart(name string) bool {
-	if !strings.HasSuffix(name, ".desktop") {
+func (m *StartManager) isAutostart(filename string) bool {
+	if !strings.HasSuffix(filename, ".desktop") {
 		return false
 	}
 
-	u := m.getUserAutostart(name)
+	u := m.getUserAutostart(filename)
 	if Exist(u) {
-		name = u
+		filename = u
 	} else {
-		s := m.getSysAutostart(name)
+		s := m.getSysAutostart(filename)
 		if s == "" {
 			return false
 		}
-		name = s
+		filename = s
 	}
 
-	return m.isAutostartAux(name)
+	return m.isAutostartAux(filename)
 }
 
 func (m *StartManager) getAutostartApps(dir string) []string {
@@ -574,7 +511,7 @@ func (m *StartManager) getAutostartApps(dir string) []string {
 
 	scanDir(dir, func(p string, info os.FileInfo) bool {
 		if !info.IsDir() {
-			fullpath := path.Join(p, info.Name())
+			fullpath := filepath.Join(p, info.Name())
 			if m.isAutostart(fullpath) {
 				apps = append(apps, fullpath)
 			}
@@ -587,8 +524,8 @@ func (m *StartManager) getAutostartApps(dir string) []string {
 
 func (m *StartManager) getUserAutostartDir() string {
 	if m.userAutostartPath == "" {
-		configPath := glib.GetUserConfigDir()
-		m.userAutostartPath = path.Join(configPath, _AUTOSTART)
+		configPath := basedir.GetUserConfigDir()
+		m.userAutostartPath = filepath.Join(configPath, autostartDir)
 	}
 
 	if !Exist(m.userAutostartPath) {
@@ -607,8 +544,8 @@ func (m *StartManager) autostartDirs() []string {
 		m.getUserAutostartDir(),
 	}
 
-	for _, configPath := range glib.GetSystemConfigDirs() {
-		_path := path.Join(configPath, _AUTOSTART)
+	for _, configPath := range basedir.GetSystemConfigDirs() {
+		_path := filepath.Join(configPath, autostartDir)
 		if Exist(_path) {
 			dirs = append(dirs, _path)
 		}
@@ -639,38 +576,8 @@ func (m *StartManager) AutostartList() []string {
 	return apps
 }
 
-func (m *StartManager) doSetAutostart(name string, autostart bool) error {
-	stat, err := os.Stat(name)
-	if err != nil {
-		return err
-	}
-
-	if int(stat.Mode().Perm()&_WritePerm) == 0 {
-		err := os.Chmod(name, stat.Mode()|_WritePerm)
-		if err != nil {
-			return err
-		}
-	}
-
-	file := glib.NewKeyFile()
-	defer file.Free()
-	if ok, err := file.LoadFromFile(name, glib.KeyFileFlagsNone); !ok {
-		return err
-	}
-
-	file.SetBoolean(
-		glib.KeyFileDesktopGroup,
-		HiddenKey,
-		!autostart,
-	)
-	logger.Info("set autostart to", autostart)
-
-	return saveKeyFile(file, name)
-}
-
 func (m *StartManager) addAutostartFile(name string) (string, error) {
 	dst := m.getUserAutostart(name)
-	// logger.Info(dst)
 	if !Exist(dst) {
 		src := m.getSysAutostart(name)
 		if src == "" {
@@ -681,82 +588,71 @@ func (m *StartManager) addAutostartFile(name string) (string, error) {
 		if err != nil {
 			return dst, fmt.Errorf("copy file failed: %s", err)
 		}
-
-		k := glib.NewKeyFile()
-		defer k.Free()
-
-		k.LoadFromFile(dst, glib.KeyFileFlagsNone)
-		exec, _ := k.GetString(glib.KeyFileDesktopGroup, DeepinAutostartExecKey)
-		if exec != "" {
-			k.SetString(glib.KeyFileDesktopGroup, glib.KeyFileDesktopKeyExec, exec)
-		}
-		saveKeyFile(k, dst)
 	}
 
 	return dst, nil
 }
 
-func (m *StartManager) setAutostart(name string, autostart bool) error {
-	if !path.IsAbs(name) {
-		file := gio.NewDesktopAppInfo(name)
-		if file == nil {
-			return errors.New("cannot create desktop file")
-		}
-		name = file.GetFilename()
-		file.Unref()
+func (m *StartManager) setAutostart(filename string, val bool) error {
+	appId := m.getAppIdByFilePath(filename)
+	if appId == "" {
+		return errors.New("failed to get app id")
 	}
-	// logger.Info(name, "autostart:", m.isAutostart(name))
-	if autostart == m.isAutostart(name) {
+
+	if val == m.isAutostart(filename) {
 		logger.Info("is already done")
 		return nil
 	}
 
-	dst := name
-	if !m.isUserAutostart(name) {
+	dst := filename
+	if !m.isUserAutostart(filename) {
 		// logger.Info("not user's")
 		var err error
-		dst, err = m.addAutostartFile(name)
+		dst, err = m.addAutostartFile(filename)
 		if err != nil {
 			return err
 		}
 	}
 
-	return m.doSetAutostart(dst, autostart)
+	return m.doSetAutostart(dst, appId, val)
 }
 
-func (m *StartManager) AddAutostart(name string) (bool, error) {
-	err := m.setAutostart(name, true)
+func (m *StartManager) doSetAutostart(filename, appId string, autostart bool) error {
+	keyFile := keyfile.NewKeyFile()
+	if err := keyFile.LoadFromFile(filename); err != nil {
+		return err
+	}
+
+	keyFile.SetString(desktopappinfo.MainSection, KeyXDeepinCreatedBy, START_DDE_DEST)
+	keyFile.SetString(desktopappinfo.MainSection, KeyXDeepinAppID, appId)
+	keyFile.SetBool(desktopappinfo.MainSection, desktopappinfo.KeyHidden, !autostart)
+	logger.Info("set autostart to", autostart)
+	return keyFile.SaveToFile(filename)
+}
+
+func (m *StartManager) AddAutostart(filename string) (bool, error) {
+	err := m.setAutostart(filename, true)
 	if err != nil {
-		logger.Info("AddAutostart", err)
+		logger.Warning("AddAutostart failed:", err)
 		return false, err
 	}
 	return true, nil
 }
 
-func (m *StartManager) RemoveAutostart(name string) (bool, error) {
-	err := m.setAutostart(name, false)
+func (m *StartManager) RemoveAutostart(filename string) (bool, error) {
+	err := m.setAutostart(filename, false)
 	if err != nil {
-		logger.Info("RemoveAutostart failed:", err)
+		logger.Warning("RemoveAutostart failed:", err)
 		return false, err
 	}
 	return true, nil
 }
 
-func (m *StartManager) IsAutostart(name string) bool {
-	if !path.IsAbs(name) {
-		file := gio.NewDesktopAppInfo(name)
-		if file == nil {
-			logger.Info(name, "is not a vaild desktop file.")
-			return false
-		}
-		name = file.GetFilename()
-		file.Unref()
-	}
-	return m.isAutostart(name)
+func (m *StartManager) IsAutostart(filename string) bool {
+	return m.isAutostart(filename)
 }
 
 func startStartManager(xu *xgbutil.XUtil) {
-	gio.DesktopAppInfoSetDesktopEnv(DESKTOP_ENV)
 	START_MANAGER = newStartManager(xu)
 	if err := dbus.InstallOnSession(START_MANAGER); err != nil {
 		logger.Error("Install StartManager Failed:", err)
@@ -766,20 +662,20 @@ func startStartManager(xu *xgbutil.XUtil) {
 func startAutostartProgram() {
 	START_MANAGER.listenAutostartFileEvents()
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
-	for _, path := range START_MANAGER.AutostartList() {
-		go func(path string) {
-			if delayTime := getDelayTime(path); delayTime != 0 {
+	for _, desktopFile := range START_MANAGER.AutostartList() {
+		go func(desktopFile string) {
+			if delayTime := getDelayTime(desktopFile); delayTime != 0 {
 				time.Sleep(delayTime)
 			}
 
-			START_MANAGER.LaunchApp(path, 0, nil)
-		}(path)
+			START_MANAGER.LaunchApp(desktopFile, 0, nil)
+		}(desktopFile)
 	}
 }
 
 func isAppInList(app string, apps []string) bool {
 	for _, v := range apps {
-		if path.Base(app) == path.Base(v) {
+		if filepath.Base(app) == filepath.Base(v) {
 			return true
 		}
 	}
