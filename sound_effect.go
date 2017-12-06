@@ -24,10 +24,10 @@ import (
 
 	"dbus/com/deepin/api/soundthemeplayer"
 
+	"os"
+	"path/filepath"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/xdg/basedir"
-	"path/filepath"
-	"os"
 )
 
 var objSoundThemePlayer *soundthemeplayer.SoundThemePlayer
@@ -49,7 +49,7 @@ func removeEventSoundCache() {
 
 func playLoginSound() {
 	logger.Info("PlaySystemSound DesktopLogin")
-	err := soundutils.PlaySystemSound(soundutils.EventDesktopLogin, "", true)
+	err := soundutils.PlaySystemSound(soundutils.EventDesktopLogin, "")
 	if err != nil {
 		logger.Warning("PlaySystemSound DesktopLogin failed:", err)
 	}
@@ -72,7 +72,9 @@ func soundThemePlayerPlay(theme, event string) {
 		logger.Warning("Play sound theme failed: soundThemePlayer is nil")
 		return
 	}
-	err := objSoundThemePlayer.Play(theme, event, soundutils.GetSoundPlayer())
+	// TODO:
+	const player = "libcanberra"
+	err := objSoundThemePlayer.Play(theme, event, player)
 	if err != nil {
 		logger.Warningf("Play sound theme failed: theme %q, event %q, error: %v", theme, event, err)
 	}

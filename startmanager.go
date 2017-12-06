@@ -223,7 +223,7 @@ type IStartCommand interface {
 }
 
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
-	ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
+	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
 
 	desktopFile := appInfo.GetFileName()
 	var err error
@@ -256,7 +256,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	ctx.Lock()
 	ctx.SetTimestamp(timestamp)
 	ctx.SetCmdPrefixes(cmdPrefixes)
-	cmd, err := iStartCmd.StartCommand(nil, ctx)
+	cmd, err := iStartCmd.StartCommand(files, ctx)
 	ctx.Unlock()
 	return waitCmd(cmd, err, uiApp)
 }
@@ -267,7 +267,7 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 		return err
 	}
 
-	return m.launch(appInfo, timestamp, ctx, appInfo)
+	return m.launch(appInfo, timestamp, files, ctx, appInfo)
 }
 
 func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
@@ -288,7 +288,7 @@ func (m *StartManager) launchAppAction(desktopFile, actionSection string, timest
 		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
 	}
 
-	return m.launch(appInfo, timestamp, ctx, &targetAction)
+	return m.launch(appInfo, timestamp, nil, ctx, &targetAction)
 }
 
 func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
