@@ -20,12 +20,10 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -168,81 +166,6 @@ func getDelayTime(o string) time.Duration {
 	return time.Second * time.Duration(num)
 }
 
-func recordStartWMClass(o string, startupWMClass string) {
-	logger.Info("startupWMClass")
-	f := glib.NewKeyFile()
-	defer f.Free()
-
-	homePath := os.Getenv("HOME")
-	filterDir := path.Join(homePath, ".config/dock")
-	os.MkdirAll(filterDir, 0664)
-	filterPath := path.Join(filterDir, "filter.ini")
-	if !Exist(filterPath) {
-		f, err := os.Create(filterPath)
-		if err != nil {
-			logger.Errorf("Launcher create config failedfailed: %s", err)
-		} else {
-			f.Close()
-		}
-	} else {
-		if ok, err := f.LoadFromFile(
-			filterPath,
-			glib.KeyFileFlagsKeepComments|glib.KeyFileFlagsKeepTranslations,
-		); !ok {
-			logger.Errorf("Launcher load config failed: %s", err)
-			return
-		}
-
-		basename := path.Base(o)
-		dot := strings.LastIndex(
-			basename,
-			path.Ext(o),
-		)
-		appid := strings.Replace(
-			basename[:dot],
-			"_",
-			"-",
-			-1,
-		)
-		f.SetString(startupWMClass, "appid", appid)
-		f.SetString(startupWMClass, "path", o)
-		saveKeyFile(f, filterPath)
-	}
-}
-
-func execAndWait(timeout int, name string, arg ...string) (stdout, stderr string, err error) {
-	cmd := exec.Command(name, arg...)
-	var bufStdout, bufStderr bytes.Buffer
-	cmd.Stdout = &bufStdout
-	cmd.Stderr = &bufStderr
-	err = cmd.Start()
-	if err != nil {
-		return
-	}
-
-	// wait for process finished
-	done := make(chan error)
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	select {
-	case <-time.After(time.Duration(timeout) * time.Second):
-		if err = cmd.Process.Kill(); err != nil {
-			return
-		}
-		<-done
-		err = fmt.Errorf("time out and process was killed")
-	case err = <-done:
-		stdout = bufStdout.String()
-		stderr = bufStderr.String()
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
 var _ddeWelcome *welcome.Welcome
 
 func getDDEWelcome() (*welcome.Welcome, error) {
@@ -287,6 +210,16 @@ func getWindowManager() string {
 	}
 	defer s.Unref()
 	return s.GetString("wm-cmd")
+}
+
+func getSwapSchedEnabled() bool {
+	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		return false
+	}
+	enabled := s.GetBoolean("swap-sched-enabled")
+	s.Unref()
+	return enabled
 }
 
 func getAutostartDelay() int32 {

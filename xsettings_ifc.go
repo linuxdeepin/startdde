@@ -62,7 +62,7 @@ func (m *XSManager) SetInteger(prop string, v int32) error {
 func (m *XSManager) GetInteger(prop string) (int32, error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
-		logger.Debug("Get '%s' value failed: %v", prop, err)
+		logger.Debugf("Get '%s' value failed: %v", prop, err)
 		return -1, err
 	}
 

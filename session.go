@@ -202,14 +202,6 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 	return obj.Call(dest+".Prepare", 0, sessionID).Store()
 }
 
-var enableSwapSched = true
-
-func init() {
-	if os.Getenv("DISABLE_SWAP_SCHED") == "1" {
-		enableSwapSched = false
-	}
-}
-
 func initSession() {
 	var err error
 	const login1Dest = "org.freedesktop.login1"
@@ -226,7 +218,7 @@ func initSession() {
 		panic(fmt.Errorf("new Login1 session self Failed: %s", err))
 	}
 
-	if enableSwapSched {
+	if getSwapSchedEnabled() {
 		initSwapSched()
 	} else {
 		logger.Info("swap sched disabled")
