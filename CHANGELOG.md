@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [3.1.23] - 2017-12-13
+*   add swap sched
+*   launch app no scaling supported
+*   startManager: fix method launch no files arg
+*   refactor code about autostart
+*   update makefile GOLDFLAGS
+*   swap sched can control whether it is enabled in gsettings
 
 ## [3.1.22] - 2017-11-29
 * display: fix primary rect wrong after rotation
