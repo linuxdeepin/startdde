@@ -20,32 +20,17 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os/exec"
 
 	"dbus/com/deepin/api/soundthemeplayer"
 
-	"os"
-	"path/filepath"
 	"pkg.deepin.io/dde/api/soundutils"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"pkg.deepin.io/lib/pulse"
 )
 
 var objSoundThemePlayer *soundthemeplayer.SoundThemePlayer
-
-func removeEventSoundCache() {
-	cacheDir := basedir.GetUserCacheDir()
-	matches, err := filepath.Glob(cacheDir + "/event-sound-cache.tdb*")
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-	for _, file := range matches {
-		err := os.Remove(file)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-}
 
 func playLoginSound() {
 	logger.Info("PlaySystemSound DesktopLogin")
@@ -54,6 +39,18 @@ func playLoginSound() {
 		logger.Warning("PlaySystemSound DesktopLogin failed:", err)
 	}
 	logger.Info("PlaySystemSound DesktopLogin done")
+}
+
+func playLogoutSound() {
+	device, err := getALSADevice()
+	if err != nil {
+		logger.Warning("failed to get ALSA device:", err)
+		return
+	}
+	logger.Debugf("ALSA device: %q", device)
+	quitPulseAudio()
+	soundThemePlayerPlay(soundutils.GetSoundTheme(),
+		soundutils.EventDesktopLogout, device)
 }
 
 func initObjSoundThemePlayer() {
@@ -67,25 +64,16 @@ func initObjSoundThemePlayer() {
 	}
 }
 
-func soundThemePlayerPlay(theme, event string) {
+func soundThemePlayerPlay(theme, event, device string) {
 	if objSoundThemePlayer == nil {
 		logger.Warning("Play sound theme failed: soundThemePlayer is nil")
 		return
 	}
-	// TODO:
-	const player = "libcanberra"
-	err := objSoundThemePlayer.Play(theme, event, player)
+	err := objSoundThemePlayer.Play(theme, event, device)
 	if err != nil {
-		logger.Warningf("Play sound theme failed: theme %q, event %q, error: %v", theme, event, err)
+		logger.Warningf("Play sound theme failed: theme %q, event %q, error: %v",
+			theme, event, err)
 	}
-}
-
-func quitSoundThemePlayer() {
-	if objSoundThemePlayer == nil {
-		logger.Warning("quitSoundThemePlayer failed: soundThemePlayer is nil")
-		return
-	}
-	objSoundThemePlayer.Quit()
 }
 
 func quitPulseAudio() {
@@ -104,4 +92,39 @@ func preparePlayShutdownSound() {
 	if err != nil {
 		logger.Warning("Set shutdown sound failed:", err)
 	}
+}
+
+func getALSADevice() (string, error) {
+	ctx := pulse.GetContext()
+	if ctx == nil {
+		return "", errors.New("failed to get pulse context")
+	}
+	defer ctx.Free()
+
+	defaultSinkName := ctx.GetDefaultSink()
+	var defaultSink *pulse.Sink
+	for _, sink := range ctx.GetSinkList() {
+		if sink.Name == defaultSinkName {
+			defaultSink = sink
+			break
+		}
+	}
+
+	if defaultSink == nil {
+		return "", errors.New("failed to get default sink")
+	}
+
+	props := defaultSink.PropList
+	card := props["alsa.card"]
+	device := props["alsa.device"]
+	if card == "" || device == "" {
+		return "", errors.New("failed to get sink ALSA property")
+	}
+	deviceStr := fmt.Sprintf("plughw:CARD=%s,DEV=%s", card, device)
+
+	subdevice := props["alsa.subdevice"]
+	if subdevice != "" {
+		deviceStr = deviceStr + ",SUBDEV=" + subdevice
+	}
+	return deviceStr, nil
 }

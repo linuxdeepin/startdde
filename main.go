@@ -29,13 +29,14 @@ package main
 import "C"
 import (
 	"flag"
-	"github.com/BurntSushi/xgbutil"
 	"os"
+	"syscall"
+
+	"github.com/BurntSushi/xgbutil"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
-	"syscall"
 )
 
 var logger = log.NewLogger("startdde")
@@ -70,13 +71,9 @@ func main() {
 	C.gtkInit()
 	flag.Parse()
 	initObjSoundThemePlayer()
-	quitSoundThemePlayer()
 
 	tryMatchVM()
-	go func() {
-		removeEventSoundCache()
-		playLoginSound()
-	} ()
+	go playLoginSound()
 
 	canLaunch := canLaunchWelcome()
 	if canLaunch {
