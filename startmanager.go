@@ -22,6 +22,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -58,6 +59,9 @@ const (
 	KeyXGnomeAutostartDelay = "X-GNOME-Autostart-Delay"
 	KeyXDeepinCreatedBy     = "X-Deepin-CreatedBy"
 	KeyXDeepinAppID         = "X-Deepin-AppID"
+
+	uiAppSchedHooksDir = "/usr/lib/UIAppSched.hooks"
+	launchedHookDir    = uiAppSchedHooksDir + "/launched"
 )
 
 type StartManager struct {
@@ -74,6 +78,33 @@ type StartManager struct {
 	appsUseProxy       strv.Strv
 	appsDisableScaling strv.Strv
 	mu                 sync.Mutex
+
+	launchedHooks []string
+}
+
+func getLaunchedHooks() (ret []string) {
+	dir := filepath.Join(launchedHookDir)
+	fileInfoList, err := ioutil.ReadDir(dir)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	for _, fileInfo := range fileInfoList {
+		if fileInfo.IsDir() {
+			continue
+		}
+		logger.Debug("load launched hook", fileInfo.Name())
+		ret = append(ret, fileInfo.Name())
+	}
+	return
+}
+
+func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
+	for _, name := range m.launchedHooks {
+		p := filepath.Join(launchedHookDir, name)
+		exec.Command(p, desktopFile, cGroupName).Run()
+	}
 }
 
 func newStartManager(xu *xgbutil.XUtil) *StartManager {
@@ -106,6 +137,7 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
 	m.launchContext = appinfo.NewAppLaunchContext(xu)
+	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
 	var err error
@@ -256,6 +288,14 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	ctx.SetCmdPrefixes(cmdPrefixes)
 	cmd, err := iStartCmd.StartCommand(files, ctx)
 	ctx.Unlock()
+
+	// exec launched hooks
+	cGroupName := ""
+	if uiApp != nil {
+		cGroupName = uiApp.GetCGroup()
+	}
+	go m.execLaunchedHooks(desktopFile, cGroupName)
+
 	return waitCmd(cmd, err, uiApp)
 }
 
