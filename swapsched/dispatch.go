@@ -15,15 +15,15 @@ func SetLogger(l *log.Logger) {
 	logger = l
 }
 
-type TuneConfig struct {
-	RootCGroup string // 默认的root cgroup path , 需要外部程序提前配置好为uid可以操控的,且需要有cpu,memory,freezer3个control
-	MemoryLock bool   // 是否调用MLockAll
+type Config struct {
+	UIAppsCGroup string // sessionID@dde/uiapps
+	DECGroup     string // sessionID@dde/DE
 }
 
 type Dispatcher struct {
 	sync.Mutex
 
-	cfg TuneConfig
+	cfg Config
 	cnt int
 
 	activeXID int
@@ -32,7 +32,7 @@ type Dispatcher struct {
 	inactiveApps []*UIApp
 }
 
-func NewDispatcher(cfg TuneConfig) (*Dispatcher, error) {
+func NewDispatcher(cfg Config) (*Dispatcher, error) {
 	d := &Dispatcher{
 		cfg:       cfg,
 		cnt:       0,
@@ -48,8 +48,11 @@ func NewDispatcher(cfg TuneConfig) (*Dispatcher, error) {
 
 func (d *Dispatcher) checkCGroups() error {
 	groups := []string{
-		joinCGPath(memoryCtrl, d.cfg.RootCGroup),
-		joinCGPath(freezerCtrl, d.cfg.RootCGroup),
+		joinCGPath(memoryCtrl, d.cfg.UIAppsCGroup),
+		joinCGPath(freezerCtrl, d.cfg.UIAppsCGroup),
+
+		joinCGPath(memoryCtrl, d.cfg.DECGroup),
+		joinCGPath(freezerCtrl, d.cfg.DECGroup),
 	}
 	for _, path := range groups {
 		_, err := os.Stat(path)
@@ -60,6 +63,10 @@ func (d *Dispatcher) checkCGroups() error {
 	return nil
 }
 
+func (d *Dispatcher) GetDECGroup() string {
+	return d.cfg.DECGroup
+}
+
 func (d *Dispatcher) counter() int {
 	d.Lock()
 	d.cnt = d.cnt + 1
@@ -68,7 +75,7 @@ func (d *Dispatcher) counter() int {
 }
 
 func (d *Dispatcher) NewApp(desktop string) (*UIApp, error) {
-	cgroup := fmt.Sprintf("%s/%d", d.cfg.RootCGroup, d.counter())
+	cgroup := fmt.Sprintf("%s/%d", d.cfg.UIAppsCGroup, d.counter())
 	app, err := newApp(cgroup, desktop)
 	if err != nil {
 		return nil, err
@@ -171,10 +178,10 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
-	freezeUIApps(d.cfg.RootCGroup)
-	defer thawUIApps(d.cfg.RootCGroup)
+	freezeUIApps(d.cfg.UIAppsCGroup)
+	defer thawUIApps(d.cfg.UIAppsCGroup)
 
-	err := setLimitRSS(d.cfg.RootCGroup, info.UIAppsLimit())
+	err := setLimitRSS(d.cfg.UIAppsCGroup, info.UIAppsLimit())
 	if err != nil {
 		logger.Warning("SetUIAppsLimit failed:", err)
 	}
