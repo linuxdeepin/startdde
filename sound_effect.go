@@ -30,7 +30,7 @@ import (
 	"pkg.deepin.io/lib/pulse"
 )
 
-var objSoundThemePlayer *soundthemeplayer.SoundThemePlayer
+var soundThemePlayer *soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
 	logger.Info("PlaySystemSound DesktopLogin")
@@ -49,30 +49,22 @@ func playLogoutSound() {
 	}
 	logger.Debugf("ALSA device: %q", device)
 	quitPulseAudio()
-	soundThemePlayerPlay(soundutils.GetSoundTheme(),
+	err = soundThemePlayer.Play(soundutils.GetSoundTheme(),
 		soundutils.EventDesktopLogout, device)
+	if err != nil {
+		logger.Warning("SoundThemePlayer.Play err:", err)
+	}
 }
 
-func initObjSoundThemePlayer() {
+func initSoundThemePlayer() {
 	var err error
-	objSoundThemePlayer, err = soundthemeplayer.NewSoundThemePlayer(
+	soundThemePlayer, err = soundthemeplayer.NewSoundThemePlayer(
 		"com.deepin.api.SoundThemePlayer",
 		"/com/deepin/api/SoundThemePlayer",
 	)
-	if err != nil {
-		logger.Warning("New SoundThemePlayer failed:", err)
-	}
-}
 
-func soundThemePlayerPlay(theme, event, device string) {
-	if objSoundThemePlayer == nil {
-		logger.Warning("Play sound theme failed: soundThemePlayer is nil")
-		return
-	}
-	err := objSoundThemePlayer.Play(theme, event, device)
 	if err != nil {
-		logger.Warningf("Play sound theme failed: theme %q, event %q, error: %v",
-			theme, event, err)
+		panic(fmt.Errorf("NewSoundThemePlayer err: %v", err))
 	}
 }
 

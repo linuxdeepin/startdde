@@ -70,7 +70,7 @@ func main() {
 
 	C.gtkInit()
 	flag.Parse()
-	initObjSoundThemePlayer()
+	initSoundThemePlayer()
 
 	tryMatchVM()
 	go playLoginSound()
