@@ -31,20 +31,16 @@ func genUuid() string {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 }
 
-func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
+func (m *SessionManager) launchWait(bin string, args ...string) bool {
 	id := genUuid()
 	cmd := exec.Command(bin, args...)
-	cmd.Env = os.Environ()
+	cmd.Env = append(os.Environ(), "DDE_SESSION_PROCESS_COOKIE_ID="+id)
 
-	if !wait {
-		go cmd.Run()
-		return true
-	}
-
-	cmd.Env = append(cmd.Env, fmt.Sprintf("DDE_SESSION_PROCESS_COOKIE_ID=%s", id))
+	ch := make(chan time.Time, 1)
 	m.cookieLocker.Lock()
-	m.cookies[id] = make(chan time.Time, 1)
+	m.cookies[id] = ch
 	m.cookieLocker.Unlock()
+
 	startStamp := time.Now()
 
 	err := cmd.Start()
@@ -60,7 +56,7 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	}()
 
 	select {
-	case endStamp := <-m.cookies[id]:
+	case endStamp := <-ch:
 		m.cookieLocker.Lock()
 		delete(m.cookies, id)
 		m.cookieLocker.Unlock()
@@ -71,6 +67,28 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 		return false
 	}
 }
+
+func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
+	cmd := exec.Command(bin, args...)
+	go cmd.Run()
+}
+
+func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
+	if swapSchedDispatcher != nil {
+		cgroupPath := swapSchedDispatcher.GetDECGroup()
+		argsTemp := []string{"-g", "memory:" + cgroupPath, bin}
+		args = append(argsTemp, args...)
+		bin = "cgexec"
+	}
+	logger.Debugf("sessionManager.launch %q %v", bin, args)
+
+	if wait {
+		return m.launchWait(bin, args...)
+	}
+	m.launchWithoutWait(bin, args...)
+	return true
+}
+
 func (m *SessionManager) Register(id string) bool {
 	if cookie, ok := m.cookies[id]; ok {
 		cookie <- time.Now()

@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -231,12 +232,20 @@ func initSwapSched() {
 	}
 
 	swapsched.SetLogger(logger)
-	swapSchedDispatcher, err = swapsched.NewDispatcher(swapsched.TuneConfig{
-		RootCGroup: sessionID + "@dde/uiapps",
-		MemoryLock: false,
+	swapSchedDispatcher, err = swapsched.NewDispatcher(swapsched.Config{
+		UIAppsCGroup: sessionID + "@dde/uiapps",
+		DECGroup:     sessionID + "@dde/DE",
 	})
 
 	if err == nil {
+		// add self to DE cgroup
+		pid := strconv.Itoa(os.Getpid())
+		err = exec.Command("cgclassify", "-g",
+			"memory:"+swapSchedDispatcher.GetDECGroup(), pid).Run()
+		if err != nil {
+			logger.Warning("failed to add self to DE cgroup:", err)
+		}
+
 		go swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
 		go swapSchedDispatcher.Balance()
 	} else {
