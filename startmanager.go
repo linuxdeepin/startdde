@@ -196,7 +196,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	var uiApp *swapsched.UIApp
 	var err error
 	if swapSchedDispatcher != nil {
-		uiApp, err = swapSchedDispatcher.NewApp(exe)
+		uiApp, err = swapSchedDispatcher.NewApp(exe, 0)
 		if err != nil {
 			logger.Warning("dispatcher.NewApp error:", err)
 		}
@@ -254,13 +254,15 @@ type IStartCommand interface {
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
 	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
 
+	// maximum RAM unit is MB
+	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
 	desktopFile := appInfo.GetFileName()
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
 	var uiApp *swapsched.UIApp
 	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
+		uiApp, err = swapSchedDispatcher.NewApp(desktopFile, maxRAM*1e6)
 		if err != nil {
 			logger.Warning("dispatcher.NewApp error:", err)
 		} else {

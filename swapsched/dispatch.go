@@ -74,9 +74,9 @@ func (d *Dispatcher) counter() int {
 	return d.cnt
 }
 
-func (d *Dispatcher) NewApp(desktop string) (*UIApp, error) {
+func (d *Dispatcher) NewApp(desktop string, hardLimit uint64) (*UIApp, error) {
 	cgroup := fmt.Sprintf("%s/%d", d.cfg.UIAppsCGroup, d.counter())
-	app, err := newApp(cgroup, desktop)
+	app, err := newApp(cgroup, desktop, hardLimit)
 	if err != nil {
 		return nil, err
 	}
