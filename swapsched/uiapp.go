@@ -102,10 +102,17 @@ func (app *UIApp) maybeDestroy() {
 	logger.Debug("UIApp dead", app.cgroup)
 }
 
-func newApp(subCGroup string, desktop string) (*UIApp, error) {
+func newApp(subCGroup, desktop string, hardLimit uint64) (*UIApp, error) {
 	err := cgCreate(memoryCtrl, subCGroup)
 	if err != nil {
 		return nil, err
+	}
+
+	if hardLimit > 0 {
+		err = setHardLimit(subCGroup, hardLimit)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &UIApp{
 		cgroup:  subCGroup,

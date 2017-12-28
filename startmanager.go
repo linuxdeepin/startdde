@@ -124,7 +124,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	var uiApp *swapsched.UIApp
 	var err error
 	if swapSchedDispatcher != nil {
-		uiApp, err = swapSchedDispatcher.NewApp(exe)
+		uiApp, err = swapSchedDispatcher.NewApp(exe, 0)
 		if err != nil {
 			logger.Warning("dispatcher.NewApp error:", err)
 		}
@@ -140,6 +140,49 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 
 	err = cmd.Start()
 	return waitCmd(cmd, err, uiApp)
+}
+
+type IStartCommand interface {
+	StartCommand(files []string, ctx *appinfo.AppLaunchContext) (*exec.Cmd, error)
+}
+
+func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
+	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
+
+	// maximum RAM unit is MB
+	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
+	desktopFile := appInfo.GetFileName()
+	logger.Debug("launch: desktopFile is", desktopFile)
+	var err error
+	var cmdPrefixes []string
+	var uiApp *swapsched.UIApp
+	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
+		uiApp, err = swapSchedDispatcher.NewApp(desktopFile, maxRAM*1e6)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		} else {
+			logger.Debug("launch: use cgexec")
+			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+		}
+	}
+
+	logger.Debug("cmd prefiexs:", cmdPrefixes)
+	ctx.Lock()
+	ctx.SetTimestamp(timestamp)
+	ctx.SetCmdPrefixes(cmdPrefixes)
+	cmd, err := iStartCmd.StartCommand(files, ctx)
+	ctx.Unlock()
+
+	return waitCmd(cmd, err, uiApp)
+}
+
+func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
+	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	if err != nil {
+		return err
+	}
+
+	return m.launch(appInfo, timestamp, files, ctx, appInfo)
 }
 
 func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
@@ -160,52 +203,7 @@ func (m *StartManager) launchAppAction(desktopFile, actionSection string, timest
 		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
 	}
 
-	var cmdPrefixes []string
-	var uiApp *swapsched.UIApp
-	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
-		if err != nil {
-			logger.Warning("dispatcher.NewApp error:", err)
-		} else {
-			logger.Debug("launch: use cgexec")
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
-		}
-	}
-
-	logger.Debug("cmd prefiexs:", cmdPrefixes)
-	ctx.Lock()
-	ctx.SetTimestamp(timestamp)
-	ctx.SetCmdPrefixes(cmdPrefixes)
-	cmd, err := targetAction.StartCommand(nil, ctx)
-	ctx.Unlock()
-	return waitCmd(cmd, err, uiApp)
-}
-
-func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
-	appInfo, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
-	if err != nil {
-		return err
-	}
-
-	var cmdPrefixes []string
-	var uiApp *swapsched.UIApp
-	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile)
-		if err != nil {
-			logger.Warning("dispatcher.NewApp error:", err)
-		} else {
-			logger.Debug("launch: use cgexec")
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
-		}
-	}
-
-	logger.Debug("cmd prefiexs:", cmdPrefixes)
-	ctx.Lock()
-	ctx.SetCmdPrefixes(cmdPrefixes)
-	ctx.SetTimestamp(timestamp)
-	cmd, err := appInfo.StartCommand(files, ctx)
-	ctx.Unlock()
-	return waitCmd(cmd, err, uiApp)
+	return m.launch(appInfo, timestamp, nil, ctx, &targetAction)
 }
 
 func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {

@@ -104,3 +104,7 @@ func getCGroupPIDs(ctrl string, name string) []int {
 func setLimitRSS(cgroup string, v uint64) error {
 	return writeCGroupFile(memoryCtrl, cgroup, "memory.soft_limit_in_bytes", v)
 }
+
+func setHardLimit(cgroup string, v uint64) error {
+	return writeCGroupFile(memoryCtrl, cgroup, "memory.limit_in_bytes", v)
+}
