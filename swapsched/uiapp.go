@@ -1,15 +1,14 @@
 package swapsched
 
-import (
-	"strconv"
-	"strings"
-)
-
 type UIApp struct {
 	cgroup  string
 	limit   uint64
-	state   AppState
 	desktop string
+
+	// 以下字段会在Update时更新.
+	state   AppState
+	rssUsed uint64
+	pids    []int
 }
 
 type AppState int
@@ -29,12 +28,7 @@ func (app *UIApp) GetCGroup() string {
 }
 
 func (app *UIApp) HasChild(pid int) bool {
-	pids := getCGroupPIDs(memoryCtrl, app.cgroup)
-	if len(pids) == 0 {
-		app.maybeDestroy()
-		return false
-	}
-	for _, pid0 := range pids {
+	for _, pid0 := range app.pids {
 		if pid0 == pid {
 			return true
 		}
@@ -42,31 +36,21 @@ func (app *UIApp) HasChild(pid int) bool {
 	return false
 }
 
-// MemoryInfo 返回 RSS 以及 Swap使用量 (目前数据不对)
-func (app *UIApp) MemoryInfo() (uint64, uint64) {
-	if !app.IsLive() {
-		return 0, 0
+// Update 更新 rssUsed以及pids字段, 若len(pids)为0, 则尝试释放此uiapp
+func (app *UIApp) Update() {
+	app.pids = getCGroupPIDs(memoryCtrl, app.cgroup)
+	if len(app.pids) == 0 {
+		app.maybeDestroy()
+		return
 	}
 
-	used := toUint64(readCGroupFile(memoryCtrl, app.cgroup, "memory.usage_in_bytes"))
-	for _, line := range toLines(readCGroupFile(memoryCtrl, app.cgroup, "memory.stat")) {
-		const rss = "rss "
-		const totalActiveAnon = "total_active_anon "
-		if strings.HasPrefix(line, rss) {
-			v, _ := strconv.ParseUint(line[len(rss):], 10, 64)
-			if v == 0 {
-				app.maybeDestroy()
-				break
-			}
-		} else if strings.HasPrefix(line, totalActiveAnon) {
-			v, _ := strconv.ParseUint(line[len(totalActiveAnon):], 10, 64)
-			if v > used {
-				break
-			}
-			return used - v, v
-		}
-	}
-	return used, 0
+	const CACHE, MAPPEDFILE, RSS = "cache ", "rss ", "mapped_file "
+	vs := ParseMemoryStat(app.cgroup, []string{
+		CACHE,
+		RSS,
+		MAPPEDFILE,
+	})
+	app.rssUsed = vs[CACHE] + vs[RSS] + vs[MAPPEDFILE]
 }
 
 func (app *UIApp) SetLimitRSS(v uint64) error {
@@ -77,6 +61,7 @@ func (app *UIApp) SetLimitRSS(v uint64) error {
 	return setLimitRSS(app.cgroup, v)
 }
 
+// 设置的CGroup Soft Limit值
 func (app *UIApp) LimitRSS() uint64 {
 	return app.limit
 }

@@ -108,3 +108,42 @@ func setLimitRSS(cgroup string, v uint64) error {
 func setHardLimit(cgroup string, v uint64) error {
 	return writeCGroupFile(memoryCtrl, cgroup, "memory.limit_in_bytes", v)
 }
+
+// ParseMemoryStat parse the /sys/fs/cgroup/memory/$appGroupName/memory.stat
+func ParseMemoryStat(appGroupName string, keys []string) map[string]uint64 {
+	ret := make(map[string]uint64)
+	for _, line := range toLines(readCGroupFile(memoryCtrl, appGroupName, "memory.stat")) {
+		for _, key := range keys {
+			if strings.HasPrefix(line, key) {
+				v, _ := strconv.ParseUint(line[len(key):], 10, 64)
+				ret[key] = v
+				if len(ret) >= len(keys) {
+					return ret
+				}
+			}
+		}
+	}
+	return ret
+}
+
+func max(a, b uint64) uint64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func mapKeys(m map[string]uint64) []string {
+	var ret []string
+	for k := range m {
+		ret = append(ret, k)
+	}
+	return ret
+}

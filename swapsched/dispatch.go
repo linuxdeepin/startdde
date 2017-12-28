@@ -3,10 +3,9 @@ package swapsched
 import (
 	"fmt"
 	"os"
+	"pkg.deepin.io/lib/log"
 	"sync"
 	"time"
-
-	"pkg.deepin.io/lib/log"
 )
 
 var logger *log.Logger
@@ -15,9 +14,15 @@ func SetLogger(l *log.Logger) {
 	logger = l
 }
 
+const ActiveAppBonus = 100 * MB // 当前激活APP的限制补偿,值越大恢复越快. 但会导致Inactive压力过大
+const MinimumLimit = 5 * MB     // 内存限制的最小值, 尽量与正常UIAPP的最小值匹配.
+const FallbackSamplePeroid = 1  // 默认的数据调整周期
+const MB = 1000 * 1000
+
 type Config struct {
 	UIAppsCGroup string // sessionID@dde/uiapps
 	DECGroup     string // sessionID@dde/DE
+	SamplePeroid int    // unit in second // 影响balance采样周期. 值越大系统负载更多
 }
 
 type Dispatcher struct {
@@ -33,6 +38,9 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(cfg Config) (*Dispatcher, error) {
+	if cfg.SamplePeroid <= 0 {
+		cfg.SamplePeroid = FallbackSamplePeroid
+	}
 	d := &Dispatcher{
 		cfg:       cfg,
 		cnt:       0,
@@ -136,21 +144,20 @@ func (d *Dispatcher) setActiveApp(activeApp *UIApp) {
 	d.activeApp = activeApp
 }
 
+// sample() 在SamplePeroid的周期下被执行, 所有状态更新的函数都只应该在这里被触发.
 func (d *Dispatcher) sample() MemInfo {
 	var info MemInfo
 	info.TotalRSSFree, info.TotalUsedSwap = getSystemMemoryInfo()
 	info.n = len(d.inactiveApps)
 
 	for _, app := range d.inactiveApps {
-		rss, swap := app.MemoryInfo()
-		info.InactiveAppsRSS += rss
-		info.InactiveAppsSwap += swap
+		app.Update()
+		info.InactiveAppsRSS += app.rssUsed
 	}
 
 	if d.activeApp != nil {
-		rss, swap := d.activeApp.MemoryInfo()
-		info.ActiveAppRSS = rss
-		info.ActiveAppSwap = swap
+		d.activeApp.Update()
+		info.ActiveAppRSS = d.activeApp.rssUsed
 	}
 	return info
 }
@@ -170,10 +177,10 @@ func (d *Dispatcher) balance() {
 		if d.activeApp == nil {
 			logger.Debugf("no active app (active win: %d)\n%s\n", d.activeXID, info)
 		} else {
-			logger.Debugf("active app %q(%q) (%dMB,%dMB)\n%s\n",
+			logger.Debugf("active app %q(%q) %dMB\n%s\n",
 				d.activeApp.desktop,
 				d.activeApp.cgroup,
-				info.ActiveAppRSS/MB, info.ActiveAppSwap/MB,
+				info.ActiveAppRSS/MB,
 				info)
 		}
 	}
@@ -181,7 +188,7 @@ func (d *Dispatcher) balance() {
 	freezeUIApps(d.cfg.UIAppsCGroup)
 	defer thawUIApps(d.cfg.UIAppsCGroup)
 
-	err := setLimitRSS(d.cfg.UIAppsCGroup, info.UIAppsLimit())
+	err := setLimitRSS(d.cfg.UIAppsCGroup, info.UIAppsTotalLimit())
 	if err != nil {
 		logger.Warning("SetUIAppsLimit failed:", err)
 	}
@@ -193,15 +200,13 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
-	inactiveAppLimit := info.InactiveAppLimit()
-
 	var liveApps []*UIApp
 	for _, app := range d.inactiveApps {
 		if !app.IsLive() {
 			logger.Debugf("Dispatcher.balance remove %s from inactiveApps", app)
 			continue
 		}
-		err = app.SetLimitRSS(inactiveAppLimit)
+		err = app.SetLimitRSS(info.InactiveAppLimit(app.rssUsed))
 		if err != nil {
 			fmt.Println("SetActtiveAppLimit failed:", app, err)
 		}
@@ -211,8 +216,9 @@ func (d *Dispatcher) balance() {
 }
 
 func (d *Dispatcher) Balance() {
+	delay := time.Second * time.Duration(d.cfg.SamplePeroid)
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(delay)
 		d.Lock()
 		d.balance()
 		d.Unlock()
@@ -220,61 +226,45 @@ func (d *Dispatcher) Balance() {
 }
 
 type MemInfo struct {
-	TotalRSSFree     uint64 //当前一共可用的物理内存
-	TotalUsedSwap    uint64 //当前已使用的Swap内存
-	ActiveAppRSS     uint64 //活跃App占用的物理内存
-	ActiveAppSwap    uint64 //活跃App占用的Swap内存
-	InactiveAppsRSS  uint64 //除活跃App外所有APP一共占用的物理内存 (不含DDE等非UI APP组件)
-	InactiveAppsSwap uint64 //除活跃App外所有APP一共占用的Swap内存 (不含DDE等非UI APP组件)
+	TotalRSSFree  uint64 //当前一共可用的物理内存
+	TotalUsedSwap uint64
+
+	ActiveAppRSS    uint64 //ActiveApp占用的物理内存
+	InactiveAppsRSS uint64 //InactiveApps一共占用的物理内存.
 
 	n int
 }
 
-func (info MemInfo) UIAppsLimit() uint64 {
+// InactiveLimit 根据InactiveApp期望的RSS以及当前可分配的RSS按比例给予.
+func (info MemInfo) InactiveAppLimit(desiredRSS uint64) uint64 {
+	free := info.TotalRSSFree - info.ActiveAppLimit()
+	if free <= 0 {
+		return MinimumLimit
+	}
+	return min(max(free*desiredRSS/info.InactiveAppsRSS, MinimumLimit), desiredRSS)
+}
+
+// cgroup uiapps的总限制
+func (info MemInfo) UIAppsTotalLimit() uint64 {
 	return info.TotalRSSFree + info.ActiveAppRSS + info.InactiveAppsRSS
 }
 
 func (info MemInfo) String() string {
 	str := fmt.Sprintf("TotalFree %dMB, SwapUsed: %dMB\n",
 		info.TotalRSSFree/MB, info.TotalUsedSwap/MB)
-	str += fmt.Sprintf("UI Limit: %dMB\nActive App Limit: %dMB (need %dMB)\nInAcitve App Limit %dMB (%d need %dMB)",
-		info.UIAppsLimit()/MB,
+	str += fmt.Sprintf("UI Limit: %dMB\nActive App Limit: %dMB (need %dMB)\n %d InAcitve Apps need %dMB",
+		info.UIAppsTotalLimit()/MB,
 		info.ActiveAppLimit()/MB,
-		(info.ActiveAppRSS+info.ActiveAppSwap)/MB,
-		info.InactiveAppLimit()/MB,
+		(info.ActiveAppRSS)/MB,
 		info.n,
-		(info.InactiveAppsRSS+info.InactiveAppsSwap)/MB,
+		(info.InactiveAppsRSS)/MB,
 	)
 	return str
 }
-
-const MB = 1000 * 1000
 
 func (info MemInfo) ActiveAppLimit() uint64 {
 	if info.ActiveAppRSS == 0 {
 		return 0
 	}
-
-	max := func(a, b uint64) uint64 {
-		if a > b {
-			return a
-		}
-		return b
-	}
-
-	// 逐步满足ActiveApp的内存需求，但上限由UIAppsLimit()决定(cgroup本身会保证,不需要在这里做截断)。
-	return max(info.ActiveAppRSS+100*MB, info.UIAppsLimit()-100*MB)
-}
-
-func (info MemInfo) InactiveAppLimit() uint64 {
-	// TODO: 是否需要除以app数量?
-	//优先保证ActiveApp有机会完全加载到RSS中
-	min := func(a, b uint64) uint64 {
-		if a < b {
-			return a
-		}
-		return b
-	}
-	activeMemory := info.ActiveAppRSS + info.ActiveAppSwap
-	return min(info.UIAppsLimit()-activeMemory, info.TotalRSSFree-activeMemory)
+	return min(info.ActiveAppRSS+ActiveAppBonus, info.TotalRSSFree)
 }
