@@ -15,6 +15,9 @@ const (
 	SystemCGroupRoot = "/sys/fs/cgroup"
 )
 
+const KB = 1024
+const MB = 1024 * KB
+
 func joinCGPath(args ...string) string {
 	return path.Join(SystemCGroupRoot, path.Join(args...))
 }
@@ -28,29 +31,18 @@ func cgDelete(ctrl string, path string) error {
 
 // getSystemMemoryInfo 返回 系统可用内存, 系统已用Swap
 func getSystemMemoryInfo() (uint64, uint64) {
-	var available, swtotal, swfree uint64
-	for _, line := range toLines(ioutil.ReadFile("/proc/meminfo")) {
-		fields := strings.Split(line, ":")
-		if len(fields) != 2 {
-			continue
-		}
-		key := strings.TrimSpace(fields[0])
-		value := strings.TrimSpace(fields[1])
-		value = strings.Replace(value, " kB", "", -1)
-		t, err := strconv.ParseUint(value, 10, 64)
-		if err != nil {
-			return 0, 0
-		}
-		switch key {
-		case "MemAvailable":
-			available = t * 1024
-		case "SwapTotal":
-			swtotal = t * 1024
-		case "SwapFree":
-			swfree = t * 1024
-		}
+	MemAvailable, SwapTotal, SwapFree := "MemAvailable", "SwapTotal", "SwapFree"
+	vs := ParseMemoryStatKB("/proc/meminfo", MemAvailable, SwapTotal, SwapFree)
+	return vs[MemAvailable], vs[SwapTotal] - vs[SwapFree]
+}
+
+func getProcessesSwap(pids ...int) uint64 {
+	VmSwap := "VmSwap"
+	ret := uint64(0)
+	for _, pid := range pids {
+		ret += ParseMemoryStatKB(fmt.Sprintf("/proc/%d/status", pid), VmSwap)[VmSwap]
 	}
-	return available, swtotal - swfree
+	return ret
 }
 
 func toUint64(v []byte, hasErr error) uint64 {
@@ -110,13 +102,37 @@ func setHardLimit(cgroup string, v uint64) error {
 }
 
 // ParseMemoryStat parse the /sys/fs/cgroup/memory/$appGroupName/memory.stat
-func ParseMemoryStat(appGroupName string, keys []string) map[string]uint64 {
+func ParseMemoryStat(appGroupName string, keys ...string) map[string]uint64 {
 	ret := make(map[string]uint64)
 	for _, line := range toLines(readCGroupFile(memoryCtrl, appGroupName, "memory.stat")) {
 		for _, key := range keys {
 			if strings.HasPrefix(line, key) {
 				v, _ := strconv.ParseUint(line[len(key):], 10, 64)
 				ret[key] = v
+				if len(ret) >= len(keys) {
+					return ret
+				}
+			}
+		}
+	}
+	return ret
+}
+
+// ParseMemoryStatKB parse fields with KB suffix in /proc/self/status, /proc/meminfo
+func ParseMemoryStatKB(filePath string, keys ...string) map[string]uint64 {
+	ret := make(map[string]uint64)
+	for _, line := range toLines(ioutil.ReadFile(filePath)) {
+		fields := strings.Split(line, ":")
+		if len(fields) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(fields[0])
+		for _, ikey := range keys {
+			if key == ikey {
+				value := strings.TrimSpace(fields[1])
+				value = strings.Replace(value, " kB", "", -1)
+				v, _ := strconv.ParseUint(value, 10, 64)
+				ret[key] = v * KB
 				if len(ret) >= len(keys) {
 					return ret
 				}
