@@ -49,3 +49,34 @@ func (cb ActiveWindowHandler) Monitor() error {
 	xevent.Main(xu)
 	return nil
 }
+
+func (d *Dispatcher) ActiveWindowHandler(pid int, xid int) {
+	// pid != 0
+	d.Lock()
+	defer d.Unlock()
+
+	if pid == 0 {
+		d.setActiveApp(nil)
+		// unset active app but don't do balance now.
+		return
+	}
+
+	if d.activeXID == xid {
+		return
+	}
+	d.activeXID = xid
+
+	if d.activeApp != nil && d.activeApp.HasChild(pid) {
+		return
+	}
+
+	var newActive *UIApp
+	for _, app := range d.inactiveApps {
+		if app.HasChild(pid) {
+			newActive = app
+			break
+		}
+	}
+	d.setActiveApp(newActive)
+	d.balance()
+}

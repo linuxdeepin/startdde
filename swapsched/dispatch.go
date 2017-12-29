@@ -99,31 +99,6 @@ func (d *Dispatcher) AddApp(app *UIApp) {
 	d.Unlock()
 }
 
-func (d *Dispatcher) ActiveWindowHandler(pid int, xid int) {
-	// pid != 0
-	d.Lock()
-	defer d.Unlock()
-
-	if d.activeXID == xid {
-		return
-	}
-	d.activeXID = xid
-
-	if d.activeApp != nil && d.activeApp.HasChild(pid) {
-		return
-	}
-
-	var newActive *UIApp
-	for _, app := range d.inactiveApps {
-		if app.HasChild(pid) {
-			newActive = app
-			break
-		}
-	}
-	d.setActiveApp(newActive)
-	d.balance()
-}
-
 func (d *Dispatcher) setActiveApp(activeApp *UIApp) {
 	if d.activeApp == activeApp {
 		return
@@ -235,13 +210,19 @@ type MemInfo struct {
 	n int
 }
 
+// InactiveAppLimit 根据当前可用RSS以及ActiveApp所需RSS计算最小的限制值.
+func (info MemInfo) ActiveAppLimit() uint64 {
+	return max(info.ActiveAppRSS+ActiveAppBonus, ActiveAppBonus)
+}
+
 // InactiveLimit 根据InactiveApp期望的RSS以及当前可分配的RSS按比例给予.
 func (info MemInfo) InactiveAppLimit(desiredRSS uint64) uint64 {
 	free := info.TotalRSSFree - info.ActiveAppLimit()
 	if free <= 0 {
 		return MinimumLimit
 	}
-	return min(max(free*desiredRSS/info.InactiveAppsRSS, MinimumLimit), desiredRSS)
+	load := info.InactiveAppsRSS
+	return min(max(free*desiredRSS/load, MinimumLimit), desiredRSS)
 }
 
 // cgroup uiapps的总限制
@@ -260,11 +241,4 @@ func (info MemInfo) String() string {
 		(info.InactiveAppsRSS)/MB,
 	)
 	return str
-}
-
-func (info MemInfo) ActiveAppLimit() uint64 {
-	if info.ActiveAppRSS == 0 {
-		return 0
-	}
-	return min(info.ActiveAppRSS+ActiveAppBonus, info.TotalRSSFree)
 }
