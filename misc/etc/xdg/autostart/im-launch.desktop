@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=IM Launch
+Exec=im-launch true
+NoDisplay=true
+X-Deepin-MaximumRAM=200
