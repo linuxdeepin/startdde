@@ -45,11 +45,11 @@ func (app *UIApp) Update() {
 	}
 
 	const CACHE, MAPPEDFILE, RSS = "cache ", "rss ", "mapped_file "
-	vs := ParseMemoryStat(app.cgroup, []string{
+	vs := ParseMemoryStat(app.cgroup,
 		CACHE,
 		RSS,
 		MAPPEDFILE,
-	})
+	)
 	app.rssUsed = vs[CACHE] + vs[RSS] + vs[MAPPEDFILE]
 }
 
