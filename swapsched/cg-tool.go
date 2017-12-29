@@ -30,10 +30,11 @@ func cgDelete(ctrl string, path string) error {
 }
 
 // getSystemMemoryInfo 返回 系统可用内存, 系统已用Swap
-func getSystemMemoryInfo() (uint64, uint64) {
-	MemAvailable, SwapTotal, SwapFree := "MemAvailable", "SwapTotal", "SwapFree"
-	vs := ParseMemoryStatKB("/proc/meminfo", MemAvailable, SwapTotal, SwapFree)
-	return vs[MemAvailable], vs[SwapTotal] - vs[SwapFree]
+func getSystemMemoryInfo() (uint64, uint64, uint64) {
+	MemTotal, MemAvailable, SwapTotal, SwapFree := "MemTotal", "MemAvailable", "SwapTotal", "SwapFree"
+	vs := ParseMemoryStatKB("/proc/meminfo",
+		MemTotal, MemAvailable, SwapTotal, SwapFree)
+	return vs[MemTotal], vs[MemAvailable], vs[SwapTotal] - vs[SwapFree]
 }
 
 func getProcessesSwap(pids ...int) uint64 {

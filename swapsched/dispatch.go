@@ -14,13 +14,13 @@ func SetLogger(l *log.Logger) {
 	logger = l
 }
 
-const ActiveAppBonus = 100 * MB     // 当前激活APP的限制补偿,值越大恢复越快. 但会导致Inactive压力过大
-const ActiveAppSWAPRatioInLimit = 3 // 计算ActiveAppLimit的时候会加上(其使用的Swap/此ratio)
-const MinimumLimit = 5 * MB         // 内存限制的最小值, 尽量与正常UIAPP的最小值匹配.
-const MaximumLimitPlus = 500 * MB   // plus TotalRSSFree, 避免某个UIApp用尽UserSpace的内存,导致僵死无法切换ActiveApp, 从而使swap-sched失效.
-const FallbackSamplePeroid = 1      // 默认的数据调整周期
-const KernelCacheReserve = 200 * MB //至少预留多少内存给kernel
-const DEHardLimit = 800 * MB        // 最多分配给DE多少内存
+const ActiveAppBonus = 100 * MB      // 当前激活APP的限制补偿,值越大恢复越快. 但会导致Inactive压力过大
+const ActiveAppSWAPRatioInLimit = 10 // 计算ActiveAppLimit的时候会加上(其使用的Swap/此ratio)
+const MinimumLimit = 5 * MB          // 内存限制的最小值, 尽量与正常UIAPP的最小值匹配.
+const MaximumLimitPlus = 500 * MB    // plus TotalRSSFree, 避免某个UIApp用尽UserSpace的内存,导致僵死无法切换ActiveApp, 从而使swap-sched失效.
+const FallbackSamplePeroid = 1       // 默认的数据调整周期
+const KernelCacheReserve = 400 * MB  //至少预留多少内存给kernel
+const DEHardLimit = 800 * MB         // 最多分配给DE多少内存
 
 type Config struct {
 	UIAppsCGroup string // sessionID@dde/uiapps
@@ -131,7 +131,7 @@ func (d *Dispatcher) setActiveApp(activeApp *UIApp) {
 // sample() 在SamplePeroid的周期下被执行, 所有状态更新的函数都只应该在这里被触发.
 func (d *Dispatcher) sample() MemInfo {
 	var info MemInfo
-	info.TotalRSSFree, info.TotalUsedSwap = getSystemMemoryInfo()
+	info.TotalRAM, info.TotalRSSFree, info.TotalUsedSwap = getSystemMemoryInfo()
 	info.n = len(d.inactiveApps)
 
 	for _, app := range d.inactiveApps {
@@ -178,13 +178,13 @@ func (d *Dispatcher) balance() {
 	freezeUIApps(d.cfg.UIAppsCGroup)
 	defer thawUIApps(d.cfg.UIAppsCGroup)
 
-	err := setLimitRSS(d.cfg.UIAppsCGroup, info.UIAppsTotalLimit())
+	err := setLimitRSS(d.cfg.UIAppsCGroup, info.TailorLimit(info.UIAppsTotalLimit()))
 	if err != nil {
 		logger.Warning("SetUIAppsLimit failed:", err)
 	}
 
 	if d.activeApp != nil {
-		err = d.activeApp.SetLimitRSS(info.ActiveAppLimit())
+		err = d.activeApp.SetLimitRSS(info.TailorLimit(info.ActiveAppLimit()))
 		if err != nil {
 			logger.Warning("SetActtiveAppLimit failed:", d.activeApp, err)
 		}
@@ -196,7 +196,7 @@ func (d *Dispatcher) balance() {
 			logger.Debugf("Dispatcher.balance remove %s from inactiveApps", app)
 			continue
 		}
-		err = app.SetLimitRSS(info.InactiveAppLimit(app.rssUsed))
+		err = app.SetLimitRSS(info.TailorLimit(info.InactiveAppLimit(app.rssUsed)))
 		if err != nil {
 			fmt.Println("SetActtiveAppLimit failed:", app, err)
 		}
@@ -218,6 +218,7 @@ func (d *Dispatcher) Balance() {
 }
 
 type MemInfo struct {
+	TotalRAM      uint64 //　物理内存总大小
 	TotalRSSFree  uint64 //当前一共可用的物理内存
 	TotalUsedSwap uint64
 
@@ -226,6 +227,15 @@ type MemInfo struct {
 	InactiveAppsRSS uint64 //InactiveApps一共占用的物理内存.
 
 	n int
+}
+
+func (info MemInfo) TailorLimit(v uint64) uint64 {
+	//对最大值做出限制，避免严重影响DE
+	free := info.TotalRAM -
+		KernelCacheReserve -
+		uint64(info.n)*MinimumLimit -
+		MinimumLimit*2
+	return min(free, v)
 }
 
 // InactiveAppLimit 根据当前可用RSS以及ActiveApp所需RSS计算最小的限制值.
