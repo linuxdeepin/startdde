@@ -34,6 +34,7 @@ import (
 
 	"github.com/BurntSushi/xgbutil"
 	"pkg.deepin.io/dde/api/soundutils"
+	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 )
@@ -259,14 +260,13 @@ func newSessionManager() *SessionManager {
 }
 
 func (manager *SessionManager) launchWindowManager() {
-	wmCmd := getWindowManager()
-	if wmCmd != "" {
-		logger.Debug("Will launch the user special wm:", wmCmd)
-		manager.launch(wmCmd, false)
+	logger.Debug("Will launch wm")
+	err := wm.Start(logger)
+	if err != nil {
+		logger.Error("Failed to start wm module:", err)
 		return
 	}
-
-	manager.launch(*windowManagerBin, false)
+	manager.launch("env", false, "GDK_SCALE=1", wm.GetWM())
 }
 
 func exportEnvironments(env []string) {
