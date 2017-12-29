@@ -1,9 +1,0 @@
-#!/bin/bash
-startup_arr=($STARTUP)
-startup_temp=
-for i in ${startup_arr[@]}; do
-    if ! [ $i = "/usr/bin/im-launch" -o $i = "/usr/bin/sogou-session" ]; then
-        startup_temp="$startup_temp $i"
-    fi
-done
-STARTUP=$startup_temp
