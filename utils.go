@@ -267,14 +267,14 @@ func showWelcome(showing bool) error {
 	return wel.Exit()
 }
 
-func getWindowManager() string {
+func getSwapSchedEnabled() bool {
 	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
 	if err != nil {
-		logger.Error("Failed to get window manager:", err)
-		return ""
+		return false
 	}
-	defer s.Unref()
-	return s.GetString("wm-cmd")
+	enabled := s.GetBoolean("swap-sched-enabled")
+	s.Unref()
+	return enabled
 }
 
 func getAutostartDelay() int32 {
