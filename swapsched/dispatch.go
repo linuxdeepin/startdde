@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// 模块主要是利用cgroup提供的功能，使应用程序(ui-app)之间进行内存竞争（不要与DE进行竞争),
+//
+// 所有的系统状态都在 dispatch.sample() 中进行同一获取. (根据SamplePeroid定期执行)
+// 所有的系统调整都在 dispatch.balance() 中进行. (根据SamplePeroid定期执行)
+// 此外X11的root window变化会导致, dispatch.ActiveWindowHandler激活间接触发一次dispatch.balance
+
 var logger *log.Logger
 
 func SetLogger(l *log.Logger) {
