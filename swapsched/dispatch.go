@@ -260,6 +260,9 @@ func (info MemInfo) InactiveAppLimit(desiredRSS uint64) uint64 {
 		return MinimumLimit
 	}
 	load := info.InactiveAppsRSS
+	if load == 0 {
+		return desiredRSS
+	}
 	return min(max(free*desiredRSS/load, MinimumLimit), desiredRSS)
 }
 
