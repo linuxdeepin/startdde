@@ -261,13 +261,17 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	var err error
 	var cmdPrefixes []string
 	var uiApp *swapsched.UIApp
-	if swapSchedDispatcher != nil && !isDEComponent(appInfo) {
-		uiApp, err = swapSchedDispatcher.NewApp(desktopFile, maxRAM*1e6)
-		if err != nil {
-			logger.Warning("dispatcher.NewApp error:", err)
+	if swapSchedDispatcher != nil {
+		if isDEComponent(appInfo) {
+			cmdPrefixes = []string{"cgexec", "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
 		} else {
-			logger.Debug("launch: use cgexec")
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+			uiApp, err = swapSchedDispatcher.NewApp(desktopFile, maxRAM*1e6)
+			if err != nil {
+				logger.Warning("dispatcher.NewApp error:", err)
+			} else {
+				logger.Debug("launch: use cgexec")
+				cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+			}
 		}
 	}
 
