@@ -34,6 +34,10 @@ import (
 // #include "xcursor_remap.h"
 import "C"
 
+const (
+	ddeIOWaitStep = "DDE_IOWAIT_MAX_STEP"
+)
+
 var (
 	step       int
 	ioWaitStep float64
@@ -41,6 +45,25 @@ var (
 	cpuState   CPUStat
 )
 
+var _maxStep = 2
+
+func init() {
+	s := os.Getenv(ddeIOWaitStep)
+	if s == "" {
+		return
+	}
+
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return
+	}
+
+	if v > 0 {
+		_maxStep = int(v)
+	}
+}
+
+// CPUStat store the cpu stat
 type CPUStat struct {
 	System float64
 	Idle   float64
@@ -48,6 +71,7 @@ type CPUStat struct {
 	Count  float64
 }
 
+// Start join the iowait module
 func Start(logger *log.Logger) {
 	_logger = logger
 	step = 0
@@ -94,7 +118,7 @@ func showIOWait() {
 	_logger.Debug("step: ", step)
 
 	if (tempStep >= 75 && ioWaitStep >= 75) || (tempStep <= 75 && ioWaitStep <= 75) {
-		if step == 5 {
+		if step == _maxStep {
 			xcLeftPtrToWatch(tempStep >= 75)
 			step = 0
 		} else {
