@@ -8,6 +8,8 @@ Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  golang-github-howeyc-fsnotify-dev,
  dde-go-dbus-factory(>= 2.92.1),
  dde-api-dev(>= 3.0.8),
+ libxcursor-dev,
+ libxfixes-dev
 Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
 
@@ -21,7 +23,9 @@ Depends: ${shlibs:Depends},
  deepin-wm-switcher,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>> 2.91.2),
- libgnome2-bin
+ libgnome2-bin,
+ libxcursor1,
+ libxfixes3
 Recommends: dde-qt5integration
 Conflicts: deepin-session
 Breaks: startdde(<= 2.91.1)

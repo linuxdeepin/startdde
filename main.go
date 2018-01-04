@@ -19,9 +19,11 @@ package main
 import "C"
 import (
 	"flag"
-	"github.com/BurntSushi/xgbutil"
 	"os"
+
+	"github.com/BurntSushi/xgbutil"
 	"pkg.deepin.io/dde/startdde/display"
+	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -72,6 +74,7 @@ func main() {
 	}
 
 	watchdog.Start()
+	go iowait.Start(logger)
 
 	C.gtk_main()
 }
