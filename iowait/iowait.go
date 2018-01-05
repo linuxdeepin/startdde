@@ -65,6 +65,7 @@ func init() {
 
 // CPUStat store the cpu stat
 type CPUStat struct {
+	User   float64
 	System float64
 	Idle   float64
 	IOWait float64
@@ -103,11 +104,11 @@ func showIOWait() {
 	}
 
 	var TEMP CPUStat
-
+	TEMP.User = stof(list[1])
 	TEMP.System = stof(list[3])
 	TEMP.Idle = stof(list[4])
 	TEMP.IOWait = stof(list[5])
-	TEMP.Count = (TEMP.System + TEMP.Idle + TEMP.IOWait)
+	TEMP.Count = (TEMP.User + TEMP.System + TEMP.Idle + TEMP.IOWait)
 
 	var tempStep = 100.0 * (TEMP.IOWait - cpuState.IOWait) / (TEMP.Count - cpuState.Count)
 
