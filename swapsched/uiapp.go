@@ -1,6 +1,7 @@
 package swapsched
 
 type UIApp struct {
+	seqNum  uint32
 	cgroup  string
 	limit   uint64
 	desktop string
@@ -87,7 +88,7 @@ func (app *UIApp) maybeDestroy() {
 	logger.Debug("UIApp dead", app.cgroup)
 }
 
-func newApp(subCGroup, desktop string, hardLimit uint64) (*UIApp, error) {
+func newApp(seqNum uint32, subCGroup, desktop string, hardLimit uint64) (*UIApp, error) {
 	err := cgCreate(memoryCtrl, subCGroup)
 	if err != nil {
 		return nil, err
@@ -100,6 +101,7 @@ func newApp(subCGroup, desktop string, hardLimit uint64) (*UIApp, error) {
 		}
 	}
 	return &UIApp{
+		seqNum:  seqNum,
 		cgroup:  subCGroup,
 		limit:   0,
 		state:   AppStateInit,

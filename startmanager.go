@@ -86,6 +86,14 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{_OBJECT, _PATH, _INTER}
 }
 
+func (m *StartManager) GetApps() (map[uint32]string, error) {
+	if swapSchedDispatcher == nil {
+		return nil, errors.New("swap-sched disabled")
+	}
+
+	return swapSchedDispatcher.GetAppsSeqDesktopMap(), nil
+}
+
 func (m *StartManager) Launch(desktopFile string) (bool, error) {
 	return m.LaunchWithTimestamp(desktopFile, 0)
 }

@@ -3,9 +3,10 @@ package swapsched
 import (
 	"fmt"
 	"os"
-	"pkg.deepin.io/lib/log"
 	"sync"
 	"time"
+
+	"pkg.deepin.io/lib/log"
 )
 
 // 模块主要是利用cgroup提供的功能，使应用程序(ui-app)之间进行内存竞争（不要与DE进行竞争),
@@ -38,7 +39,7 @@ type Dispatcher struct {
 	sync.Mutex
 
 	cfg Config
-	cnt int
+	cnt uint32
 
 	activeXID int
 
@@ -51,7 +52,7 @@ func NewDispatcher(cfg Config) (*Dispatcher, error) {
 	if cfg.SamplePeroid <= 0 {
 		cfg.SamplePeroid = FallbackSamplePeroid
 	}
-	de, err := newApp(cfg.DECGroup, "desktop-environment", DEHardLimit)
+	de, err := newApp(0, cfg.DECGroup, "desktop-environment", DEHardLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (d *Dispatcher) GetDECGroup() string {
 	return d.cfg.DECGroup
 }
 
-func (d *Dispatcher) counter() int {
+func (d *Dispatcher) counter() uint32 {
 	d.Lock()
 	d.cnt = d.cnt + 1
 	d.Unlock()
@@ -98,8 +99,9 @@ func (d *Dispatcher) counter() int {
 }
 
 func (d *Dispatcher) NewApp(desktop string, hardLimit uint64) (*UIApp, error) {
-	cgroup := fmt.Sprintf("%s/%d", d.cfg.UIAppsCGroup, d.counter())
-	app, err := newApp(cgroup, desktop, hardLimit)
+	seqNum := d.counter()
+	cgroup := fmt.Sprintf("%s/%d", d.cfg.UIAppsCGroup, seqNum)
+	app, err := newApp(seqNum, cgroup, desktop, hardLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +223,27 @@ func (d *Dispatcher) Balance() {
 		d.balance()
 		d.Unlock()
 	}
+}
+
+func (d *Dispatcher) GetAppsSeqDesktopMap() map[uint32]string {
+	d.Lock()
+
+	length := len(d.inactiveApps)
+	if d.activeApp != nil {
+		length++
+	}
+
+	ret := make(map[uint32]string, length)
+
+	if d.activeApp != nil {
+		ret[d.activeApp.seqNum] = d.activeApp.desktop
+	}
+	for _, app := range d.inactiveApps {
+		ret[app.seqNum] = app.desktop
+	}
+
+	d.Unlock()
+	return ret
 }
 
 type MemInfo struct {
