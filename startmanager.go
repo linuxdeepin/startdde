@@ -177,7 +177,21 @@ func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32)
 }
 
 func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
-	err := m.launchApp(desktopFile, timestamp, files, m.launchContext)
+	if getCurAction() != "" {
+		logger.Warning("The prev action is executing:", getCurAction())
+		return nil
+	}
+
+	err := handleMemInsufficient()
+	if err != nil {
+		_app.desktop = desktopFile
+		_app.timestamp = timestamp
+		_app.files = files
+		setCurAction("LaunchApp")
+		return err
+	}
+
+	err = m.launchApp(desktopFile, timestamp, files, m.launchContext)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -190,7 +204,16 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 }
 
 func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
-	err := m.launchAppAction(desktopFile, action, timestamp, m.launchContext)
+	err := handleMemInsufficient()
+	if err != nil {
+		_appAction.desktop = desktopFile
+		_appAction.action = action
+		_appAction.timestamp = timestamp
+		setCurAction("LaunchAppAction")
+		return err
+	}
+
+	err = m.launchAppAction(desktopFile, action, timestamp, m.launchContext)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -216,8 +239,15 @@ func getCmdDesc(exe string, args []string) string {
 }
 
 func (m *StartManager) RunCommand(exe string, args []string) error {
+	err := handleMemInsufficient()
+	if err != nil {
+		_cmd.exe = exe
+		_cmd.args = args
+		setCurAction("RunCommand")
+		return err
+	}
+
 	var uiApp *swapsched.UIApp
-	var err error
 	if swapSchedDispatcher != nil {
 		desc := getCmdDesc(exe, args)
 		uiApp, err = swapSchedDispatcher.NewApp(desc, nil)
