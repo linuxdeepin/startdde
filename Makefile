@@ -36,6 +36,8 @@ install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
+	mkdir -p ${DESTDIR}/etc/deepin/
+	cp -f misc/deepin/* ${DESTDIR}/etc/deepin/
 
 clean:
 	-rm -rf ${GOPATH_DIR}
