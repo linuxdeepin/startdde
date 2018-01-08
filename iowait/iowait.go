@@ -35,31 +35,26 @@ import (
 import "C"
 
 const (
-	ddeIOWaitStep = "DDE_IOWAIT_MAX_STEP"
+	ddeMaxIOWait = "DDE_MAX_IOWAIT"
 )
 
 var (
-	step       int
-	ioWaitStep float64
-	_logger    *log.Logger
-	cpuState   CPUStat
+	_logger  *log.Logger
+	cpuState CPUStat
+	isWatch  = false
 )
 
-var _maxStep = 2
+var _max = 65.0
 
 func init() {
-	s := os.Getenv(ddeIOWaitStep)
+	s := os.Getenv(ddeMaxIOWait)
 	if s == "" {
 		return
 	}
 
-	v, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return
-	}
-
+	v := stof(s)
 	if v > 0 {
-		_maxStep = int(v)
+		_max = float64(v)
 	}
 }
 
@@ -75,13 +70,9 @@ type CPUStat struct {
 // Start join the iowait module
 func Start(logger *log.Logger) {
 	_logger = logger
-	step = 0
-	ticker := time.NewTicker(time.Second * 2)
 	for {
-		select {
-		case <-ticker.C:
-			showIOWait()
-		}
+		time.Sleep(time.Second * 4)
+		showIOWait()
 	}
 }
 
@@ -110,27 +101,26 @@ func showIOWait() {
 	TEMP.IOWait = stof(list[5])
 	TEMP.Count = (TEMP.User + TEMP.System + TEMP.Idle + TEMP.IOWait)
 
-	var tempStep = 100.0 * (TEMP.IOWait - cpuState.IOWait) / (TEMP.Count - cpuState.Count)
-
-	_logger.Debug("current info: ", TEMP)
-	_logger.Debug("last info: ", cpuState)
-	_logger.Debug("current step: ", tempStep)
-	_logger.Debug("last step: ", ioWaitStep)
-	_logger.Debug("step: ", step)
-
-	if (tempStep >= 75 && ioWaitStep >= 75) || (tempStep <= 75 && ioWaitStep <= 75) {
-		if step == _maxStep {
-			xcLeftPtrToWatch(tempStep >= 75)
-			step = 0
-		} else {
-			step++
-		}
-	} else {
-		step = 0
+	if cpuState.Count == 0 {
+		cpuState = TEMP
+		return
 	}
 
+	count := TEMP.Count - cpuState.Count
+	userStep := 100.0 * (TEMP.User - cpuState.User) / count
+	sysStep := 100.0 * (TEMP.System - cpuState.System) / count
+	iowaitStep := 100.0 * (TEMP.IOWait - cpuState.IOWait) / count
+
+	_logger.Debug("current info: ", TEMP, userStep, sysStep, iowaitStep)
+	xcLeftPtrToWatch(canShowWatch(userStep, sysStep, iowaitStep))
 	cpuState = TEMP
-	ioWaitStep = tempStep
+}
+
+func canShowWatch(user, sys, wait float64) bool {
+	if user >= _max || sys >= _max || wait >= _max {
+		return true
+	}
+	return false
 }
 
 func stof(v string) float64 {
@@ -139,6 +129,10 @@ func stof(v string) float64 {
 }
 
 func xcLeftPtrToWatch(enabled bool) {
+	if isWatch == enabled {
+		return
+	}
+
 	var v C.int = 1
 	if !enabled {
 		v = 0
@@ -147,5 +141,7 @@ func xcLeftPtrToWatch(enabled bool) {
 	ret := C.xc_left_ptr_to_watch(v)
 	if ret != 0 {
 		fmt.Printf("Failed to map(%v) left_ptr/watch", enabled)
+		return
 	}
+	isWatch = enabled
 }
