@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	sysConfigFile = "/etc/deepin/memchecker.json"
+	sysConfigFile = "/usr/share/startdde/memchecker.json"
 
 	defaultMinMemAvail = 300  // 300M
 	defaultMaxSwapUsed = 1200 // 1200M

@@ -31,8 +31,8 @@ install:
 	install -Dm644 misc/lightdm.conf ${DESTDIR}${PREFIX}/share/lightdm/lightdm.conf.d/60-deepin.conf
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
 	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
-	mkdir -p ${DESTDIR}/etc/deepin/
-	cp -f misc/deepin/* ${DESTDIR}/etc/deepin/
+	mkdir -p ${DESTDIR}/share/startdde/
+	cp -f misc/config/* ${DESTDIR}/share/startdde/
 
 clean:
 	-rm -rf ${GOPATH_DIR}
