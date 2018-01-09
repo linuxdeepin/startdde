@@ -62,11 +62,6 @@ func main() {
 	startXSettings(xu.Conn())
 
 	go display.Start()
-
-	err = startMemChecker()
-	if err != nil {
-		logger.Warning("Failed to install memory checker:", err)
-	}
 	startSession(xu)
 
 	if canLaunch {
@@ -78,8 +73,6 @@ func main() {
 
 	watchdog.Start()
 	go iowait.Start(logger)
-	// must after StartManager inited
-	go listemMemChecker()
 
 	C.gtk_main()
 }

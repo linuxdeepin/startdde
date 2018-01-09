@@ -36,11 +36,19 @@ type MemoryInfo struct {
 	Cached       uint64
 	SwapTotal    uint64
 	SwapFree     uint64
+	MinAvailable uint64
+	MaxSwapUsed  uint64
 }
 
 // GetMemInfo get the current memory used stat
 func GetMemInfo() (*MemoryInfo, error) {
-	return doGetMemInfo("/proc/meminfo")
+	info, err := doGetMemInfo("/proc/meminfo")
+	if err != nil {
+		return nil, err
+	}
+	info.MinAvailable = _config.MinMemAvail
+	info.MaxSwapUsed = _config.MaxSwapUsed
+	return info, nil
 }
 
 func doGetMemInfo(filename string) (*MemoryInfo, error) {
