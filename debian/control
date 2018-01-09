@@ -20,14 +20,13 @@ Depends: ${shlibs:Depends},
  ${misc:Depends},
  dde-daemon (>> 2.93.0),
  gvfs-bin,
- deepin-wm-switcher,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>> 2.91.2),
  libgnome2-bin,
  libxcursor1,
  libxfixes3
 Recommends: dde-qt5integration
-Conflicts: deepin-session
+Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)
 Description: starter of deepin desktop environment
  starter of deepin desktop environment.
