@@ -140,7 +140,7 @@ func isRadeonDRI() bool {
 		return true
 	}
 
-	var list = strv.Strv{"r600", "r300", "r200", "radeon"}
+	var list = strv.Strv{"r600", "r300", "r200", "radeon", "radeonsi"}
 	return list.Contains(string(tmp[0]))
 }
 
@@ -164,7 +164,7 @@ func isRadeonExists() bool {
 
 func isDeviceViable(id int) bool {
 	//OK, on shenwei, this file may have no read permission for group/other.
-	var filename = fmt.Sprintf("/sys/class/drm/card%d/device/enabled", id)
+	var filename = fmt.Sprintf("/sys/class/drm/card%d/device/enable", id)
 	outs, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return false
