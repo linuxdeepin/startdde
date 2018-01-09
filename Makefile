@@ -36,8 +36,8 @@ install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
-	mkdir -p ${DESTDIR}/share/startdde/
-	cp -f misc/config/* ${DESTDIR}/share/startdde/
+	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
+	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
 
 clean:
 	-rm -rf ${GOPATH_DIR}
