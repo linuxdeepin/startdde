@@ -35,6 +35,7 @@ func handleMemInsufficient() error {
 	action := getCurAction()
 	if action != "" {
 		logger.Info("The prev action is executing:", action)
+		go launchWarningDialog()
 		return fmt.Errorf("The prev action(%s) is executing", action)
 	}
 
@@ -42,14 +43,15 @@ func handleMemInsufficient() error {
 		return nil
 	}
 	logger.Info("Notice: current memory insufficient, please free.....")
-	// TODO: launch interaction UI
-	go func() {
-		err := exec.Command("dmemory-warning-dialog").Run()
-		if err != nil {
-			logger.Warning("Failed to launch dmemory dialog:", err)
-		}
-	}()
+	go launchWarningDialog()
 	return fmt.Errorf("Memory has insufficient, please free")
+}
+
+func launchWarningDialog() {
+	err := exec.Command("dmemory-warning-dialog").Run()
+	if err != nil {
+		logger.Warning("Failed to launch dmemory dialog:", err)
+	}
 }
 
 var (
