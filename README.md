@@ -23,7 +23,6 @@ user's custom applications which compliant with xdg autostart specification.
 ### Runtime dependencies
 
 - dde-daemon
-- deepin-wm-switcher
 - deepin-wm | deepin-metacity
 
 ## Installation
@@ -58,7 +57,6 @@ Run Startdde with the command below
 ```
 Usage of /usr/bin/startdde:
   -d=false: debug
-  -wm="/usr/bin/deepin-wm-switcher": the window manager used by dde
 ```
 
 

@@ -17,12 +17,11 @@ Depends: ${shlibs:Depends},
  ${misc:Depends},
  dde-daemon (>= 3.2.8),
  gvfs-bin,
- deepin-wm-switcher,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>= 3.2.4),
  libgnome2-bin, dde-api
 Recommends: dde-qt5integration
-Conflicts: deepin-session
+Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)
 Description: start deepin desktop environment
  starter of deepin desktop environment.
