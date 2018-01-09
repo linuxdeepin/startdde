@@ -81,6 +81,8 @@ type StartManager struct {
 	mu                 sync.Mutex
 
 	launchedHooks []string
+
+	NeededMemory uint64
 }
 
 func getLaunchedHooks() (ret []string) {
@@ -177,12 +179,7 @@ func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32)
 }
 
 func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
-	if getCurAction() != "" {
-		logger.Warning("The prev action is executing:", getCurAction())
-		return nil
-	}
-
-	err := handleMemInsufficient()
+	err := handleMemInsufficient(desktopFile)
 	if err != nil {
 		_app.desktop = desktopFile
 		_app.timestamp = timestamp
@@ -204,7 +201,7 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 }
 
 func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
-	err := handleMemInsufficient()
+	err := handleMemInsufficient(desktopFile)
 	if err != nil {
 		_appAction.desktop = desktopFile
 		_appAction.action = action
@@ -239,7 +236,7 @@ func getCmdDesc(exe string, args []string) string {
 }
 
 func (m *StartManager) RunCommand(exe string, args []string) error {
-	err := handleMemInsufficient()
+	err := handleMemInsufficient(exe)
 	if err != nil {
 		_cmd.exe = exe
 		_cmd.args = args

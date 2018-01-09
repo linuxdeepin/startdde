@@ -21,36 +21,139 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/lib/dbus"
 	"sync"
+	"time"
 )
 
-func startMemChecker() error {
-	return memchecker.Start(logger)
+const (
+	defaultNeededMem = 50 * 1024 // 50M
+)
+
+var (
+	_memTicker     *time.Ticker
+	_tickerStopped chan struct{}
+
+	_curNeededMem = uint64(0)
+)
+
+// IsMemSufficient check the available memory whether sufficient
+func (m *StartManager) IsMemSufficient() bool {
+	return memchecker.IsSufficient()
 }
 
-func handleMemInsufficient() error {
+// TryAgain launch the action which blocked with the memory insufficient
+func (m *StartManager) TryAgain(launch bool) error {
+	action := getCurAction()
+	logger.Info("------Try Action:", action, launch)
+	setCurAction("")
+	stopMemTicker()
+	if !launch || action == "" {
+		return nil
+	}
+
+	return handleCurAction(action)
+}
+
+func (m *StartManager) setPropNeededMemory(v uint64) {
+	if m.NeededMemory == v {
+		return
+	}
+	m.NeededMemory = v
+	dbus.NotifyChange(m, "NeededMemory")
+}
+
+func handleMemInsufficient(v string) error {
+	if memchecker.IsSufficient() {
+		return nil
+	}
+
 	action := getCurAction()
 	if action != "" {
 		logger.Info("The prev action is executing:", action)
-		go launchWarningDialog()
+		showWarningDialog(action)
 		return fmt.Errorf("The prev action(%s) is executing", action)
 	}
 
-	if !memchecker.GetMemChecker(logger).IsMemInsufficient() {
-		return nil
-	}
 	logger.Info("Notice: current memory insufficient, please free.....")
-	go launchWarningDialog()
+	// TODO: get needed memory
+	_curNeededMem = defaultNeededMem
+	updateNeededMemory()
+	go startMemTicker()
+	showWarningDialog(v)
 	return fmt.Errorf("Memory has insufficient, please free")
 }
 
-func launchWarningDialog() {
-	err := exec.Command("dmemory-warning-dialog").Run()
+func startMemTicker() {
+	_memTicker = time.NewTicker(time.Second * 1)
+	_tickerStopped = make(chan struct{})
+	logger.Info("------------Start memory ticker")
+	for {
+		select {
+		case <-_tickerStopped:
+			logger.Info("----------Ticker has stopped")
+			START_MANAGER.setPropNeededMemory(0)
+			return
+		case <-_memTicker.C:
+			updateNeededMemory()
+		}
+	}
+}
+
+func updateNeededMemory() {
+	info, err := memchecker.GetMemInfo()
 	if err != nil {
-		logger.Warning("Failed to launch dmemory dialog:", err)
+		logger.Info("-------Failed to get memory info:", err)
+		return
+	}
+	logger.Info("------------Memory info:", info.MemAvailable, info.MinAvailable)
+	v := int64(_curNeededMem) + int64(info.MinAvailable) - int64(info.MemAvailable)
+	logger.Info("------------Update needed memory:", START_MANAGER.NeededMemory, v)
+	if v < 0 {
+		v = 0
+	}
+
+	// available sufficient, check swap used
+	s := int64(info.SwapTotal) - int64(info.SwapFree) - int64(info.MaxSwapUsed)
+	logger.Info("-------Swap info:", info.SwapTotal, info.SwapFree, s)
+	if s < 0 {
+		s = 0
+	}
+	v += s
+
+	if uint64(v) == START_MANAGER.NeededMemory {
+		return
+	}
+	START_MANAGER.setPropNeededMemory(uint64(v))
+}
+
+func stopMemTicker() {
+	if _memTicker == nil {
+		return
+	}
+	_memTicker.Stop()
+	_memTicker = nil
+
+	if _tickerStopped != nil {
+		close(_tickerStopped)
+	}
+	_tickerStopped = nil
+}
+
+func showWarningDialog(action string) {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning("Failed to get session bus:", err)
+		return
+	}
+
+	dialog := conn.Object("com.deepin.dde.MemoryWarningDialog",
+		"/com/deepin/dde/MemoryWarningDialog")
+	err = dialog.Call("com.deepin.dde.MemoryWarningDialog.Show",
+		0, action).Store()
+	if err != nil {
+		logger.Warning("Failed to show memory warning dialog:", err)
 	}
 }
 
@@ -85,12 +188,11 @@ func getCurAction() string {
 	return _curAction
 }
 
-func handleCurAction(action string) {
+func handleCurAction(action string) error {
 	if action == "" {
-		return
+		return nil
 	}
 
-	exec.Command("killall", "dmemory-warning-dialog").Run()
 	var err error
 	switch action {
 	case "LaunchApp":
@@ -105,44 +207,5 @@ func handleCurAction(action string) {
 	if err != nil {
 		logger.Warning("Failed to launch action:", err)
 	}
-}
-
-func listemMemChecker() {
-	conn, err := dbus.SessionBus()
-	if err != nil {
-		logger.Error("Failed to connect session bus")
-		return
-	}
-
-	ifc := "org.freedesktop.DBus.Properties"
-	memberChanged := "PropertiesChanged"
-	rule := "type=signal,sender=com.deepin.MemChecker,path=/com/deepin/MemChecker,interface=" + ifc + ",member=" + memberChanged
-	conn.BusObject().Call("org.freedesktop.DBus.AddMatch", 0, rule)
-
-	sigChan := conn.Signal()
-	for s := range sigChan {
-		//logger.Info("Signal:", s.Name)
-		if s.Name != ifc+"."+memberChanged {
-			continue
-		}
-		if len(s.Body) != 3 {
-			logger.Debug("Invalid signal body")
-			continue
-		}
-		// Body[0] --> interface
-		var set = make(map[string]dbus.Variant)
-		set = s.Body[1].(map[string]dbus.Variant)
-		v, ok := set["Insufficient"]
-		if !ok {
-			logger.Info("Memory cahnged. No prop found")
-			continue
-		}
-		tmp := v.Value().(bool)
-		logger.Info("Memory changed:", tmp)
-		if !tmp {
-			action := getCurAction()
-			setCurAction("")
-			handleCurAction(action)
-		}
-	}
+	return err
 }
