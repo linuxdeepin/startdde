@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/wm"
+	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -225,9 +225,15 @@ func initSession() {
 }
 
 func initSwapSched() {
+	err := cgroup.Init()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
 	sessionID := objLoginSessionSelf.Id.Get()
 
-	err := callSwapSchedHelperPrepare(sessionID)
+	err = callSwapSchedHelperPrepare(sessionID)
 	if err != nil {
 		logger.Warning("call SwapSchedHelper.Prepare error:", err)
 	}
@@ -240,9 +246,9 @@ func initSwapSched() {
 
 	if err == nil {
 		// add self to DE cgroup
-		pid := strconv.Itoa(os.Getpid())
-		err = exec.Command("cgclassify", "-g",
-			"memory:"+swapSchedDispatcher.GetDECGroup(), pid).Run()
+		deCg := cgroup.NewCgroup(swapSchedDispatcher.GetDECGroup())
+		deCg.AddController(cgroup.Memory)
+		err = deCg.AttachCurrentProcess()
 		if err != nil {
 			logger.Warning("failed to add self to DE cgroup:", err)
 		}
