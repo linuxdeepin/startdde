@@ -278,7 +278,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 				logger.Warning("dispatcher.NewApp error:", err)
 			} else {
 				logger.Debug("launch: use cgexec")
-				cmdPrefixes = []string{"cgexec", "-g", "memory:" + uiApp.GetCGroup()}
+				cmdPrefixes = []string{"cgexec", "-g", "memory,freezer:" + uiApp.GetCGroup()}
 			}
 		}
 	}

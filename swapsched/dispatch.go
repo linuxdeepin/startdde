@@ -3,9 +3,11 @@ package swapsched
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
+	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/log"
 )
 
@@ -21,11 +23,16 @@ func SetLogger(l *log.Logger) {
 	logger = l
 }
 
+const (
+	softLimitInBytes = "soft_limit_in_bytes"
+	limitInBytes     = "limit_in_bytes"
+)
+
 const ActiveAppBonus = 100 * MB      // 当前激活APP的限制补偿,值越大恢复越快. 但会导致Inactive压力过大
 const ActiveAppSWAPRatioInLimit = 10 // 计算ActiveAppLimit的时候会加上(其使用的Swap/此ratio)
 const MinimumLimit = 5 * MB          // 内存限制的最小值, 尽量与正常UIAPP的最小值匹配.
 const MaximumLimitPlus = 500 * MB    // plus TotalRSSFree, 避免某个UIApp用尽UserSpace的内存,导致僵死无法切换ActiveApp, 从而使swap-sched失效.
-const FallbackSamplePeroid = 1       // 默认的数据调整周期
+const DefaultSamplePeroid = 1        // 默认的数据调整周期
 const KernelCacheReserve = 400 * MB  //至少预留多少内存给kernel
 const DEHardLimit = 800 * MB         // 最多分配给DE多少内存
 
@@ -37,30 +44,36 @@ type Config struct {
 
 type Dispatcher struct {
 	sync.Mutex
-
-	cfg Config
-	cnt uint32
-
+	cfg       Config
+	cnt       uint32
 	activeXID int
 
+	uiAppsCg     *cgroup.Cgroup
 	activeApp    *UIApp
 	inactiveApps []*UIApp
-	de           *UIApp
+
+	deCg      *cgroup.Cgroup
+	deRSSUsed uint64
 }
 
 func NewDispatcher(cfg Config) (*Dispatcher, error) {
 	if cfg.SamplePeroid <= 0 {
-		cfg.SamplePeroid = FallbackSamplePeroid
+		cfg.SamplePeroid = DefaultSamplePeroid
 	}
-	de, err := newApp(0, cfg.DECGroup, "desktop-environment", DEHardLimit)
-	if err != nil {
-		return nil, err
-	}
+	deCg := cgroup.NewCgroup(cfg.DECGroup)
+	deMemCtl := deCg.AddController(cgroup.Memory)
+	setHardLimit(deMemCtl, DEHardLimit)
+
+	uiAppsCg := cgroup.NewCgroup(cfg.UIAppsCGroup)
+	uiAppsCg.AddController(cgroup.Freezer)
+	uiAppsCg.AddController(cgroup.Memory)
+
 	d := &Dispatcher{
 		cfg:       cfg,
+		uiAppsCg:  uiAppsCg,
+		deCg:      deCg,
 		cnt:       0,
 		activeXID: -1,
-		de:        de,
 	}
 
 	if err := d.checkCGroups(); err != nil {
@@ -71,12 +84,13 @@ func NewDispatcher(cfg Config) (*Dispatcher, error) {
 }
 
 func (d *Dispatcher) checkCGroups() error {
+	// TODO: remove it
 	groups := []string{
-		joinCGPath(memoryCtrl, d.cfg.UIAppsCGroup),
-		joinCGPath(freezerCtrl, d.cfg.UIAppsCGroup),
+		joinCGPath(cgroup.Memory, d.cfg.UIAppsCGroup),
+		joinCGPath(cgroup.Freezer, d.cfg.UIAppsCGroup),
 
-		joinCGPath(memoryCtrl, d.cfg.DECGroup),
-		joinCGPath(freezerCtrl, d.cfg.DECGroup),
+		joinCGPath(cgroup.Memory, d.cfg.DECGroup),
+		joinCGPath(cgroup.Freezer, d.cfg.DECGroup),
 	}
 	for _, path := range groups {
 		_, err := os.Stat(path)
@@ -100,8 +114,8 @@ func (d *Dispatcher) counter() uint32 {
 
 func (d *Dispatcher) NewApp(desktop string, hardLimit uint64) (*UIApp, error) {
 	seqNum := d.counter()
-	cgroup := fmt.Sprintf("%s/%d", d.cfg.UIAppsCGroup, seqNum)
-	app, err := newApp(seqNum, cgroup, desktop, hardLimit)
+	appCg := d.uiAppsCg.NewChildGroup(strconv.FormatUint(uint64(seqNum), 10))
+	app, err := newApp(seqNum, appCg, desktop, hardLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +170,10 @@ func (d *Dispatcher) sample() MemInfo {
 			info.ActiveAppSWAP = 0
 		}
 	}
-	d.de.Update()
+
+	// update de RSS used
+	deMemCtl := d.deCg.GetController(cgroup.Memory)
+	d.deRSSUsed = getRSSUsed(deMemCtl)
 	return info
 }
 
@@ -175,26 +192,37 @@ func (d *Dispatcher) balance() {
 		if d.activeApp == nil {
 			logger.Debugf("no active app (active win: %d)\n%s\n", d.activeXID, info)
 		} else {
-			logger.Debugf("active app %q(%q) %dMB\n%s\n",
+			logger.Debugf("active app %q(%d) %dMB\n%s\n",
 				d.activeApp.desktop,
-				d.activeApp.cgroup,
+				d.activeApp.seqNum,
 				info.ActiveAppRSS/MB,
 				info)
 		}
 	}
 
-	freezeUIApps(d.cfg.UIAppsCGroup)
-	defer thawUIApps(d.cfg.UIAppsCGroup)
-
-	err := setLimitRSS(d.cfg.UIAppsCGroup, info.TailorLimit(info.UIAppsTotalLimit()))
+	appsFreezerCtl := d.uiAppsCg.GetController(cgroup.Freezer)
+	err := appsFreezerCtl.SetValueString("state", "FROZEN")
 	if err != nil {
-		logger.Warning("SetUIAppsLimit failed:", err)
+		logger.Warning(err)
+	} else {
+		defer func() {
+			err := appsFreezerCtl.SetValueString("state", "THAWED")
+			if err != nil {
+				logger.Warning(err)
+			}
+		}()
+	}
+
+	appsMemCtl := d.uiAppsCg.GetController(cgroup.Memory)
+	err = setSoftLimit(appsMemCtl, info.TailorLimit(info.UIAppsTotalLimit()))
+	if err != nil {
+		logger.Warning("failed to set soft limit for uiapps cgroup:", err)
 	}
 
 	if d.activeApp != nil {
 		err = d.activeApp.SetLimitRSS(info.TailorLimit(info.ActiveAppLimit()))
 		if err != nil {
-			logger.Warning("SetActtiveAppLimit failed:", d.activeApp, err)
+			logger.Warningf("failed to set soft limit for active %s: %v ", d.activeApp, err)
 		}
 	}
 
@@ -206,13 +234,17 @@ func (d *Dispatcher) balance() {
 		}
 		err = app.SetLimitRSS(info.TailorLimit(info.InactiveAppLimit(app.rssUsed)))
 		if err != nil {
-			fmt.Println("SetActtiveAppLimit failed:", app, err)
+			logger.Warningf("failed to set soft limit for inactive %s: %v", app, err)
 		}
 		liveApps = append(liveApps, app)
 	}
 	d.inactiveApps = liveApps
 
-	d.de.SetLimitRSS(d.de.rssUsed)
+	deMemCtl := d.deCg.GetController(cgroup.Memory)
+	err = setSoftLimit(deMemCtl, d.deRSSUsed)
+	if err != nil {
+		logger.Warning("failed to set soft limit for DE cgroup:", err)
+	}
 }
 
 func (d *Dispatcher) Balance() {

@@ -1,8 +1,12 @@
 package swapsched
 
+import (
+	"pkg.deepin.io/lib/cgroup"
+)
+
 type UIApp struct {
 	seqNum  uint32
-	cgroup  string
+	cg      *cgroup.Cgroup
 	limit   uint64
 	desktop string
 
@@ -21,11 +25,11 @@ const (
 )
 
 func (app *UIApp) String() string {
-	return "UIApp<" + app.cgroup + ">"
+	return "UIApp<" + app.cg.Name() + ">"
 }
 
 func (app *UIApp) GetCGroup() string {
-	return app.cgroup
+	return app.cg.Name()
 }
 
 func (app *UIApp) HasChild(pid int) bool {
@@ -39,19 +43,15 @@ func (app *UIApp) HasChild(pid int) bool {
 
 // Update 更新 rssUsed以及pids字段, 若len(pids)为0, 则尝试释放此uiapp
 func (app *UIApp) Update() {
-	app.pids = getCGroupPIDs(memoryCtrl, app.cgroup)
+	app.pids, _ = app.cg.GetProcs(cgroup.Memory)
+
 	if len(app.pids) == 0 {
 		app.maybeDestroy()
 		return
 	}
 
-	const CACHE, MAPPEDFILE, RSS = "cache ", "rss ", "mapped_file "
-	vs := ParseMemoryStat(app.cgroup,
-		CACHE,
-		RSS,
-		MAPPEDFILE,
-	)
-	app.rssUsed = vs[CACHE] + vs[RSS] + vs[MAPPEDFILE]
+	ctl := app.cg.GetController(cgroup.Memory)
+	app.rssUsed = getRSSUsed(ctl)
 }
 
 func (app *UIApp) SetLimitRSS(v uint64) error {
@@ -59,7 +59,8 @@ func (app *UIApp) SetLimitRSS(v uint64) error {
 		return nil
 	}
 	app.limit = v
-	return setLimitRSS(app.cgroup, v)
+	ctl := app.cg.GetController(cgroup.Memory)
+	return setSoftLimit(ctl, v)
 }
 
 // 设置的CGroup Soft Limit值
@@ -84,25 +85,30 @@ func (app *UIApp) maybeDestroy() {
 	// state End -> Dead
 
 	app.state = AppStateDead
-	cgDelete(memoryCtrl, app.cgroup)
-	logger.Debug("UIApp dead", app.cgroup)
+	logger.Debug("dead", app)
+
+	err := app.cg.Delete(cgroup.DeleteFlagEmptyOnly)
+	if err != nil {
+		logger.Warningf("failed to delete cgroup for %s: %v", app, err)
+	}
 }
 
-func newApp(seqNum uint32, subCGroup, desktop string, hardLimit uint64) (*UIApp, error) {
-	err := cgCreate(memoryCtrl, subCGroup)
+func newApp(seqNum uint32, cg *cgroup.Cgroup, desktop string, hardLimit uint64) (*UIApp, error) {
+	err := cg.Create(false)
 	if err != nil {
 		return nil, err
 	}
 
 	if hardLimit > 0 {
-		err = setHardLimit(subCGroup, hardLimit)
+		memCtl := cg.GetController(cgroup.Memory)
+		err = setHardLimit(memCtl, hardLimit)
 		if err != nil {
 			return nil, err
 		}
 	}
 	return &UIApp{
 		seqNum:  seqNum,
-		cgroup:  subCGroup,
+		cg:      cg,
 		limit:   0,
 		state:   AppStateInit,
 		desktop: desktop,
