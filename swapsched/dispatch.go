@@ -1,6 +1,7 @@
 package swapsched
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -76,29 +77,14 @@ func NewDispatcher(cfg Config) (*Dispatcher, error) {
 		activeXID: -1,
 	}
 
-	if err := d.checkCGroups(); err != nil {
-		return nil, err
+	if !d.testCgroups() {
+		return nil, errors.New("controllers of cgroup not all exist")
 	}
-
 	return d, nil
 }
 
-func (d *Dispatcher) checkCGroups() error {
-	// TODO: remove it
-	groups := []string{
-		joinCGPath(cgroup.Memory, d.cfg.UIAppsCGroup),
-		joinCGPath(cgroup.Freezer, d.cfg.UIAppsCGroup),
-
-		joinCGPath(cgroup.Memory, d.cfg.DECGroup),
-		joinCGPath(cgroup.Freezer, d.cfg.DECGroup),
-	}
-	for _, path := range groups {
-		_, err := os.Stat(path)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (d *Dispatcher) testCgroups() bool {
+	return d.deCg.AllExist() && d.uiAppsCg.AllExist()
 }
 
 func (d *Dispatcher) GetDECGroup() string {
