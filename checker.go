@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/lib/dbus"
+	"strings"
 	"sync"
 	"time"
 )
@@ -72,7 +73,7 @@ func handleMemInsufficient(v string) error {
 	action := getCurAction()
 	if action != "" {
 		logger.Info("The prev action is executing:", action)
-		showWarningDialog(action)
+		showWarningDialog(getActionName(action))
 		return fmt.Errorf("The prev action(%s) is executing", action)
 	}
 
@@ -188,6 +189,22 @@ func getCurAction() string {
 	_actionLocker.Lock()
 	defer _actionLocker.Unlock()
 	return _curAction
+}
+
+func getActionName(action string) string {
+	switch action {
+	case "LaunchApp":
+		return _app.desktop
+	case "LaunchAppAction":
+		return _appAction.desktop
+	case "RunCommand":
+		var _name = _cmd.exe
+		if len(_cmd.args) != 0 {
+			_name += " " + strings.Join(_cmd.args, " ")
+		}
+		return _name
+	}
+	return ""
 }
 
 func handleCurAction(action string) error {

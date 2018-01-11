@@ -181,6 +181,9 @@ func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32)
 func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
+		if getCurAction() != "" {
+			return err
+		}
 		_app.desktop = desktopFile
 		_app.timestamp = timestamp
 		_app.files = files
@@ -203,6 +206,9 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
+		if getCurAction() != "" {
+			return err
+		}
 		_appAction.desktop = desktopFile
 		_appAction.action = action
 		_appAction.timestamp = timestamp
@@ -236,8 +242,15 @@ func getCmdDesc(exe string, args []string) string {
 }
 
 func (m *StartManager) RunCommand(exe string, args []string) error {
-	err := handleMemInsufficient(exe)
+	var _name = exe
+	if len(args) != 0 {
+		_name += " " + strings.Join(args, " ")
+	}
+	err := handleMemInsufficient(_name)
 	if err != nil {
+		if getCurAction() != "" {
+			return err
+		}
 		_cmd.exe = exe
 		_cmd.args = args
 		setCurAction("RunCommand")
