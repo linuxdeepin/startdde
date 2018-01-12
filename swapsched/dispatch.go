@@ -37,6 +37,10 @@ const DefaultSamplePeroid = 1        // 默认的数据调整周期
 const KernelCacheReserve = 400 * MB  //至少预留多少内存给kernel
 const DEHardLimit = 800 * MB         // 最多分配给DE多少内存
 
+const enableSwapTotalMin = 1 * GB   // 使 dispatcher 启用的最小 swap 总空间
+const enableMemAvailMax = 500 * MB  // 使 dispatcher 启用的最大可用内存，当 dispatcher 被禁用时， 如果可用内存小于这个值，dispatcher 被启用。
+const disableMemAvailMin = 800 * MB // 使 dispatcher 禁用的最小可用内存，当 dispatcher 被启用时， 如果可用内存大于这个值，dispatcher 被禁用。
+
 type Config struct {
 	UIAppsCGroup string // sessionID@dde/uiapps
 	DECGroup     string // sessionID@dde/DE
@@ -48,6 +52,7 @@ type Dispatcher struct {
 	cfg       Config
 	cnt       uint32
 	activeXID int
+	enabled   bool
 
 	uiAppsCg     *cgroup.Cgroup
 	activeApp    *UIApp
@@ -75,6 +80,7 @@ func NewDispatcher(cfg Config) (*Dispatcher, error) {
 		deCg:      deCg,
 		cnt:       0,
 		activeXID: -1,
+		enabled:   false,
 	}
 
 	if !d.testCgroups() {
@@ -136,10 +142,35 @@ func (d *Dispatcher) setActiveApp(activeApp *UIApp) {
 	d.activeApp = activeApp
 }
 
+func (d *Dispatcher) shouldApplyLimit(memInfo ProcMemoryInfo) bool {
+	if memInfo.SwapTotal < enableSwapTotalMin {
+		return false
+	}
+
+	if d.enabled {
+		if memInfo.MemAvailable > disableMemAvailMin {
+			// cancel limit
+			return false
+		}
+		return true
+
+	} else {
+		if memInfo.MemAvailable < enableMemAvailMax {
+			return true
+		}
+		// cancel limit
+		return false
+	}
+}
+
 // sample() 在SamplePeroid的周期下被执行, 所有状态更新的函数都只应该在这里被触发.
-func (d *Dispatcher) sample() MemInfo {
+func (d *Dispatcher) sample() (MemInfo, bool) {
 	var info MemInfo
-	info.TotalRAM, info.TotalRSSFree, info.TotalUsedSwap = getSystemMemoryInfo()
+	procMemInfo := getProcMemoryInfo()
+	info.TotalRAM = procMemInfo.MemTotal
+	info.TotalRSSFree = procMemInfo.MemAvailable
+	info.TotalUsedSwap = procMemInfo.SwapTotal - procMemInfo.SwapFree
+
 	info.n = len(d.inactiveApps)
 
 	for _, app := range d.inactiveApps {
@@ -160,7 +191,7 @@ func (d *Dispatcher) sample() MemInfo {
 	// update de RSS used
 	deMemCtl := d.deCg.GetController(cgroup.Memory)
 	d.deRSSUsed = getRSSUsed(deMemCtl)
-	return info
+	return info, d.shouldApplyLimit(procMemInfo)
 }
 
 var debugBalance bool
@@ -171,8 +202,63 @@ func init() {
 	}
 }
 
+func (d *Dispatcher) cancelLimit() {
+	logger.Debug("cancel limit")
+
+	var err error
+	appsMemCtl := d.uiAppsCg.GetController(cgroup.Memory)
+	err = cancelSoftLimit(appsMemCtl)
+	if err != nil {
+		logger.Warning("failed to cancel soft limit for uiapps cgroup:", err)
+	}
+
+	if d.activeApp != nil {
+		err = d.activeApp.cancelLimitRSS()
+		if err != nil {
+			logger.Warningf("failed to cancel soft limit for %s: %v", d.activeApp, err)
+		}
+	}
+
+	for _, app := range d.inactiveApps {
+		err = app.cancelLimitRSS()
+		if err != nil {
+			logger.Warningf("failed to cancel soft limit for %s: %v", app, err)
+		}
+	}
+
+	deMemCtl := d.deCg.GetController(cgroup.Memory)
+	err = cancelSoftLimit(deMemCtl)
+	if err != nil {
+		logger.Warning("failed to cancel soft limit for DE cgroup:", err)
+	}
+}
+
 func (d *Dispatcher) balance() {
-	info := d.sample()
+	info, shouldApplyLimit := d.sample()
+
+	if shouldApplyLimit != d.enabled {
+		// value changed
+		d.enabled = shouldApplyLimit
+
+		if !shouldApplyLimit {
+			d.cancelLimit()
+		}
+	}
+
+	// remove dead app
+	var liveApps []*UIApp
+	for _, app := range d.inactiveApps {
+		if !app.IsLive() {
+			logger.Debugf("Dispatcher.balance remove %s from inactiveApps", app)
+			continue
+		}
+		liveApps = append(liveApps, app)
+	}
+	d.inactiveApps = liveApps
+
+	if !shouldApplyLimit {
+		return
+	}
 
 	if debugBalance {
 		if d.activeApp == nil {
@@ -186,6 +272,7 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
+	// apply limit
 	appsFreezerCtl := d.uiAppsCg.GetController(cgroup.Freezer)
 	err := appsFreezerCtl.SetValueString("state", "FROZEN")
 	if err != nil {
@@ -212,19 +299,12 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
-	var liveApps []*UIApp
 	for _, app := range d.inactiveApps {
-		if !app.IsLive() {
-			logger.Debugf("Dispatcher.balance remove %s from inactiveApps", app)
-			continue
-		}
 		err = app.SetLimitRSS(info.TailorLimit(info.InactiveAppLimit(app.rssUsed)))
 		if err != nil {
 			logger.Warningf("failed to set soft limit for inactive %s: %v", app, err)
 		}
-		liveApps = append(liveApps, app)
 	}
-	d.inactiveApps = liveApps
 
 	deMemCtl := d.deCg.GetController(cgroup.Memory)
 	err = setSoftLimit(deMemCtl, d.deRSSUsed)

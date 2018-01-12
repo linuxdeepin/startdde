@@ -16,6 +16,7 @@ const (
 
 const KB = 1024
 const MB = 1024 * KB
+const GB = 1024 * MB
 
 func joinCGPath(args ...string) string {
 	return path.Join(SystemCGroupRoot, path.Join(args...))
@@ -32,16 +33,31 @@ func setSoftLimit(memCtl *cgroup.Controller, v uint64) error {
 	return memCtl.SetValueUint64(softLimitInBytes, v)
 }
 
+func cancelSoftLimit(memCtl *cgroup.Controller) error {
+	return memCtl.SetValueInt64(softLimitInBytes, -1)
+}
+
 func setHardLimit(memCtl *cgroup.Controller, v uint64) error {
 	return memCtl.SetValueUint64(limitInBytes, v)
 }
 
-// getSystemMemoryInfo 返回 系统可用内存, 系统已用Swap
-func getSystemMemoryInfo() (uint64, uint64, uint64) {
+type ProcMemoryInfo struct {
+	MemTotal     uint64
+	MemAvailable uint64
+	SwapTotal    uint64
+	SwapFree     uint64
+}
+
+func getProcMemoryInfo() (memInfo ProcMemoryInfo) {
 	MemTotal, MemAvailable, SwapTotal, SwapFree := "MemTotal", "MemAvailable", "SwapTotal", "SwapFree"
 	vs := ParseMemoryStatKB("/proc/meminfo",
 		MemTotal, MemAvailable, SwapTotal, SwapFree)
-	return vs[MemTotal], vs[MemAvailable], vs[SwapTotal] - vs[SwapFree]
+
+	memInfo.MemTotal = vs[MemTotal]
+	memInfo.MemAvailable = vs[MemAvailable]
+	memInfo.SwapTotal = vs[SwapTotal]
+	memInfo.SwapFree = vs[SwapFree]
+	return
 }
 
 func getProcessesSwap(pids ...int) uint64 {
