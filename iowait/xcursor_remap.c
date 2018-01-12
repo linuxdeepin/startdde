@@ -94,8 +94,8 @@ xc_left_ptr_to_watch(int enabled)
     }
 
     if (enabled) {
-        return xc_remap("theme", "left_ptr", "watch", size);
+        return xc_remap(theme, "left_ptr", "left_ptr_watch", size);
     } else {
-        return xc_remap("theme", "watch", "left_ptr", size);
+        return xc_remap(theme, "left_ptr_watch", "left_ptr", size);
     }
 }
