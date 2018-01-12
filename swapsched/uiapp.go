@@ -63,6 +63,11 @@ func (app *UIApp) SetLimitRSS(v uint64) error {
 	return setSoftLimit(ctl, v)
 }
 
+func (app *UIApp) cancelLimitRSS() error {
+	ctl := app.cg.GetController(cgroup.Memory)
+	return cancelSoftLimit(ctl)
+}
+
 // 设置的CGroup Soft Limit值
 func (app *UIApp) LimitRSS() uint64 {
 	return app.limit
