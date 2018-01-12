@@ -109,13 +109,13 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
 		if getCurAction() != "" {
-			return err
+			return nil
 		}
 		_app.desktop = desktopFile
 		_app.timestamp = timestamp
 		_app.files = files
 		setCurAction("LaunchApp")
-		return err
+		return nil
 	}
 
 	err = m.launchApp(desktopFile, timestamp, files, m.launchContext)
@@ -134,13 +134,13 @@ func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uin
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
 		if getCurAction() != "" {
-			return err
+			return nil
 		}
 		_appAction.desktop = desktopFile
 		_appAction.action = action
 		_appAction.timestamp = timestamp
 		setCurAction("LaunchAppAction")
-		return err
+		return nil
 	}
 
 	err = m.launchAppAction(desktopFile, action, timestamp, m.launchContext)
@@ -162,12 +162,12 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	err := handleMemInsufficient(_name)
 	if err != nil {
 		if getCurAction() != "" {
-			return err
+			return nil
 		}
 		_cmd.exe = exe
 		_cmd.args = args
 		setCurAction("RunCommand")
-		return err
+		return nil
 	}
 
 	var uiApp *swapsched.UIApp
