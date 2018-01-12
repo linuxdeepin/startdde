@@ -163,7 +163,7 @@ func (m *StartManager) GetApps() (map[uint32]string, error) {
 		return nil, errors.New("swap-sched disabled")
 	}
 
-	return swapSchedDispatcher.GetAppsSeqDesktopMap(), nil
+	return swapSchedDispatcher.GetAppsSeqDescMap(), nil
 }
 
 func (m *StartManager) Launch(desktopFile string) (bool, error) {
@@ -200,11 +200,26 @@ func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uin
 	return err
 }
 
+func getCmdDesc(exe string, args []string) string {
+	const prefix = "cmd:"
+	if (exe == "sh" || exe == "/bin/sh") &&
+		len(args) == 2 && args[0] == "-c" {
+		// sh -c cmdline
+		// or /bin/sh -c cmdline
+		return prefix + args[1]
+	}
+	if len(args) > 0 {
+		return prefix + exe + " " + strings.Join(args, " ")
+	}
+	return prefix + exe
+}
+
 func (m *StartManager) RunCommand(exe string, args []string) error {
 	var uiApp *swapsched.UIApp
 	var err error
 	if swapSchedDispatcher != nil {
-		uiApp, err = swapSchedDispatcher.NewApp(exe, 0)
+		desc := getCmdDesc(exe, args)
+		uiApp, err = swapSchedDispatcher.NewApp(desc, 0)
 		if err != nil {
 			logger.Warning("dispatcher.NewApp error:", err)
 		}

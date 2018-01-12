@@ -5,10 +5,10 @@ import (
 )
 
 type UIApp struct {
-	seqNum  uint32
-	cg      *cgroup.Cgroup
-	limit   uint64
-	desktop string
+	seqNum uint32
+	cg     *cgroup.Cgroup
+	limit  uint64
+	desc   string
 
 	// 以下字段会在Update时更新.
 	state   AppState
@@ -98,7 +98,7 @@ func (app *UIApp) maybeDestroy() {
 	}
 }
 
-func newApp(seqNum uint32, cg *cgroup.Cgroup, desktop string, hardLimit uint64) (*UIApp, error) {
+func newApp(seqNum uint32, cg *cgroup.Cgroup, desc string, hardLimit uint64) (*UIApp, error) {
 	err := cg.Create(false)
 	if err != nil {
 		return nil, err
@@ -112,10 +112,10 @@ func newApp(seqNum uint32, cg *cgroup.Cgroup, desktop string, hardLimit uint64) 
 		}
 	}
 	return &UIApp{
-		seqNum:  seqNum,
-		cg:      cg,
-		limit:   0,
-		state:   AppStateInit,
-		desktop: desktop,
+		seqNum: seqNum,
+		cg:     cg,
+		limit:  0,
+		state:  AppStateInit,
+		desc:   desc,
 	}, nil
 }

@@ -104,10 +104,10 @@ func (d *Dispatcher) counter() uint32 {
 	return d.cnt
 }
 
-func (d *Dispatcher) NewApp(desktop string, hardLimit uint64) (*UIApp, error) {
+func (d *Dispatcher) NewApp(desc string, hardLimit uint64) (*UIApp, error) {
 	seqNum := d.counter()
 	appCg := d.uiAppsCg.NewChildGroup(strconv.FormatUint(uint64(seqNum), 10))
-	app, err := newApp(seqNum, appCg, desktop, hardLimit)
+	app, err := newApp(seqNum, appCg, desc, hardLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func (d *Dispatcher) balance() {
 			logger.Debugf("no active app (active win: %d)\n%s\n", d.activeXID, info)
 		} else {
 			logger.Debugf("active app %q(%d) %dMB\n%s\n",
-				d.activeApp.desktop,
+				d.activeApp.desc,
 				d.activeApp.seqNum,
 				info.ActiveAppRSS/MB,
 				info)
@@ -323,7 +323,7 @@ func (d *Dispatcher) Balance() {
 	}
 }
 
-func (d *Dispatcher) GetAppsSeqDesktopMap() map[uint32]string {
+func (d *Dispatcher) GetAppsSeqDescMap() map[uint32]string {
 	d.Lock()
 
 	length := len(d.inactiveApps)
@@ -334,10 +334,10 @@ func (d *Dispatcher) GetAppsSeqDesktopMap() map[uint32]string {
 	ret := make(map[uint32]string, length)
 
 	if d.activeApp != nil {
-		ret[d.activeApp.seqNum] = d.activeApp.desktop
+		ret[d.activeApp.seqNum] = d.activeApp.desc
 	}
 	for _, app := range d.inactiveApps {
-		ret[app.seqNum] = app.desktop
+		ret[app.seqNum] = app.desc
 	}
 
 	d.Unlock()
