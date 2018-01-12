@@ -56,6 +56,11 @@ func (s *Switcher) CurrentWM() string {
 	return wmList[s.info.LastWM]
 }
 
+// RestartWM restart the current wm
+func (s *Switcher) RestartWM() error {
+	return s.doSwitchWM(s.info.LastWM)
+}
+
 //RequestSwitchWM try to switch window manager
 func (s *Switcher) RequestSwitchWM() error {
 	if !s.goodWM {
@@ -115,7 +120,7 @@ func (s *Switcher) init() {
 
 	s.info, err = s.loadConfig()
 	s.logger.Debugf("--------wm config: %#v, %v", s.info, err)
-	if err != nil {
+	if err != nil || s.info.LastWM == "" {
 		s.logger.Warning("Failed to load config:", err)
 		s.initConfig()
 		return
@@ -180,11 +185,17 @@ func (s *Switcher) initCard() {
 }
 
 func (s *Switcher) doSwitchWM(wm string) error {
-	err := exec.Command("env", "GDK_SCALE=1", wm, "--replace").Start()
+	conn, err := dbus.SessionBus()
 	if err != nil {
-		s.logger.Warning("Failed to switch wm:", err)
+		return err
 	}
-	return err
+	obj := conn.Object("com.deepin.SessionManager", "/com/deepin/StartManager")
+	err = obj.Call("com.deepin.StartManager.RunCommand", 0,
+		"env", []string{"GDK_SCALE=1", wm, "--replace"}).Store()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Switcher) isGoodWM() bool {
