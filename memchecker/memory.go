@@ -36,6 +36,7 @@ type MemoryInfo struct {
 	Cached       uint64
 	SwapTotal    uint64
 	SwapFree     uint64
+	SwapCached   uint64
 	MinAvailable uint64
 	MaxSwapUsed  uint64
 }
@@ -87,6 +88,8 @@ func doGetMemInfo(filename string) (*MemoryInfo, error) {
 			info.SwapTotal = v
 		case strings.Contains(line, "SwapFree"):
 			info.SwapFree = v
+		case strings.Contains(line, "SwapCached"):
+			info.SwapCached = v
 		}
 	}
 

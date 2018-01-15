@@ -45,14 +45,18 @@ func IsSufficient() bool {
 		return true
 	}
 
-	used := info.SwapTotal - info.SwapFree
-	fmt.Printf("Avail: %v, used: %v\n", info.MemAvailable, used)
-	fmt.Println("Config:", _config.MinMemAvail, _config.MaxSwapUsed)
+	used := info.SwapTotal - info.SwapFree - info.SwapCached
+	fmt.Printf("Avail: %v(%v), used: %v(%v)\n", info.MemAvailable,
+		_config.MinMemAvail, used, _config.MaxSwapUsed)
 	if info.MemAvailable < _config.MinMemAvail {
 		return false
 	}
 
 	if _config.MaxSwapUsed == 0 {
+		return true
+	}
+
+	if info.MemAvailable > used {
 		return true
 	}
 
