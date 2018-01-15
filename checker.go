@@ -116,8 +116,8 @@ func updateNeededMemory() {
 	}
 
 	// available sufficient, check swap used
-	s := int64(info.SwapTotal) - int64(info.SwapFree) - int64(info.MaxSwapUsed)
-	logger.Info("-------Swap info:", info.SwapTotal, info.SwapFree, s)
+	s := int64(info.SwapTotal) - int64(info.SwapFree) - int64(info.SwapCached) - int64(info.MaxSwapUsed)
+	logger.Info("-------Swap info:", info.SwapTotal, info.SwapFree, info.SwapCached, s)
 	if s < 0 {
 		s = 0
 	}
