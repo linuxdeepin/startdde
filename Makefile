@@ -4,7 +4,7 @@ GOPKG_PREFIX = pkg.deepin.io/dde/startdde
 GOBUILD = go build
 
 ifdef USE_GCCGO
-	GOLDFLAGS = -ldflags -Os -O2
+	GOLDFLAGS = -Os -O2
 	GOLDFLAGS += $(shell pkg-config --libs gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 xi libpulse-simple alsa)
 	GOLDFLAGS += -lm
 	GOBUILD += -compiler gccgo -gccgoflags "${GOLDFLAGS}"
