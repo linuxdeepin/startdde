@@ -99,6 +99,8 @@ func doLoadSwConfig(file string) (*configInfo, error) {
 	}
 
 	var info configInfo
+	// fix no 'allow_switch' in config
+	info.AllowSwitch = true
 	err = json.Unmarshal(contents, &info)
 	if err != nil {
 		return nil, err
