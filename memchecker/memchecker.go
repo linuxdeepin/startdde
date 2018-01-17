@@ -40,6 +40,10 @@ func init() {
 
 // IsSufficient check the memory whether reaches the qualified value
 func IsSufficient() bool {
+	if _config.MinMemAvail == 0 {
+		return true
+	}
+
 	info, err := GetMemInfo()
 	if err != nil {
 		return true
