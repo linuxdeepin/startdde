@@ -131,7 +131,7 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 }
 
 func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
-	err := handleMemInsufficient(desktopFile)
+	err := handleMemInsufficient(desktopFile + action)
 	if err != nil {
 		if getCurAction() != "" {
 			return nil
@@ -202,7 +202,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	}
 
 	err = cmd.Start()
-	return waitCmd(cmd, err, uiApp)
+	return waitCmd(cmd, err, uiApp, _name)
 }
 
 type IStartCommand interface {
@@ -210,7 +210,7 @@ type IStartCommand interface {
 }
 
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
-	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand) error {
+	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand, cmdName string) error {
 
 	// maximum RAM unit is MB
 	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
@@ -240,7 +240,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	cmd, err := iStartCmd.StartCommand(files, ctx)
 	ctx.Unlock()
 
-	return waitCmd(cmd, err, uiApp)
+	return waitCmd(cmd, err, uiApp, cmdName)
 }
 
 func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
@@ -249,7 +249,7 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 		return err
 	}
 
-	return m.launch(appInfo, timestamp, files, ctx, appInfo)
+	return m.launch(appInfo, timestamp, files, ctx, appInfo, desktopFile)
 }
 
 func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
@@ -270,10 +270,10 @@ func (m *StartManager) launchAppAction(desktopFile, actionSection string, timest
 		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
 	}
 
-	return m.launch(appInfo, timestamp, nil, ctx, &targetAction)
+	return m.launch(appInfo, timestamp, nil, ctx, &targetAction, desktopFile+actionSection)
 }
 
-func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
+func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp, cmdName string) error {
 	if uiApp != nil {
 		swapSchedDispatcher.AddApp(uiApp)
 	}
@@ -291,6 +291,9 @@ func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
 			uiApp.SetStateEnd()
 		}
 	}()
+	gid, _ := parseProccessArgs(cmd.Args)
+	logger.Debug("[waitCmd] Args parse:", gid, cmdName)
+	go saveNeededMemory(cmdName, gid)
 	return nil
 }
 

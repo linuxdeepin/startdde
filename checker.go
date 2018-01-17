@@ -21,8 +21,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"pkg.deepin.io/dde/startdde/memanalyzer"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/lib/dbus"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +33,8 @@ import (
 
 const (
 	defaultNeededMem = 50 * 1024 // 50M
+
+	envMemQueryWait = "DDE_MEM_QUERY_WAIT"
 )
 
 var (
@@ -37,7 +42,21 @@ var (
 	_tickerStopped chan struct{}
 
 	_curNeededMem = uint64(0)
+
+	_memQueryWait = 15
 )
+
+func init() {
+	s := os.Getenv(envMemQueryWait)
+	if s == "" {
+		return
+	}
+
+	v, _ := strconv.ParseInt(s, 10, 32)
+	if v > 0 {
+		_memQueryWait = int(v)
+	}
+}
 
 // IsMemSufficient check the available memory whether sufficient
 func (m *StartManager) IsMemSufficient() bool {
@@ -47,7 +66,7 @@ func (m *StartManager) IsMemSufficient() bool {
 // TryAgain launch the action which blocked with the memory insufficient
 func (m *StartManager) TryAgain(launch bool) error {
 	action := getCurAction()
-	logger.Info("------Try Action:", action, launch)
+	logger.Info("Try Action:", action, launch)
 	setCurAction("")
 	stopMemTicker()
 	if !launch || action == "" {
@@ -55,6 +74,11 @@ func (m *StartManager) TryAgain(launch bool) error {
 	}
 
 	return handleCurAction(action)
+}
+
+// DumpMemRecord dump the proccess needed memory record
+func (m *StartManager) DumpMemRecord() string {
+	return memanalyzer.DumpDB()
 }
 
 func (m *StartManager) setPropNeededMemory(v uint64) {
@@ -78,8 +102,7 @@ func handleMemInsufficient(v string) error {
 	}
 
 	logger.Info("Notice: current memory insufficient, please free.....")
-	// TODO: get needed memory
-	_curNeededMem = defaultNeededMem
+	_curNeededMem = getNeededMemory(v)
 	updateNeededMemory()
 	go startMemTicker()
 	showWarningDialog(v)
@@ -89,11 +112,11 @@ func handleMemInsufficient(v string) error {
 func startMemTicker() {
 	_memTicker = time.NewTicker(time.Second * 1)
 	_tickerStopped = make(chan struct{})
-	logger.Info("------------Start memory ticker")
+	logger.Info("Start memory ticker")
 	for {
 		select {
 		case <-_tickerStopped:
-			logger.Info("----------Ticker has stopped")
+			logger.Info("Ticker has stopped")
 			START_MANAGER.setPropNeededMemory(0)
 			return
 		case <-_memTicker.C:
@@ -105,12 +128,12 @@ func startMemTicker() {
 func updateNeededMemory() {
 	info, err := memchecker.GetMemInfo()
 	if err != nil {
-		logger.Info("-------Failed to get memory info:", err)
+		logger.Warning("Failed to get memory info:", err)
 		return
 	}
-	logger.Info("------------Memory info:", info.MemAvailable, info.MinAvailable)
+	logger.Debug("Memory info:", info.MemAvailable, info.MinAvailable)
 	v := int64(_curNeededMem) + int64(info.MinAvailable) - int64(info.MemAvailable)
-	logger.Info("------------Update needed memory:", START_MANAGER.NeededMemory, v)
+	logger.Debug("Update needed memory:", START_MANAGER.NeededMemory, v)
 	if v < 0 {
 		v = 0
 	}
@@ -118,7 +141,7 @@ func updateNeededMemory() {
 	// available sufficient, check swap used
 	if info.MaxSwapUsed != 0 {
 		s := int64(info.SwapTotal) - int64(info.SwapFree) - int64(info.SwapCached) - int64(info.MaxSwapUsed)
-		logger.Info("-------Swap info:", info.SwapTotal, info.SwapFree, info.SwapCached, s)
+		logger.Debug("Swap info:", info.SwapTotal, info.SwapFree, info.SwapCached, s)
 		if s < 0 {
 			s = 0
 		}
@@ -227,4 +250,54 @@ func handleCurAction(action string) error {
 		logger.Warning("Failed to launch action:", err)
 	}
 	return err
+}
+
+func getNeededMemory(name string) uint64 {
+	v, err := memanalyzer.GetProccessMemory(name)
+	logger.Info("[getNeededMemory] result:", name, v, err)
+	if err != nil {
+		return defaultNeededMem
+	}
+	return v
+}
+
+func saveNeededMemory(name, gid string) error {
+	tmp, _ := memanalyzer.GetProccessMemory(name)
+	if tmp > 0 {
+		logger.Debug("Proccess has exists:", name, tmp)
+		return nil
+	}
+
+	var (
+		size uint64
+		err  error
+	)
+	time.Sleep(time.Second * time.Duration(_memQueryWait))
+	size, err = memanalyzer.GetCGroupMemory(gid)
+	logger.Info("Proccess memory:", name, gid, size, err)
+	if err != nil || size == 0 {
+		return err
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return memanalyzer.SaveProccessMemory(name, size)
+}
+
+func parseProccessArgs(args []string) (string, string) {
+	length := len(args)
+	idx := 0
+	var gid = ""
+	for i, v := range args {
+		if strings.Contains(v, "/uiapps/") {
+			idx = i
+			list := strings.Split(v, "/uiapps/")
+			gid = list[1]
+			break
+		}
+	}
+
+	return gid, strings.Join(args[idx+1:length], " ")
 }
