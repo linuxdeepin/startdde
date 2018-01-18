@@ -58,8 +58,7 @@ type Dispatcher struct {
 	activeApp    *UIApp
 	inactiveApps []*UIApp
 
-	deCg      *cgroup.Cgroup
-	deRSSUsed uint64
+	deCg *cgroup.Cgroup
 }
 
 func NewDispatcher(cfg Config) (*Dispatcher, error) {
@@ -188,9 +187,6 @@ func (d *Dispatcher) sample() (MemInfo, bool) {
 		}
 	}
 
-	// update de RSS used
-	deMemCtl := d.deCg.GetController(cgroup.Memory)
-	d.deRSSUsed = getRSSUsed(deMemCtl)
 	return info, d.shouldApplyLimit(procMemInfo)
 }
 
@@ -224,12 +220,6 @@ func (d *Dispatcher) cancelLimit() {
 		if err != nil {
 			logger.Warningf("failed to cancel soft limit for %s: %v", app, err)
 		}
-	}
-
-	deMemCtl := d.deCg.GetController(cgroup.Memory)
-	err = cancelSoftLimit(deMemCtl)
-	if err != nil {
-		logger.Warning("failed to cancel soft limit for DE cgroup:", err)
 	}
 }
 
@@ -306,11 +296,6 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
-	deMemCtl := d.deCg.GetController(cgroup.Memory)
-	err = setSoftLimit(deMemCtl, d.deRSSUsed)
-	if err != nil {
-		logger.Warning("failed to set soft limit for DE cgroup:", err)
-	}
 }
 
 func (d *Dispatcher) Balance() {
