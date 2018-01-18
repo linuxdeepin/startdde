@@ -131,9 +131,8 @@ func updateNeededMemory() {
 		logger.Warning("Failed to get memory info:", err)
 		return
 	}
-	logger.Debug("Memory info:", info.MemAvailable, info.MinAvailable)
+	logger.Debug("Memory info:", _curNeededMem, info.MemAvailable, info.MinAvailable, info.MaxSwapUsed)
 	v := int64(_curNeededMem) + int64(info.MinAvailable) - int64(info.MemAvailable)
-	logger.Debug("Update needed memory:", START_MANAGER.NeededMemory, v)
 	if v < 0 {
 		v = 0
 	}
@@ -148,6 +147,7 @@ func updateNeededMemory() {
 		v += s
 	}
 
+	logger.Debug("Update needed memory:", START_MANAGER.NeededMemory, v)
 	if uint64(v) == START_MANAGER.NeededMemory {
 		return
 	}
