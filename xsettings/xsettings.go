@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package main
+package xsettings
 
 import (
 	"fmt"
@@ -25,12 +25,16 @@ import (
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
 )
 
 const (
 	xsSchema = "com.deepin.xsettings"
 )
 
+var logger *log.Logger
+
+// XSManager xsettings manager
 type XSManager struct {
 	conn  *xgb.Conn
 	owner xproto.Window
@@ -165,7 +169,9 @@ func (m *XSManager) handleGSettingsChanged() {
 	m.gs.GetString("theme-name")
 }
 
-func startXSettings(conn *xgb.Conn) {
+// Start load xsettings module
+func Start(conn *xgb.Conn, l *log.Logger) {
+	logger = l
 	m, err := NewXSManager(conn)
 	if err != nil {
 		logger.Error("Start xsettings failed:", err)

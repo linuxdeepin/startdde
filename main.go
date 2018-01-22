@@ -35,6 +35,7 @@ import (
 	"github.com/BurntSushi/xgbutil"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/watchdog"
+	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
 )
@@ -84,7 +85,7 @@ func main() {
 
 	proxy.SetupProxy()
 
-	startXSettings(xu.Conn())
+	xsettings.Start(xu.Conn(), logger)
 
 	go func() {
 		display.Start()

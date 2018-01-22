@@ -17,7 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package main
+package xsettings
 
 //#cgo pkg-config: x11
 //#include <stdio.h>
