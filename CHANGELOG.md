@@ -1,5 +1,35 @@
 ## [Unreleased]
 
+## [3.1.24] - 2018-01-25
+*   fix: Adapt lintian
+*   play logout sound via ALSA
+*   startManager: launched hook supported
+*   remove dde-readahead
+*   update depends
+*   refactor sound theme player call
+*   add DE Component processes to DE cgroup
+*   startManager: desktop key X-Deepin-MaximumRAM supported
+*   improve calculating limit of InActiveApps
+*   limit ActiveApp's minimum rss limit
+*   consider ActiveApp's swap usage and reversing kernel cache
+*   limit maximum limit for reversing more cache RAM
+*   startManager: launch DE app in DE cgroup
+*   add wm switcher
+*   startManager: add method GetApps
+*   update links in README
+*   fix radeon detect failure
+*   remove the depend 'deepin-wm-switcher'
+*   use lib cgroup
+*   simplify cgroups check
+*   swapsched: turn limits on or off dynamically
+*   improve description of uiapp opened with RunCommand
+*   modify ldflags args, fix debug version not work
+*   add wm watcher in watchdog
+*   fix compile failed using gccgo
+*   wm: fix wm switch not work if config incomplete
+*   swapsched: do not set soft limit for DE group
+*   make xsettings as a package
+
 ## [3.1.23] - 2017-12-13
 *   add swap sched
 *   launch app no scaling supported
