@@ -34,6 +34,7 @@ import (
 
 	"github.com/BurntSushi/xgbutil"
 	"pkg.deepin.io/dde/startdde/display"
+	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/log"
@@ -106,6 +107,7 @@ func main() {
 	}
 
 	watchdog.Start()
+	go iowait.Start(logger)
 
 	C.gtk_main()
 }
