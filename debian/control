@@ -16,6 +16,7 @@ Provides: x-session-manager
 Depends: ${shlibs:Depends},
  ${misc:Depends},
  dde-daemon (>= 3.2.8),
+ gnome-keyring,
  gvfs-bin,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>= 3.2.4),

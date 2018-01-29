@@ -3,13 +3,19 @@ set -e
 # postinst script 
 # see: dh_installdeb(1)
 #DEBHELPER#
-
+xsOptsFile=/etc/X11/Xsession.options
 
 case "$1" in
     configure)
 
 	update-alternatives --install /usr/bin/x-session-manager x-session-manager \
         /usr/bin/startdde 90
+	if [ -f $xsOptsFile ];then
+		sed -i '/^use-ssh-agent/d' $xsOptsFile
+		if ! grep '^no-use-ssh-agent' $xsOptsFile >/dev/null; then
+			echo no-use-ssh-agent >> $xsOptsFile
+		fi
+	fi
 
 	;;
     abort-upgrade|abort-remove|abort-deconfigure)
