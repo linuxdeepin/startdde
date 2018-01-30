@@ -36,6 +36,7 @@ import (
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
+	"sort"
 )
 
 type SessionManager struct {
@@ -274,6 +275,51 @@ func (manager *SessionManager) launchWindowManager() {
 	manager.launch("env", false, "GDK_SCALE=1", wm.GetWM())
 }
 
+func (m *SessionManager) launchDDE() {
+	groups, err := loadGroupFile()
+	if err != nil {
+		logger.Error("Failed to load launch group file:", err)
+		return
+	}
+
+	groupNum := len(groups)
+	if groupNum == 0 {
+		logger.Warning("No auto launch group exists")
+		return
+	}
+
+	sort.Sort(groups)
+	var wg sync.WaitGroup
+	wg.Add(groupNum)
+	for _, group := range groups {
+		go func(g launchGroup) {
+			logger.Debugf("Will launch group: %#v", g)
+			for _, info := range g.Group {
+				m.launch(info.Command, info.Wait, info.Args...)
+				time.Sleep(time.Microsecond * 100)
+			}
+			wg.Done()
+		}(*group)
+		time.Sleep(time.Microsecond * 100)
+	}
+	wg.Wait()
+}
+
+func (m *SessionManager) launchAutostart() {
+	m.setPropStage(SessionStageAppsBegin)
+	if !*debug {
+		delay := getAutostartDelay()
+		logger.Debug("Autostart delay seconds:", delay)
+		if delay > 0 {
+			time.AfterFunc(time.Second*time.Duration(delay), func() {
+				startAutostartProgram()
+			})
+		} else {
+			startAutostartProgram()
+		}
+	}
+	m.setPropStage(SessionStageAppsEnd)
+}
 func startSession(xu *xgbutil.XUtil) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -298,49 +344,6 @@ func startSession(xu *xgbutil.XUtil) {
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager(xu)
 
-	var wg sync.WaitGroup
-	wg.Add(3)
-
-	go func() {
-		manager.launch("/usr/bin/dde-desktop", true)
-		manager.launch("/usr/bin/dde-file-manager", false, "-d")
-		wg.Done()
-	}()
-
-	go func() {
-		// dde-session-initializer contains backend of dock, launcher currently
-		manager.launch("/usr/lib/deepin-daemon/dde-session-initializer", true)
-		manager.launch("/usr/bin/dde-dock", false)
-		// dde-launcher is fast enough now, there's no need to start it at the beginning
-		// of every session.
-		// manager.launch("/usr/bin/dde-launcher", false)
-		wg.Done()
-	}()
-
-	go func() {
-		manager.launch("/usr/lib/deepin-notifications/deepin-notifications", false)
-		wg.Done()
-	}()
-
-	wg.Wait()
-
-	go func() {
-		// dde-session-daemon must be launched done before startAutostartProgram
-		manager.launch("/usr/lib/deepin-daemon/dde-session-daemon", true)
-		manager.setPropStage(SessionStageCoreEnd)
-
-		manager.setPropStage(SessionStageAppsBegin)
-		if !*debug {
-			delay := getAutostartDelay()
-			logger.Debug("Autostart delay seconds:", delay)
-			if delay > 0 {
-				time.AfterFunc(time.Second*time.Duration(delay), func() {
-					startAutostartProgram()
-				})
-			} else {
-				startAutostartProgram()
-			}
-		}
-		manager.setPropStage(SessionStageAppsEnd)
-	}()
+	manager.launchDDE()
+	go manager.launchAutostart()
 }

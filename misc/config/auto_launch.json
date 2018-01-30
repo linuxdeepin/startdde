@@ -1,0 +1,47 @@
+[
+  {
+    "Prority": 9,
+    "Group": [
+      {
+        "Command": "/usr/bin/dde-desktop",
+        "Wait": false,
+        "Args": []
+      },
+      {
+        "Command": "/usr/bin/dde-dock",
+        "Wait": false,
+        "Args": []
+      },
+      {
+        "Command": "/usr/lib/deepin-daemon/dde-session-initializer",
+        "Wait": true,
+        "Args": []
+      }
+    ]
+  },
+  {
+    "Prority": 8,
+    "Group": [
+      {
+        "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
+        "Wait": true,
+        "Args": []
+      },
+      {
+        "Command": "/usr/bin/dde-file-manager",
+        "Wait": false,
+        "Args": ["-d"]
+      },
+      {
+        "Command": "/usr/lib/deepin-notifications/deepin-notifications",
+        "Wait": false,
+        "Args": []
+      },
+      {
+        "Command": "/usr/lib/polkit-1-dde/dde-polkit-agent",
+        "Wait": false,
+        "Args": []
+      }
+    ]
+  }
+]

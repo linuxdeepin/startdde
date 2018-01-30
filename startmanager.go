@@ -729,7 +729,6 @@ func startStartManager(xu *xgbutil.XUtil) {
 }
 
 func startAutostartProgram() {
-	START_MANAGER.listenAutostartFileEvents()
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
 	for _, desktopFile := range START_MANAGER.AutostartList() {
 		go func(desktopFile string) {
@@ -740,6 +739,7 @@ func startAutostartProgram() {
 			START_MANAGER.LaunchApp(desktopFile, 0, nil)
 		}(desktopFile)
 	}
+	START_MANAGER.listenAutostartFileEvents()
 }
 
 func isAppInList(app string, apps []string) bool {
