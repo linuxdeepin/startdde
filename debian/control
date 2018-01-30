@@ -20,7 +20,7 @@ Depends: ${shlibs:Depends},
  gvfs-bin,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>= 3.2.4),
- libgnome2-bin, dde-api
+ libgnome2-bin, dde-api, dbus-x11
 Recommends: dde-qt5integration
 Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)

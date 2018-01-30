@@ -97,6 +97,17 @@ if [ -d "$xinitdir" ]; then
     done
 fi
 
+# Setup environment
+export XDG_CURRENT_DESKTOP=Deepin
+# Set GNOME_DESKTOP_SESSION_ID to cheat `xdg-open`
+export GNOME_DESKTOP_SESSION_ID=this-is-deprecated
+eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
+export SSH_AUTH_SOCK
+
+# We do not need to execute the dbus-update-activation-environment command here,
+# all env vars updated for session DBus and systemd --user in script
+# /etc/X11/Xsession.d/95dbus_update-activation-env.
+
 # Load Xsession scripts
 # OPTIONFILE, USERXSESSION, USERXSESSIONRC and ALTUSERXSESSION are required
 # by the scripts to work
