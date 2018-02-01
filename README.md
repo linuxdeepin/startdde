@@ -18,12 +18,14 @@ user's custom applications which compliant with xdg autostart specification.
 - [go-fsnotify](https://github.com/howeyc/fsnotify)
 - [dde-dbus-factory](https://github.com/linuxdeepin/dbus-factory)
 - [go-gir-generator](https://github.com/linuxdeepin/go-gir-generator)
-* [dde-api](https://github.com/linuxdeepin/dde-api)
+- [dde-api](https://github.com/linuxdeepin/dde-api)
+- libgnome-keyring
 
 ### Runtime dependencies
 
 - dde-daemon
 - deepin-wm | deepin-metacity
+- libgnome-keyring
 
 ## Installation
 

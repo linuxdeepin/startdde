@@ -7,6 +7,7 @@ Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  golang-github-burntsushi-xgbutil-dev,
  dde-go-dbus-factory(>= 2.92.1),
  dde-api-dev(>= 3.0.8),
+ libgnome-keyring-dev
 Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
 
@@ -20,7 +21,10 @@ Depends: ${shlibs:Depends},
  gvfs-bin,
  deepin-wm | deepin-metacity,
  deepin-desktop-schemas (>= 3.2.4),
- libgnome2-bin, dde-api, dbus-x11
+ libgnome2-bin,
+ dde-api,
+ dbus-x11,
+ libgnome-keyring0
 Recommends: dde-qt5integration
 Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)

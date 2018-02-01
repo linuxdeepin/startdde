@@ -28,6 +28,7 @@ import (
 	"dbus/org/freedesktop/login1"
 
 	"pkg.deepin.io/dde/startdde/autostop"
+	"pkg.deepin.io/dde/startdde/keyring"
 	"pkg.deepin.io/dde/startdde/swapsched"
 
 	"github.com/BurntSushi/xgbutil"
@@ -345,5 +346,9 @@ func startSession(xu *xgbutil.XUtil) {
 	startStartManager(xu)
 
 	manager.launchDDE()
+	err = keyring.CheckLogin()
+	if err != nil {
+		logger.Warning("Failed to init keyring:", err)
+	}
 	go manager.launchAutostart()
 }
