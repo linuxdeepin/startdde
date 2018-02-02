@@ -20,12 +20,16 @@ user's custom applications which compliant with xdg autostart specification.
 - [go-gir-generator](https://github.com/linuxdeepin/go-gir-generator)
 - [dde-api](https://github.com/linuxdeepin/dde-api)
 - libgnome-keyring
+- libxfixes
+- libxcursor
 
 ### Runtime dependencies
 
 - dde-daemon
 - deepin-wm | deepin-metacity
 - libgnome-keyring
+- libxfixes
+- libxcursor
 
 ## Installation
 
