@@ -38,6 +38,7 @@ import (
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/fsnotify"
+	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -116,15 +117,15 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	m.appsUseProxy = strv.Strv(m.settings.GetStrv(gKeyAppsUseProxy))
 	m.appsDisableScaling = strv.Strv(m.settings.GetStrv(gKeyAppsDisableScaling))
 
-	m.settings.Connect("changed", func(settings *gio.Settings, key string) {
+	gsettings.ConnectChanged(gSchemaLauncher, "*", func(key string) {
 		switch key {
 		case gKeyAppsUseProxy:
 			m.mu.Lock()
-			m.appsUseProxy = strv.Strv(settings.GetStrv(key))
+			m.appsUseProxy = strv.Strv(m.settings.GetStrv(key))
 			m.mu.Unlock()
 		case gKeyAppsDisableScaling:
 			m.mu.Lock()
-			m.appsDisableScaling = strv.Strv(settings.GetStrv(key))
+			m.appsDisableScaling = strv.Strv(m.settings.GetStrv(key))
 			m.mu.Unlock()
 		default:
 			return

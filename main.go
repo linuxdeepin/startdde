@@ -37,6 +37,7 @@ import (
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/xsettings"
+	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
 )
@@ -84,6 +85,10 @@ func main() {
 		}
 	}
 
+	err = gsettings.StartMonitor()
+	if err != nil {
+		logger.Warning("gsettings start monitor failed:", err)
+	}
 	proxy.SetupProxy()
 
 	xsettings.Start(xu.Conn(), logger)

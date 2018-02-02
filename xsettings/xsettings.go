@@ -21,10 +21,12 @@ package xsettings
 
 import (
 	"fmt"
+
 	"gir/gio-2.0"
 	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/xproto"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 )
 
@@ -127,7 +129,7 @@ func (m *XSManager) getSettingsInSchema() []xsSetting {
 }
 
 func (m *XSManager) handleGSettingsChanged() {
-	m.gs.Connect("changed", func(s *gio.Settings, key string) {
+	gsettings.ConnectChanged(xsSchema, "*", func(key string) {
 		switch key {
 		case "xft-dpi":
 			return
@@ -165,8 +167,6 @@ func (m *XSManager) handleGSettingsChanged() {
 		},
 		})
 	})
-	//fixed the gsettings signal handling broken after glib2.43
-	m.gs.GetString("theme-name")
 }
 
 // Start load xsettings module

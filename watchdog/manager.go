@@ -20,9 +20,11 @@
 package watchdog
 
 import (
-	"gir/gio-2.0"
-	dutils "pkg.deepin.io/lib/utils"
 	"time"
+
+	"gir/gio-2.0"
+	"pkg.deepin.io/lib/gsettings"
+	dutils "pkg.deepin.io/lib/utils"
 )
 
 const (
@@ -123,7 +125,7 @@ func (m *Manager) handleSettingsChanged() {
 		return
 	}
 
-	m.setting.Connect("changed", func(s *gio.Settings, key string) {
+	gsettings.ConnectChanged(schemaId, "*", func(key string) {
 		switch key {
 		case dockName, desktopName:
 			task := m.GetTask(key)
@@ -133,5 +135,4 @@ func (m *Manager) handleSettingsChanged() {
 			task.Enable(m.setting.GetBoolean(key))
 		}
 	})
-	m.setting.GetBoolean(dockName)
 }
