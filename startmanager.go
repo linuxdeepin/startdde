@@ -390,7 +390,7 @@ func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp) error {
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			logger.Warning(err)
+			logger.Warningf("%v: %v", cmd.Args, err)
 		}
 		if uiApp != nil {
 			uiApp.SetStateEnd()
