@@ -234,6 +234,7 @@ func (dpy *Manager) switchToMirror() error {
 		mode := m.Modes.QueryBySize(modes[0].Width, modes[0].Height)[0]
 		m.cfg.Width = mode.Width
 		m.cfg.Height = mode.Height
+		m.cfg.RefreshRate = mode.Rate
 		m.doSetMode(mode.Id)
 		cmd += m.generateCommandline(primary, false)
 	}
@@ -275,6 +276,7 @@ func (dpy *Manager) doSwitchToExtend() error {
 		m.doSetReflect(0)
 		m.cfg.Width = m.BestMode.Width
 		m.cfg.Height = m.BestMode.Height
+		m.cfg.RefreshRate = m.BestMode.Rate
 		m.doSetMode(m.BestMode.Id)
 		cmd += m.generateCommandline(primary, false)
 		startx += int16(m.Width)
@@ -316,6 +318,7 @@ func (dpy *Manager) switchToOnlyOne(name string) error {
 			m.doSetReflect(0)
 			m.cfg.Width = m.BestMode.Width
 			m.cfg.Height = m.BestMode.Height
+			m.cfg.RefreshRate = m.BestMode.Rate
 			m.doSetMode(m.BestMode.Id)
 		}
 		cmd += m.generateCommandline(name, false)

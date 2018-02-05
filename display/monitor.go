@@ -90,9 +90,12 @@ func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
 	if m.cfg.Name == primary {
 		cmd += " --primary"
 	}
-	cmd = fmt.Sprintf("%s --mode %dx%d --rate %.2f --pos %dx%d --scale 1x1", cmd,
-		m.cfg.Width, m.cfg.Height, m.cfg.RefreshRate, m.cfg.X, m.cfg.Y)
-	var ro string = "normal"
+	cmd += fmt.Sprintf(" --mode %dx%d", m.cfg.Width, m.cfg.Height)
+	if m.cfg.RefreshRate > 0 {
+		cmd += fmt.Sprintf(" --rate %v", m.cfg.RefreshRate)
+	}
+	cmd += fmt.Sprintf(" --pos %dx%d", m.cfg.X, m.cfg.Y)
+	var ro = "normal"
 	switch m.cfg.Rotation {
 	case randr.RotationRotate90:
 		ro = "left"
@@ -103,7 +106,7 @@ func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
 	}
 	cmd += " --rotate " + ro
 
-	var re string = "normal"
+	var re = "normal"
 	switch m.cfg.Reflect {
 	case randr.RotationReflectX:
 		re = "x"
@@ -123,7 +126,7 @@ func (m *MonitorInfo) canDisable() bool {
 		if !v.Enabled {
 			continue
 		}
-		count += 1
+		count++
 	}
 	return count > 1
 }
