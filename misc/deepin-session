@@ -101,8 +101,6 @@ fi
 export XDG_CURRENT_DESKTOP=Deepin
 # Set GNOME_DESKTOP_SESSION_ID to cheat `xdg-open`
 export GNOME_DESKTOP_SESSION_ID=this-is-deprecated
-eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
-export SSH_AUTH_SOCK
 
 # We do not need to execute the dbus-update-activation-environment command here,
 # all env vars updated for session DBus and systemd --user in script
@@ -128,5 +126,20 @@ if [ -d "$xsessionddir" ]; then
 fi
 
 echo "X session wrapper complete, running session $@"
+
+# keyring components needs some environment variables provided by x session wrapper
+# scripts, DBUS_SESSION_BUS_ADDRESS for example, to initialize the main keyring daemon.
+# See https://github.com/GNOME/gnome-keyring/blob/master/daemon/gkd-util.c#L50-L63
+# for more on those environment variables.
+eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
+export SSH_AUTH_SOCK
+
+# extra step to update dbus activation environment variables.
+if [ -n "$DBUS_SESSION_BUS_ADDRESS" ] && \
+    [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+  (
+    dbus-update-activation-environment --systemd SSH_AUTH_SOCK
+  )
+fi
 
 exec $@
