@@ -21,17 +21,13 @@ package watchdog
 
 import (
 	"dbus/org/freedesktop/login1"
-	"dbus/org/freedesktop/policykit1"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
-	"pkg.deepin.io/lib/dbus"
+	"path/filepath"
 	"pkg.deepin.io/lib/utils"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
-
-type polkitSubject struct {
-	Kind    string
-	Details map[string]dbus.Variant
-}
 
 const (
 	ddePolkitAgentCommand  = "/usr/lib/polkit-1-dde/dde-polkit-agent"
@@ -44,35 +40,20 @@ func isDDEPolkitAgentRunning() bool {
 		return true
 	}
 
-	polkit1, err := policykit1.NewAuthority("org.freedesktop.PolicyKit1",
-		"/org/freedesktop/PolicyKit1/Authority")
+	pidFile := filepath.Join(basedir.GetUserCacheDir(),
+		"deepin",
+		"dde-polkit-agent",
+		"pid")
+	contents, err := ioutil.ReadFile(pidFile)
 	if err != nil {
-		logger.Warning("Failed to create polkit authority:", err)
-		return true
+		return false
 	}
-	defer policykit1.DestroyAuthority(polkit1)
-
-	var subject = polkitSubject{
-		Kind:    "unix-session",
-		Details: make(map[string]dbus.Variant),
-	}
-	subject.Details["session-id"] = dbus.MakeVariant(getCurrentSessionID())
-	err = polkit1.RegisterAuthenticationAgent(&subject,
-		"",
-		ddePolkitAgentDBusPath)
+	cmdline := filepath.Join("/proc", string(contents), "cmdline")
+	contents, err = ioutil.ReadFile(cmdline)
 	if err != nil {
-		logger.Debug("Failed to registe dde polkit agent:", err)
-		return true
+		return false
 	}
-
-	logger.Debug("dde polkit agent not running, will launch it...")
-	// if register successfully, the dde polkit agent not running
-	err = polkit1.UnregisterAuthenticationAgent(&subject, ddePolkitAgentDBusPath)
-	if err != nil {
-		logger.Warning("Failed to unregister dde polkit agent:", err)
-		// TODO: how to handle unregister failure?
-	}
-	return false
+	return (string(contents) == ddePolkitAgentCommand)
 }
 
 func launchDDEPolkitAgent() error {
