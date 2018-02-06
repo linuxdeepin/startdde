@@ -31,11 +31,11 @@ int
 check_login()
 {
     if (is_default_name(KEYRING_LOGIN)) {
-        return -1;
+        return 0;
     }
 
     if (is_name_exist(KEYRING_LOGIN)) {
-        return -1;
+        return 0;
     }
 
     GnomeKeyringResult r = gnome_keyring_create_sync(KEYRING_LOGIN, "");

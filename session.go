@@ -346,9 +346,11 @@ func startSession(xu *xgbutil.XUtil) {
 	startStartManager(xu)
 
 	manager.launchDDE()
-	err = keyring.CheckLogin()
-	if err != nil {
-		logger.Warning("Failed to init keyring:", err)
-	}
+	go func() {
+		err := keyring.CheckLogin()
+		if err != nil {
+			logger.Warning("Failed to init keyring:", err)
+		}
+	}()
 	go manager.launchAutostart()
 }
