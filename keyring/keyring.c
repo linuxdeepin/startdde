@@ -59,7 +59,7 @@ is_default_name(char *name)
     GnomeKeyringResult r = gnome_keyring_get_default_keyring_sync(&cur);
     if (r != GNOME_KEYRING_RESULT_OK) {
         g_warning("Failed to get default keyring: %d", r);
-        return FALSE;
+        return TRUE;
     }
 
     if (!cur) {
@@ -79,7 +79,7 @@ is_name_exist(char *name)
     GnomeKeyringResult r = gnome_keyring_list_keyring_names_sync(&list);
     if (r != GNOME_KEYRING_RESULT_OK) {
         g_warning("Failed to list keyring names: %d", r);
-        return FALSE;
+        return TRUE;
     }
 
     if (!list) {
