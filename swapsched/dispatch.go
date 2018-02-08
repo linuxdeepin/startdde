@@ -37,14 +37,15 @@ const DefaultSamplePeroid = 1        // 默认的数据调整周期
 const KernelCacheReserve = 400 * MB  //至少预留多少内存给kernel
 const DEHardLimit = 800 * MB         // 最多分配给DE多少内存
 
-const enableSwapTotalMin = 1 * GB   // 使 dispatcher 启用的最小 swap 总空间
-const enableMemAvailMax = 500 * MB  // 使 dispatcher 启用的最大可用内存，当 dispatcher 被禁用时， 如果可用内存小于这个值，dispatcher 被启用。
-const disableMemAvailMin = 800 * MB // 使 dispatcher 禁用的最小可用内存，当 dispatcher 被启用时， 如果可用内存大于这个值，dispatcher 被禁用。
+const enableSwapTotalMin = 1 * GB // 使 dispatcher 启用的最小 swap 总空间
 
 type Config struct {
 	UIAppsCGroup string // sessionID@dde/uiapps
 	DECGroup     string // sessionID@dde/DE
 	SamplePeroid int    // unit in second // 影响balance采样周期. 值越大系统负载更多
+
+	DisableMemAvailMin uint64 // 使 dispatcher 禁用的最小可用内存，当 dispatcher 被启用时， 如果可用内存大于这个值，dispatcher 被禁用。
+	EnableMemAvailMax  uint64 // 使 dispatcher 启用的最大可用内存，当 dispatcher 被禁用时， 如果可用内存小于这个值，dispatcher 被启用。
 }
 
 type Dispatcher struct {
@@ -147,14 +148,14 @@ func (d *Dispatcher) shouldApplyLimit(memInfo ProcMemoryInfo) bool {
 	}
 
 	if d.enabled {
-		if memInfo.MemAvailable > disableMemAvailMin {
+		if memInfo.MemAvailable > d.cfg.DisableMemAvailMin {
 			// cancel limit
 			return false
 		}
 		return true
 
 	} else {
-		if memInfo.MemAvailable < enableMemAvailMax {
+		if memInfo.MemAvailable < d.cfg.EnableMemAvailMax {
 			return true
 		}
 		// cancel limit

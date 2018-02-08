@@ -38,6 +38,10 @@ func init() {
 	correctConfig()
 }
 
+func GetConfig() *configInfo {
+	return _config
+}
+
 // IsSufficient check the memory whether reaches the qualified value
 func IsSufficient() bool {
 	if _config.MinMemAvail == 0 {
