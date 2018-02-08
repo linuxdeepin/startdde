@@ -22,22 +22,23 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
 	"dbus/org/freedesktop/login1"
 
+	"github.com/BurntSushi/xgbutil"
+
+	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/dde/startdde/keyring"
+	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/dde/startdde/swapsched"
-
-	"github.com/BurntSushi/xgbutil"
-	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"sort"
 )
 
 type SessionManager struct {
@@ -237,10 +238,24 @@ func initSwapSched() {
 	}
 
 	swapsched.SetLogger(logger)
-	swapSchedDispatcher, err = swapsched.NewDispatcher(swapsched.Config{
-		UIAppsCGroup: sessionID + "@dde/uiapps",
-		DECGroup:     sessionID + "@dde/DE",
-	})
+
+	memCheckerCfg := memchecker.GetConfig()
+
+	logger.Debugf("mem checker cfg min mem avail: %d KB", memCheckerCfg.MinMemAvail)
+	var enableMemAvailMax int64 // unit is byte
+	enableMemAvailMax = int64(memCheckerCfg.MinMemAvail*1024) - 100*swapsched.MB
+	if enableMemAvailMax < 0 {
+		enableMemAvailMax = 100 * swapsched.MB
+	}
+
+	swapSchedCfg := swapsched.Config{
+		UIAppsCGroup:       sessionID + "@dde/uiapps",
+		DECGroup:           sessionID + "@dde/DE",
+		EnableMemAvailMax:  uint64(enableMemAvailMax),
+		DisableMemAvailMin: uint64(enableMemAvailMax) + 200*swapsched.MB,
+	}
+	swapSchedDispatcher, err = swapsched.NewDispatcher(swapSchedCfg)
+	logger.Debugf("swap sched config: %+v", swapSchedCfg)
 
 	if err == nil {
 		// add self to DE cgroup
