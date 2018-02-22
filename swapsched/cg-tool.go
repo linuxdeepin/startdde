@@ -1,13 +1,18 @@
 package swapsched
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"pkg.deepin.io/lib/cgroup"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 const (
@@ -39,6 +44,54 @@ func cancelSoftLimit(memCtl *cgroup.Controller) error {
 
 func setHardLimit(memCtl *cgroup.Controller, v uint64) error {
 	return memCtl.SetValueUint64(limitInBytes, v)
+}
+
+func getHomeDirBlockDevice() (string, error) {
+	homeDir := basedir.GetUserHomeDir()
+	fileInfo, err := os.Stat(homeDir)
+	if err != nil {
+		return "", err
+	}
+	sysStat := fileInfo.Sys().(*syscall.Stat_t)
+	majorNum := major(sysStat.Dev)
+	minorNum := minor(sysStat.Dev)
+	blockPath := fmt.Sprintf("/sys/dev/block/%d:%d", majorNum, minorNum)
+	blockRealPath, err := filepath.EvalSymlinks(blockPath)
+	if err != nil {
+		return "", err
+	}
+	parentDevPath := filepath.Join(filepath.Dir(blockRealPath), "dev")
+	devNum, err := ioutil.ReadFile(parentDevPath)
+	devNum = bytes.TrimSpace(devNum)
+	if err != nil {
+		return "", err
+	}
+	return string(devNum), nil
+}
+
+// major and minor is copy from golang.org/x/sys/unix
+// major returns the major component of a Linux device number.
+func major(dev uint64) uint32 {
+	major := uint32((dev & 0x00000000000fff00) >> 8)
+	major |= uint32((dev & 0xfffff00000000000) >> 32)
+	return major
+}
+
+// minor returns the minor component of a Linux device number.
+func minor(dev uint64) uint32 {
+	minor := uint32((dev & 0x00000000000000ff) >> 0)
+	minor |= uint32((dev & 0x00000ffffff00000) >> 12)
+	return minor
+}
+
+func setReadBPS(blkioCtl *cgroup.Controller, device string, v uint64) error {
+	value := fmt.Sprintf("%s %d", device, v)
+	return blkioCtl.SetValueString("throttle.read_bps_device", value)
+}
+
+func setWriteBPS(blkioCtl *cgroup.Controller, device string, v uint64) error {
+	value := fmt.Sprintf("%s %d", device, v)
+	return blkioCtl.SetValueString("throttle.write_bps_device", value)
 }
 
 type ProcMemoryInfo struct {

@@ -73,6 +73,7 @@ func NewDispatcher(cfg Config) (*Dispatcher, error) {
 	uiAppsCg := cgroup.NewCgroup(cfg.UIAppsCGroup)
 	uiAppsCg.AddController(cgroup.Freezer)
 	uiAppsCg.AddController(cgroup.Memory)
+	uiAppsCg.AddController(cgroup.Blkio)
 
 	d := &Dispatcher{
 		cfg:       cfg,
@@ -104,10 +105,16 @@ func (d *Dispatcher) counter() uint32 {
 	return d.cnt
 }
 
-func (d *Dispatcher) NewApp(desc string, hardLimit uint64) (*UIApp, error) {
+type AppResourcesLimit struct {
+	MemHardLimit  uint64
+	BlkioReadBPS  uint64
+	BlkioWriteBPS uint64
+}
+
+func (d *Dispatcher) NewApp(desc string, limit *AppResourcesLimit) (*UIApp, error) {
 	seqNum := d.counter()
 	appCg := d.uiAppsCg.NewChildGroup(strconv.FormatUint(uint64(seqNum), 10))
-	app, err := newApp(seqNum, appCg, desc, hardLimit)
+	app, err := newApp(seqNum, appCg, desc, limit)
 	if err != nil {
 		return nil, err
 	}
