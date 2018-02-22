@@ -220,7 +220,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	var err error
 	if swapSchedDispatcher != nil {
 		desc := getCmdDesc(exe, args)
-		uiApp, err = swapSchedDispatcher.NewApp(desc, 0)
+		uiApp, err = swapSchedDispatcher.NewApp(desc, nil)
 		if err != nil {
 			logger.Warning("dispatcher.NewApp error:", err)
 		}
@@ -280,6 +280,10 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	// maximum RAM unit is MB
 	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
+	// unit is MB/s
+	blkioReadMBPS, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-BlkioReadMBPS")
+	blkioWriteMBPS, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-BlkioWriteMBPS")
+
 	desktopFile := appInfo.GetFileName()
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
@@ -289,12 +293,19 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		if isDEComponent(appInfo) {
 			cmdPrefixes = []string{"cgexec", "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
 		} else {
-			uiApp, err = swapSchedDispatcher.NewApp(desktopFile, maxRAM*1e6)
+			limit := &swapsched.AppResourcesLimit{
+				MemHardLimit:  maxRAM * 1e6,
+				BlkioReadBPS:  blkioReadMBPS * 1e6,
+				BlkioWriteBPS: blkioWriteMBPS * 1e6,
+			}
+			logger.Debugf("launch limit: %#v", limit)
+			uiApp, err = swapSchedDispatcher.NewApp(desktopFile, limit)
 			if err != nil {
 				logger.Warning("dispatcher.NewApp error:", err)
 			} else {
 				logger.Debug("launch: use cgexec")
-				cmdPrefixes = []string{"cgexec", "-g", "memory,freezer:" + uiApp.GetCGroup()}
+				cmdPrefixes = []string{"cgexec", "-g",
+					"memory,freezer,blkio:" + uiApp.GetCGroup()}
 			}
 		}
 	}

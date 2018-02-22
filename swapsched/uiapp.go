@@ -98,19 +98,49 @@ func (app *UIApp) maybeDestroy() {
 	}
 }
 
-func newApp(seqNum uint32, cg *cgroup.Cgroup, desc string, hardLimit uint64) (*UIApp, error) {
+func newApp(seqNum uint32, cg *cgroup.Cgroup, desc string,
+	limit *AppResourcesLimit) (*UIApp, error) {
+
 	err := cg.Create(false)
 	if err != nil {
 		return nil, err
 	}
 
-	if hardLimit > 0 {
-		memCtl := cg.GetController(cgroup.Memory)
-		err = setHardLimit(memCtl, hardLimit)
-		if err != nil {
-			return nil, err
+	if limit != nil {
+		if limit.MemHardLimit > 0 {
+			memCtl := cg.GetController(cgroup.Memory)
+			err = setHardLimit(memCtl, limit.MemHardLimit)
+			if err != nil {
+				logger.Warning("failed to set hard limit:", err)
+			}
+		}
+
+		if limit.BlkioReadBPS > 0 || limit.BlkioWriteBPS > 0 {
+			blkioCtl := cg.GetController(cgroup.Blkio)
+
+			var homeDevice string
+			homeDevice, err = getHomeDirBlockDevice()
+			if err == nil {
+				if limit.BlkioReadBPS > 0 {
+					err = setReadBPS(blkioCtl, homeDevice, limit.BlkioReadBPS)
+					if err != nil {
+						logger.Warning("failed to set read BPS:", err)
+					}
+				}
+
+				if limit.BlkioWriteBPS > 0 {
+					err = setWriteBPS(blkioCtl, homeDevice, limit.BlkioWriteBPS)
+					if err != nil {
+						logger.Warning("failed to set write BPS:", err)
+					}
+				}
+			} else {
+				logger.Warning("failed to get home dir block device:", err)
+			}
+
 		}
 	}
+
 	return &UIApp{
 		seqNum: seqNum,
 		cg:     cg,
