@@ -96,7 +96,12 @@ func (m *Manager) StartLoop() {
 		select {
 		case <-m.quit:
 			return
-		case <-time.After(loopDuration):
+		case _, ok := <-time.After(loopDuration):
+			if !ok {
+				logger.Error("Invalid time event")
+				return
+			}
+
 			if !m.HasRunning() {
 				logger.Debug("All program has launched failure")
 				m.QuitLoop()

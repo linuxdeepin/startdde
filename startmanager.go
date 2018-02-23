@@ -448,7 +448,12 @@ func (m *StartManager) listenAutostartFileEvents() {
 	go func() {
 		for {
 			select {
-			case ev := <-watcher.Event:
+			case ev, ok := <-watcher.Event:
+				if !ok {
+					logger.Error("Invalid watcher event:", ev)
+					return
+				}
+
 				name := filepath.Clean(ev.Name)
 				basename := filepath.Base(name)
 				matched, err := filepath.Match(`[^#.]*.desktop`, basename)
