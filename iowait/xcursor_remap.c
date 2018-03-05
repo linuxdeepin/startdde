@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <gio/gio.h>
 
@@ -85,13 +86,22 @@ xc_left_ptr_to_watch(int enabled)
 {
     char *theme = "deepin";
     int size = 24;
+    double scale = 1.0;
 
     GSettings *s = g_settings_new("com.deepin.xsettings");
     if (s) {
         theme = g_settings_get_string(s, "gtk-cursor-theme-name");
         size = g_settings_get_int(s, "gtk-cursor-theme-size");
+        scale = g_settings_get_double(s, "scale-factor");
         g_object_unref(s);
     }
+
+    // if 1.7 < scale < 2, scale = 2
+    int tmp = (int)(trunc((scale+0.3)*10) / 10);
+    if (tmp < 1) {
+        tmp = 1;
+    }
+    size *= tmp;
 
     if (enabled) {
         return xc_remap(theme, "left_ptr", "left_ptr_watch", size);

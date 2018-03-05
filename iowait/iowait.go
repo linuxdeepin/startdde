@@ -31,6 +31,7 @@ import (
 )
 
 // #cgo pkg-config: x11 xcursor xfixes gio-2.0
+// #cgo LDFLAGS: -lm
 // #include "xcursor_remap.h"
 import "C"
 
