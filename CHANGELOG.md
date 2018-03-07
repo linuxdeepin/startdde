@@ -1,5 +1,25 @@
 ## [Unreleased]
 
+## [3.1.25] - 2018-03-07
+*   fix: optimize channel statements
+*   feat(swapsched): set blkio read write limit for apps supported
+*   chore: update license
+*   fix: make gnome-keyring-daemon no hang
+*   fix(keyring): fix crash because of dbus no replies
+*   fix(watchdog): update dde polkit agent determine methods
+*   fix: make keyring inited on goroutinue
+*   fix(display): fix refresh rate set wrong
+*   fix: improve launch failed messages
+*   chore: fix gccgo compile failure
+*   feat: add keyring to init login
+*   chore: optimize launch config
+*   feat: use new lib gsettings
+*   refactor: add auto launch config
+*   feat: setup environment in script deepin-session
+*   add deepin-session
+*   feat: initialize gnome keyring daemon and components
+*   feat: add iowait to indicate cpu status
+
 ## [3.1.24] - 2018-01-25
 *   fix: Adapt lintian
 *   play logout sound via ALSA
