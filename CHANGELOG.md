@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+## [3.1.26] - 2018-03-20
+*   fix: env var `SSH_AUTH_SOCK` not exported
+
 ## [3.1.25] - 2018-03-07
 *   fix: optimize channel statements
 *   feat(swapsched): set blkio read write limit for apps supported
