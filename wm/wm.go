@@ -25,7 +25,7 @@ import (
 )
 
 // TODO:
-//    3. check vitual machine, replace dde-wm-chooser
+//    3. check virtual machine, replace dde-wm-chooser
 
 var _s *Switcher
 
