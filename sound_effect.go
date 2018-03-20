@@ -91,7 +91,6 @@ func getALSADevice() (string, error) {
 	if ctx == nil {
 		return "", errors.New("failed to get pulse context")
 	}
-	defer ctx.Free()
 
 	defaultSinkName := ctx.GetDefaultSink()
 	var defaultSink *pulse.Sink

@@ -38,6 +38,15 @@ source_with_error_check () {
     truncate -s 0 "$ERR"
 }
 
+# keyring components needs some environment variables provided by x session wrapper
+# scripts, DBUS_SESSION_BUS_ADDRESS for example, to initialize the main keyring daemon.
+# See https://github.com/GNOME/gnome-keyring/blob/master/daemon/gkd-util.c#L50-L63
+# for more on those environment variables.
+start_keyring () {
+    eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
+    export SSH_AUTH_SOCK
+}
+
 # Load profile
 for file in "/etc/profile" "$HOME/.profile" "/etc/xprofile" "$HOME/.xprofile"; do
     if [ -f "$file" ]; then
@@ -121,25 +130,12 @@ if [ -d "$xsessionddir" ]; then
         echo "Loading X session script $script"
         if [ -r "$script"  -a -f "$script" ] && expr "$i" : '^[[:alnum:]_-]\+$' > /dev/null; then
             . "$script"
+            if [ "$i" == "75dbus_dbus-launch" ]; then
+                start_keyring
+            fi
         fi
     done
 fi
 
 echo "X session wrapper complete, running session $@"
-
-# keyring components needs some environment variables provided by x session wrapper
-# scripts, DBUS_SESSION_BUS_ADDRESS for example, to initialize the main keyring daemon.
-# See https://github.com/GNOME/gnome-keyring/blob/master/daemon/gkd-util.c#L50-L63
-# for more on those environment variables.
-eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
-export SSH_AUTH_SOCK
-
-# extra step to update dbus activation environment variables.
-if [ -n "$DBUS_SESSION_BUS_ADDRESS" ] && \
-    [ -x "/usr/bin/dbus-update-activation-environment" ]; then
-  (
-    dbus-update-activation-environment --systemd SSH_AUTH_SOCK
-  )
-fi
-
 exec $@
