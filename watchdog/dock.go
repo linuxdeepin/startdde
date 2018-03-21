@@ -24,8 +24,8 @@ const (
 	dockDest = "com.deepin.dde.Dock"
 )
 
-func isDockRunning() bool {
-	return isDBusDestExist(dockDest)
+func isDockRunning() (bool, error) {
+	return isDBusServiceExist(dockDest)
 }
 
 func launchDock() error {

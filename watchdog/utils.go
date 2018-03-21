@@ -20,51 +20,33 @@
 package watchdog
 
 import (
-	"dbus/org/freedesktop/dbus"
+	"pkg.deepin.io/lib/dbus"
 )
 
-var dbusDaemon *dbus.DBusDaemon
+var busObj *dbus.Object
 
-func initDBusDaemon() error {
-	if dbusDaemon != nil {
-		return nil
-	}
-
-	var err error
-	dbusDaemon, err = dbus.NewDBusDaemon("org.freedesktop.DBus", "/")
+func initDBusObject() error {
+	bus, err := dbus.SessionBus()
 	if err != nil {
-		dbusDaemon = nil
 		return err
 	}
+	busObj = bus.BusObject()
 	return nil
 }
 
-func destroyDBusDaemon() {
-	if dbusDaemon == nil {
-		return
-	}
-	dbus.DestroyDBusDaemon(dbusDaemon)
+const orgFreedesktopDBus = "org.freedesktop.DBus"
+
+func isDBusServiceExist(name string) (bool, error) {
+	var has bool
+	err := busObj.Call(orgFreedesktopDBus+".NameHasOwner",
+		0, name).Store(&has)
+	return has, err
 }
 
-func isDBusDestExist(dest string) bool {
-	if err := initDBusDaemon(); err != nil {
-		return false
-	}
-
-	names, err := dbusDaemon.ListNames()
-	if err != nil {
-		return false
-	}
-	return isItemInList(dest, names)
-}
-
-func startService(dest string) error {
-	if err := initDBusDaemon(); err != nil {
-		return err
-	}
-
-	// flag unused
-	_, err := dbusDaemon.StartServiceByName(dest, 0)
+func startService(name string) error {
+	var result uint32
+	err := busObj.Call(orgFreedesktopDBus+".StartServiceByName", 0,
+		name, uint32(0)).Store(&result)
 	return err
 }
 

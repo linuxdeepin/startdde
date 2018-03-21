@@ -35,6 +35,8 @@ type Manager struct {
 	taskList *taskInfos
 	setting  *gio.Settings
 	quit     chan struct{}
+
+	taskMap map[string]*taskInfo
 }
 
 func newManager() *Manager {

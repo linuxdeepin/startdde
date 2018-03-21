@@ -22,9 +22,10 @@ package wm
 import (
 	"fmt"
 	"os/exec"
+	"sync"
+
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"sync"
 )
 
 const (
@@ -48,7 +49,7 @@ type Switcher struct {
 	WMChanged func(string)
 }
 
-//CurrentWM show the current window manager
+// CurrentWM show the current window manager
 func (s *Switcher) CurrentWM() string {
 	if s.info.LastWM == "" {
 		return "deepin wm"
@@ -56,12 +57,12 @@ func (s *Switcher) CurrentWM() string {
 	return wmList[s.info.LastWM]
 }
 
-// RestartWM restart the current wm
+// RestartWM restart deepin-metacity
 func (s *Switcher) RestartWM() error {
-	return s.doSwitchWM(s.info.LastWM)
+	return s.doSwitchWM("deepin-metacity")
 }
 
-//RequestSwitchWM try to switch window manager
+// RequestSwitchWM try to switch window manager
 func (s *Switcher) RequestSwitchWM() error {
 	if !s.goodWM {
 		showOSD("SwitchWMError")

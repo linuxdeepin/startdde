@@ -21,8 +21,11 @@ package watchdog
 
 import (
 	"os"
-	"pkg.deepin.io/lib/log"
 	"strconv"
+	"time"
+
+	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
 )
 
 const (
@@ -41,7 +44,12 @@ func Start() {
 		return
 	}
 
-	logger.BeginTracing()
+	err := initDBusObject()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
 	times := os.Getenv(envMaxLaunchTimes)
 	if len(times) != 0 {
 		v, err := strconv.ParseInt(times, 10, 64)
@@ -56,7 +64,67 @@ func Start() {
 	_manager.AddTask(newDDEPolkitAgent())
 	_manager.AddTask(newWMTask())
 	go _manager.StartLoop()
+
+	_manager.taskMap = map[string]*taskInfo{
+		wmDest: newWMTask(),
+	}
+	_manager.listenNameOwnerChanged()
 	return
+}
+
+func (m *Manager) listenNameOwnerChanged() error {
+	bus, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	signalChan := bus.Signal()
+
+	rule := "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'"
+	err = bus.BusObject().Call(orgFreedesktopDBus+".AddMatch", 0, rule).Err
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		for signal := range signalChan {
+			// log.Printf("signal: %#v\n", signal)
+			if signal.Name == orgFreedesktopDBus+".NameOwnerChanged" &&
+				signal.Path == "/org/freedesktop/DBus" && len(signal.Body) == 3 {
+				name, ok := signal.Body[0].(string)
+				if !ok {
+					continue
+				}
+				if name == "" || name[0] == ':' {
+					continue
+				}
+
+				oldOwner, ok := signal.Body[1].(string)
+				if !ok {
+					continue
+				}
+
+				newOwner, ok := signal.Body[2].(string)
+				if !ok {
+					continue
+				}
+
+				if oldOwner != "" && newOwner == "" {
+					logger.Debugf("name lost %q", name)
+				}
+				taskInfo := m.taskMap[name]
+				if taskInfo == nil {
+					continue
+				}
+
+				go func() {
+					time.Sleep(3 * time.Second)
+					taskInfo.Launch()
+				}()
+			}
+		}
+
+	}()
+	return nil
 }
 
 func Stop() {
@@ -66,8 +134,6 @@ func Stop() {
 
 	_manager.QuitLoop()
 	_manager = nil
-	destroyDBusDaemon()
-	logger.EndTracing()
 	return
 }
 
