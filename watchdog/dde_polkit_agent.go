@@ -25,7 +25,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -35,10 +34,10 @@ const (
 	ddePolkitAgentDBusPath = "/com/deepin/polkit/AuthenticationAgent"
 )
 
-func isDDEPolkitAgentRunning() (bool, error) {
+func isDDEPolkitAgentRunning() bool {
 	// only listen dde polkit agent
 	if !utils.IsFileExist(ddePolkitAgentCommand) {
-		return true, nil
+		return true
 	}
 
 	pidFile := filepath.Join(basedir.GetUserCacheDir(),
@@ -47,14 +46,14 @@ func isDDEPolkitAgentRunning() (bool, error) {
 		"pid")
 	contents, err := ioutil.ReadFile(pidFile)
 	if err != nil {
-		return false, nil
+		return false
 	}
 	cmdline := filepath.Join("/proc", string(contents), "cmdline")
 	contents, err = ioutil.ReadFile(cmdline)
 	if err != nil {
-		return false, nil
+		return false
 	}
-	return string(contents) == ddePolkitAgentCommand, nil
+	return (string(contents) == ddePolkitAgentCommand)
 }
 
 func launchDDEPolkitAgent() error {

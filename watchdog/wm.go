@@ -18,8 +18,8 @@ const (
 	wmDest = "com.deepin.wm"
 )
 
-func isWMRunning() (bool, error) {
-	return isDBusServiceExist(wmDest)
+func isWMRunning() bool {
+	return isDBusDestExist(wmDest)
 }
 
 func launchWM() error {

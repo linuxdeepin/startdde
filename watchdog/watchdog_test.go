@@ -20,18 +20,14 @@
 package watchdog
 
 import (
-	"testing"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"testing"
 )
 
 func TestDBusExists(t *testing.T) {
 	Convey("Test dbus whether exists", t, func() {
-		initDBusObject()
-		exist, _ := isDBusServiceExist(orgFreedesktopDBus)
-		So(exist, ShouldBeTrue)
-		exist, _ = isDBusServiceExist(orgFreedesktopDBus + "111")
-		So(exist, ShouldBeFalse)
+		So(isDBusDestExist("org.freedesktop.DBus"), ShouldEqual, true)
+		So(isDBusDestExist("org.freedesktop.DBus111"), ShouldEqual, false)
 	})
 }
 
@@ -51,12 +47,12 @@ func TestTaskInfo(t *testing.T) {
 	Convey("Test task create", t, func() {
 		So(newTaskInfo("test1", nil, nil), ShouldBeNil)
 		So(newTaskInfo("test1",
-			func() (bool, error) { return true, nil },
+			func() bool { return true },
 			func() error { return nil }), ShouldNotBeNil)
 	})
 
 	task1 := newTaskInfo("test1",
-		func() (bool, error) { return false, nil },
+		func() bool { return false },
 		func() error { return nil })
 	Convey("Test task state", t, func() {
 		task1.Enable(false)
@@ -66,12 +62,12 @@ func TestTaskInfo(t *testing.T) {
 		task1.failed = true
 		So(task1.CanLaunch(), ShouldEqual, false)
 		task1.failed = false
-		task1.isRunning = func() (bool, error) { return true, nil }
+		task1.isRunning = func() bool { return true }
 		So(task1.CanLaunch(), ShouldEqual, false)
 	})
 
 	task2 := newTaskInfo("test2",
-		func() (bool, error) { return false, nil },
+		func() bool { return false },
 		func() error { return nil })
 	Convey("Test manager", t, func() {
 		var m = &Manager{

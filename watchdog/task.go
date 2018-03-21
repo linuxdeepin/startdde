@@ -37,7 +37,7 @@ type taskInfo struct {
 	failed        bool
 	prevTimestamp int64 // previous launch timestamp
 
-	isRunning func() (bool, error)
+	isRunning func() bool
 	launcher  func() error
 
 	locker sync.Mutex
@@ -45,7 +45,7 @@ type taskInfo struct {
 type taskInfos []*taskInfo
 
 func newTaskInfo(name string,
-	isRunning func() (bool, error), launcher func() error) *taskInfo {
+	isRunning func() bool, launcher func() error) *taskInfo {
 	if isRunning == nil || launcher == nil {
 		return nil
 	}
@@ -85,7 +85,6 @@ func (task *taskInfo) Launch() error {
 	}
 
 	task.prevTimestamp = time.Now().Unix()
-	logger.Debug("launch task", task.Name, task.Times)
 	return task.launcher()
 }
 
@@ -97,12 +96,7 @@ func (task *taskInfo) CanLaunch() bool {
 	}
 	task.locker.Unlock()
 
-	isRun, err := task.isRunning()
-	if err != nil {
-		logger.Warning(err)
-		return false
-	}
-	return isRun == false
+	return (task.isRunning() == false)
 }
 
 func (task *taskInfo) Over() bool {

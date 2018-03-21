@@ -24,8 +24,8 @@ const (
 	desktopDest = "com.deepin.dde.desktop"
 )
 
-func isDesktopRunning() (bool, error) {
-	return isDBusServiceExist(desktopDest)
+func isDesktopRunning() bool {
+	return isDBusDestExist(desktopDest)
 }
 
 func launchDesktop() error {
