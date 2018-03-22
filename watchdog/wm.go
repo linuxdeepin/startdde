@@ -18,8 +18,8 @@ const (
 	wmDest = "com.deepin.wm"
 )
 
-func isWMRunning() bool {
-	return isDBusDestExist(wmDest)
+func isWMRunning() (bool, error) {
+	return isDBusServiceExist(wmDest)
 }
 
 func launchWM() error {
@@ -29,7 +29,7 @@ func launchWM() error {
 	}
 
 	obj := conn.Object("com.deepin.WMSwitcher", "/com/deepin/WMSwitcher")
-	err = obj.Call("com.deepin.WMSwitcher.RestartWM", 0).Store()
+	err = obj.Call("com.deepin.WMSwitcher.Start2DWM", 0).Store()
 	if err != nil {
 		return err
 	}

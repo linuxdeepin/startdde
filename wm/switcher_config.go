@@ -40,8 +40,8 @@ const (
 )
 
 func (s *Switcher) loadConfig() (*configInfo, error) {
-	s.infoLocker.Lock()
-	defer s.infoLocker.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	file := filepath.Join(basedir.GetUserConfigDir(), swUserPath)
 	if !utils.IsFileExist(file) {
@@ -55,8 +55,8 @@ func (s *Switcher) loadConfig() (*configInfo, error) {
 }
 
 func (s *Switcher) setAllowSwitch(v bool) {
-	s.infoLocker.Lock()
-	defer s.infoLocker.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if s.info.AllowSwitch == v {
 		return
@@ -65,8 +65,8 @@ func (s *Switcher) setAllowSwitch(v bool) {
 }
 
 func (s *Switcher) setLastWM(v string) {
-	s.infoLocker.Lock()
-	defer s.infoLocker.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if s.info.LastWM == v {
 		return
@@ -75,8 +75,8 @@ func (s *Switcher) setLastWM(v string) {
 }
 
 func (s *Switcher) saveConfig() error {
-	s.infoLocker.Lock()
-	defer s.infoLocker.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	file := filepath.Join(basedir.GetUserConfigDir(), swUserPath)
 	data, err := json.Marshal(s.info)

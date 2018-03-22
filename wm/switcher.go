@@ -20,76 +20,129 @@
 package wm
 
 import (
-	"fmt"
+	"errors"
 	"os/exec"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil"
+	"github.com/BurntSushi/xgbutil/xevent"
+	"github.com/BurntSushi/xgbutil/xprop"
+	"github.com/BurntSushi/xgbutil/xwindow"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
-	"sync"
 )
 
 const (
 	swDBusDest = "com.deepin.WMSwitcher"
 	swDBusPath = "/com/deepin/WMSwitcher"
 	swDBusIFC  = swDBusDest
+
+	deepin3DWM = "deepin-wm"
+	deepin2DWM = "deepin-metacity"
+	unknownWM  = "unknown"
+
+	osdSwitch2DWM    = "SwitchWM2D"
+	osdSwitch3DWM    = "SwitchWM3D"
+	osdSwitchWMError = "SwitchWMError"
 )
 
-var wmList = map[string]string{
-	"deepin-wm":       "deepin wm",
-	"deepin-metacity": "deepin metacity",
+var wmNameMap = map[string]string{
+	deepin3DWM: "deepin wm",
+	deepin2DWM: "deepin metacity",
 }
 
 //Switcher wm switch manager
 type Switcher struct {
-	goodWM     bool
-	logger     *log.Logger
-	info       *configInfo
-	infoLocker sync.Mutex
+	goodWM bool
+	logger *log.Logger
+	info   *configInfo
+	mu     sync.Mutex
 
+	currentWM string
 	WMChanged func(string)
 }
 
-//CurrentWM show the current window manager
-func (s *Switcher) CurrentWM() string {
-	if s.info.LastWM == "" {
-		return "deepin wm"
+func (s *Switcher) setCurrentWM(name string) {
+	var changed bool
+	s.mu.Lock()
+	if s.currentWM != name {
+		s.currentWM = name
+		s.emitSignalWMChanged(name)
+		changed = true
 	}
-	return wmList[s.info.LastWM]
+	s.mu.Unlock()
+
+	if changed {
+		// show osd
+		go func() {
+			time.Sleep(1 * time.Second)
+			switch name {
+			case deepin3DWM:
+				showOSD(osdSwitch3DWM)
+			case deepin2DWM:
+				showOSD(osdSwitch2DWM)
+			}
+		}()
+	}
 }
 
-// RestartWM restart the current wm
+// CurrentWM show the current window manager
+func (s *Switcher) CurrentWM() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	wmName := wmNameMap[s.currentWM]
+	if wmName == "" {
+		return "unknown"
+	}
+	return wmName
+}
+
+// RestartWM restart the last window manager
 func (s *Switcher) RestartWM() error {
-	return s.doSwitchWM(s.info.LastWM)
+	return s.runWM(s.info.LastWM, true)
 }
 
-//RequestSwitchWM try to switch window manager
+// Start2DWM called by startdde watchdog, run 2d window manager without --replace option.
+func (s *Switcher) Start2DWM() error {
+	err := s.runWM(deepin2DWM, false)
+	if err != nil {
+		return err
+	}
+
+	// NOTE: Don't save to config file.
+	s.setLastWM(deepin2DWM)
+	return nil
+}
+
+// RequestSwitchWM try to switch window manager
 func (s *Switcher) RequestSwitchWM() error {
 	if !s.goodWM {
-		showOSD("SwitchWMError")
-		return fmt.Errorf("Refused to switch wm")
+		showOSD(osdSwitchWMError)
+		return errors.New("refused to switch wm")
 	}
-	nextWM := "deepin-wm"
-	osd := "SwitchWM3D"
-	if s.info.LastWM == "deepin-wm" {
-		osd = "SwitchWM2D"
-		nextWM = "deepin-metacity"
-	} else if s.info.LastWM == "deepin-metacity" {
-		nextWM = "deepin-wm"
+	s.mu.Lock()
+	currentWM := s.currentWM
+	s.mu.Unlock()
+
+	nextWM := deepin3DWM
+	if currentWM == deepin3DWM {
+		nextWM = deepin2DWM
+	} else if currentWM == deepin2DWM {
+		nextWM = deepin3DWM
 	}
 
-	curWM := s.info.LastWM
-	err := s.doSwitchWM(nextWM)
-	if err == nil {
-		s.setLastWM(nextWM)
-		s.saveConfig()
-		dbus.Emit(s, "WMChanged", nextWM)
-		showOSD(osd)
-		s.initSogou()
-		return nil
+	err := s.runWM(nextWM, true)
+	if err != nil {
+		return err
 	}
-	s.setLastWM(curWM)
+
+	s.setLastWM(nextWM)
 	s.saveConfig()
-	s.doSwitchWM(curWM)
-
+	s.initSogou()
 	return nil
 }
 
@@ -100,6 +153,10 @@ func (*Switcher) GetDBusInfo() dbus.DBusInfo {
 		ObjectPath: swDBusPath,
 		Interface:  swDBusIFC,
 	}
+}
+
+func (s *Switcher) emitSignalWMChanged(wm string) {
+	dbus.Emit(s, "WMChanged", wmNameMap[wm])
 }
 
 func (s *Switcher) init() {
@@ -127,12 +184,71 @@ func (s *Switcher) init() {
 	}
 
 	s.goodWM = s.info.AllowSwitch
+
+	// init x
+	s.currentWM = s.info.LastWM
+	s.listenWMChanged()
+}
+
+func (s *Switcher) listenWMChanged() {
+	xu, err := xgbutil.NewConn()
+	if err != nil {
+		s.logger.Warning(err)
+	}
+
+	root := xu.RootWin()
+	xwindow.New(xu, root).Listen(xproto.EventMaskPropertyChange)
+
+	atomNetSupportingWMCheck, err := xprop.Atm(xu, "_NET_SUPPORTING_WM_CHECK")
+	if err != nil {
+		s.logger.Warning(err)
+		return
+	}
+
+	xevent.PropertyNotifyFun(
+		func(X *xgbutil.XUtil, e xevent.PropertyNotifyEvent) {
+			if e.Atom != atomNetSupportingWMCheck {
+				return
+			}
+
+			switch e.State {
+			case xproto.PropertyNewValue:
+				win, err := xprop.PropValWindow(xprop.GetProperty(xu, root,
+					"_NET_SUPPORTING_WM_CHECK"))
+				if err != nil {
+					s.logger.Warning(err)
+					return
+				}
+				s.logger.Debug("win:", win)
+				wmName, err := xprop.PropValStr(xprop.GetProperty(xu, win, "_NET_WM_NAME"))
+				if err != nil {
+					s.logger.Warning(err)
+					return
+				}
+				s.logger.Debug("wmName:", wmName)
+
+				var currentWM string
+				if wmName == "Metacity" {
+					currentWM = deepin2DWM
+				} else if strings.Contains(wmName, "DeepinGala") {
+					currentWM = deepin3DWM
+				} else {
+					currentWM = unknownWM
+				}
+				s.setCurrentWM(currentWM)
+
+			case xproto.PropertyDelete:
+				s.logger.Debug("wm lost")
+			}
+
+		}).Connect(xu, root)
+	go xevent.Main(xu)
 }
 
 func (s *Switcher) initSogou() {
 	filename := getSogouConfigPath()
 	v, _ := getSogouSkin(filename)
-	if v != "" && s.goodWM && s.info.LastWM == "deepin-wm" {
+	if v != "" && s.goodWM && s.info.LastWM == deepin3DWM {
 		return
 	}
 
@@ -157,12 +273,12 @@ func (s *Switcher) initConfig() {
 	if s.goodWM {
 		s.info = &configInfo{
 			AllowSwitch: s.goodWM,
-			LastWM:      "deepin-wm",
+			LastWM:      deepin3DWM,
 		}
 	} else {
 		s.info = &configInfo{
 			AllowSwitch: s.goodWM,
-			LastWM:      "deepin-metacity",
+			LastWM:      deepin2DWM,
 		}
 	}
 
@@ -184,14 +300,19 @@ func (s *Switcher) initCard() {
 	}
 }
 
-func (s *Switcher) doSwitchWM(wm string) error {
+func (s *Switcher) runWM(wm string, replace bool) error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return err
 	}
+
+	args := []string{"GDK_SCALE=1", wm}
+	if replace {
+		args = append(args, "--replace")
+	}
 	obj := conn.Object("com.deepin.SessionManager", "/com/deepin/StartManager")
 	err = obj.Call("com.deepin.StartManager.RunCommand", 0,
-		"env", []string{"GDK_SCALE=1", wm, "--replace"}).Store()
+		"env", args).Store()
 	if err != nil {
 		return err
 	}
