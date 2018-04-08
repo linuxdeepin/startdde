@@ -179,17 +179,6 @@ func getDDEWelcome() (*welcome.Welcome, error) {
 	return _ddeWelcome, err
 }
 
-func canLaunchWelcome() bool {
-	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
-	if err != nil {
-		logger.Error("Failed to connect startdde setting:", err)
-		return true
-	}
-	defer s.Unref()
-
-	return s.GetBoolean("launch-welcome")
-}
-
 func showWelcome(showing bool) error {
 	wel, err := getDDEWelcome()
 	if err != nil {
@@ -200,26 +189,6 @@ func showWelcome(showing bool) error {
 		return wel.Show()
 	}
 	return wel.Exit()
-}
-
-func getSwapSchedEnabled() bool {
-	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
-	if err != nil {
-		return false
-	}
-	enabled := s.GetBoolean("swap-sched-enabled")
-	s.Unref()
-	return enabled
-}
-
-func getAutostartDelay() int32 {
-	s, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
-	if err != nil {
-		logger.Error("Failed to get autostart delay:", err)
-		return 0
-	}
-	defer s.Unref()
-	return s.GetInt("autostart-delay")
 }
 
 const (
@@ -250,4 +219,36 @@ func getAppIdByFilePath(file string, appDirs []string) string {
 		return ""
 	}
 	return strings.TrimSuffix(desktopId, desktopExt)
+}
+
+type GSettingsConfig struct {
+	autoStartDelay    int32
+	iowaitEnabled     bool
+	memcheckerEnabled bool
+	launchWelcome     bool
+	swapSchedEnabled  bool
+}
+
+func getGSettingsConfig() *GSettingsConfig {
+	gs, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
+	if err != nil {
+		logger.Warning(err)
+		// default values
+		return &GSettingsConfig{
+			autoStartDelay:    0,
+			iowaitEnabled:     false,
+			memcheckerEnabled: false,
+			launchWelcome:     true,
+			swapSchedEnabled:  false,
+		}
+	}
+	cfg := &GSettingsConfig{
+		autoStartDelay:    gs.GetInt("autostart-delay"),
+		iowaitEnabled:     gs.GetBoolean("iowait-enabled"),
+		memcheckerEnabled: gs.GetBoolean("memchecker-enabled"),
+		launchWelcome:     gs.GetBoolean("launch-welcome"),
+		swapSchedEnabled:  gs.GetBoolean("swap-sched-enabled"),
+	}
+	gs.Unref()
+	return cfg
 }

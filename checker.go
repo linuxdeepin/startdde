@@ -22,13 +22,14 @@ package main
 import (
 	"fmt"
 	"os"
-	"pkg.deepin.io/dde/startdde/memanalyzer"
-	"pkg.deepin.io/dde/startdde/memchecker"
-	"pkg.deepin.io/lib/dbus"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"pkg.deepin.io/dde/startdde/memanalyzer"
+	"pkg.deepin.io/dde/startdde/memchecker"
+	"pkg.deepin.io/lib/dbus"
 )
 
 const (
@@ -60,6 +61,11 @@ func init() {
 
 // IsMemSufficient check the available memory whether sufficient
 func (m *StartManager) IsMemSufficient() bool {
+	if !globalGSettingsConfig.memcheckerEnabled {
+		// memchecker disabled, always return true
+		return true
+	}
+
 	return memchecker.IsSufficient()
 }
 
@@ -90,6 +96,9 @@ func (m *StartManager) setPropNeededMemory(v uint64) {
 }
 
 func handleMemInsufficient(v string) error {
+	if !globalGSettingsConfig.memcheckerEnabled {
+		return nil
+	}
 	if memchecker.IsSufficient() {
 		return nil
 	}

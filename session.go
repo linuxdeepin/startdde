@@ -216,7 +216,7 @@ func initSession() {
 		panic(fmt.Errorf("new Login1 session self Failed: %s", err))
 	}
 
-	if getSwapSchedEnabled() {
+	if globalGSettingsConfig.swapSchedEnabled {
 		initSwapSched()
 	} else {
 		logger.Info("swap sched disabled")
@@ -324,7 +324,7 @@ func (m *SessionManager) launchDDE() {
 func (m *SessionManager) launchAutostart() {
 	m.setPropStage(SessionStageAppsBegin)
 	if !*debug {
-		delay := getAutostartDelay()
+		delay := globalGSettingsConfig.autoStartDelay
 		logger.Debug("Autostart delay seconds:", delay)
 		if delay > 0 {
 			time.AfterFunc(time.Second*time.Duration(delay), func() {

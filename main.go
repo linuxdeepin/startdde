@@ -46,6 +46,8 @@ var logger = log.NewLogger("startdde")
 
 var debug = flag.Bool("d", false, "debug")
 
+var globalGSettingsConfig *GSettingsConfig
+
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
 	// Because the startdde may be launched by exec syscall
@@ -61,6 +63,7 @@ func reapZombies() {
 }
 
 func main() {
+	globalGSettingsConfig = getGSettingsConfig()
 	reapZombies()
 
 	// init x conn
@@ -77,7 +80,7 @@ func main() {
 	tryMatchVM()
 	go playLoginSound()
 
-	canLaunch := canLaunchWelcome()
+	canLaunch := globalGSettingsConfig.launchWelcome
 	if canLaunch {
 		err = showWelcome(true)
 		if err != nil {
@@ -112,7 +115,12 @@ func main() {
 	}
 
 	watchdog.Start()
-	go iowait.Start(logger)
+
+	if globalGSettingsConfig.iowaitEnabled {
+		go iowait.Start(logger)
+	} else {
+		logger.Info("iowait disabled")
+	}
 
 	C.gtk_main()
 }
