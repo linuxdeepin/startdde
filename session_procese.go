@@ -19,7 +19,9 @@
 
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 import "io"
 import "crypto/rand"
 import "os"
@@ -51,17 +53,18 @@ func (m *SessionManager) launchWait(bin string, args ...string) bool {
 	m.cookies[id] = ch
 	m.cookieLocker.Unlock()
 
+	cmdStr := fmt.Sprintf("%s %v", bin, args)
 	startStamp := time.Now()
 
 	err := cmd.Start()
 	if err != nil {
-		logger.Warningf("Start command '%s' failed: %v", bin, err)
+		logger.Warningf("Start command %s failed: %v", cmdStr, err)
 		return false
 	}
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			logger.Warningf("Wait command '%s' failed: %v", bin, err)
+			logger.Warningf("Wait command %s failed: %v", cmdStr, err)
 		}
 	}()
 
@@ -70,10 +73,10 @@ func (m *SessionManager) launchWait(bin string, args ...string) bool {
 		m.cookieLocker.Lock()
 		delete(m.cookies, id)
 		m.cookieLocker.Unlock()
-		logger.Info(bin, "StartDuration:", endStamp.Sub(startStamp))
+		logger.Info(cmdStr, "StartDuration:", endStamp.Sub(startStamp))
 		return true
 	case endStamp := <-time.After(launchTimeout):
-		logger.Info(bin, "timeout:", endStamp.Sub(startStamp))
+		logger.Info(cmdStr, "timeout:", endStamp.Sub(startStamp))
 		return false
 	}
 }
