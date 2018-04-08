@@ -53,8 +53,8 @@ func getHomeDirBlockDevice() (string, error) {
 		return "", err
 	}
 	sysStat := fileInfo.Sys().(*syscall.Stat_t)
-	majorNum := major(sysStat.Dev)
-	minorNum := minor(sysStat.Dev)
+	majorNum := major(uint64(sysStat.Dev))
+	minorNum := minor(uint64(sysStat.Dev))
 	blockPath := fmt.Sprintf("/sys/dev/block/%d:%d", majorNum, minorNum)
 	blockRealPath, err := filepath.EvalSymlinks(blockPath)
 	if err != nil {
