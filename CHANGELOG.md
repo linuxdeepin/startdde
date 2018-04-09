@@ -1,5 +1,25 @@
 ## [Unreleased]
 
+## [3.1.27] - 2018-04-09
+*   feat: add features switch for iowait and memchecker
+*   fix(swapsched): cannot use sysStat.Dev (type uint32) as type uint64
+*   fix: launchWait insufficient log information
+*   feat(swapsched): use config of memchecker to configure swap sched dispatcher
+*   chore: update memchecher min avail mem default value
+*   refactor: improve memchecker debug
+*   feat: add memanalyzer
+*   fix: return nil if mem insufficient
+*   fix: correct the action name
+*   chore: fix config install path wrong
+*   fix(memchecker): fix needed memory sum wrong
+*   fix(memchecker): improve mem sufficient detect rule
+*   refactor: refactor memchecker
+*   fix(memchecker): fix warning dialog not showing again after close
+*   refactor(memchecker): change the config path
+*   feat: add memchecker for app launch
+*   feat(watchdog): launch wm earlier after finding it dead
+*   refactor: fix a typo
+
 ## [3.1.26] - 2018-03-20
 *   fix: env var `SSH_AUTH_SOCK` not exported
 
