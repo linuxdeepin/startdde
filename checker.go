@@ -199,6 +199,7 @@ var (
 		desktop   string
 		timestamp uint32
 		files     []string
+		options   map[string]dbus.Variant
 	}{}
 	_appAction = struct {
 		desktop   string
@@ -247,8 +248,8 @@ func handleCurAction(action string) error {
 	var err error
 	switch action {
 	case "LaunchApp":
-		err = START_MANAGER.LaunchApp(_app.desktop, _app.timestamp,
-			_app.files)
+		err = START_MANAGER.LaunchAppWithOptions(_app.desktop, _app.timestamp,
+			_app.files, _app.options)
 	case "LaunchAppAction":
 		err = START_MANAGER.LaunchAppAction(_appAction.desktop,
 			_appAction.action, _appAction.timestamp)

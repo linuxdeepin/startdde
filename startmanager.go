@@ -178,7 +178,9 @@ func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32)
 	return err == nil, err
 }
 
-func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
+func (m *StartManager) LaunchAppWithOptions(desktopFile string, timestamp uint32, files []string,
+	options map[string]dbus.Variant) error {
+
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
 		if getCurAction() != "" {
@@ -187,11 +189,12 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 		_app.desktop = desktopFile
 		_app.timestamp = timestamp
 		_app.files = files
+		_app.options = options
 		setCurAction("LaunchApp")
 		return nil
 	}
 
-	err = m.launchApp(desktopFile, timestamp, files, m.launchContext)
+	err = m.launchApp(desktopFile, timestamp, files, m.launchContext, options)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -201,6 +204,10 @@ func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []s
 		m.launchedRecorder.MarkLaunched(desktopFile)
 	}
 	return err
+}
+
+func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
+	return m.LaunchAppWithOptions(desktopFile, timestamp, files, nil)
 }
 
 func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
@@ -399,10 +406,18 @@ func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo,
 	return dai, nil
 }
 
-func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext) error {
+func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext, options map[string]dbus.Variant) error {
 	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
+	}
+
+	if pathVar, ok := options["path"]; ok {
+		pathStr, isStr := pathVar.Value().(string)
+		if !isStr {
+			return errors.New("type of option path is not string")
+		}
+		appInfo.SetString(desktopappinfo.MainSection, desktopappinfo.KeyPath, pathStr)
 	}
 
 	return m.launch(appInfo, timestamp, files, ctx, appInfo, desktopFile)
