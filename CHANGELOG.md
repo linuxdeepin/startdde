@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [3.1.28] - 2018-04-17
+*   fix(wm): CurrentWM() return `unknown` if config file not found
+*   feat(startManager): add method LaunchAppWithOptions
+
 ## [3.1.27] - 2018-04-09
 *   feat: add features switch for iowait and memchecker
 *   fix(swapsched): cannot use sysStat.Dev (type uint32) as type uint64
