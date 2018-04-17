@@ -184,13 +184,11 @@ func (s *Switcher) init() {
 	}
 
 	s.goodWM = s.info.AllowSwitch
-
-	// init x
-	s.currentWM = s.info.LastWM
-	s.listenWMChanged()
 }
 
 func (s *Switcher) listenWMChanged() {
+	s.currentWM = s.info.LastWM
+
 	xu, err := xgbutil.NewConn()
 	if err != nil {
 		s.logger.Warning(err)
