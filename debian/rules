@@ -2,6 +2,10 @@
 # -*- makefile -*-
 export GOPATH := /usr/share/gocode
 
+ifeq ($(DEB_BUILD_ARCH),mips64el)
+	export AUTO_LAUNCH_DCC=1
+endif
+
 %:
 	dh $@ 
 

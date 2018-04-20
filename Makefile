@@ -18,10 +18,17 @@ prepare:
 		ln -sf ../../../.. ${GOPATH_DIR}/src/${GOPKG_PREFIX}; \
 		fi
 
+auto_launch_json:
+ifdef AUTO_LAUNCH_DCC
+	jq --slurpfile dcc misc/auto_launch/dcc.json '.+$$dcc' misc/auto_launch/source.json > misc/config/auto_launch.json
+else
+	cp misc/auto_launch/source.json misc/config/auto_launch.json
+endif
+
 startdde:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -v -o startdde
 
-build: prepare startdde
+build: prepare startdde auto_launch_json
 
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde

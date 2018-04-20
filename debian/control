@@ -9,7 +9,8 @@ Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  dde-api-dev(>= 3.0.8),
  libgnome-keyring-dev,
  libxfixes-dev,
- libxcursor-dev
+ libxcursor-dev,
+ jq
 Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
 

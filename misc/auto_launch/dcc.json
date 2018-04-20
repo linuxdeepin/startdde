@@ -1,0 +1,10 @@
+{
+  "Prority": 6,
+  "Group": [
+    {
+      "Command": "/usr/bin/dde-control-center",
+      "Wait": false,
+      "Args": []
+    }
+  ]
+}
