@@ -33,9 +33,9 @@ const ActiveAppBonus = 100 * MB      // 当前激活APP的限制补偿,值越大
 const ActiveAppSWAPRatioInLimit = 10 // 计算ActiveAppLimit的时候会加上(其使用的Swap/此ratio)
 const MinimumLimit = 5 * MB          // 内存限制的最小值, 尽量与正常UIAPP的最小值匹配.
 const MaximumLimitPlus = 500 * MB    // plus TotalRSSFree, 避免某个UIApp用尽UserSpace的内存,导致僵死无法切换ActiveApp, 从而使swap-sched失效.
-const DefaultSamplePeroid = 1        // 默认的数据调整周期
+const DefaultSamplePeriod = 1        // 默认的数据调整周期
 const KernelCacheReserve = 400 * MB  //至少预留多少内存给kernel
-const DEHardLimit = 800 * MB         // 最多分配给DE多少内存
+const DESoftLimit = 800 * MB         // DE 组的内存用量软限制
 
 const enableSwapTotalMin = 1 * GB // 使 dispatcher 启用的最小 swap 总空间
 
@@ -64,11 +64,10 @@ type Dispatcher struct {
 
 func NewDispatcher(cfg Config) (*Dispatcher, error) {
 	if cfg.SamplePeroid <= 0 {
-		cfg.SamplePeroid = DefaultSamplePeroid
+		cfg.SamplePeroid = DefaultSamplePeriod
 	}
 	deCg := cgroup.NewCgroup(cfg.DECGroup)
-	deMemCtl := deCg.AddController(cgroup.Memory)
-	setHardLimit(deMemCtl, DEHardLimit)
+	deCg.AddController(cgroup.Memory)
 
 	uiAppsCg := cgroup.NewCgroup(cfg.UIAppsCGroup)
 	uiAppsCg.AddController(cgroup.Freezer)
@@ -229,6 +228,12 @@ func (d *Dispatcher) cancelLimit() {
 			logger.Warningf("failed to cancel soft limit for %s: %v", app, err)
 		}
 	}
+
+	deMemCtl := d.deCg.GetController(cgroup.Memory)
+	err = cancelSoftLimit(deMemCtl)
+	if err != nil {
+		logger.Warning("failed to cancel soft limit for DE cgroup:", err)
+	}
 }
 
 func (d *Dispatcher) balance() {
@@ -304,6 +309,11 @@ func (d *Dispatcher) balance() {
 		}
 	}
 
+	deMemCtl := d.deCg.GetController(cgroup.Memory)
+	err = setSoftLimit(deMemCtl, DESoftLimit)
+	if err != nil {
+		logger.Warning("failed to set soft limit for DE cgroup:", err)
+	}
 }
 
 func (d *Dispatcher) Balance() {
