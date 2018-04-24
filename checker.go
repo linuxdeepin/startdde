@@ -82,7 +82,7 @@ func (m *StartManager) TryAgain(launch bool) error {
 	return handleCurAction(action)
 }
 
-// DumpMemRecord dump the proccess needed memory record
+// DumpMemRecord dump the process needed memory record
 func (m *StartManager) DumpMemRecord() string {
 	return memanalyzer.DumpDB()
 }
@@ -107,7 +107,7 @@ func handleMemInsufficient(v string) error {
 	if action != "" {
 		logger.Info("The prev action is executing:", action)
 		showWarningDialog(getActionName(action))
-		return fmt.Errorf("The prev action(%s) is executing", action)
+		return fmt.Errorf("the prev action(%s) is executing", action)
 	}
 
 	logger.Info("Notice: current memory insufficient, please free.....")
@@ -115,7 +115,7 @@ func handleMemInsufficient(v string) error {
 	updateNeededMemory()
 	go startMemTicker()
 	showWarningDialog(v)
-	return fmt.Errorf("Memory has insufficient, please free")
+	return fmt.Errorf("memory has insufficient, please free")
 }
 
 func startMemTicker() {
@@ -263,7 +263,7 @@ func handleCurAction(action string) error {
 }
 
 func getNeededMemory(name string) uint64 {
-	v, err := memanalyzer.GetProccessMemory(name)
+	v, err := memanalyzer.GetProcessMemory(name)
 	logger.Info("[getNeededMemory] result:", name, v, err)
 	if err != nil {
 		return defaultNeededMem
@@ -271,10 +271,10 @@ func getNeededMemory(name string) uint64 {
 	return v
 }
 
-func saveNeededMemory(name, gid string) error {
-	tmp, _ := memanalyzer.GetProccessMemory(name)
+func saveNeededMemory(name, cgroupName string) error {
+	tmp, _ := memanalyzer.GetProcessMemory(name)
 	if tmp > 0 {
-		logger.Debug("Proccess has exists:", name, tmp)
+		logger.Debug("Process exists:", name, tmp)
 		return nil
 	}
 
@@ -283,8 +283,8 @@ func saveNeededMemory(name, gid string) error {
 		err  error
 	)
 	time.Sleep(time.Second * time.Duration(_memQueryWait))
-	size, err = memanalyzer.GetCGroupMemory(gid)
-	logger.Info("Proccess memory:", name, gid, size, err)
+	size, err = memanalyzer.GetCGroupMemory(cgroupName)
+	logger.Info("process memory:", name, cgroupName, size, err)
 	if err != nil || size == 0 {
 		return err
 	}
@@ -293,21 +293,5 @@ func saveNeededMemory(name, gid string) error {
 		return err
 	}
 
-	return memanalyzer.SaveProccessMemory(name, size)
-}
-
-func parseProccessArgs(args []string) (string, string) {
-	length := len(args)
-	idx := 0
-	var gid = ""
-	for i, v := range args {
-		if strings.Contains(v, "/uiapps/") {
-			idx = i
-			list := strings.Split(v, "/uiapps/")
-			gid = list[1]
-			break
-		}
-	}
-
-	return gid, strings.Join(args[idx+1:length], " ")
+	return memanalyzer.SaveProcessMemory(name, size)
 }

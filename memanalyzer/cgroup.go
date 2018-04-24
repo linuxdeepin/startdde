@@ -3,9 +3,11 @@ package memanalyzer
 import (
 	"fmt"
 	"io/ioutil"
-	"pkg.deepin.io/lib/dbus"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"pkg.deepin.io/lib/dbus"
 )
 
 const (
@@ -18,38 +20,34 @@ var (
 	_sessionID = ""
 )
 
-func getProccessList(pid uint16) ([]uint16, error) {
+func getProcessList(pid uint16) ([]uint16, error) {
 	dir, err := getCGroupDDEPath()
 	if err != nil {
 		return nil, err
 	}
 
-	finfos, err := ioutil.ReadDir(dir)
+	fileInfoList, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, finfo := range finfos {
-		if !finfo.IsDir() {
+	for _, fileInfo := range fileInfoList {
+		if !fileInfo.IsDir() {
 			continue
 		}
 
 		found, ret := isPidFound(pid, fmt.Sprintf("%s/%s/cgroup.procs",
-			dir, finfo.Name()))
+			dir, fileInfo.Name()))
 		if found {
 			return ret, nil
 		}
 	}
-	return nil, fmt.Errorf("No group found for %v", pid)
+	return nil, fmt.Errorf("no group found for %v", pid)
 }
 
-func getPidsInCGroup(gid string) ([]uint16, error) {
-	dir, err := getCGroupDDEPath()
-	if err != nil {
-		return nil, err
-	}
-
-	contents, err := ioutil.ReadFile(fmt.Sprintf("%s/%s/cgroup.procs", dir, gid))
+func getPidsInCGroup(cgroupName string) ([]uint16, error) {
+	cgroupProcsFile := filepath.Join("/sys/fs/cgroup/memory", cgroupName, "cgroup.procs")
+	contents, err := ioutil.ReadFile(cgroupProcsFile)
 	if err != nil {
 		return nil, err
 	}

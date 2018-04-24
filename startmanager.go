@@ -462,9 +462,10 @@ func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp, cmdName string) e
 			uiApp.SetStateEnd()
 		}
 	}()
-	gid, _ := parseProccessArgs(cmd.Args)
-	logger.Debug("[waitCmd] Args parse:", gid, cmdName)
-	go saveNeededMemory(cmdName, gid)
+	if uiApp != nil {
+		go saveNeededMemory(cmdName, uiApp.GetCGroup())
+	}
+
 	return nil
 }
 
