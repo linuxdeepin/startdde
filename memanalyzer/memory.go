@@ -32,7 +32,7 @@ func GetCGroupMemory(cgroupName string) (uint64, error) {
 func GetPidMemory(pid uint16) (uint64, error) {
 	list, err := getProcessList(pid)
 	if err != nil {
-		fmt.Println("Failed to get proccess list from cgroup:", err)
+		fmt.Println("Failed to get process list from cgroup:", err)
 		return sumMemByPid(pid)
 	}
 	return sumPidsMemory(list), nil
