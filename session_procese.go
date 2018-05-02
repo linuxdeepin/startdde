@@ -54,29 +54,34 @@ func (m *SessionManager) launchWait(bin string, args ...string) bool {
 	m.cookieLocker.Unlock()
 
 	cmdStr := fmt.Sprintf("%s %v", bin, args)
-	startStamp := time.Now()
+	timeStart := time.Now()
 
 	err := cmd.Start()
 	if err != nil {
 		logger.Warningf("Start command %s failed: %v", cmdStr, err)
 		return false
 	}
+	logger.Debug("pid:", cmd.Process.Pid)
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
 			logger.Warningf("Wait command %s failed: %v", cmdStr, err)
 		}
+		m.cookieLocker.Lock()
+		timeCh := m.cookies[id]
+		if timeCh != nil {
+			delete(m.cookies, id)
+			timeCh <- time.Now()
+		}
+		m.cookieLocker.Unlock()
 	}()
 
 	select {
-	case endStamp := <-ch:
-		m.cookieLocker.Lock()
-		delete(m.cookies, id)
-		m.cookieLocker.Unlock()
-		logger.Info(cmdStr, "StartDuration:", endStamp.Sub(startStamp))
+	case timeEnd := <-ch:
+		logger.Info(cmdStr, "startup duration:", timeEnd.Sub(timeStart))
 		return true
 	case endStamp := <-time.After(launchTimeout):
-		logger.Info(cmdStr, "timeout:", endStamp.Sub(startStamp))
+		logger.Info(cmdStr, "startup timed out!", endStamp.Sub(timeStart))
 		return false
 	}
 }
@@ -103,9 +108,14 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 }
 
 func (m *SessionManager) Register(id string) bool {
-	if cookie, ok := m.cookies[id]; ok {
-		cookie <- time.Now()
-		return true
+	m.cookieLocker.Lock()
+	defer m.cookieLocker.Unlock()
+
+	timeCh := m.cookies[id]
+	if timeCh == nil {
+		return false
 	}
-	return false
+	delete(m.cookies, id)
+	timeCh <- time.Now()
+	return true
 }

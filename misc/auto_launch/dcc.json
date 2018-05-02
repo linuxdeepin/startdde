@@ -1,5 +1,5 @@
 {
-  "Prority": 6,
+  "Priority": 6,
   "Group": [
     {
       "Command": "/usr/bin/dde-control-center",

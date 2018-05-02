@@ -298,27 +298,44 @@ func (m *SessionManager) launchDDE() {
 		return
 	}
 
-	groupNum := len(groups)
-	if groupNum == 0 {
-		logger.Warning("No auto launch group exists")
-		return
-	}
-
 	sort.Sort(groups)
-	var wg sync.WaitGroup
-	wg.Add(groupNum)
-	for _, group := range groups {
-		go func(g launchGroup) {
-			logger.Debugf("Will launch group: %#v", g)
-			for _, info := range g.Group {
-				m.launch(info.Command, info.Wait, info.Args...)
-				time.Sleep(time.Microsecond * 100)
+
+	for idx, group := range groups {
+		logger.Debugf("[%d] group p%d start", idx, group.Priority)
+		noWaitCount := 0
+		for _, cmd := range group.Group {
+			if cmd.Wait {
+				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
+				m.launch(cmd.Command, true, cmd.Args...)
+				continue
 			}
-			wg.Done()
-		}(*group)
-		time.Sleep(time.Microsecond * 100)
+
+			// no wait
+			if noWaitCount == 0 {
+				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
+				m.launch(cmd.Command, false, cmd.Args...)
+
+			} else {
+				// noWaitCount > 0
+				logger.Debug(cmd.Command, cmd.Args, cmd.Wait, "launch after",
+					100*noWaitCount, "ms")
+
+				closureCmd := struct {
+					bin  string
+					args []string
+				}{
+					cmd.Command,
+					cmd.Args,
+				}
+				time.AfterFunc(100*time.Duration(noWaitCount)*time.Millisecond, func() {
+					m.launch(closureCmd.bin, false, closureCmd.args...)
+				})
+			}
+
+			noWaitCount++
+		}
+		logger.Debugf("[%d] group p%d end", idx, group.Priority)
 	}
-	wg.Wait()
 }
 
 func (m *SessionManager) launchAutostart() {

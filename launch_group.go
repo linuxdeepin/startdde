@@ -23,17 +23,19 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 type launchGroup struct {
-	Prority uint32 `json:"Prority"`
-	Group   []struct {
+	Priority uint32 `json:"Priority"`
+	Group    []struct {
 		Command string   `json:"Command"`
 		Wait    bool     `json:"Wait"`
 		Args    []string `json:"Args"`
 	} `json:"Group"`
 }
+
 type launchGroups []*launchGroup
 
 const (
@@ -46,7 +48,7 @@ func (infos launchGroups) Len() int {
 }
 
 func (infos launchGroups) Less(i, j int) bool {
-	return infos[i].Prority > infos[j].Prority
+	return infos[i].Priority > infos[j].Priority
 }
 
 func (infos launchGroups) Swap(i, j int) {
