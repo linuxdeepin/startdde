@@ -8,6 +8,16 @@
         "Args": []
       },
       {
+        "Command": "/usr/bin/dde-dock",
+        "Wait": true,
+        "Args": []
+      }
+    ]
+  },
+  {
+    "Priority": 8,
+    "Group": [
+      {
         "Command": "/usr/bin/dde-desktop",
         "Wait": true,
         "Args": []
@@ -16,36 +26,6 @@
         "Command": "/usr/bin/dde-file-manager",
         "Wait": false,
         "Args": ["-d"]
-      }
-    ]
-  },
-  {
-    "Priority": 8,
-    "Group": [
-      {
-        "Command": "/usr/bin/dde-dock",
-        "Wait": true,
-        "Args": []
-      },
-      {
-        "Command": "/usr/bin/deepin-menu",
-        "Wait": false,
-        "Args": []
-      },
-      {
-        "Command": "/usr/lib/polkit-1-dde/dde-polkit-agent",
-        "Wait": false,
-        "Args": []
-      },
-      {
-        "Command": "/usr/lib/deepin-notifications/deepin-notifications",
-        "Wait": false,
-        "Args": []
-      },
-      {
-        "Command": "/usr/lib/deepin-daemon/dde-osd",
-        "Wait": false,
-        "Args": []
       }
     ]
   },
