@@ -20,53 +20,58 @@
 package watchdog
 
 import (
-	"dbus/org/freedesktop/login1"
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
+	"pkg.deepin.io/lib/procfs"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 const (
-	ddePolkitAgentCommand  = "/usr/lib/polkit-1-dde/dde-polkit-agent"
-	ddePolkitAgentDBusPath = "/com/deepin/polkit/AuthenticationAgent"
+	ddePolkitAgentCommand = "/usr/lib/polkit-1-dde/dde-polkit-agent"
 )
 
 func isDDEPolkitAgentRunning() (bool, error) {
-	// only listen dde polkit agent
 	if !utils.IsFileExist(ddePolkitAgentCommand) {
-		return true, nil
+		return false, errors.New("dde-polkit-agent bin not exist")
 	}
 
-	pidFile := filepath.Join(basedir.GetUserCacheDir(),
-		"deepin",
-		"dde-polkit-agent",
-		"pid")
-	contents, err := ioutil.ReadFile(pidFile)
+	pidFile := filepath.Join(basedir.GetUserCacheDir(), "deepin", "dde-polkit-agent", "pid")
+	pidFileContent, err := ioutil.ReadFile(pidFile)
 	if err != nil {
 		return false, nil
 	}
-	cmdline := filepath.Join("/proc", string(contents), "cmdline")
-	contents, err = ioutil.ReadFile(cmdline)
+	pid, err := strconv.ParseUint(string(pidFileContent), 10, 64)
 	if err != nil {
 		return false, nil
 	}
-	return string(contents) == ddePolkitAgentCommand, nil
+	process := procfs.Process(pid)
+	cmdline, err := process.Cmdline()
+	if err != nil {
+		// maybe pid is wrong
+		return false, nil
+	}
+	if len(cmdline) == 0 {
+		return false, nil
+	}
+	return cmdline[0] == ddePolkitAgentCommand, nil
 }
 
 func launchDDEPolkitAgent() error {
 	var cmd = exec.Command(ddePolkitAgentCommand)
 	err := cmd.Start()
 	if err != nil {
+		logger.Warning("failed to start dde-polkit-agent:", err)
 		return err
 	}
 	go func() {
 		err := cmd.Wait()
 		if err != nil {
-			logger.Warning("Failed to wait dde polkit agent exec:", err)
+			logger.Warning("dde-polkit-agent exit with error:", err)
 		}
 	}()
 	return nil
@@ -74,15 +79,4 @@ func launchDDEPolkitAgent() error {
 
 func newDDEPolkitAgent() *taskInfo {
 	return newTaskInfo("dde-polkit-agent", isDDEPolkitAgentRunning, launchDDEPolkitAgent)
-}
-
-func getCurrentSessionID() string {
-	self, err := login1.NewSession("org.freedesktop.login1", "/org/freedesktop/login1/session/self")
-	if err != nil {
-		fmt.Println("Failed to create self session:", err)
-		return ""
-	}
-	defer login1.DestroySession(self)
-
-	return self.Id.Get()
 }
