@@ -159,30 +159,51 @@ func (s *Switcher) emitSignalWMChanged(wm string) {
 	dbus.Emit(s, "WMChanged", wmNameMap[wm])
 }
 
-func (s *Switcher) init() {
-	// check card whether changed
-	infos, err := loadCardConfig(getCardConfigPath())
-	s.logger.Debugf("--------Card config: %#v, %v", infos, err)
-	if err == nil {
-		tmp, _ := getCardInfos()
-		if tmp != nil && tmp.String() != infos.String() {
-			// card changed, ignore wm config
-			s.initConfig()
-			s.initCard()
-			return
-		}
+func (s *Switcher) isCardChange() (change bool) {
+	actualCardInfos, err := getCardInfos()
+	if err != nil {
+		s.logger.Warning("failed to get card info:", err)
+		return true
+	}
+	actualCardInfosStr := actualCardInfos.String()
+	s.logger.Debug("actualCardInfos:", actualCardInfosStr)
+
+	cacheCardInfos, err := loadCardInfosFromFile(getCardInfosPath())
+	if err != nil {
+		s.logger.Warning("failed to load card info from config file:", err)
+		change = true
 	} else {
-		s.initCard()
+		// load cacheCardInfos ok
+		cacheCardInfosStr := cacheCardInfos.String()
+		s.logger.Debug("cacheCardInfos:", cacheCardInfosStr)
+		if actualCardInfosStr != cacheCardInfosStr {
+			// card changed
+			change = true
+		}
 	}
 
-	s.info, err = s.loadConfig()
-	s.logger.Debugf("--------wm config: %#v, %v", s.info, err)
-	if err != nil || s.info.LastWM == "" {
-		s.logger.Warning("Failed to load config:", err)
+	if change {
+		err = doSaveCardInfos(getCardInfosPath(), actualCardInfos.genCardConfig())
+		if err != nil {
+			s.logger.Warning("failed to save card infos:", err)
+		}
+	}
+	return change
+}
+
+func (s *Switcher) init() {
+	if s.isCardChange() {
 		s.initConfig()
 		return
 	}
 
+	var err error
+	s.info, err = s.loadConfig()
+	if err != nil || s.info.LastWM == "" {
+		s.logger.Warning("failed to load config:", err)
+		s.initConfig()
+		return
+	}
 	s.goodWM = s.info.AllowSwitch
 }
 
@@ -283,18 +304,6 @@ func (s *Switcher) initConfig() {
 	err := s.saveConfig()
 	if err != nil {
 		s.logger.Warning("Failed to save config:", err)
-	}
-}
-
-func (s *Switcher) initCard() {
-	infos, err := getCardInfos()
-	if err != nil {
-		s.logger.Warning("Failed to get card infos:", err)
-		return
-	}
-	err = doSaveCardConfig(getCardConfigPath(), infos.genCardConfig())
-	if err != nil {
-		s.logger.Warning("Failed to save card info:", err)
 	}
 }
 

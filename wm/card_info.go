@@ -26,11 +26,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pkg.deepin.io/lib/strv"
-	"pkg.deepin.io/lib/xdg/basedir"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"pkg.deepin.io/lib/strv"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 // CardInfo the display/graphics card id
@@ -55,7 +56,7 @@ func (infos CardInfos) String() string {
 func (infos CardInfos) genCardConfig() string {
 	size := len(infos)
 	if size == 0 {
-		return ""
+		return "[cards]\nsize=0\n"
 	}
 
 	var lines []string
@@ -69,7 +70,7 @@ func (infos CardInfos) genCardConfig() string {
 	return contents
 }
 
-func getCardConfigPath() string {
+func getCardInfosPath() string {
 	return filepath.Join(basedir.GetUserConfigDir(), swCardPath)
 }
 
@@ -109,7 +110,7 @@ func getCardInfos() (CardInfos, error) {
 	return infos, nil
 }
 
-func loadCardConfig(filename string) (CardInfos, error) {
+func loadCardInfosFromFile(filename string) (CardInfos, error) {
 	contents, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -181,7 +182,7 @@ func getCardConfigSize(lines strv.Strv) (int, error) {
 	return 0, fmt.Errorf("Invalid card config format")
 }
 
-func doSaveCardConfig(filename, data string) error {
+func doSaveCardInfos(filename, data string) error {
 	err := os.MkdirAll(filepath.Dir(filename), 0755)
 	if err != nil {
 		return err
