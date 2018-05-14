@@ -1,5 +1,16 @@
 ## [Unreleased]
 
+## [3.1.29] - 2018-05-14
+*   fix(watchdog): dde-polkit-agent running state check wrong
+*   adjust `auto_launch.json`
+*   fix: launch group
+*   feat: wait wm launch
+*   refactor: fix a typo
+*   fix(debian): miss depends on libpam-gnome-keyring
+*   refactor: refactor memchecker and memanalyzer
+*   feat(swapsched): remove hard limit on DE group
+*   feat: auto launch dde-control-center under mips64el
+
 ## [3.1.28] - 2018-04-17
 *   fix(wm): CurrentWM() return `unknown` if config file not found
 *   feat(startManager): add method LaunchAppWithOptions
