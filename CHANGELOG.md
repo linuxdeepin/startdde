@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ## [3.1.29] - 2018-05-14
+*   fix(wm): fix genCardConfig when not found any video card
 *   fix(watchdog): dde-polkit-agent running state check wrong
 *   adjust `auto_launch.json`
 *   fix: launch group
