@@ -99,9 +99,10 @@ func (d *Dispatcher) GetDECGroup() string {
 
 func (d *Dispatcher) counter() uint32 {
 	d.Lock()
-	d.cnt = d.cnt + 1
+	d.cnt++
+	result := d.cnt
 	d.Unlock()
-	return d.cnt
+	return result
 }
 
 type AppResourcesLimit struct {

@@ -1,6 +1,8 @@
 package swapsched
 
 import (
+	"sync"
+
 	"pkg.deepin.io/lib/cgroup"
 )
 
@@ -9,6 +11,7 @@ type UIApp struct {
 	cg     *cgroup.Cgroup
 	limit  uint64
 	desc   string
+	mu     sync.Mutex
 
 	// 以下字段会在Update时更新.
 	state   AppState
@@ -73,23 +76,34 @@ func (app *UIApp) LimitRSS() uint64 {
 	return app.limit
 }
 func (app *UIApp) IsLive() bool {
-	return app.state != AppStateDead
+	app.mu.Lock()
+	result := app.state != AppStateDead
+	app.mu.Unlock()
+	return result
 }
 
 func (app *UIApp) SetStateEnd() {
+	app.mu.Lock()
+
 	if app.state == AppStateInit {
 		logger.Debug("UIApp.SetStateEnd", app)
 		app.state = AppStateEnd
 	}
+
+	app.mu.Unlock()
 }
 
 func (app *UIApp) maybeDestroy() {
+	app.mu.Lock()
+
 	if app.state != AppStateEnd {
+		app.mu.Unlock()
 		return
 	}
 	// state End -> Dead
 
 	app.state = AppStateDead
+	app.mu.Unlock()
 	logger.Debug("dead", app)
 
 	err := app.cg.Delete(cgroup.DeleteFlagEmptyOnly)
