@@ -31,8 +31,8 @@ import (
 // If not, create it and set as default.
 func CheckLogin() error {
 	r := C.check_login()
-	if r != C.int(0) {
-		return fmt.Errorf("Failed to check login keyring")
+	if r != 0 {
+		return fmt.Errorf("failed to check login keyring")
 	}
 	return nil
 }

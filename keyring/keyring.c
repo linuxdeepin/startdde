@@ -24,26 +24,27 @@
 
 #define KEYRING_LOGIN "login"
 
-static gboolean is_default_name(char *name);
-static gboolean is_name_exist(char *name);
+static gboolean is_default_keyring(char *name);
+static gboolean is_keyring_exist(char *name);
 
 int
 check_login()
 {
-    if (is_default_name(KEYRING_LOGIN)) {
+    if (is_default_keyring(KEYRING_LOGIN)) {
         return 0;
     }
 
-    if (is_name_exist(KEYRING_LOGIN)) {
-        return 0;
+    GnomeKeyringResult r;
+    if (!is_keyring_exist(KEYRING_LOGIN)) {
+        // create login keyring
+        r = gnome_keyring_create_sync(KEYRING_LOGIN, "");
+        if (r != GNOME_KEYRING_RESULT_OK) {
+            g_warning("Failed to create keyring: %d", r);
+            return -1;
+        }
     }
 
-    GnomeKeyringResult r = gnome_keyring_create_sync(KEYRING_LOGIN, "");
-    if (r != GNOME_KEYRING_RESULT_OK) {
-        g_warning("Failed to create keyring: %d", r);
-        return -1;
-    }
-
+    // set login as default keyring
     r = gnome_keyring_set_default_keyring_sync(KEYRING_LOGIN);
     if (r != GNOME_KEYRING_RESULT_OK) {
         g_warning("Failed to set default keyring: %d", r);
@@ -53,7 +54,7 @@ check_login()
 }
 
 static gboolean
-is_default_name(char *name)
+is_default_keyring(char *name)
 {
     char *cur = NULL;
     GnomeKeyringResult r = gnome_keyring_get_default_keyring_sync(&cur);
@@ -73,7 +74,7 @@ is_default_name(char *name)
 }
 
 static gboolean
-is_name_exist(char *name)
+is_keyring_exist(char *name)
 {
     GList *list = NULL;
     GnomeKeyringResult r = gnome_keyring_list_keyring_names_sync(&list);
@@ -88,8 +89,7 @@ is_name_exist(char *name)
 
     GList *elem = NULL;
     gboolean ret = FALSE;
-    for (elem = list; elem; elem = g_list_next(list)){
-        g_debug("Keyring name: %s\n", (gchar*)(elem->data));
+    for (elem = list; elem; elem = g_list_next(elem)){
         if (g_str_equal(name, (gchar*)(elem->data))) {
             ret = TRUE;
             break;
