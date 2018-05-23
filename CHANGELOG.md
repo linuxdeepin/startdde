@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [3.1.30] - 2018-05-23
+*   fix(keyring): `check_login` infinite loop
+*   fix(swapsched): data race problem
+
 ## [3.1.29] - 2018-05-14
 *   fix(wm): fix genCardConfig when not found any video card
 *   fix(watchdog): dde-polkit-agent running state check wrong
