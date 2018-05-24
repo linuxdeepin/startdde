@@ -1,13 +1,15 @@
 PREFIX = /usr
 GOPATH_DIR = gopath
 GOPKG_PREFIX = pkg.deepin.io/dde/startdde
-GOBUILD = go build
+GOBUILD = go build -v
+ARCH = $(shell uname -m)
 
 ifdef USE_GCCGO
-	GOLDFLAGS = -Os -O2
-	GOLDFLAGS += $(shell pkg-config --libs gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 xi libpulse-simple alsa gnome-keyring-1 xfixes xcursor)
-	GOLDFLAGS += -lm
-	GOBUILD += -compiler gccgo -gccgoflags "${GOLDFLAGS}"
+	extra_gccgo_flags = -Os -O2
+	ifeq ($(ARCH),sw_64)
+		extra_gccgo_flags += -mieee
+	endif
+	GOBUILD = gccgo_build.pl -p "gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 xi libpulse-simple alsa gnome-keyring-1 xfixes xcursor" -f "${extra_gccgo_flags}"
 endif
 
 all: build
@@ -26,7 +28,7 @@ else
 endif
 
 startdde:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -v -o startdde
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
 
 build: prepare startdde auto_launch_json
 

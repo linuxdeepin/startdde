@@ -1,6 +1,9 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 export GOPATH := /usr/share/gocode
+ifeq ($(DEB_BUILD_ARCH),sw_64)
+	export USE_GCCGO=1
+endif
 
 ifeq ($(DEB_BUILD_ARCH),mips64el)
 	export AUTO_LAUNCH_DCC=1
@@ -15,11 +18,9 @@ override_dh_shlibdeps:
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/tmp
 
-#override_dh_strip:
-#	true
-
-
-ifdef USE_GCCGO
+ifeq ($(DEB_BUILD_ARCH),sw_64)
 override_dh_strip:
+	true
+override_dh_auto_test:
 	true
 endif
