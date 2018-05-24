@@ -38,6 +38,7 @@ func Start(logger *log.Logger) error {
 	_s = new(Switcher)
 	_s.logger = logger
 	_s.init()
+	_s.listenStartupReady()
 	_s.listenWMChanged()
 	_s.initSogou()
 

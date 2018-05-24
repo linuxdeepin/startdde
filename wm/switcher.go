@@ -24,7 +24,8 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"time"
+
+	libwm "dbus/com/deepin/wm"
 
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
@@ -61,32 +62,19 @@ type Switcher struct {
 	info   *configInfo
 	mu     sync.Mutex
 
-	currentWM string
-	WMChanged func(string)
+	wm             *libwm.Wm
+	wmStartupCount int
+	currentWM      string
+	WMChanged      func(string)
 }
 
 func (s *Switcher) setCurrentWM(name string) {
-	var changed bool
 	s.mu.Lock()
 	if s.currentWM != name {
 		s.currentWM = name
 		s.emitSignalWMChanged(name)
-		changed = true
 	}
 	s.mu.Unlock()
-
-	if changed {
-		// show osd
-		go func() {
-			time.Sleep(1 * time.Second)
-			switch name {
-			case deepin3DWM:
-				showOSD(osdSwitch3DWM)
-			case deepin2DWM:
-				showOSD(osdSwitch2DWM)
-			}
-		}()
-	}
 }
 
 // CurrentWM show the current window manager
@@ -205,6 +193,31 @@ func (s *Switcher) init() {
 		return
 	}
 	s.goodWM = s.info.AllowSwitch
+}
+
+func (s *Switcher) listenStartupReady() {
+	var err error
+	s.wm, err = libwm.NewWm("com.deepin.wm", "/com/deepin/wm")
+	if err != nil {
+		panic(err)
+	}
+
+	s.wm.ConnectStartupReady(func(wmName string) {
+		s.mu.Lock()
+		count := s.wmStartupCount
+		s.wmStartupCount++
+		s.mu.Unlock()
+		s.logger.Debug("receive signal StartupReady", wmName, count)
+
+		if count > 0 {
+			switch wmName {
+			case deepin3DWM:
+				showOSD(osdSwitch3DWM)
+			case deepin2DWM:
+				showOSD(osdSwitch2DWM)
+			}
+		}
+	})
 }
 
 func (s *Switcher) listenWMChanged() {
