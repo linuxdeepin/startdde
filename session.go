@@ -22,6 +22,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"sync"
 	"time"
@@ -227,6 +228,12 @@ func initSwapSched() {
 	err := cgroup.Init()
 	if err != nil {
 		logger.Warning(err)
+		return
+	}
+
+	globalCgExecBin, err = exec.LookPath("cgexec")
+	if err != nil {
+		logger.Warning("cgexec not found:", err)
 		return
 	}
 

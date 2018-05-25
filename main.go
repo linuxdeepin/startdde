@@ -48,6 +48,8 @@ var debug = flag.Bool("d", false, "debug")
 
 var globalGSettingsConfig *GSettingsConfig
 
+var globalCgExecBin string
+
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
 	// Because the startdde may be launched by exec syscall

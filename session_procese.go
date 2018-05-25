@@ -96,7 +96,7 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 		cgroupPath := swapSchedDispatcher.GetDECGroup()
 		argsTemp := []string{"-g", "memory:" + cgroupPath, bin}
 		args = append(argsTemp, args...)
-		bin = "cgexec"
+		bin = globalCgExecBin
 	}
 	logger.Debugf("sessionManager.launch %q %v", bin, args)
 

@@ -276,7 +276,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 	var cmd *exec.Cmd
 	if uiApp != nil {
 		args = append([]string{"-g", "memory:" + uiApp.GetCGroup(), exe}, args...)
-		cmd = exec.Command("cgexec", args...)
+		cmd = exec.Command(globalCgExecBin, args...)
 	} else {
 		cmd = exec.Command(exe, args...)
 	}
@@ -338,7 +338,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	var uiApp *swapsched.UIApp
 	if swapSchedDispatcher != nil {
 		if isDEComponent(appInfo) {
-			cmdPrefixes = []string{"cgexec", "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
+			cmdPrefixes = []string{globalCgExecBin, "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
 		} else {
 			limit := &swapsched.AppResourcesLimit{
 				MemHardLimit:  maxRAM * 1e6,
@@ -351,7 +351,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 				logger.Warning("dispatcher.NewApp error:", err)
 			} else {
 				logger.Debug("launch: use cgexec")
-				cmdPrefixes = []string{"cgexec", "-g",
+				cmdPrefixes = []string{globalCgExecBin, "-g",
 					"memory,freezer,blkio:" + uiApp.GetCGroup()}
 			}
 		}
