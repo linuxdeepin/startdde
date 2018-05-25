@@ -9,7 +9,7 @@ ifdef USE_GCCGO
 	ifeq ($(ARCH),sw_64)
 		extra_gccgo_flags += -mieee
 	endif
-	GOBUILD = gccgo_build.pl -p "gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 xi libpulse-simple alsa gnome-keyring-1 xfixes xcursor" -f "${extra_gccgo_flags}"
+	GOBUILD = gccgo_build.pl -p "gio-2.0 gtk+-3.0 gdk-pixbuf-xlib-2.0 x11 xi libpulse-simple alsa gnome-keyring-1 xfixes xcursor" -f "${extra_gccgo_flags}" -l "m"
 endif
 
 all: build
