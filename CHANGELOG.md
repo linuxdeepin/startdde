@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [3.1.31] - 2018-05-30
+*   feat(wm): show osd after receive wm StartupReady signal
+*   fix: can't log into session because of .Xauthority
+*   feat(swapsched): check cgexec existence
+*   chore: update makefile
+*   chore: update makefile for arch `sw_64`
+
 ## [3.1.30] - 2018-05-23
 *   fix(keyring): `check_login` infinite loop
 *   fix(swapsched): data race problem
