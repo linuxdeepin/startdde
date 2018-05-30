@@ -5,7 +5,7 @@ Maintainer: Deepin Packages Builder <packages@deepin.com>
 Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  golang-dlib-dev,
  golang-github-burntsushi-xgbutil-dev,
- dde-go-dbus-factory(>= 2.92.1),
+ dde-go-dbus-factory(>= 3.1.16),
  dde-api-dev(>= 3.0.8),
  libgnome-keyring-dev,
  libxfixes-dev,
