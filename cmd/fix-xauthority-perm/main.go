@@ -1,0 +1,78 @@
+package main
+
+import (
+	"errors"
+	"log"
+	"os"
+	"path/filepath"
+	"strconv"
+	"syscall"
+
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
+	"pkg.deepin.io/lib/dbus1"
+)
+
+func init() {
+	log.SetFlags(log.Lshortfile)
+}
+
+func fix(conn *dbus.Conn, userPath string) error {
+	userObj, err := accounts.NewUser(conn, dbus.ObjectPath(userPath))
+	if err != nil {
+		return err
+	}
+	homeDir, err := userObj.HomeDir().Get(0)
+	if err != nil {
+		return err
+	}
+	uidStr, err := userObj.Uid().Get(0)
+	if err != nil {
+		return err
+	}
+
+	uid, err := strconv.Atoi(uidStr)
+	if err != nil {
+		return err
+	}
+
+	xAuthFile := filepath.Join(homeDir, ".Xauthority")
+	fileInfo, err := os.Stat(xAuthFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return err
+	}
+
+	sysStat, ok := fileInfo.Sys().(*syscall.Stat_t)
+	if !ok {
+		return errors.New("failed to convert fileInfo.Sys() to *syscall.Stat_t")
+	}
+
+	if int(sysStat.Uid) != uid {
+		err := os.Chown(xAuthFile, uid, uid)
+		if err != nil {
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func main() {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		log.Fatal(err)
+	}
+	accountsObj := accounts.NewAccounts(sysBus)
+	userList, err := accountsObj.UserList().Get(0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, userPath := range userList {
+		err := fix(sysBus, userPath)
+		if err != nil {
+			log.Println(err)
+		}
+	}
+}

@@ -30,14 +30,17 @@ endif
 startdde:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
 
-build: prepare startdde auto_launch_json
+fix-xauthority-perm:
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
+
+build: prepare startdde auto_launch_json fix-xauthority-perm
 
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
 	install -Dm755 misc/deepin-session ${DESTDIR}${PREFIX}/sbin/deepin-session
-	install -Dm755 misc/clean_xauthority ${DESTDIR}${PREFIX}/sbin/clean_xauthority
+	install -Dm755 fix-xauthority-perm ${DESTDIR}${PREFIX}/sbin/deepin-fix-xauthority-perm
 	install -Dm644 misc/lightdm.conf ${DESTDIR}${PREFIX}/share/lightdm/lightdm.conf.d/60-deepin.conf
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
 	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
