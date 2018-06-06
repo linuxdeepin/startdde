@@ -290,7 +290,7 @@ func newSessionManager() *SessionManager {
 
 func (manager *SessionManager) launchWindowManager() {
 	logger.Debug("Will launch wm")
-	err := wm.Start(logger)
+	err := wm.Start(logger, globalWmChooserLaunched)
 	if err != nil {
 		logger.Error("Failed to start wm module:", err)
 		return

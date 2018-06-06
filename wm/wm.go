@@ -30,12 +30,13 @@ import (
 var _s *Switcher
 
 // Start launch wm
-func Start(logger *log.Logger) error {
+func Start(logger *log.Logger, wmChooserLaunched bool) error {
 	if _s != nil {
 		return nil
 	}
 
 	_s = new(Switcher)
+	_s.wmChooserLaunched = wmChooserLaunched
 	_s.logger = logger
 	_s.init()
 	_s.listenStartupReady()

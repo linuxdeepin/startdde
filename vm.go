@@ -25,10 +25,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
-	"strings"
 )
 
 func tryMatchVM() {
@@ -46,6 +47,7 @@ func tryMatchVM() {
 	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin", "deepin-wm-switcher", "config.json")
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
 		err := exec.Command("dde-wm-chooser", "-c", cfgFile).Run()
+		globalWmChooserLaunched = true
 		if err != nil {
 			logger.Warning(err)
 		}

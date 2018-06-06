@@ -62,10 +62,11 @@ type Switcher struct {
 	info   *configInfo
 	mu     sync.Mutex
 
-	wm             *libwm.Wm
-	wmStartupCount int
-	currentWM      string
-	WMChanged      func(string)
+	wm                *libwm.Wm
+	wmStartupCount    int
+	currentWM         string
+	WMChanged         func(string)
+	wmChooserLaunched bool
 }
 
 func (s *Switcher) setCurrentWM(name string) {
@@ -176,6 +177,11 @@ func (s *Switcher) isCardChange() (change bool) {
 			s.logger.Warning("failed to save card infos:", err)
 		}
 	}
+
+	if s.wmChooserLaunched {
+		change = false
+	}
+
 	return change
 }
 

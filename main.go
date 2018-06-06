@@ -50,6 +50,8 @@ var globalGSettingsConfig *GSettingsConfig
 
 var globalCgExecBin string
 
+var globalWmChooserLaunched bool
+
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
 	// Because the startdde may be launched by exec syscall
