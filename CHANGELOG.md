@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+## [3.1.32] - 2018-06-07
+*   fix(wm): select wm in dde-wm-chooser but it doesn't work
+*   feat: add bin fix-xauthority-perm
+*   chore: update build-depends
+
 ## [3.1.31] - 2018-05-30
 *   feat(wm): show osd after receive wm StartupReady signal
 *   fix: can't log into session because of .Xauthority
