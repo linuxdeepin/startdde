@@ -22,6 +22,7 @@ package display
 import (
 	"fmt"
 	"math"
+
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
 
@@ -102,29 +103,25 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 
 func (dpy *Manager) initBrightness() {
 	value := dpy.setting.GetString(gsKeyBrightness)
-	tmp := make(map[string]float64)
+	brightnessTable := make(map[string]float64)
 	if len(value) != 0 {
-		err := jsonUnmarshal(value, &tmp)
+		err := jsonUnmarshal(value, &brightnessTable)
 		if err != nil {
 			logger.Warningf("[initBrightness] unmarshal (%s) failed: %v",
 				value, err)
 		}
 	}
 
-	setter := dpy.setting.GetString(gsKeySetter)
 	for _, info := range dpy.outputInfos {
-		if _, ok := tmp[info.Name]; ok {
+		if _, ok := brightnessTable[info.Name]; ok {
 			continue
 		}
 
-		b, err := brightness.Get(setter, info.Id, dpy.conn)
-		if err == nil {
-			tmp[info.Name] = b
-		}
+		brightnessTable[info.Name] = 1
 	}
 
-	for k, v := range tmp {
-		dpy.doSetBrightness(v, k)
+	for name, value := range brightnessTable {
+		dpy.doSetBrightness(value, name)
 	}
 }
 
