@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+## [3.1.33] - 2018-06-13
+*   feat(display): set default brightness of output to 1
+
 ## [3.1.32] - 2018-06-07
 *   fix(wm): select wm in dde-wm-chooser but it doesn't work
 *   feat: add bin fix-xauthority-perm
