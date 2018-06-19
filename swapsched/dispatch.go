@@ -174,28 +174,39 @@ func (d *Dispatcher) shouldApplyLimit(memInfo ProcMemoryInfo) bool {
 func (d *Dispatcher) sample() (MemInfo, bool) {
 	var info MemInfo
 	procMemInfo := getProcMemoryInfo()
+	shouldApplyLimit := d.shouldApplyLimit(procMemInfo)
 	info.TotalRAM = procMemInfo.MemTotal
 	info.TotalRSSFree = procMemInfo.MemAvailable
 	info.TotalUsedSwap = procMemInfo.SwapTotal - procMemInfo.SwapFree
 
 	info.n = len(d.inactiveApps)
 
-	for _, app := range d.inactiveApps {
-		app.Update()
-		info.InactiveAppsRSS += app.rssUsed
-	}
+	if shouldApplyLimit {
+		for _, app := range d.inactiveApps {
+			app.Update()
+			info.InactiveAppsRSS += app.rssUsed
+		}
 
-	if d.activeApp != nil {
-		d.activeApp.Update()
-		info.ActiveAppRSS = d.activeApp.rssUsed
-		if info.TotalUsedSwap != 0 {
-			info.ActiveAppSWAP = getProcessesSwap(d.activeApp.pids...)
-		} else {
-			info.ActiveAppSWAP = 0
+		if d.activeApp != nil {
+			d.activeApp.Update()
+			info.ActiveAppRSS = d.activeApp.rssUsed
+			if info.TotalUsedSwap != 0 {
+				info.ActiveAppSWAP = getProcessesSwap(d.activeApp.pids...)
+			} else {
+				info.ActiveAppSWAP = 0
+			}
+		}
+
+	} else {
+		// only update pids of apps
+		for _, app := range d.inactiveApps {
+			app.updatePids()
+		}
+		if d.activeApp != nil {
+			d.activeApp.updatePids()
 		}
 	}
-
-	return info, d.shouldApplyLimit(procMemInfo)
+	return info, shouldApplyLimit
 }
 
 var debugBalance bool

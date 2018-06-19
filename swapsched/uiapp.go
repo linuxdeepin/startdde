@@ -46,15 +46,16 @@ func (app *UIApp) HasChild(pid int) bool {
 
 // Update 更新 rssUsed以及pids字段, 若len(pids)为0, 则尝试释放此uiapp
 func (app *UIApp) Update() {
-	app.pids, _ = app.cg.GetProcs(cgroup.Memory)
-
-	if len(app.pids) == 0 {
-		app.maybeDestroy()
-		return
-	}
-
+	app.updatePids()
 	ctl := app.cg.GetController(cgroup.Memory)
 	app.rssUsed = getRSSUsed(ctl)
+}
+
+func (app *UIApp) updatePids() {
+	app.pids, _ = app.cg.GetProcs(cgroup.Memory)
+	if len(app.pids) == 0 {
+		app.maybeDestroy()
+	}
 }
 
 func (app *UIApp) SetLimitRSS(v uint64) error {
