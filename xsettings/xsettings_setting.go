@@ -20,11 +20,10 @@
 package xsettings
 
 import (
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xproto"
-	"github.com/BurntSushi/xgbutil"
-	"github.com/BurntSushi/xgbutil/xprop"
 	"os"
+
+	"github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
 )
 
 const (
@@ -36,13 +35,13 @@ const (
 	xsDataFormat = 8
 )
 
-func getSelectionOwner(prop string, conn *xgb.Conn) (xproto.Window, error) {
+func getSelectionOwner(prop string, conn *x.Conn) (x.Window, error) {
 	atom, err := getAtomByProp(prop, conn)
 	if err != nil {
 		return 0, err
 	}
 
-	reply, err := xproto.GetSelectionOwner(conn, atom).Reply()
+	reply, err := x.GetSelectionOwner(conn, atom).Reply(conn)
 	if err != nil {
 		return 0, err
 	}
@@ -50,7 +49,7 @@ func getSelectionOwner(prop string, conn *xgb.Conn) (xproto.Window, error) {
 	return reply.Owner, nil
 }
 
-func isSelectionOwned(prop string, wid xproto.Window, conn *xgb.Conn) bool {
+func isSelectionOwned(prop string, wid x.Window, conn *x.Conn) bool {
 	owner, err := getSelectionOwner(prop, conn)
 	if err != nil {
 		return false
@@ -63,24 +62,18 @@ func isSelectionOwned(prop string, wid xproto.Window, conn *xgb.Conn) bool {
 	return true
 }
 
-func getAtomByProp(prop string, conn *xgb.Conn) (xproto.Atom, error) {
-	reply, err := xproto.InternAtom(conn, false,
-		uint16(len(prop)), prop).Reply()
-	if err != nil {
-		return 0, err
-	}
-
-	return reply.Atom, nil
+func getAtomByProp(prop string, conn *x.Conn) (x.Atom, error) {
+	return conn.GetAtom(prop)
 }
 
-func getSettingPropValue(owner xproto.Window, conn *xgb.Conn) ([]byte, error) {
+func getSettingPropValue(owner x.Window, conn *x.Conn) ([]byte, error) {
 	atom, err := getAtomByProp(settingPropSettings, conn)
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err := xproto.GetProperty(conn, false, owner,
-		atom, atom, 0, 10240).Reply()
+	reply, err := x.GetProperty(conn, false, owner,
+		atom, atom, 0, 10240).Reply(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -88,58 +81,53 @@ func getSettingPropValue(owner xproto.Window, conn *xgb.Conn) ([]byte, error) {
 	return reply.Value, nil
 }
 
-func changeSettingProp(owner xproto.Window, data []byte, conn *xgb.Conn) error {
+func changeSettingProp(owner x.Window, data []byte, conn *x.Conn) error {
 	atom, err := getAtomByProp(settingPropSettings, conn)
 	if err != nil {
 		return err
 	}
 
-	return xproto.ChangePropertyChecked(conn, xproto.PropModeReplace,
+	return x.ChangePropertyChecked(conn, x.PropModeReplace,
 		owner, atom, atom,
-		xsDataFormat, uint32(len(data)), data).Check()
+		xsDataFormat, data).Check(conn)
 }
 
-func createSettingWindow(conn *xgb.Conn) (xproto.Window, error) {
+func createSettingWindow(conn *x.Conn) (x.Window, error) {
 	screenAtom, err := getAtomByProp(settingPropScreen, conn)
 	if err != nil {
 		return 0, err
 	}
 
-	wid, err := xproto.NewWindowId(conn)
+	xid, err := conn.AllocID()
 	if err != nil {
 		return 0, err
 	}
+	wid := x.Window(xid)
 
-	var screen = xproto.Setup(conn).DefaultScreen(conn)
-	err = xproto.CreateWindowChecked(conn, 0, wid, screen.Root,
+	root := conn.GetDefaultScreen().Root
+	err = x.CreateWindowChecked(conn, 0, wid, root,
 		0, 0, 1, 1, 0,
-		xproto.WindowClassInputOnly, screen.RootVisual,
-		0, nil).Check()
+		x.WindowClassInputOnly, x.CopyFromParent,
+		0, nil).Check(conn)
 	if err != nil {
 		return 0, err
 	}
 
-	err = changeWindowPid(wid)
+	err = changeWindowPid(conn, wid)
 	if err != nil {
 		return 0, err
 	}
 
-	err = xproto.SetSelectionOwnerChecked(conn, wid, screenAtom,
-		xproto.TimeCurrentTime).Check()
+	err = x.SetSelectionOwnerChecked(conn, wid, screenAtom,
+		x.CurrentTime).Check(conn)
 	if err != nil {
 		return 0, err
 	}
 
-	conn.Sync()
 	return wid, nil
 }
 
-func changeWindowPid(wid xproto.Window) error {
-	xu, err := xgbutil.NewConn()
-	if err != nil {
-		return err
-	}
-
-	return xprop.ChangeProp32(xu, wid,
-		"_NET_WM_PID", "CARDINAL", uint(os.Getpid()))
+func changeWindowPid(conn *x.Conn, wid x.Window) error {
+	pid := uint32(os.Getpid())
+	return ewmh.SetWMPidChecked(conn, wid, pid).Check(conn)
 }

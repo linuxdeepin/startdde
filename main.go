@@ -32,7 +32,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/BurntSushi/xgbutil"
+	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
@@ -71,7 +71,7 @@ func main() {
 	reapZombies()
 
 	// init x conn
-	xu, err := xgbutil.NewConn()
+	xConn, err := x.NewConn()
 	if err != nil {
 		logger.Warning(err)
 		os.Exit(1)
@@ -98,7 +98,7 @@ func main() {
 	}
 	proxy.SetupProxy()
 
-	xsettings.Start(xu.Conn(), logger)
+	xsettings.Start(xConn, logger)
 
 	go func() {
 		display.Start()
@@ -109,7 +109,7 @@ func main() {
 		}
 	}()
 
-	startSession(xu)
+	startSession(xConn)
 
 	if canLaunch {
 		err = showWelcome(false)

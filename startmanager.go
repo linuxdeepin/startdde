@@ -33,6 +33,7 @@ import (
 	"dbus/com/deepin/daemon/apps"
 
 	"gir/gio-2.0"
+	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
@@ -42,8 +43,6 @@ import (
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
-
-	"github.com/BurntSushi/xgbutil"
 )
 
 const (
@@ -110,7 +109,7 @@ func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
 	}
 }
 
-func newStartManager(xu *xgbutil.XUtil) *StartManager {
+func newStartManager(conn *x.Conn) *StartManager {
 	m := &StartManager{}
 
 	m.appsDir = getAppDirs()
@@ -139,7 +138,7 @@ func newStartManager(xu *xgbutil.XUtil) *StartManager {
 	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
-	m.launchContext = appinfo.NewAppLaunchContext(xu)
+	m.launchContext = appinfo.NewAppLaunchContext(conn)
 	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
@@ -797,8 +796,8 @@ func (m *StartManager) IsAutostart(filename string) bool {
 	return m.isAutostart(filename)
 }
 
-func startStartManager(xu *xgbutil.XUtil) {
-	START_MANAGER = newStartManager(xu)
+func startStartManager(conn *x.Conn) {
+	START_MANAGER = newStartManager(conn)
 	if err := dbus.InstallOnSession(START_MANAGER); err != nil {
 		logger.Error("Install StartManager Failed:", err)
 	}

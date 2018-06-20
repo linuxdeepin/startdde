@@ -1,52 +1,66 @@
 package swapsched
 
 import (
-	"github.com/BurntSushi/xgb/xproto"
-	"github.com/BurntSushi/xgbutil"
-	"github.com/BurntSushi/xgbutil/xevent"
-	"github.com/BurntSushi/xgbutil/xprop"
-	"github.com/BurntSushi/xgbutil/xwindow"
+	"github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
 )
 
 type ActiveWindowHandler func(int, int)
 
 func (cb ActiveWindowHandler) Monitor() error {
-	xu, err := xgbutil.NewConn()
+	conn, err := x.NewConn()
 	if err != nil {
-		return err
-	}
-	root := xu.RootWin()
-	xwindow.New(xu, root).Listen(xproto.EventMaskPropertyChange)
-
-	AtomNetActiveWindow, err := xprop.Atm(xu, "_NET_ACTIVE_WINDOW")
-	if err != nil {
-		logger.Warning("failed to get _NET_ACTIVE_WINDOW atom")
+		logger.Warning(err)
 		return err
 	}
 
-	xevent.PropertyNotifyFun(
-		func(X *xgbutil.XUtil, e xevent.PropertyNotifyEvent) {
-			if e.Atom != AtomNetActiveWindow {
-				return
-			}
+	root := conn.GetDefaultScreen().Root
+	err = x.ChangeWindowAttributesChecked(conn, root, x.CWEventMask, []uint32{
+		x.EventMaskPropertyChange}).Check(conn)
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
 
-			activeWin, err := xprop.PropValWindow(xprop.GetProperty(xu, root, "_NET_ACTIVE_WINDOW"))
+	atomNetActiveWindow, err := conn.GetAtom("_NET_ACTIVE_WINDOW")
+	if err != nil {
+		logger.Warning("failed to get _NET_ACTIVE_WINDOW atom:", err)
+		return err
+	}
+
+	eventChan := make(chan x.GenericEvent, 10)
+	conn.AddEventChan(eventChan)
+
+	handlePropNotifyEvent := func(event *x.PropertyNotifyEvent) {
+		if event.Atom != atomNetActiveWindow || event.Window != root {
+			return
+		}
+
+		activeWin, err := ewmh.GetActiveWindow(conn).Reply(conn)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		if activeWin != 0 {
+			pid, err := ewmh.GetWMPid(conn, activeWin).Reply(conn)
 			if err != nil {
 				logger.Warning(err)
 				return
 			}
-			if activeWin != 0 {
-				pid, err := xprop.PropValNum(xprop.GetProperty(xu, activeWin, "_NET_WM_PID"))
-				if err != nil {
-					logger.Warningf("failed to get pid for window %d: %v", activeWin, err)
-					return
-				}
-				if pid != 0 && cb != nil {
-					cb(int(pid), int(activeWin))
-				}
+			if pid != 0 && cb != nil {
+				cb(int(pid), int(activeWin))
 			}
-		}).Connect(xu, root)
-	xevent.Main(xu)
+		}
+	}
+
+	for ev := range eventChan {
+		switch ev.GetEventCode() {
+		case x.PropertyNotifyEventCode:
+			event, _ := x.NewPropertyNotifyEvent(ev)
+			handlePropNotifyEvent(event)
+		}
+	}
 	return nil
 }
 

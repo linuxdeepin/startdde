@@ -21,11 +21,12 @@ package display
 
 import (
 	"fmt"
-	"github.com/BurntSushi/xgb/xproto"
+	"strings"
+
+	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/api/drandr"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/strv"
-	"strings"
 )
 
 const (
@@ -95,7 +96,7 @@ func (dpy *Manager) setPropCustomIdList(list []string) {
 	dbus.NotifyChange(dpy, "CustomIdList")
 }
 
-func (dpy *Manager) setPropPrimaryRect(v xproto.Rectangle) {
+func (dpy *Manager) setPropPrimaryRect(v x.Rectangle) {
 	if dpy.PrimaryRect.X != v.X || dpy.PrimaryRect.Y != v.Y ||
 		dpy.PrimaryRect.Width != v.Width || dpy.PrimaryRect.Height != v.Height {
 		dpy.PrimaryRect = v

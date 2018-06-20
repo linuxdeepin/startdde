@@ -21,19 +21,19 @@ package display
 
 import (
 	"fmt"
-	"gir/gio-2.0"
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/randr"
-	"github.com/BurntSushi/xgb/xproto"
 	"os"
-	"pkg.deepin.io/dde/api/drandr"
-	"pkg.deepin.io/lib/dbus"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/utils"
 	"regexp"
 	"sort"
 	"strings"
 	"sync"
+
+	"gir/gio-2.0"
+	"github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/dde/api/drandr"
+	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/utils"
 )
 
 const (
@@ -57,11 +57,11 @@ const (
 )
 
 type Manager struct {
-	conn           *xgb.Conn
+	conn           *x.Conn
 	outputInfos    drandr.OutputInfos
 	modeInfos      drandr.ModeInfos
 	config         *configManager
-	lastConfigTime xproto.Timestamp
+	lastConfigTime x.Timestamp
 
 	HasChanged      bool
 	DisplayMode     uint8
@@ -70,7 +70,7 @@ type Manager struct {
 	Primary         string
 	CurrentCustomId string
 	CustomIdList    []string
-	PrimaryRect     xproto.Rectangle
+	PrimaryRect     x.Rectangle
 	Monitors        MonitorInfos
 	// TODO rename Brightness to brightness, prefer to use GetBrightness() to get the brightness info
 	Brightness      map[string]float64
@@ -98,7 +98,7 @@ func SetLogLevel(level log.Priority) {
 }
 
 func newManager() (*Manager, error) {
-	conn, err := xgb.NewConn()
+	conn, err := x.NewConn()
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +165,8 @@ func (dpy *Manager) init() {
 	dpy.checkConfigVersion()
 
 	dpy.setPropCustomIdList(dpy.getCustomIdList())
+
+	dpy.listenEvent()
 	err := dpy.tryApplyConfig()
 	if err != nil {
 		logger.Error("Try apply settings failed for init:", err)
@@ -444,25 +446,25 @@ func (dpy *Manager) doSetPrimary(name string, effectRect, useConfig bool) error 
 		dpy.setPropPrimary(name)
 		if effectRect {
 			var (
-				x int16
+				X int16
 				y int16
 				w uint16
 				h uint16
 			)
 
 			if useConfig {
-				x = m.cfg.X
+				X = m.cfg.X
 				y = m.cfg.Y
 				w, h = parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
-				logger.Debug("------------Config rect:", x, y, w, h, m.cfg.Rotation)
+				logger.Debug("------------Config rect:", X, y, w, h, m.cfg.Rotation)
 			} else {
-				x = m.X
+				X = m.X
 				y = m.Y
 				w, h = m.Width, m.Height
-				logger.Debug("------------Monitor rect:", x, y, w, h, m.Rotation)
+				logger.Debug("------------Monitor rect:", X, y, w, h, m.Rotation)
 			}
-			dpy.setPropPrimaryRect(xproto.Rectangle{
-				X:      x,
+			dpy.setPropPrimaryRect(x.Rectangle{
+				X:      X,
 				Y:      y,
 				Width:  w,
 				Height: h,
@@ -490,7 +492,7 @@ func (dpy *Manager) trySetPrimary(effectRect bool) error {
 		}
 		dpy.setPropPrimary(m.Name)
 		if effectRect {
-			dpy.setPropPrimaryRect(xproto.Rectangle{
+			dpy.setPropPrimaryRect(x.Rectangle{
 				X:      m.X,
 				Y:      m.Y,
 				Width:  m.Width,

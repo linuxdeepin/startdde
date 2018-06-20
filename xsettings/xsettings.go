@@ -23,8 +23,7 @@ import (
 	"fmt"
 
 	"gir/gio-2.0"
-	"github.com/BurntSushi/xgb"
-	"github.com/BurntSushi/xgb/xproto"
+	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
@@ -38,8 +37,8 @@ var logger *log.Logger
 
 // XSManager xsettings manager
 type XSManager struct {
-	conn  *xgb.Conn
-	owner xproto.Window
+	conn  *x.Conn
+	owner x.Window
 
 	gs *gio.Settings
 }
@@ -50,7 +49,7 @@ type xsSetting struct {
 	value interface{} // int32, string, [4]int16
 }
 
-func NewXSManager(conn *xgb.Conn) (*XSManager, error) {
+func NewXSManager(conn *x.Conn) (*XSManager, error) {
 	var m = &XSManager{
 		conn: conn,
 	}
@@ -58,12 +57,11 @@ func NewXSManager(conn *xgb.Conn) (*XSManager, error) {
 	var err error
 	m.owner, err = createSettingWindow(m.conn)
 	if err != nil {
-		m.conn.Close()
 		return nil, err
 	}
+	logger.Debug("owner:", m.owner)
 
 	if !isSelectionOwned(settingPropScreen, m.owner, m.conn) {
-		m.conn.Close()
 		logger.Errorf("Owned '%s' failed", settingPropSettings)
 		return nil, fmt.Errorf("Owned '%s' failed", settingPropSettings)
 	}
@@ -170,7 +168,7 @@ func (m *XSManager) handleGSettingsChanged() {
 }
 
 // Start load xsettings module
-func Start(conn *xgb.Conn, l *log.Logger) {
+func Start(conn *x.Conn, l *log.Logger) {
 	logger = l
 	m, err := NewXSManager(conn)
 	if err != nil {

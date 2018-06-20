@@ -29,7 +29,7 @@ import (
 
 	"dbus/org/freedesktop/login1"
 
-	"github.com/BurntSushi/xgbutil"
+	"github.com/linuxdeepin/go-x11-client"
 
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
@@ -360,7 +360,7 @@ func (m *SessionManager) launchAutostart() {
 	}
 	m.setPropStage(SessionStageAppsEnd)
 }
-func startSession(xu *xgbutil.XUtil) {
+func startSession(conn *x.Conn) {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -382,7 +382,7 @@ func startSession(xu *xgbutil.XUtil) {
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)
-	startStartManager(xu)
+	startStartManager(conn)
 
 	manager.launchDDE()
 	go func() {

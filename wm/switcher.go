@@ -27,11 +27,8 @@ import (
 
 	libwm "dbus/com/deepin/wm"
 
-	"github.com/BurntSushi/xgb/xproto"
-	"github.com/BurntSushi/xgbutil"
-	"github.com/BurntSushi/xgbutil/xevent"
-	"github.com/BurntSushi/xgbutil/xprop"
-	"github.com/BurntSushi/xgbutil/xwindow"
+	"github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 )
@@ -229,58 +226,73 @@ func (s *Switcher) listenStartupReady() {
 func (s *Switcher) listenWMChanged() {
 	s.currentWM = s.info.LastWM
 
-	xu, err := xgbutil.NewConn()
-	if err != nil {
-		s.logger.Warning(err)
-	}
-
-	root := xu.RootWin()
-	xwindow.New(xu, root).Listen(xproto.EventMaskPropertyChange)
-
-	atomNetSupportingWMCheck, err := xprop.Atm(xu, "_NET_SUPPORTING_WM_CHECK")
+	conn, err := x.NewConn()
 	if err != nil {
 		s.logger.Warning(err)
 		return
 	}
 
-	xevent.PropertyNotifyFun(
-		func(X *xgbutil.XUtil, e xevent.PropertyNotifyEvent) {
-			if e.Atom != atomNetSupportingWMCheck {
+	root := conn.GetDefaultScreen().Root
+	err = x.ChangeWindowAttributesChecked(conn, root, x.CWEventMask, []uint32{
+		x.EventMaskPropertyChange}).Check(conn)
+	if err != nil {
+		s.logger.Warning(err)
+		return
+	}
+
+	atomNetSupportingWMCheck, err := conn.GetAtom("_NET_SUPPORTING_WM_CHECK")
+	if err != nil {
+		s.logger.Warning(err)
+		return
+	}
+
+	eventChan := make(chan x.GenericEvent, 10)
+	conn.AddEventChan(eventChan)
+
+	handlePropNotifyEvent := func(event *x.PropertyNotifyEvent) {
+		if event.Atom != atomNetSupportingWMCheck || event.Window != root {
+			return
+		}
+		switch event.State {
+		case x.PropertyNewValue:
+			win, err := ewmh.GetSupportingWMCheck(conn).Reply(conn)
+			if err != nil {
+				s.logger.Warning(err)
 				return
 			}
+			s.logger.Debug("win:", win)
 
-			switch e.State {
-			case xproto.PropertyNewValue:
-				win, err := xprop.PropValWindow(xprop.GetProperty(xu, root,
-					"_NET_SUPPORTING_WM_CHECK"))
-				if err != nil {
-					s.logger.Warning(err)
-					return
-				}
-				s.logger.Debug("win:", win)
-				wmName, err := xprop.PropValStr(xprop.GetProperty(xu, win, "_NET_WM_NAME"))
-				if err != nil {
-					s.logger.Warning(err)
-					return
-				}
-				s.logger.Debug("wmName:", wmName)
-
-				var currentWM string
-				if wmName == "Metacity" {
-					currentWM = deepin2DWM
-				} else if strings.Contains(wmName, "DeepinGala") {
-					currentWM = deepin3DWM
-				} else {
-					currentWM = unknownWM
-				}
-				s.setCurrentWM(currentWM)
-
-			case xproto.PropertyDelete:
-				s.logger.Debug("wm lost")
+			wmName, err := ewmh.GetWMName(conn, win).Reply(conn)
+			if err != nil {
+				s.logger.Warning(err)
+				return
 			}
+			s.logger.Debug("wmName:", wmName)
 
-		}).Connect(xu, root)
-	go xevent.Main(xu)
+			var currentWM string
+			if wmName == "Metacity" {
+				currentWM = deepin2DWM
+			} else if strings.Contains(wmName, "DeepinGala") {
+				currentWM = deepin3DWM
+			} else {
+				currentWM = unknownWM
+			}
+			s.setCurrentWM(currentWM)
+
+		case x.PropertyDelete:
+			s.logger.Debug("wm lost")
+		}
+	}
+
+	go func() {
+		for ev := range eventChan {
+			switch ev.GetEventCode() {
+			case x.PropertyNotifyEventCode:
+				event, _ := x.NewPropertyNotifyEvent(ev)
+				handlePropNotifyEvent(event)
+			}
+		}
+	}()
 }
 
 func (s *Switcher) initSogou() {

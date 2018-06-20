@@ -22,9 +22,10 @@ package display
 import (
 	"encoding/json"
 	"os/exec"
+	"sort"
+
 	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/api/dxinput/utils"
-	"sort"
 )
 
 type uint16Splice []uint16

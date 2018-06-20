@@ -20,52 +20,59 @@
 package display
 
 import (
-	"github.com/BurntSushi/xgb/randr"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/drandr"
 )
 
 func (dpy *Manager) listenEvent() {
-	randr.SelectInputChecked(dpy.conn, xproto.Setup(dpy.conn).DefaultScreen(dpy.conn).Root,
+	eventChan := make(chan x.GenericEvent, 100)
+	dpy.conn.AddEventChan(eventChan)
+
+	root := dpy.conn.GetDefaultScreen().Root
+	randr.SelectInputChecked(dpy.conn, root,
 		randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|
 			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
-	for {
-		e, err := dpy.conn.WaitForEvent()
-		if err != nil {
-			continue
-		}
-		dpy.eventLocker.Lock()
-		switch ee := e.(type) {
-		case randr.NotifyEvent:
-			switch ee.SubCode {
-			case randr.NotifyCrtcChange:
-			case randr.NotifyOutputChange:
-				dpy.handleOutputChanged(ee)
-			case randr.NotifyOutputProperty:
+
+	rrExtData := dpy.conn.GetExtensionData(randr.Ext())
+
+	go func() {
+		for ev := range eventChan {
+			dpy.eventLocker.Lock()
+			switch ev.GetEventCode() {
+			case randr.NotifyEventCode + rrExtData.FirstEvent:
+				event, _ := randr.NewNotifyEvent(ev)
+				switch event.SubCode {
+				case randr.NotifyOutputChange:
+					ocEv, _ := event.NewOutputChangeNotifyEvent()
+					dpy.handleOutputChanged(ocEv)
+				}
+			case randr.ScreenChangeNotifyEventCode + rrExtData.FirstEvent:
+				event, _ := randr.NewScreenChangeNotifyEvent(ev)
+				dpy.handleScreenChanged(event)
 			}
-		case randr.ScreenChangeNotifyEvent:
-			dpy.handleScreenChanged(ee)
+			dpy.eventLocker.Unlock()
 		}
-		dpy.eventLocker.Unlock()
-	}
+	}()
 }
 
-func (dpy *Manager) handleOutputChanged(ev randr.NotifyEvent) {
-	info := ev.U.Oc
-	if info.Connection != randr.ConnectionConnected && info.Mode != 0 {
-		randr.SetCrtcConfig(dpy.conn, info.Crtc,
+func (dpy *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
+	if ev.Connection != randr.ConnectionConnected && ev.Mode != 0 {
+		randr.SetCrtcConfig(dpy.conn, ev.Crtc,
 			xproto.TimeCurrentTime, dpy.lastConfigTime, 0, 0, 0,
 			randr.RotationRotate0, nil)
 	}
-	if info.Mode == 0 || info.Crtc == 0 {
+	if ev.Mode == 0 || ev.Crtc == 0 {
 		// TODO: if info in blacklist, what happen?
-		dpy.fixOutputNotClosed(info.Output)
+		dpy.fixOutputNotClosed(ev.Output)
 	}
 }
 
 var autoOpenTimes int = 0
 
-func (dpy *Manager) handleScreenChanged(ev randr.ScreenChangeNotifyEvent) {
+func (dpy *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
+	logger.Debugf("handleScreenChanged ev: %#v", ev)
 	// firstly compare plan whether equal
 	oldLen := len(dpy.outputInfos)
 	screenInfo, err := drandr.GetScreenInfo(dpy.conn)

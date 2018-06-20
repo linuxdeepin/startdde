@@ -22,8 +22,9 @@ package xsettings
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/BurntSushi/xgb/xproto"
 	"io"
+
+	"github.com/linuxdeepin/go-x11-client"
 )
 
 func (info *xsDataInfo) modifyProperty(setting xsSetting) xsItemInfos {
@@ -151,7 +152,7 @@ func newXSItemHeader(prop string) *xsItemHeader {
 		unused:           1,
 		nameLen:          int16(len(prop)),
 		name:             prop,
-		lastChangeSerial: xproto.TimeCurrentTime,
+		lastChangeSerial: x.CurrentTime,
 	}
 	header.pad = int(3 - (header.nameLen+3)%4)
 

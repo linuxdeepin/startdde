@@ -22,10 +22,11 @@ package display
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/BurntSushi/xgb/randr"
-	"pkg.deepin.io/dde/api/drandr"
 	"strings"
 	"sync"
+
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/dde/api/drandr"
 )
 
 type MonitorBaseInfo struct {

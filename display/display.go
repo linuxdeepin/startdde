@@ -36,6 +36,5 @@ func Start() error {
 	}
 	_dpy = manager
 	manager.init()
-	go manager.listenEvent()
 	return nil
 }
