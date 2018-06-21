@@ -21,11 +21,13 @@ prepare:
 		fi
 
 auto_launch_json:
-ifdef AUTO_LAUNCH_DCC
-	jq --slurpfile dcc misc/auto_launch/dcc.json '.+$$dcc' misc/auto_launch/source.json > misc/config/auto_launch.json
+ifdef AUTO_LAUNCH_CHINESE
+	cp misc/auto_launch/chinese.json misc/config/auto_launch.json
 else
-	cp misc/auto_launch/source.json misc/config/auto_launch.json
+	cp misc/auto_launch/default.json misc/config/auto_launch.json
 endif
+	# check validity
+	jq . misc/config/auto_launch.json >/dev/null
 
 startdde:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde

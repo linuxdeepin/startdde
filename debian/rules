@@ -3,10 +3,11 @@
 export GOPATH := /usr/share/gocode
 ifeq ($(DEB_BUILD_ARCH),sw_64)
 	export USE_GCCGO=1
+	export AUTO_LAUNCH_CHINESE=1
 endif
 
 ifeq ($(DEB_BUILD_ARCH),mips64el)
-	export AUTO_LAUNCH_DCC=1
+	export AUTO_LAUNCH_CHINESE=1
 endif
 
 %:
