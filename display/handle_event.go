@@ -20,7 +20,6 @@
 package display
 
 import (
-	"github.com/BurntSushi/xgb/xproto"
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/drandr"
@@ -60,7 +59,7 @@ func (dpy *Manager) listenEvent() {
 func (dpy *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	if ev.Connection != randr.ConnectionConnected && ev.Mode != 0 {
 		randr.SetCrtcConfig(dpy.conn, ev.Crtc,
-			xproto.TimeCurrentTime, dpy.lastConfigTime, 0, 0, 0,
+			x.CurrentTime, dpy.lastConfigTime, 0, 0, 0,
 			randr.RotationRotate0, nil)
 	}
 	if ev.Mode == 0 || ev.Crtc == 0 {
