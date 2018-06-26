@@ -135,7 +135,7 @@ func (dpy *Manager) doSetBrightnessAux(fake bool, value float64, name string) er
 		err := brightness.Set(value, dpy.setting.GetString(gsKeySetter),
 			info.Id, dpy.conn)
 		if err != nil {
-			logger.Error("Set brightness to %v for %s failed: %v", value, name, err)
+			logger.Warningf("failed to set brightness to %v for %s: %v", value, name, err)
 			return err
 		}
 	}
