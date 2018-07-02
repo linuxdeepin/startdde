@@ -28,7 +28,6 @@ Depends: ${shlibs:Depends},
  deepin-desktop-schemas (>= 3.2.4),
  libgnome2-bin,
  dde-api,
- dbus-x11,
  libgnome-keyring0,
  libxfixes3,
  libxcursor1

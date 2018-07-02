@@ -38,15 +38,6 @@ source_with_error_check () {
     truncate -s 0 "$ERR"
 }
 
-# keyring components needs some environment variables provided by x session wrapper
-# scripts, DBUS_SESSION_BUS_ADDRESS for example, to initialize the main keyring daemon.
-# See https://github.com/GNOME/gnome-keyring/blob/master/daemon/gkd-util.c#L50-L63
-# for more on those environment variables.
-start_keyring () {
-    eval $(/usr/bin/gnome-keyring-daemon --start --components=secrets,pkcs11,ssh)
-    export SSH_AUTH_SOCK
-}
-
 # Load profile
 for file in "/etc/profile" "$HOME/.profile" "/etc/xprofile" "$HOME/.xprofile"; do
     if [ -f "$file" ]; then
@@ -106,11 +97,6 @@ if [ -d "$xinitdir" ]; then
     done
 fi
 
-# Setup environment
-export XDG_CURRENT_DESKTOP=Deepin
-# Set GNOME_DESKTOP_SESSION_ID to cheat `xdg-open`
-export GNOME_DESKTOP_SESSION_ID=this-is-deprecated
-
 # We do not need to execute the dbus-update-activation-environment command here,
 # all env vars updated for session DBus and systemd --user in script
 # /etc/X11/Xsession.d/95dbus_update-activation-env.
@@ -130,9 +116,6 @@ if [ -d "$xsessionddir" ]; then
         echo "Loading X session script $script"
         if [ -r "$script"  -a -f "$script" ] && expr "$i" : '^[[:alnum:]_-]\+$' > /dev/null; then
             . "$script"
-            if [ "$i" == "75dbus_dbus-launch" ]; then
-                start_keyring
-            fi
         fi
     done
 fi

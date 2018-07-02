@@ -20,6 +20,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -360,6 +361,56 @@ func (m *SessionManager) launchAutostart() {
 	}
 	m.setPropStage(SessionStageAppsEnd)
 }
+
+func setupEnvironments() {
+	envVars := make(map[string]string)
+	// man gnome-keyring-daemon:
+	// The daemon will print out various environment variables which should be set
+	// in the user's environment, in order to interact with the daemon.
+	gnomeKeyringOutput, err := exec.Command("/usr/bin/gnome-keyring-daemon", "--start",
+		"--components=secrets,pkcs11,ssh").Output()
+	if err == nil {
+		lines := bytes.Split(gnomeKeyringOutput, []byte{'\n'})
+		for _, line := range lines {
+			keyValuePair := bytes.SplitN(line, []byte{'='}, 2)
+			if len(keyValuePair) != 2 {
+				continue
+			}
+
+			key := string(keyValuePair[0])
+			value := string(keyValuePair[1])
+			envVars[key] = value
+		}
+	} else {
+		logger.Warning("exec gnome-keyring-daemon err:", err)
+	}
+
+	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
+	envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
+	envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
+
+	for key, value := range envVars {
+		err = os.Setenv(key, value)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	// NOTE: since dbus-daemon --session launch with the --systemd-activation option,
+	// there is no need to call systemd's SetEnvironment method.
+	err = sessionBus.BusObject().Call("org.freedesktop.DBus."+
+		"UpdateActivationEnvironment", 0, envVars).Err
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
 func startSession(conn *x.Conn) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -376,6 +427,8 @@ func startSession(conn *x.Conn) {
 		logger.Error("Install Session DBus Failed:", err)
 		return
 	}
+
+	setupEnvironments()
 
 	manager.setPropStage(SessionStageInitBegin)
 	manager.launchWindowManager()
