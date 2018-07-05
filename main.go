@@ -84,14 +84,6 @@ func main() {
 	tryMatchVM()
 	go playLoginSound()
 
-	canLaunch := globalGSettingsConfig.launchWelcome
-	if canLaunch {
-		err = showWelcome(true)
-		if err != nil {
-			logger.Warning("Failed to show welcome:", err)
-		}
-	}
-
 	err = gsettings.StartMonitor()
 	if err != nil {
 		logger.Warning("gsettings start monitor failed:", err)
@@ -110,13 +102,6 @@ func main() {
 	}()
 
 	startSession(xConn)
-
-	if canLaunch {
-		err = showWelcome(false)
-		if err != nil {
-			logger.Warning("Failed to exit welcome:", err)
-		}
-	}
 
 	watchdog.Start()
 

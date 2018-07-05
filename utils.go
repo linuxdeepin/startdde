@@ -24,12 +24,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"dbus/com/deepin/dde/welcome"
 
 	"gir/glib-2.0"
 	"pkg.deepin.io/lib/utils"
@@ -166,29 +165,21 @@ func getDelayTime(o string) time.Duration {
 	return time.Second * time.Duration(num)
 }
 
-var _ddeWelcome *welcome.Welcome
-
-func getDDEWelcome() (*welcome.Welcome, error) {
-	if _ddeWelcome != nil {
-		return _ddeWelcome, nil
-	}
-
-	var err error
-	_ddeWelcome, err = welcome.NewWelcome("com.deepin.dde.Welcome",
-		"/com/deepin/dde/Welcome")
-	return _ddeWelcome, err
-}
-
-func showWelcome(showing bool) error {
-	wel, err := getDDEWelcome()
+func showDDEWelcome() error {
+	cmd := exec.Command("/usr/lib/deepin-daemon/dde-welcome")
+	err := cmd.Start()
 	if err != nil {
 		return err
 	}
 
-	if showing {
-		return wel.Show()
-	}
-	return wel.Exit()
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			logger.Warning(err)
+		}
+	}()
+
+	return nil
 }
 
 const (
@@ -225,7 +216,6 @@ type GSettingsConfig struct {
 	autoStartDelay    int32
 	iowaitEnabled     bool
 	memcheckerEnabled bool
-	launchWelcome     bool
 	swapSchedEnabled  bool
 }
 
@@ -238,7 +228,6 @@ func getGSettingsConfig() *GSettingsConfig {
 			autoStartDelay:    0,
 			iowaitEnabled:     false,
 			memcheckerEnabled: false,
-			launchWelcome:     true,
 			swapSchedEnabled:  false,
 		}
 	}
@@ -246,7 +235,6 @@ func getGSettingsConfig() *GSettingsConfig {
 		autoStartDelay:    gs.GetInt("autostart-delay"),
 		iowaitEnabled:     gs.GetBoolean("iowait-enabled"),
 		memcheckerEnabled: gs.GetBoolean("memchecker-enabled"),
-		launchWelcome:     gs.GetBoolean("launch-welcome"),
 		swapSchedEnabled:  gs.GetBoolean("swap-sched-enabled"),
 	}
 	gs.Unref()

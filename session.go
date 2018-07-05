@@ -300,6 +300,11 @@ func (manager *SessionManager) launchWindowManager() {
 }
 
 func (m *SessionManager) launchDDE() {
+	err := showDDEWelcome()
+	if err != nil {
+		logger.Warning("failed to start dde-welcome:", err)
+	}
+
 	groups, err := loadGroupFile()
 	if err != nil {
 		logger.Error("Failed to load launch group file:", err)
@@ -436,7 +441,6 @@ func startSession(conn *x.Conn) {
 
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager(conn)
-
 	manager.launchDDE()
 	go func() {
 		err := keyring.CheckLogin()
