@@ -44,10 +44,11 @@ import (
 )
 
 type SessionManager struct {
-	CurrentUid   string
-	cookieLocker sync.Mutex
-	cookies      map[string]chan time.Time
-	Stage        int32
+	CurrentUid            string
+	cookieLocker          sync.Mutex
+	cookies               map[string]chan time.Time
+	Stage                 int32
+	allowSessionDaemonRun bool
 }
 
 const (

@@ -3,7 +3,7 @@
       "Priority": 9,
       "Group": [
         {
-          "Command": "/usr/lib/deepin-daemon/dde-session-initializer",
+          "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
           "Wait": true,
           "Args": []
         },
@@ -33,7 +33,7 @@
       "Priority": 7,
       "Group": [
         {
-          "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
+          "Command": "dde-session-daemon-part2",
           "Wait": true,
           "Args": []
         }
@@ -50,4 +50,3 @@
         ]
     }
   ]
-  

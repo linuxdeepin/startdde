@@ -21,6 +21,8 @@ package main
 
 import (
 	"fmt"
+
+	"pkg.deepin.io/lib/dbus"
 )
 import "io"
 import "crypto/rand"
@@ -41,6 +43,26 @@ func genUuid() string {
 	// version 4 (pseudo-random); see section 4.1.3
 	uuid[6] = uuid[6]&^0xf0 | 0x40
 	return fmt.Sprintf("%x-%x-%x-%x-%x", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+}
+
+func (m *SessionManager) startSessionDaemonPart2() bool {
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+		return false
+	}
+
+	timeStart := time.Now()
+	sessionDaemonObj := sessionBus.Object("com.deepin.daemon.Daemon", "/com/deepin/daemon/Daemon")
+	err = sessionDaemonObj.Call("com.deepin.daemon.Daemon.StartPart2",
+		dbus.FlagNoAutoStart).Err
+	logger.Info("start dde-session-daemon part2 cost:", time.Since(timeStart))
+
+	if err != nil {
+		logger.Warning(err)
+		return false
+	}
+	return true
 }
 
 func (m *SessionManager) launchWait(bin string, args ...string) bool {
@@ -92,6 +114,15 @@ func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 }
 
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
+	if bin == "dde-session-daemon-part2" {
+		return m.startSessionDaemonPart2()
+	} else if !m.allowSessionDaemonRun &&
+		bin == "/usr/lib/deepin-daemon/dde-session-daemon" {
+		defer func() {
+			m.allowSessionDaemonRun = true
+		}()
+	}
+
 	if swapSchedDispatcher != nil {
 		cgroupPath := swapSchedDispatcher.GetDECGroup()
 		argsTemp := []string{"-g", "memory:" + cgroupPath, bin}
@@ -105,6 +136,10 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	}
 	m.launchWithoutWait(bin, args...)
 	return true
+}
+
+func (m *SessionManager) AllowSessionDaemonRun() bool {
+	return m.allowSessionDaemonRun
 }
 
 func (m *SessionManager) Register(id string) bool {
