@@ -92,10 +92,9 @@ func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
 		cmd += " --primary"
 	}
 	cmd += fmt.Sprintf(" --mode %dx%d", m.cfg.Width, m.cfg.Height)
-	if m.cfg.RefreshRate > 0 {
-		cmd += fmt.Sprintf(" --rate %v", m.cfg.RefreshRate)
-	}
 	cmd += fmt.Sprintf(" --pos %dx%d", m.cfg.X, m.cfg.Y)
+	// NOTE: do not set rate, because set rate may cause xrandr to report
+	// configure crtc failed error
 	var ro = "normal"
 	switch m.cfg.Rotation {
 	case randr.RotationRotate90:

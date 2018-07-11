@@ -20,7 +20,9 @@
 package display
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"sort"
 
@@ -72,7 +74,14 @@ func rotateInputPointor(rotation uint16) {
 
 func doAction(cmd string) error {
 	logger.Debug("Command:", cmd)
-	return exec.Command("/bin/sh", "-c", "exec "+cmd).Run()
+	c := exec.Command("/bin/sh", "-c", "exec "+cmd)
+	var errBuf bytes.Buffer
+	c.Stderr = &errBuf
+	err := c.Run()
+	if err != nil {
+		return fmt.Errorf("%s, stdErr: %s", err.Error(), errBuf.Bytes())
+	}
+	return nil
 }
 
 func jsonMarshal(v interface{}) string {
