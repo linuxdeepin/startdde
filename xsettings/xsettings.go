@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	xsSchema = "com.deepin.xsettings"
+	xsSchema           = "com.deepin.xsettings"
+	defaultScaleFactor = 1.0
 )
 
 var logger *log.Logger
@@ -41,6 +42,9 @@ type XSManager struct {
 	owner x.Window
 
 	gs *gio.Settings
+
+	SetScaleFactorDone func()
+	restartOSD         bool // whether to restart dde-osd
 }
 
 type xsSetting struct {
@@ -49,7 +53,7 @@ type xsSetting struct {
 	value interface{} // int32, string, [4]int16
 }
 
-func NewXSManager(conn *x.Conn) (*XSManager, error) {
+func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, error) {
 	var m = &XSManager{
 		conn: conn,
 	}
@@ -65,8 +69,15 @@ func NewXSManager(conn *x.Conn) (*XSManager, error) {
 		logger.Errorf("Owned '%s' failed", settingPropSettings)
 		return nil, fmt.Errorf("Owned '%s' failed", settingPropSettings)
 	}
+	logger.Debug("recommended scale factor:", recommendedScaleFactor)
 
 	m.gs = gio.NewSettings(xsSchema)
+	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
+		recommendedScaleFactor != defaultScaleFactor {
+		m.setScaleFactor(recommendedScaleFactor, false)
+		m.restartOSD = true
+	}
+
 	err = m.setSettings(m.getSettingsInSchema())
 	if err != nil {
 		logger.Warning("Change xsettings property failed:", err)
@@ -168,12 +179,12 @@ func (m *XSManager) handleGSettingsChanged() {
 }
 
 // Start load xsettings module
-func Start(conn *x.Conn, l *log.Logger) {
+func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64) (*XSManager, error) {
 	logger = l
-	m, err := NewXSManager(conn)
+	m, err := NewXSManager(conn, recommendedScaleFactor)
 	if err != nil {
 		logger.Error("Start xsettings failed:", err)
-		return
+		return nil, err
 	}
 	m.updateDPI()
 	m.updateXResources()
@@ -182,9 +193,17 @@ func Start(conn *x.Conn, l *log.Logger) {
 	err = dbus.InstallOnSession(m)
 	if err != nil {
 		logger.Error("Install dbus session failed:", err)
-		return
+		return nil, err
 	}
 	dbus.DealWithUnhandledMessage()
 
 	m.handleGSettingsChanged()
+	return m, nil
+}
+
+func (m *XSManager) NeedRestartOSD() bool {
+	if m == nil {
+		return false
+	}
+	return m.restartOSD
 }

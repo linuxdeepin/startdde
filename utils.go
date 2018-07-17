@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"gir/glib-2.0"
+	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -239,4 +240,19 @@ func getGSettingsConfig() *GSettingsConfig {
 	}
 	gs.Unref()
 	return cfg
+}
+
+func isOSDRunning() (bool, error) {
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		return false, err
+	}
+
+	var has bool
+	err = sessionBus.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0,
+		"com.deepin.dde.osd").Store(&has)
+	if err != nil {
+		return false, err
+	}
+	return has, nil
 }

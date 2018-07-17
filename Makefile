@@ -37,6 +37,9 @@ fix-xauthority-perm:
 
 build: prepare startdde auto_launch_json fix-xauthority-perm
 
+test: prepare
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
+
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions

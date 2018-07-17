@@ -80,10 +80,11 @@ type Manager struct {
 	disableList []string
 
 	// TODO: add mutex locker in used
-	allMonitors MonitorInfos
-	setting     *gio.Settings
-	ifcLocker   sync.Mutex
-	eventLocker sync.Mutex
+	allMonitors          MonitorInfos
+	setting              *gio.Settings
+	ifcLocker            sync.Mutex
+	eventLocker          sync.Mutex
+	recommendScaleFactor float64
 }
 
 var (
@@ -95,6 +96,13 @@ var (
 
 func SetLogLevel(level log.Priority) {
 	logger.SetLogLevel(level)
+}
+
+func GetRecommendedScaleFactor() float64 {
+	if _dpy == nil {
+		return 1.0
+	}
+	return _dpy.recommendScaleFactor
 }
 
 func newManager() (*Manager, error) {
@@ -143,7 +151,35 @@ func newManager() (*Manager, error) {
 	m.Primary = m.setting.GetString(gsKeyPrimary)
 	m.CurrentCustomId = m.setting.GetString(gsKeyCustomMode)
 	m.outputInfos, m.disableList = m.filterOutputs(m.outputInfos)
+
+	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	return &m, nil
+}
+
+func (m *Manager) calcRecommendedScaleFactor() float64 {
+	maxScaleFactor := 1.0
+	for i := 0; i < len(m.outputInfos); i++ {
+		outputInfo := &m.outputInfos[i]
+		scaleFactor := calcRecommendedScaleFactor(float64(outputInfo.Crtc.Width),
+			float64(outputInfo.MmWidth))
+		if maxScaleFactor < scaleFactor {
+			maxScaleFactor = scaleFactor
+		}
+	}
+	return maxScaleFactor
+}
+
+func calcRecommendedScaleFactor(pxWidth, mmWidth float64) float64 {
+	ppm := pxWidth / mmWidth
+	scaleFactor := ppm / (1366.0 / 310.0)
+	if scaleFactor > 1+2.0/3.0 {
+		scaleFactor = 2
+	} else if scaleFactor > 1+1.0/3.0 {
+		scaleFactor = 1.5
+	} else {
+		scaleFactor = 1
+	}
+	return scaleFactor
 }
 
 func (dpy *Manager) init() {

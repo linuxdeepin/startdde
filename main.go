@@ -52,6 +52,8 @@ var globalCgExecBin string
 
 var globalWmChooserLaunched bool
 
+var globalXSManager *xsettings.XSManager
+
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
 	// Because the startdde may be launched by exec syscall
@@ -90,10 +92,19 @@ func main() {
 	}
 	proxy.SetupProxy()
 
-	xsettings.Start(xConn, logger)
+	err = display.Start()
+	if err != nil {
+		logger.Warning(err)
+	}
 
+	xsManager, err := xsettings.Start(xConn, logger,
+		display.GetRecommendedScaleFactor())
+	if err != nil {
+		logger.Warning(err)
+	} else {
+		globalXSManager = xsManager
+	}
 	go func() {
-		display.Start()
 		inVM, _ := isInVM()
 		if inVM {
 			logger.Debug("try to correct vm resolution")

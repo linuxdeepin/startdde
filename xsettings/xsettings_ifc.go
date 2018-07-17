@@ -160,3 +160,20 @@ func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) {
 
 	info.setKeyValue(m.gs, v)
 }
+
+func (m *XSManager) GetScaleFactor() float64 {
+	return m.getScaleFactor()
+}
+
+func (m *XSManager) SetScaleFactor(scale float64) error {
+	if scale < 0 {
+		return fmt.Errorf("invalid scale value: %v", scale)
+	}
+
+	if getScaleStatus() {
+		return fmt.Errorf("there is a scale job running")
+	}
+
+	go m.setScaleFactor(scale, true)
+	return nil
+}

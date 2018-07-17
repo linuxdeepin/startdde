@@ -31,13 +31,13 @@ import (
 	"dbus/org/freedesktop/login1"
 
 	"github.com/linuxdeepin/go-x11-client"
-
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/dde/startdde/keyring"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/wm"
+	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
@@ -306,6 +306,14 @@ func (m *SessionManager) launchDDE() {
 		logger.Warning("failed to start dde-welcome:", err)
 	}
 
+	osdRunning, err := isOSDRunning()
+	if err != nil {
+		logger.Warning(err)
+	} else if osdRunning && globalXSManager.NeedRestartOSD() {
+		// restart osd
+		m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+	}
+
 	groups, err := loadGroupFile()
 	if err != nil {
 		logger.Error("Failed to load launch group file:", err)
@@ -394,6 +402,8 @@ func setupEnvironments() {
 	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
 	envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
 	envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
+	envVars[xsettings.EnvJavaOptions] = os.Getenv(xsettings.EnvJavaOptions)
+	envVars[xsettings.EnvQtScaleFactor] = os.Getenv(xsettings.EnvQtScaleFactor)
 
 	for key, value := range envVars {
 		err = os.Setenv(key, value)

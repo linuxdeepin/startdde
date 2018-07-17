@@ -20,9 +20,10 @@
 package display
 
 import (
-	. "github.com/smartystreets/goconvey/convey"
 	"os"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestMonitor(t *testing.T) {
@@ -45,8 +46,8 @@ func TestMonitor(t *testing.T) {
 			Enabled:   true,
 			Connected: true,
 		}
-		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --primary --mode 1377x768 --rate 60.00 --pos 0x0 --scale 1x1 --rotate normal --reflect normal")
-		So(lvds.generateCommandline("eDP-1", false), ShouldEqual, " --output LVDS-1 --mode 1377x768 --rate 60.00 --pos 0x0 --scale 1x1 --rotate normal --reflect normal")
+		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --primary --mode 1377x768 --pos 0x0 --rotate normal --reflect normal")
+		So(lvds.generateCommandline("eDP-1", false), ShouldEqual, " --output LVDS-1 --mode 1377x768 --pos 0x0 --rotate normal --reflect normal")
 		lvds.cfg.Enabled = false
 		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --off")
 		lvds.cfg.Enabled = true
@@ -115,5 +116,14 @@ func TestConfigManager(t *testing.T) {
 func TestConfigVersion(t *testing.T) {
 	Convey("Test config version", t, func() {
 		So(isVersionRight("3.0", "testdata/config.version"), ShouldEqual, true)
+	})
+}
+
+func TestCalcRecommendedScaleFactor(t *testing.T) {
+	Convey("Test calcRecommendedScaleFactor", t, func() {
+		So(calcRecommendedScaleFactor(1366, 310), ShouldEqual, 1.0)
+		So(calcRecommendedScaleFactor(1920, 527), ShouldEqual, 1.0)
+		So(calcRecommendedScaleFactor(3840, 520), ShouldEqual, 2.0)
+		So(calcRecommendedScaleFactor(1920, 294), ShouldEqual, 1.5)
 	})
 }
