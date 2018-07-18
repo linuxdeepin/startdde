@@ -59,13 +59,13 @@ func Set(value float64, setter string, outputId uint32, conn *x.Conn) error {
 	case SetterBacklight:
 		return setBacklightOnlyOne(value)
 	case SetterGamma:
-		return setGammaSize(value, output, conn)
+		return setOutputCrtcGamma(value, output, conn)
 	}
 	// case SetterAuto
 	if supportBacklight(output, conn) {
 		return setBacklight(value, output, conn)
 	}
-	return setGammaSize(value, output, conn)
+	return setOutputCrtcGamma(value, output, conn)
 }
 
 func Get(setter string, outputId uint32, conn *x.Conn) (float64, error) {
@@ -97,7 +97,7 @@ func supportBacklight(output randr.Output, conn *x.Conn) bool {
 	return c != nil
 }
 
-func setGammaSize(value float64, output randr.Output, conn *x.Conn) error {
+func setOutputCrtcGamma(value float64, output randr.Output, conn *x.Conn) error {
 	oinfo, err := randr.GetOutputInfo(conn, output, x.CurrentTime).Reply(conn)
 	if err != nil {
 		fmt.Printf("Get output(%v) failed: %v\n", output, err)
