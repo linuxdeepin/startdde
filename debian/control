@@ -3,11 +3,11 @@ Section: admin
 Priority: extra
 Maintainer: Deepin Packages Builder <packages@deepin.com>
 Build-Depends: debhelper (>= 9), pkg-config, golang-go,
- golang-dlib-dev (>= 1.2.9),
- golang-github-linuxdeepin-go-x11-client-dev,
- dde-go-dbus-factory(>= 3.1.16),
- dde-api-dev(>= 3.0.8),
- golang-github-linuxdeepin-go-dbus-factory-dev (>= 0.0.3),
+ golang-dlib-dev (>= 1.2.14),
+ golang-github-linuxdeepin-go-x11-client-dev (>= 0.0.4),
+ dde-go-dbus-factory(>= 3.1.17),
+ dde-api-dev(>= 3.1.27),
+ golang-github-linuxdeepin-go-dbus-factory-dev (>= 0.0.5),
  golang-github-smartystreets-goconvey-dev,
  golang-gopkg-check.v1-dev,
  libgnome-keyring-dev,
