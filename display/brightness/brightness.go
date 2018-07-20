@@ -38,7 +38,7 @@ const (
 
 var helper *backlight.Backlight
 
-func init() {
+func InitBacklightHelper() {
 	var err error
 	helper, err = backlight.NewBacklight("com.deepin.daemon.helper.Backlight",
 		"/com/deepin/daemon/helper/Backlight")

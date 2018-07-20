@@ -20,10 +20,12 @@
 package display
 
 import (
+	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/lib/dbus"
 )
 
 func Start() error {
+	brightness.InitBacklightHelper()
 	manager, err := newManager()
 	if err != nil {
 		logger.Error("New display manager failed:", err)

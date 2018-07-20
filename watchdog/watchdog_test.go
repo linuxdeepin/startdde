@@ -28,6 +28,9 @@ import (
 func TestDBusExists(t *testing.T) {
 	Convey("Test dbus whether exists", t, func() {
 		initDBusObject()
+		if busObj == nil {
+			t.Skip("busObj is nil")
+		}
 		exist, _ := isDBusServiceExist(orgFreedesktopDBus)
 		So(exist, ShouldBeTrue)
 		exist, _ = isDBusServiceExist(orgFreedesktopDBus + "111")
