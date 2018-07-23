@@ -1,5 +1,20 @@
 ## [Unreleased]
 
+## [3.1.34] - 2018-07-23
+*   chore(debian): update build depends
+*   fix: test failed in the pbuilder environment
+*   feat: auto set scale factor
+*   chore(display): rename setGammaSize to setOutputCrtcGamma
+*   chore(display): err message include stderr
+*   feat: support dde-session-daemon 2 step start
+*   feat: launch dde-welcome by exec
+*   feat: setup environment in startdde
+*   fix(display): set brightness error typo
+*   chore: no import lib xgb/proto
+*   chore: use go-x11-client
+*   chore: do not auto launch dde-file-manager on x86 arch
+*   perf(swapsched): use less cpu when swapsched is not really enabled
+
 ## [3.1.33] - 2018-06-13
 *   feat(display): set default brightness of output to 1
 
