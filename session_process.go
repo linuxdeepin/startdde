@@ -57,6 +57,7 @@ func (m *SessionManager) startSessionDaemonPart2() bool {
 	err = sessionDaemonObj.Call("com.deepin.daemon.Daemon.StartPart2",
 		dbus.FlagNoAutoStart).Err
 	logger.Info("start dde-session-daemon part2 cost:", time.Since(timeStart))
+	m.allowSessionDaemonRun = true
 
 	if err != nil {
 		logger.Warning(err)
@@ -116,11 +117,6 @@ func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	if bin == "dde-session-daemon-part2" {
 		return m.startSessionDaemonPart2()
-	} else if !m.allowSessionDaemonRun &&
-		bin == "/usr/lib/deepin-daemon/dde-session-daemon" {
-		defer func() {
-			m.allowSessionDaemonRun = true
-		}()
 	}
 
 	if swapSchedDispatcher != nil {
