@@ -170,6 +170,9 @@ func (m *Manager) calcRecommendedScaleFactor() float64 {
 }
 
 func calcRecommendedScaleFactor(pxWidth, mmWidth float64) float64 {
+	if mmWidth == 0 {
+		return 1
+	}
 	ppm := pxWidth / mmWidth
 	scaleFactor := ppm / (1366.0 / 310.0)
 	if scaleFactor > 1+2.0/3.0 {
