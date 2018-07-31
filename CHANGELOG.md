@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+## [3.1.35] - 2018-07-31
+*   fix(display): auto set scale factor to 2 in virtualbox
+*   feat: allow session daemon run after dde-session-daemon part2 started
+
 ## [3.1.34] - 2018-07-23
 *   chore(debian): update build depends
 *   fix: test failed in the pbuilder environment
