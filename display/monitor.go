@@ -293,12 +293,12 @@ func (ms MonitorInfos) canBePrimary(name string) *MonitorInfo {
 	return nil
 }
 
-func (ms MonitorInfos) sort(prority []string) MonitorInfos {
+func (ms MonitorInfos) sort(priority []string) MonitorInfos {
 	if ms.numberOfConnected() < 2 {
 		return ms
 	}
 	ms = ms.sortByNameType()
-	ms = ms.sortByPrority(prority)
+	ms = ms.sortByPriority(priority)
 	return ms
 }
 
@@ -352,13 +352,13 @@ func (ms MonitorInfos) sortByNameType() MonitorInfos {
 	return ret
 }
 
-func (ms MonitorInfos) sortByPrority(prority []string) MonitorInfos {
-	if len(prority) == 0 {
+func (ms MonitorInfos) sortByPriority(priority []string) MonitorInfos {
+	if len(priority) == 0 {
 		return ms
 	}
 
 	var ret MonitorInfos
-	for _, v := range prority {
+	for _, v := range priority {
 		info := ms.getByName(v)
 		if info == nil {
 			continue

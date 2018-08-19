@@ -54,7 +54,7 @@ func (dpy *Manager) checkConfigVersion() {
 	}
 	err = ioutil.WriteFile(confVersionFile, []byte(_confVersion), 0644)
 	if err != nil {
-		logger.Warning("Failed to wirte version file:", err)
+		logger.Warning("Failed to write version file:", err)
 	}
 	dpy.setPropDisplayMode(DisplayModeExtend)
 }
