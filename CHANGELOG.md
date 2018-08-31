@@ -1,4 +1,6 @@
-## [Unreleased]
+## [3.1.35.1] - 2018-08-31
+*   fix: add booster-dtkwidget in auto launch chinese json
+*   refactor: fix multiple typos
 
 ## [3.1.35] - 2018-07-31
 *   fix(display): auto set scale factor to 2 in virtualbox
