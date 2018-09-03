@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -40,7 +41,9 @@ import (
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 type SessionManager struct {
@@ -301,9 +304,15 @@ func (manager *SessionManager) launchWindowManager() {
 }
 
 func (m *SessionManager) launchDDE() {
-	err := showDDEWelcome()
+	versionChanged, err := isDeepinVersionChanged()
 	if err != nil {
-		logger.Warning("failed to start dde-welcome:", err)
+		logger.Warning("failed to get deepin version changed:", err)
+	}
+	if versionChanged {
+		err := showDDEWelcome()
+		if err != nil {
+			logger.Warning("failed to start dde-welcome:", err)
+		}
 	}
 
 	osdRunning, err := isOSDRunning()
@@ -460,4 +469,47 @@ func startSession(conn *x.Conn) {
 		}
 	}()
 	go manager.launchAutostart()
+}
+
+func isDeepinVersionChanged() (bool, error) {
+	kfDeepinVersion := keyfile.NewKeyFile()
+	err := kfDeepinVersion.LoadFromFile("/etc/deepin-version")
+	if err != nil {
+		return false, err
+	}
+
+	v0, err := kfDeepinVersion.GetString("Release", "Version")
+	if err != nil {
+		return false, err
+	}
+
+	kfDDEWelcome := keyfile.NewKeyFile()
+	ddeWelcomeFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/dde-welcome.conf")
+
+	saveDDEWelcome := func() {
+		kfDDEWelcome.SetString("General", "Version", v0)
+		os.MkdirAll(filepath.Dir(ddeWelcomeFile), 0755)
+		err = kfDDEWelcome.SaveToFile(ddeWelcomeFile)
+		if err != nil {
+			logger.Warning("failed to save dde-welcome.conf:", err)
+		}
+	}
+
+	err = kfDDEWelcome.LoadFromFile(ddeWelcomeFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// new user first login
+			saveDDEWelcome()
+			return false, nil
+		}
+		return false, err
+	}
+
+	v1, _ := kfDDEWelcome.GetString("General", "Version")
+
+	if v0 != v1 {
+		saveDDEWelcome()
+		return true, nil
+	}
+	return false, nil
 }
