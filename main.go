@@ -19,13 +19,6 @@
 
 package main
 
-// #cgo pkg-config: x11 gtk+-3.0
-// #include <X11/Xlib.h>
-// #include <gtk/gtk.h>
-// void gtkInit() {
-//    XInitThreads();
-//    gtk_init(NULL, NULL);
-// }
 import "C"
 import (
 	"flag"
@@ -37,6 +30,7 @@ import (
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/xsettings"
+	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -79,7 +73,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	C.gtkInit()
 	flag.Parse()
 	initSoundThemePlayer()
 
@@ -122,7 +115,7 @@ func main() {
 		logger.Info("iowait disabled")
 	}
 
-	C.gtk_main()
+	dbus.Wait()
 }
 
 func doSetLogLevel(level log.Priority) {
