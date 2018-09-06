@@ -297,7 +297,7 @@ func (manager *SessionManager) launchWindowManager() {
 		logger.Error("Failed to start wm module:", err)
 		return
 	}
-	manager.launch("env", true, "GDK_SCALE=1", wm.GetWM())
+	manager.launch("env", wm.IsWait(), "GDK_SCALE=1", wm.GetWM())
 }
 
 func (m *SessionManager) launchDDE() {

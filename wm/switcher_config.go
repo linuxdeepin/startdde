@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -32,6 +33,7 @@ import (
 type configInfo struct {
 	AllowSwitch bool   `json:"allow_switch"`
 	LastWM      string `json:"last_wm"`
+	Wait        bool   `json:"wait"`
 }
 
 const (
@@ -101,6 +103,7 @@ func doLoadSwConfig(file string) (*configInfo, error) {
 	var info configInfo
 	// fix no 'allow_switch' in config
 	info.AllowSwitch = true
+	info.Wait = true
 	err = json.Unmarshal(contents, &info)
 	if err != nil {
 		return nil, err

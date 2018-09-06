@@ -58,3 +58,10 @@ func GetWM() string {
 	}
 	return ""
 }
+
+func IsWait() bool {
+	if _s != nil {
+		return _s.info.Wait
+	}
+	return true
+}
