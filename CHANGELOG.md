@@ -1,3 +1,8 @@
+## [3.1.35.2] - 2018-09-06
+*   chore: do not call gtk init
+*   chore: `auto_launch/chinese.json` remove dde-control-center
+*   feat: run dde-welcome if deepin version changed
+
 ## [3.1.35.1] - 2018-08-31
 *   fix: add booster-dtkwidget in auto launch chinese json
 *   refactor: fix multiple typos
