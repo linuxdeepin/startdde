@@ -3,7 +3,7 @@
         "Priority": 10,
         "Group": [
             {
-                "Command": " /usr/lib/deepin-turbo/booster-dtkwidget",
+                "Command": "/usr/lib/deepin-turbo/booster-dtkwidget",
                 "Wait": false,
                 "Args": []
             }
