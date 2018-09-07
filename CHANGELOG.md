@@ -1,3 +1,6 @@
+## [3.1.35.3] - 2018-09-07
+*   fix: typo in `auto_launch/chinese.json`
+
 ## [3.1.35.2] - 2018-09-06
 *   chore: do not call gtk init
 *   chore: `auto_launch/chinese.json` remove dde-control-center
