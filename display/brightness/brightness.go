@@ -47,7 +47,7 @@ func InitBacklightHelper() {
 	}
 }
 
-func Set(value float64, setter string, outputId uint32, conn *x.Conn) error {
+func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
 	if value < 0 {
 		value = 0
 	} else if value > 1 {
@@ -62,13 +62,16 @@ func Set(value float64, setter string, outputId uint32, conn *x.Conn) error {
 		return setOutputCrtcGamma(value, output, conn)
 	}
 	// case SetterAuto
-	if supportBacklight(output, conn) {
-		return setBacklight(value, output, conn)
+	if isBuiltin {
+		if supportBacklight(output, conn) {
+			return setBacklight(value, output, conn)
+		}
 	}
 	return setOutputCrtcGamma(value, output, conn)
 }
 
-func Get(setter string, outputId uint32, conn *x.Conn) (float64, error) {
+// unused function
+func Get(setter string, isButiltin bool, outputId uint32, conn *x.Conn) (float64, error) {
 	output := randr.Output(outputId)
 	switch setter {
 	case SetterBacklight:
@@ -78,8 +81,10 @@ func Get(setter string, outputId uint32, conn *x.Conn) (float64, error) {
 	}
 
 	// case SetterAuto
-	if supportBacklight(output, conn) {
-		return getBacklight(output, conn)
+	if isButiltin {
+		if supportBacklight(output, conn) {
+			return getBacklight(output, conn)
+		}
 	}
 	return 1, nil
 }
@@ -168,10 +173,17 @@ func getBacklightController(output randr.Output, conn *x.Conn) (*displayBl.Contr
 	if err != nil {
 		return nil, err
 	}
-	// get backlight controller
+
+	// find backlight controller
 	if c := controllers.GetByEDID(edidProp.Value); c != nil {
 		return c, nil
 	}
+
+	if len(controllers) >= 1 {
+		// return first
+		return controllers[0], nil
+	}
+
 	return nil, errNotFoundBacklightController
 }
 

@@ -383,19 +383,28 @@ func (ms MonitorInfos) sortByPriority(priority []string) MonitorInfos {
 func isBuiltinOutput(name string) bool {
 	name = strings.ToLower(name)
 	switch {
-	case strings.Contains(name, "lvds"):
+	case strings.HasPrefix(name, "vga"):
+		return false
+	case strings.HasPrefix(name, "hdmi"):
+		return false
+	case strings.HasPrefix(name, "dvi"):
+		return false
+
+	case strings.HasPrefix(name, "lvds"):
 		// Most drivers use an "LVDS" prefix
-		fallthrough
-	case strings.Contains(name, "lcd"):
+		return true
+	case strings.HasPrefix(name, "lcd"):
 		// fglrx uses "LCD" in some versions
-		fallthrough
-	case strings.Contains(name, "edp"):
+		return true
+	case strings.HasPrefix(name, "edp"):
 		// eDP is for internal built-in panel connections
-		fallthrough
-	case strings.Contains(name, "dsi"):
+		return true
+	case strings.HasPrefix(name, "dsi"):
+		return true
+	case name == "default":
 		return true
 	}
-	return false
+	return true
 }
 
 func (ms MonitorInfos) getMonitorsId() string {
