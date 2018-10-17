@@ -30,9 +30,13 @@ func (dpy *Manager) listenEvent() {
 	dpy.conn.AddEventChan(eventChan)
 
 	root := dpy.conn.GetDefaultScreen().Root
-	randr.SelectInputChecked(dpy.conn, root,
+	err := randr.SelectInputChecked(dpy.conn, root,
 		randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|
-			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange)
+			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange).Check(dpy.conn)
+	if err != nil {
+		logger.Warning("failed to select randr event:", err)
+		return
+	}
 
 	rrExtData := dpy.conn.GetExtensionData(randr.Ext())
 
