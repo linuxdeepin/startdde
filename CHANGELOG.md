@@ -1,3 +1,7 @@
+## [3.1.35.4] - 2018-10-18
+*   fix(display): brightness setter auto is not good
+*   fix(display): no listen xrandr event
+
 ## [3.1.35.3] - 2018-09-07
 *   fix: typo in `auto_launch/chinese.json`
 
