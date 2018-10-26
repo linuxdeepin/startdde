@@ -1,3 +1,17 @@
+## [3.2.0] - 2018-10-26
+*   fix(display): brightness setter auto is not good
+*   fix(display): no listen xrandr event
+*   chore: update changelog
+*   fix: typo in `auto_launch/chinese.json`
+*   chore: update changelog
+*   chore: do not call gtk init
+*   chore: `auto_launch/chinese.json` remove dde-control-center
+*   chore: update changelog
+*   fix: add booster-dtkwidget in auto launch chinese json
+*   refactor: fix multiple typos
+*   feat: run dde-welcome if deepin version changed
+*   feat(wm): check wait for launcher wm
+
 ## [3.1.35.3] - 2018-09-07
 *   fix: typo in `auto_launch/chinese.json`
 
