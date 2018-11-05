@@ -69,6 +69,10 @@ func rotateInputPointor(rotation uint16) {
 			tpad, _ := dxinput.NewTouchpadFromDevInfo(dev)
 			tpad.SetRotation(uint8(rotation))
 		}
+		if dev.Type == utils.DevTypeTouchscreen {
+			touch, _ := dxinput.NewTouchscreenFromDevInfo(dev)
+			touch.SetRotation(uint8(rotation))
+		}
 	}
 }
 
