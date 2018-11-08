@@ -54,11 +54,15 @@ func (dpy *Manager) filterOutputs(outputInfos drandr.OutputInfos) (drandr.Output
 }
 
 func (dpy *Manager) disableOutputs() {
-	if len(dpy.disableList) == 0 {
+	turnOffOutputs(dpy.disableList)
+}
+
+func turnOffOutputs(names []string) {
+	if len(names) == 0 {
 		return
 	}
 	var cmd = "xrandr "
-	for _, name := range dpy.disableList {
+	for _, name := range names {
 		cmd += " --output " + name + " --off"
 	}
 	err := doAction(cmd)

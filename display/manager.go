@@ -105,6 +105,16 @@ func GetRecommendedScaleFactor() float64 {
 	return _dpy.recommendScaleFactor
 }
 
+func getDisconnectedOutputs(infos drandr.OutputInfos) drandr.OutputInfos {
+	var ret drandr.OutputInfos
+	for _, info := range infos {
+		if !info.Connection {
+			ret = append(ret, info)
+		}
+	}
+	return ret
+}
+
 func newManager() (*Manager, error) {
 	conn, err := x.NewConn()
 	if err != nil {
@@ -130,6 +140,9 @@ func newManager() (*Manager, error) {
 			filename:  configFile,
 		}
 	}
+
+	disconnectedOutputNames := getDisconnectedOutputs(screenInfo.Outputs).ListNames()
+	turnOffOutputs(disconnectedOutputNames)
 
 	sw, sh := screenInfo.GetScreenSize()
 	var m = Manager{
