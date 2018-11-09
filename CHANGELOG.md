@@ -1,3 +1,7 @@
+## [3.3.0] - 2018-11-09
+*   fix(display): the disconnected output still on
+*   feat(display): add touchscreen rotation supported
+
 ## [3.2.0] - 2018-10-26
 *   fix(display): brightness setter auto is not good
 *   fix(display): no listen xrandr event
