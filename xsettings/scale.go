@@ -47,6 +47,8 @@ const (
 	gsKeyScaleFactor = "scale-factor"
 	EnvQtScaleFactor = "QT_SCALE_FACTOR"
 	EnvJavaOptions   = "_JAVA_OPTIONS"
+
+	baseCursorSize = 24
 )
 
 func (m *XSManager) setScaleFactor(scale float64, emitDone bool) {
@@ -74,10 +76,11 @@ func (m *XSManager) setScaleFactor(scale float64, emitDone bool) {
 		m.gs.SetInt("window-scale", windowScale)
 	}
 
+	cursorSize := int32(baseCursorSize * scale)
+	m.gs.SetInt("gtk-cursor-theme-size", cursorSize)
 	// set cursor size for deepin-metacity
 	gsWrapGDI := gio.NewSettings("com.deepin.wrap.gnome.desktop.interface")
-	cursorSize := m.gs.GetInt("gtk-cursor-theme-size")
-	gsWrapGDI.SetInt("cursor-size", cursorSize*windowScale)
+	gsWrapGDI.SetInt("cursor-size", cursorSize)
 	gsWrapGDI.Unref()
 
 	go func() {

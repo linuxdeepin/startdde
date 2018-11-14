@@ -24,8 +24,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"pkg.deepin.io/lib/utils"
 	"strings"
+
+	"pkg.deepin.io/lib/utils"
 )
 
 const (
@@ -76,7 +77,7 @@ func (m *XSManager) updateDPI() {
 		}, xsSetting{
 			sType: settingTypeInteger,
 			prop:  "Gtk/CursorThemeSize",
-			value: windowScale * cursorSize,
+			value: cursorSize,
 		})
 	}
 
@@ -90,7 +91,6 @@ func (m *XSManager) updateDPI() {
 }
 
 func (m *XSManager) updateXResources() {
-	windowScale := m.gs.GetInt("window-scale")
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
 			key:   "Xcursor.theme",
@@ -98,7 +98,7 @@ func (m *XSManager) updateXResources() {
 		},
 		&xresourceInfo{
 			key:   "Xcursor.size",
-			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")*windowScale),
+			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
 		},
 		// Set xresource dpi to default, replace with 'QT_SCALE_FACTOR'
 		&xresourceInfo{
