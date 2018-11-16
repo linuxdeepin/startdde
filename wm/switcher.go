@@ -54,16 +54,34 @@ var wmNameMap = map[string]string{
 
 //Switcher wm switch manager
 type Switcher struct {
-	goodWM bool
-	logger *log.Logger
-	info   *configInfo
-	mu     sync.Mutex
+	logger       *log.Logger
+	userConfig   *userConfig
+	systemConfig *systemConfig
+	mu           sync.Mutex
 
 	wm                *libwm.Wm
 	wmStartupCount    int
 	currentWM         string
 	WMChanged         func(string)
 	wmChooserLaunched bool
+}
+
+func (s *Switcher) allowSwitch() bool {
+	return s.systemConfig.AllowSwitch
+}
+
+func (s *Switcher) getWM() string {
+	if s.allowSwitch() {
+		return s.userConfig.LastWM
+	}
+	return deepin2DWM
+}
+
+func (s *Switcher) shouldWait() bool {
+	if s.allowSwitch() {
+		return s.userConfig.Wait
+	}
+	return true
 }
 
 func (s *Switcher) setCurrentWM(name string) {
@@ -89,7 +107,7 @@ func (s *Switcher) CurrentWM() string {
 
 // RestartWM restart the last window manager
 func (s *Switcher) RestartWM() error {
-	return s.runWM(s.info.LastWM, true)
+	return s.runWM(s.getWM(), true)
 }
 
 // Start2DWM called by startdde watchdog, run 2d window manager without --replace option.
@@ -106,10 +124,11 @@ func (s *Switcher) Start2DWM() error {
 
 // RequestSwitchWM try to switch window manager
 func (s *Switcher) RequestSwitchWM() error {
-	if !s.goodWM {
+	if !s.allowSwitch() {
 		showOSD(osdSwitchWMError)
 		return errors.New("refused to switch wm")
 	}
+
 	s.mu.Lock()
 	currentWM := s.currentWM
 	s.mu.Unlock()
@@ -127,8 +146,8 @@ func (s *Switcher) RequestSwitchWM() error {
 	}
 
 	s.setLastWM(nextWM)
-	s.saveConfig()
-	s.initSogou()
+	s.saveUserConfig()
+	s.adjustSogouSkin()
 	return nil
 }
 
@@ -145,7 +164,7 @@ func (s *Switcher) emitSignalWMChanged(wm string) {
 	dbus.Emit(s, "WMChanged", wmNameMap[wm])
 }
 
-func (s *Switcher) isCardChange() (change bool) {
+func (s *Switcher) isCardChanged() (change bool) {
 	actualCardInfos, err := getCardInfos()
 	if err != nil {
 		s.logger.Warning("failed to get card info:", err)
@@ -175,27 +194,23 @@ func (s *Switcher) isCardChange() (change bool) {
 		}
 	}
 
-	if s.wmChooserLaunched {
-		change = false
-	}
-
 	return change
 }
 
 func (s *Switcher) init() {
-	if s.isCardChange() {
-		s.initConfig()
-		return
-	}
+	s.loadSystemConfig()
 
-	var err error
-	s.info, err = s.loadConfig()
-	if err != nil || s.info.LastWM == "" {
-		s.logger.Warning("failed to load config:", err)
-		s.initConfig()
-		return
+	if s.allowSwitch() {
+		cardChanged := s.isCardChanged()
+		if !s.wmChooserLaunched && cardChanged {
+			s.initUserConfig()
+		} else {
+			err := s.loadUserConfig()
+			if err != nil {
+				s.initUserConfig()
+			}
+		}
 	}
-	s.goodWM = s.info.AllowSwitch
 }
 
 func (s *Switcher) listenStartupReady() {
@@ -224,7 +239,7 @@ func (s *Switcher) listenStartupReady() {
 }
 
 func (s *Switcher) listenWMChanged() {
-	s.currentWM = s.info.LastWM
+	s.currentWM = s.getWM()
 
 	conn, err := x.NewConn()
 	if err != nil {
@@ -295,14 +310,14 @@ func (s *Switcher) listenWMChanged() {
 	}()
 }
 
-func (s *Switcher) initSogou() {
+func (s *Switcher) adjustSogouSkin() {
 	filename := getSogouConfigPath()
-	v, _ := getSogouSkin(filename)
-	if v != "" && s.goodWM && s.info.LastWM == deepin3DWM {
+	skin, _ := getSogouSkin(filename)
+	if skin != "" && s.getWM() == deepin3DWM {
 		return
 	}
 
-	if v == sgDefaultSkin {
+	if skin == sgDefaultSkin {
 		return
 	}
 
@@ -318,24 +333,20 @@ func (s *Switcher) initSogou() {
 	}
 }
 
-func (s *Switcher) initConfig() {
-	s.goodWM = s.isGoodWM()
-	if s.goodWM {
-		s.info = &configInfo{
-			AllowSwitch: s.goodWM,
-			LastWM:      deepin3DWM,
+func (s *Switcher) initUserConfig() {
+	if s.supportRunGoodWM() {
+		s.userConfig = &userConfig{
+			LastWM: deepin3DWM,
+			Wait:   true,
 		}
 	} else {
-		s.info = &configInfo{
-			AllowSwitch: s.goodWM,
-			LastWM:      deepin2DWM,
+		s.userConfig = &userConfig{
+			LastWM: deepin2DWM,
+			Wait:   true,
 		}
 	}
 
-	err := s.saveConfig()
-	if err != nil {
-		s.logger.Warning("Failed to save config:", err)
-	}
+	s.saveUserConfig()
 }
 
 func (s *Switcher) runWM(wm string, replace bool) error {
@@ -357,26 +368,26 @@ func (s *Switcher) runWM(wm string, replace bool) error {
 	return nil
 }
 
-func (s *Switcher) isGoodWM() bool {
-	goodWM := true
+func (s *Switcher) supportRunGoodWM() bool {
+	support := true
 
 	platform, err := getPlatform()
 	if err == nil && platform == platformSW {
 		if !isRadeonExists() {
-			goodWM = false
+			support = false
 			setupSWPlatform()
 		}
 	}
 
 	if !isDriverLoadedCorrectly() {
-		goodWM = false
-		return goodWM
+		support = false
+		return support
 	}
 
 	env, err := getVideoEnv()
 	if err == nil {
-		correctWMByEnv(env, &goodWM)
+		correctWMByEnv(env, &support)
 	}
 
-	return goodWM
+	return support
 }

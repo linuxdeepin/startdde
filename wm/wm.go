@@ -24,9 +24,6 @@ import (
 	"pkg.deepin.io/lib/log"
 )
 
-// TODO:
-//    3. check virtual machine, replace dde-wm-chooser
-
 var _s *Switcher
 
 // Start launch wm
@@ -41,7 +38,7 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 	_s.init()
 	_s.listenStartupReady()
 	_s.listenWMChanged()
-	_s.initSogou()
+	_s.adjustSogouSkin()
 
 	err := dbus.InstallOnSession(_s)
 	if err != nil {
@@ -54,14 +51,14 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 // GetWM return current window manager
 func GetWM() string {
 	if _s != nil {
-		return _s.info.LastWM
+		return _s.getWM()
 	}
 	return ""
 }
 
-func IsWait() bool {
+func ShouldWait() bool {
 	if _s != nil {
-		return _s.info.Wait
+		return _s.shouldWait()
 	}
 	return true
 }

@@ -21,6 +21,7 @@ package wm
 
 import (
 	"path/filepath"
+
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -40,10 +41,7 @@ func getSogouConfigPath() string {
 
 func setSogouSkin(skin, filename string) error {
 	kfile := keyfile.NewKeyFile()
-	err := kfile.LoadFromFile(filename)
-	if err != nil {
-		return err
-	}
+	kfile.LoadFromFile(filename)
 
 	v, err := kfile.GetString(sgGroupBase, sgKeyCurtSkin)
 	if err != nil {

@@ -21,92 +21,123 @@ package wm
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
-type configInfo struct {
-	AllowSwitch bool   `json:"allow_switch"`
-	LastWM      string `json:"last_wm"`
-	Wait        bool   `json:"wait"`
-}
-
 const (
-	swSystemPath = "/etc/deepin-wm-switcher/config.json"
-	swUserPath   = "deepin/deepin-wm-switcher/config.json"
+	sysCfgPath        = "/etc/deepin-wm-switcher/config.json"
+	userCfgPathSuffix = "deepin/deepin-wm-switcher/config.json"
 )
 
-func (s *Switcher) loadConfig() (*configInfo, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	file := filepath.Join(basedir.GetUserConfigDir(), swUserPath)
-	if !utils.IsFileExist(file) {
-		file = swSystemPath
-	}
-
-	if !utils.IsFileExist(file) {
-		return nil, fmt.Errorf("Failed to found config: %s", file)
-	}
-	return doLoadSwConfig(file)
+type systemConfig struct {
+	AllowSwitch bool `json:"allow_switch"`
 }
 
-func (s *Switcher) setAllowSwitch(v bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+type userConfig struct {
+	LastWM string `json:"last_wm"`
+	Wait   bool   `json:"wait"`
+}
 
-	if s.info.AllowSwitch == v {
-		return
+func (s *Switcher) loadSystemConfig() {
+	sysCfg, err := loadSystemConfig(sysCfgPath)
+	if err != nil {
+		// ignore not exist
+		if !os.IsNotExist(err) {
+			s.logger.Warning(err)
+		}
+		// default system config
+		sysCfg = &systemConfig{
+			AllowSwitch: true,
+		}
 	}
-	s.info.AllowSwitch = v
+	s.systemConfig = sysCfg
+	s.logger.Debugf("load system config: %#v", sysCfg)
+}
+
+func (s *Switcher) loadUserConfig() error {
+	filename := getUserConfigPath()
+	userCfg, err := loadUserConfig(filename)
+	if err != nil {
+		// ignore not exist
+		if !os.IsNotExist(err) {
+			s.logger.Warning("failed to load user config:", err)
+		}
+	} else {
+		s.userConfig = userCfg
+		s.logger.Debugf("load user config: %#v", userCfg)
+	}
+	return err
 }
 
 func (s *Switcher) setLastWM(v string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.info.LastWM == v {
+	if s.userConfig.LastWM == v {
 		return
 	}
-	s.info.LastWM = v
+	s.userConfig.LastWM = v
 }
 
-func (s *Switcher) saveConfig() error {
+func getUserConfigPath() string {
+	return filepath.Join(basedir.GetUserConfigDir(), userCfgPathSuffix)
+}
+
+func (s *Switcher) saveUserConfig() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	file := filepath.Join(basedir.GetUserConfigDir(), swUserPath)
-	data, err := json.Marshal(s.info)
+	s.logger.Debugf("save user config: %#v", s.userConfig)
+	filename := getUserConfigPath()
+	err := saveUserConfig(filename, s.userConfig)
 	if err != nil {
-		return err
+		s.logger.Warning("failed to save user config", err)
 	}
-
-	err = os.MkdirAll(filepath.Dir(file), 0755)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(file, data, 0644)
 }
 
-func doLoadSwConfig(file string) (*configInfo, error) {
-	contents, err := ioutil.ReadFile(file)
+func loadSystemConfig(filename string) (*systemConfig, error) {
+	content, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var info configInfo
-	// fix no 'allow_switch' in config
-	info.AllowSwitch = true
-	info.Wait = true
-	err = json.Unmarshal(contents, &info)
+	var v systemConfig
+	err = json.Unmarshal(content, &v)
 	if err != nil {
 		return nil, err
 	}
-	return &info, nil
+	return &v, nil
+}
+
+func loadUserConfig(filename string) (*userConfig, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	var v userConfig
+	v.Wait = true
+	err = json.Unmarshal(content, &v)
+	if err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+func saveUserConfig(filename string, v *userConfig) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(filepath.Dir(filename), 0755)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filename, data, 0644)
 }
