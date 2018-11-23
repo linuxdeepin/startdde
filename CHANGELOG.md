@@ -1,3 +1,7 @@
+## [3.4.0] - 2018-11-23
+*   feat: modify the meaning of allow switch
+*   fix(xsettings): gtk window cursor size wrong
+
 ## [3.3.0] - 2018-11-09
 *   fix(display): the disconnected output still on
 *   feat(display): add touchscreen rotation supported
