@@ -16,6 +16,10 @@ func init() {
 	log.SetFlags(log.Lshortfile)
 }
 
+const (
+	stdXAuthFileMod = 0600
+)
+
 func fix(conn *dbus.Conn, userPath string) error {
 	userObj, err := accounts.NewUser(conn, dbus.ObjectPath(userPath))
 	if err != nil {
@@ -39,9 +43,17 @@ func fix(conn *dbus.Conn, userPath string) error {
 	fileInfo, err := os.Stat(xAuthFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = nil
+			return createXAuthFile(xAuthFile, uid)
 		}
 		return err
+	}
+
+	// fix mod
+	if fileInfo.Mode() != stdXAuthFileMod {
+		err = os.Chmod(xAuthFile, stdXAuthFileMod)
+		if err != nil {
+			return err
+		}
 	}
 
 	sysStat, ok := fileInfo.Sys().(*syscall.Stat_t)
@@ -49,11 +61,37 @@ func fix(conn *dbus.Conn, userPath string) error {
 		return errors.New("failed to convert fileInfo.Sys() to *syscall.Stat_t")
 	}
 
+	// fix own
 	if int(sysStat.Uid) != uid {
-		err := os.Chown(xAuthFile, uid, uid)
+		err = os.Chown(xAuthFile, uid, uid)
 		if err != nil {
-			return nil
+			return err
 		}
+	}
+
+	return nil
+}
+
+func createXAuthFile(filename string, uid int) error {
+	fh, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+
+	_, err = fh.Write([]byte{0})
+	if err != nil {
+		return err
+	}
+
+	err = fh.Chmod(stdXAuthFileMod)
+	if err != nil {
+		return err
+	}
+
+	err = fh.Chown(uid, uid)
+	if err != nil {
+		return err
 	}
 
 	return nil
