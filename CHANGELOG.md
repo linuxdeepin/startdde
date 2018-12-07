@@ -1,3 +1,6 @@
+## [3.5.0] - 2018-12-07
+*   feat(fix-xauthority-perm): create .Xauthority if not exist
+
 ## [3.4.0] - 2018-11-23
 *   feat: modify the meaning of allow switch
 *   fix(xsettings): gtk window cursor size wrong
