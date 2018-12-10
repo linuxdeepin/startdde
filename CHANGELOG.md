@@ -1,3 +1,6 @@
+## [3.6.0] - 2018-12-10
+*   fix: improve double clicks on touchscreen for Qt-based applications
+
 ## [3.5.0] - 2018-12-07
 *   feat(fix-xauthority-perm): create .Xauthority if not exist
 
