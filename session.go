@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -416,10 +417,16 @@ func setupEnvironments() {
 	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
 	envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
 	envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
-	// make double click possible for Qt-based applications on touchscreens
-	envVars["QT_DBL_CLICK_DIST"] = "15"
 	envVars[xsettings.EnvJavaOptions] = os.Getenv(xsettings.EnvJavaOptions)
 	envVars[xsettings.EnvQtScaleFactor] = os.Getenv(xsettings.EnvQtScaleFactor)
+
+	// make double click possible for Qt-based applications on touchscreens
+	qtScaleFactorStr := os.Getenv(xsettings.EnvQtScaleFactor)
+	qtScaleFactor, err := strconv.ParseFloat(qtScaleFactorStr, 32)
+	if err != nil {
+		qtScaleFactor = 1
+	}
+	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * qtScaleFactor))
 
 	for key, value := range envVars {
 		err = os.Setenv(key, value)
