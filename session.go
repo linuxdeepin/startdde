@@ -151,6 +151,11 @@ func (m *SessionManager) ForceReboot() {
 }
 
 func (m *SessionManager) CanSuspend() bool {
+	_, err := os.Stat("/sys/power/mem_sleep")
+	if os.IsNotExist(err) {
+		return false
+	}
+
 	str, _ := objLogin.CanSuspend()
 	if str == "yes" {
 		return true
