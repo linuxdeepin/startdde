@@ -1,3 +1,8 @@
+## [3.7.0] - 2018-12-25
+*   fix: Qt double click not working well on hiDPI devices
+*   feat: CanSuspend check file `/sys/power/mem_sleep` existence
+*   chore: compile with sw arch no longer needs to use gccgo
+
 ## [3.6.0] - 2018-12-10
 *   fix: improve double clicks on touchscreen for Qt-based applications
 
