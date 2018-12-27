@@ -93,6 +93,10 @@ func (s *Switcher) setCurrentWM(name string) {
 	s.mu.Unlock()
 }
 
+func (s *Switcher) AllowSwitch() bool {
+	return s.allowSwitch()
+}
+
 // CurrentWM show the current window manager
 func (s *Switcher) CurrentWM() string {
 	s.mu.Lock()
