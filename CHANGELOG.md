@@ -1,3 +1,6 @@
+## [3.8.0] - 2018-12-28
+*   feat(wm): Switcher add method AllowSwitch
+
 ## [3.7.0] - 2018-12-25
 *   fix: Qt double click not working well on hiDPI devices
 *   feat: CanSuspend check file `/sys/power/mem_sleep` existence
