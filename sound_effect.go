@@ -42,7 +42,23 @@ func playLoginSound() {
 }
 
 func playLogoutSound() {
-	device, err := getALSADevice()
+	ctx := pulse.GetContext()
+	if ctx == nil {
+		logger.Warning("failed to get pulse.Context")
+		return
+	}
+
+	defaultSink := getPulseDefaultSink(ctx)
+	if defaultSink == nil {
+		logger.Warning("failed to get default sink")
+		return
+	}
+
+	if defaultSink.Mute {
+		return
+	}
+
+	device, err := getALSADevice(defaultSink)
 	if err != nil {
 		logger.Warning("failed to get ALSA device:", err)
 		return
@@ -86,25 +102,18 @@ func preparePlayShutdownSound() {
 	}
 }
 
-func getALSADevice() (string, error) {
-	ctx := pulse.GetContext()
-	if ctx == nil {
-		return "", errors.New("failed to get pulse context")
-	}
-
+func getPulseDefaultSink(ctx *pulse.Context) (defaultSink *pulse.Sink) {
 	defaultSinkName := ctx.GetDefaultSink()
-	var defaultSink *pulse.Sink
 	for _, sink := range ctx.GetSinkList() {
 		if sink.Name == defaultSinkName {
 			defaultSink = sink
 			break
 		}
 	}
+	return
+}
 
-	if defaultSink == nil {
-		return "", errors.New("failed to get default sink")
-	}
-
+func getALSADevice(defaultSink *pulse.Sink) (string, error) {
 	props := defaultSink.PropList
 	card := props["alsa.card"]
 	device := props["alsa.device"]
