@@ -1,3 +1,6 @@
+## [3.9.0] - 2019-01-09
+*   fix: if the speaker is muted, still play the logout music
+
 ## [3.8.0] - 2018-12-28
 *   feat(wm): Switcher add method AllowSwitch
 
