@@ -170,16 +170,20 @@ func newManager() (*Manager, error) {
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
-	maxScaleFactor := 1.0
+	if len(m.outputInfos) == 0 {
+		return 1.0
+	}
+
+	minScaleFactor := 3.0
 	for i := 0; i < len(m.outputInfos); i++ {
 		outputInfo := &m.outputInfos[i]
 		scaleFactor := calcRecommendedScaleFactor(float64(outputInfo.Crtc.Width),
 			float64(outputInfo.MmWidth))
-		if maxScaleFactor < scaleFactor {
-			maxScaleFactor = scaleFactor
+		if minScaleFactor > scaleFactor {
+			minScaleFactor = scaleFactor
 		}
 	}
-	return maxScaleFactor
+	return minScaleFactor
 }
 
 func calcRecommendedScaleFactor(pxWidth, mmWidth float64) float64 {
