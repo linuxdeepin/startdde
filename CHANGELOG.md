@@ -1,3 +1,6 @@
+## [3.10.0] - 2019-01-10
+*   fix: modify the recommended scale factor calc
+
 ## [3.9.0] - 2019-01-09
 *   fix: if the speaker is muted, still play the logout music
 
