@@ -29,33 +29,12 @@ import (
 )
 
 const (
-	sysCfgPath        = "/etc/deepin-wm-switcher/config.json"
 	userCfgPathSuffix = "deepin/deepin-wm-switcher/config.json"
 )
-
-type systemConfig struct {
-	AllowSwitch bool `json:"allow_switch"`
-}
 
 type userConfig struct {
 	LastWM string `json:"last_wm"`
 	Wait   bool   `json:"wait"`
-}
-
-func (s *Switcher) loadSystemConfig() {
-	sysCfg, err := loadSystemConfig(sysCfgPath)
-	if err != nil {
-		// ignore not exist
-		if !os.IsNotExist(err) {
-			s.logger.Warning(err)
-		}
-		// default system config
-		sysCfg = &systemConfig{
-			AllowSwitch: true,
-		}
-	}
-	s.systemConfig = sysCfg
-	s.logger.Debugf("load system config: %#v", sysCfg)
 }
 
 func (s *Switcher) loadUserConfig() error {
@@ -97,20 +76,6 @@ func (s *Switcher) saveUserConfig() {
 	if err != nil {
 		s.logger.Warning("failed to save user config", err)
 	}
-}
-
-func loadSystemConfig(filename string) (*systemConfig, error) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	var v systemConfig
-	err = json.Unmarshal(content, &v)
-	if err != nil {
-		return nil, err
-	}
-	return &v, nil
 }
 
 func loadUserConfig(filename string) (*userConfig, error) {

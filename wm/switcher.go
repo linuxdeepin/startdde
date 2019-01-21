@@ -21,6 +21,7 @@ package wm
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 	"sync"
@@ -54,10 +55,10 @@ var wmNameMap = map[string]string{
 
 //Switcher wm switch manager
 type Switcher struct {
-	logger       *log.Logger
-	userConfig   *userConfig
-	systemConfig *systemConfig
-	mu           sync.Mutex
+	logger          *log.Logger
+	userConfig      *userConfig
+	mu              sync.Mutex
+	workability3dWM int
 
 	wm                *libwm.Wm
 	wmStartupCount    int
@@ -66,22 +67,27 @@ type Switcher struct {
 	wmChooserLaunched bool
 }
 
+const (
+	workabilityUnknown = 0
+	workabilityAble    = 1
+	workabilityNotAble = 2
+)
+
 func (s *Switcher) allowSwitch() bool {
-	return s.systemConfig.AllowSwitch
+	nextWM := s.getNextWM()
+	if nextWM == deepin2DWM {
+		return true
+	}
+	// else 3d WM
+	return s.isSupportRun3dWM()
 }
 
 func (s *Switcher) getWM() string {
-	if s.allowSwitch() {
-		return s.userConfig.LastWM
-	}
-	return deepin2DWM
+	return s.userConfig.LastWM
 }
 
 func (s *Switcher) shouldWait() bool {
-	if s.allowSwitch() {
-		return s.userConfig.Wait
-	}
-	return true
+	return s.userConfig.Wait
 }
 
 func (s *Switcher) setCurrentWM(name string) {
@@ -126,22 +132,31 @@ func (s *Switcher) Start2DWM() error {
 	return nil
 }
 
-// RequestSwitchWM try to switch window manager
-func (s *Switcher) RequestSwitchWM() error {
-	if !s.allowSwitch() {
-		showOSD(osdSwitchWMError)
-		return errors.New("refused to switch wm")
-	}
-
+func (s *Switcher) getNextWM() string {
 	s.mu.Lock()
 	currentWM := s.currentWM
 	s.mu.Unlock()
 
-	nextWM := deepin3DWM
+	var nextWM string
 	if currentWM == deepin3DWM {
 		nextWM = deepin2DWM
-	} else if currentWM == deepin2DWM {
+	} else {
 		nextWM = deepin3DWM
+	}
+	return nextWM
+}
+
+// RequestSwitchWM try to switch window manager
+func (s *Switcher) RequestSwitchWM() error {
+	nextWM := s.getNextWM()
+	if nextWM == deepin3DWM {
+		if !s.isSupportRun3dWM() {
+			err := showOSD(osdSwitchWMError)
+			if err != nil {
+				s.logger.Warning(err)
+			}
+			return errors.New("refused to switch wm")
+		}
 	}
 
 	err := s.runWM(nextWM, true)
@@ -202,17 +217,13 @@ func (s *Switcher) isCardChanged() (change bool) {
 }
 
 func (s *Switcher) init() {
-	s.loadSystemConfig()
-
-	if s.allowSwitch() {
-		cardChanged := s.isCardChanged()
-		if !s.wmChooserLaunched && cardChanged {
+	cardChanged := s.isCardChanged()
+	if !s.wmChooserLaunched && cardChanged {
+		s.initUserConfig()
+	} else {
+		err := s.loadUserConfig()
+		if err != nil {
 			s.initUserConfig()
-		} else {
-			err := s.loadUserConfig()
-			if err != nil {
-				s.initUserConfig()
-			}
 		}
 	}
 }
@@ -338,7 +349,7 @@ func (s *Switcher) adjustSogouSkin() {
 }
 
 func (s *Switcher) initUserConfig() {
-	if s.supportRunGoodWM() {
+	if s.isSupportRun3dWM() {
 		s.userConfig = &userConfig{
 			LastWM: deepin3DWM,
 			Wait:   true,
@@ -370,6 +381,25 @@ func (s *Switcher) runWM(wm string, replace bool) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Switcher) isSupportRun3dWM() bool {
+	switch s.workability3dWM {
+	case workabilityUnknown:
+		support := s.supportRunGoodWM()
+		if support {
+			s.workability3dWM = workabilityAble
+		} else {
+			s.workability3dWM = workabilityNotAble
+		}
+		return support
+	case workabilityAble:
+		return true
+	case workabilityNotAble:
+		return false
+	default:
+		panic(fmt.Errorf("invalid workability %d", s.workability3dWM))
+	}
 }
 
 func (s *Switcher) supportRunGoodWM() bool {
