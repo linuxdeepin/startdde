@@ -93,7 +93,7 @@ func (m *XSManager) SetString(prop, v string) error {
 func (m *XSManager) GetString(prop string) (string, error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
-		logger.Debug("Get '%s' value failed: %v", prop, err)
+		logger.Debugf("Get '%s' value failed: %v", prop, err)
 		return "", err
 	}
 
@@ -124,7 +124,7 @@ func (m *XSManager) SetColor(prop string, v [4]int16) error {
 func (m *XSManager) GetColor(prop string) ([4]int16, error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
-		logger.Debug("Get '%s' value failed: %v", prop, err)
+		logger.Debugf("Get '%s' value failed: %v", prop, err)
 		return [4]int16{}, err
 	}
 

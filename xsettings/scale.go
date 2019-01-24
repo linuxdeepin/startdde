@@ -20,20 +20,17 @@
 package xsettings
 
 import (
-	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
-	"strings"
 	"sync"
 
 	ddaemon "dbus/com/deepin/daemon/daemon/system"
 	"dbus/com/deepin/daemon/greeter"
 
 	"gir/gio-2.0"
+	"pkg.deepin.io/dde/api/userenv"
 	"pkg.deepin.io/lib/dbus"
-	"pkg.deepin.io/lib/utils"
 )
 
 var pamEnvFile = os.Getenv("HOME") + "/.pam_environment"
@@ -57,14 +54,14 @@ func (m *XSManager) setScaleFactor(scale float64, emitDone bool) {
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
 	// for qt
 	scaleStr := strconv.FormatFloat(scale, 'f', 2, 64)
-	err := writeKeyToEnvFile(EnvQtScaleFactor, scaleStr, pamEnvFile)
+	err := userenv.Set(EnvQtScaleFactor, scaleStr)
 	if err != nil {
 		logger.Warning("Failed to set qt scale factor:", err)
 	}
-	os.Setenv(EnvQtScaleFactor, scaleStr)
-
-	// for java
-	doSetJAVAScale(scale)
+	err = os.Setenv(EnvQtScaleFactor, scaleStr)
+	if err != nil {
+		logger.Warning(err)
+	}
 
 	// if 1.7 < scale < 2, window scale = 2
 	windowScale := int32(math.Trunc((scale+0.3)*10) / 10)
@@ -119,67 +116,6 @@ func doScalePlymouth(scale uint32) {
 	if err != nil {
 		logger.Warning("Failed to scale plymouth:", err)
 	}
-}
-
-func doSetJAVAScale(scale float64) {
-	var scaleKey = "-Dswt.autoScale="
-
-	value := os.Getenv(EnvJavaOptions)
-	if strings.Contains(value, scaleKey) {
-		list1 := strings.Split(value, scaleKey)
-		value = list1[0]
-
-		list2 := strings.Split(list1[1], " ")
-		value += strings.Join(list2[1:], " ")
-	}
-
-	value += fmt.Sprintf(" %s%d", scaleKey, int(scale*100))
-	err := writeKeyToEnvFile(EnvJavaOptions, value, pamEnvFile)
-	if err != nil {
-		logger.Warning("Failed to set java scale:", value, err)
-	}
-	os.Setenv(EnvJavaOptions, value)
-}
-
-func writeKeyToEnvFile(key, value, filename string) error {
-	if !utils.IsFileExist(filename) {
-		return ioutil.WriteFile(filename, []byte(key+"="+value+"\n"), 0644)
-	}
-
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-
-	var lines = strings.Split(string(content), "\n")
-	var idx = -1
-	for i, line := range lines {
-		if line == "" || line[0] == '#' {
-			continue
-		}
-		line = strings.TrimSpace(line)
-		if !strings.Contains(line, key+"=") {
-			continue
-		}
-
-		if line == key+"="+value {
-			return nil
-		}
-		idx = i
-		break
-	}
-
-	if idx != -1 {
-		lines[idx] = key + "=" + value
-	} else {
-		if lines[len(lines)-1] == "" {
-			lines[len(lines)-1] = key + "=" + value
-		} else {
-			lines = append(lines, key+"="+value)
-		}
-		lines = append(lines, "")
-	}
-	return ioutil.WriteFile(filename, []byte(strings.Join(lines, "\n")), 0644)
 }
 
 var (
