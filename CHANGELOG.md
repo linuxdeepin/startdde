@@ -1,3 +1,7 @@
+[3.11.0] 2019-01-25
+*   feat: do not save env in .pam_environment
+*   feat: no use sys config allow switch
+
 ## [3.10.0] - 2019-01-10
 *   fix: modify the recommended scale factor calc
 
