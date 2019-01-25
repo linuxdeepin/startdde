@@ -41,26 +41,37 @@ func playLoginSound() {
 	logger.Info("PlaySystemSound DesktopLogin done")
 }
 
-func playLogoutSound() {
+func getDefaultSinkAlsaDevice() (device string, mute bool, err error) {
 	ctx := pulse.GetContext()
 	if ctx == nil {
-		logger.Warning("failed to get pulse.Context")
+		err = errors.New("failed to get pulse.Context")
 		return
 	}
 
 	defaultSink := getPulseDefaultSink(ctx)
 	if defaultSink == nil {
-		logger.Warning("failed to get default sink")
+		err = errors.New("failed to get default sink")
 		return
 	}
 
 	if defaultSink.Mute {
+		mute = true
 		return
 	}
 
-	device, err := getALSADevice(defaultSink)
+	device, err = getSinkAlsaDevice(defaultSink)
+	return
+}
+
+func playLogoutSound() {
+	device, mute, err := getDefaultSinkAlsaDevice()
 	if err != nil {
-		logger.Warning("failed to get ALSA device:", err)
+		logger.Warning(err)
+		return
+	}
+
+	if mute {
+		logger.Debug("default sink is mute")
 		return
 	}
 	logger.Debugf("ALSA device: %q", device)
@@ -93,12 +104,37 @@ func quitPulseAudio() {
 }
 
 func preparePlayShutdownSound() {
-	err := soundutils.SetShutdownSound(
-		soundutils.CanPlayEvent(soundutils.EventSystemShutdown),
-		soundutils.GetSoundTheme(),
-		soundutils.EventSystemShutdown)
+	canPlay := soundutils.CanPlayEvent(soundutils.EventSystemShutdown)
+	var device string
+	if canPlay {
+		var mute bool
+		var err error
+		device, mute, err = getDefaultSinkAlsaDevice()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		if mute {
+			logger.Debug("default sink is mute")
+			canPlay = false
+		}
+	}
+
+	var cfg soundutils.ShutdownSoundConfig
+	if canPlay {
+		cfg = soundutils.ShutdownSoundConfig{
+			CanPlay: canPlay,
+			Theme:   soundutils.GetSoundTheme(),
+			Event:   soundutils.EventSystemShutdown,
+			Device:  device,
+		}
+	}
+
+	logger.Debugf("set shutdown sound config: %+v", cfg)
+	err := soundutils.SetShutdownSoundConfig(&cfg)
 	if err != nil {
-		logger.Warning("Set shutdown sound failed:", err)
+		logger.Warning("failed to set shutdown sound config:", err)
 	}
 }
 
@@ -113,8 +149,8 @@ func getPulseDefaultSink(ctx *pulse.Context) (defaultSink *pulse.Sink) {
 	return
 }
 
-func getALSADevice(defaultSink *pulse.Sink) (string, error) {
-	props := defaultSink.PropList
+func getSinkAlsaDevice(sink *pulse.Sink) (string, error) {
+	props := sink.PropList
 	card := props["alsa.card"]
 	device := props["alsa.device"]
 	if card == "" || device == "" {
