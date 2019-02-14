@@ -78,13 +78,11 @@ func TestTaskInfo(t *testing.T) {
 		func() error { return nil })
 	Convey("Test manager", t, func() {
 		var m = &Manager{
-			taskList: &taskInfos{task1},
+			timedTasks: []*taskInfo{task1},
 		}
-		So(m.IsTaskExist(task1.Name), ShouldEqual, true)
-		So(m.IsTaskExist(task2.Name), ShouldEqual, false)
 		task1.failed = true
-		So(m.HasRunning(), ShouldEqual, false)
-		*m.taskList = append(*m.taskList, task2)
-		So(m.HasRunning(), ShouldEqual, true)
+		So(m.hasAnyRunnableTimedTask(), ShouldEqual, false)
+		m.timedTasks = append(m.timedTasks, task2)
+		So(m.hasAnyRunnableTimedTask(), ShouldEqual, true)
 	})
 }

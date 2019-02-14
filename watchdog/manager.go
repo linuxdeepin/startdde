@@ -32,40 +32,50 @@ const (
 )
 
 type Manager struct {
-	taskList *taskInfos
-	setting  *gio.Settings
-	quit     chan struct{}
+	setting *gio.Settings
+	quit    chan struct{}
 
-	taskMap map[string]*taskInfo
+	dbusTasks  map[string]*taskInfo
+	timedTasks []*taskInfo
 }
 
 func newManager() *Manager {
 	var m = new(Manager)
 	m.quit = make(chan struct{})
-	m.taskList = new(taskInfos)
 	m.setting, _ = dutils.CheckAndNewGSettings(schemaId)
+	m.dbusTasks = make(map[string]*taskInfo)
 	return m
 }
 
-func (m *Manager) AddTask(task *taskInfo) {
-	if m.IsTaskExist(task.Name) {
-		logger.Debugf("Task '%s' has exist", task.Name)
-		return
+func (m *Manager) AddTimedTask(task *taskInfo) {
+	task.Enable(m.getTaskEnabled(task.Name))
+	m.timedTasks = append(m.timedTasks, task)
+}
+
+func (m *Manager) AddDBusTask(dbusServiceName string, task *taskInfo) {
+	task.Enable(m.getTaskEnabled(task.Name))
+	m.dbusTasks[dbusServiceName] = task
+}
+
+func (m *Manager) getTaskEnabled(taskName string) bool {
+	if taskName == ddeLockTaskName {
+		// force must be enabled
+		return true
 	}
 
 	if m.setting != nil {
-		task.Enable(m.setting.GetBoolean(task.Name))
+		return m.setting.GetBoolean(taskName)
 	}
-
-	*m.taskList = append(*m.taskList, task)
-}
-
-func (m *Manager) IsTaskExist(name string) bool {
-	return (m.GetTask(name) != nil)
+	return false
 }
 
 func (m *Manager) GetTask(name string) *taskInfo {
-	for _, task := range *m.taskList {
+	for _, task := range m.timedTasks {
+		if name == task.Name {
+			return task
+		}
+	}
+	for _, task := range m.dbusTasks {
 		if name == task.Name {
 			return task
 		}
@@ -73,17 +83,17 @@ func (m *Manager) GetTask(name string) *taskInfo {
 	return nil
 }
 
-func (m *Manager) HasRunning() bool {
-	for _, task := range *m.taskList {
-		if !task.Over() {
+func (m *Manager) hasAnyRunnableTimedTask() bool {
+	for _, task := range m.timedTasks {
+		if !task.getFailed() {
 			return true
 		}
 	}
 	return false
 }
 
-func (m *Manager) LaunchAll() {
-	for _, task := range *m.taskList {
+func (m *Manager) launchAllTimedTasks() {
+	for _, task := range m.timedTasks {
 		err := task.Launch()
 		if err != nil {
 			logger.Warningf("Launch '%s' failed: %v",
@@ -104,13 +114,13 @@ func (m *Manager) StartLoop() {
 				return
 			}
 
-			if !m.HasRunning() {
+			if !m.hasAnyRunnableTimedTask() {
 				logger.Debug("All program has launched failure")
 				m.QuitLoop()
 				return
 			}
 
-			m.LaunchAll()
+			m.launchAllTimedTasks()
 		}
 	}
 }
@@ -133,13 +143,10 @@ func (m *Manager) handleSettingsChanged() {
 	}
 
 	gsettings.ConnectChanged(schemaId, "*", func(key string) {
-		switch key {
-		case dockName, desktopName:
-			task := m.GetTask(key)
-			if task == nil {
-				return
-			}
-			task.Enable(m.setting.GetBoolean(key))
+		task := m.GetTask(key)
+		if task == nil {
+			return
 		}
+		task.Enable(m.setting.GetBoolean(key))
 	})
 }

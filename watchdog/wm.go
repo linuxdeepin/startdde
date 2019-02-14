@@ -10,16 +10,18 @@
 package watchdog
 
 import (
+	"time"
+
 	"pkg.deepin.io/lib/dbus"
 )
 
 const (
-	wmName = "wm"
-	wmDest = "com.deepin.wm"
+	wmTaskName    = "wm"
+	wmServiceName = "com.deepin.wm"
 )
 
 func isWMRunning() (bool, error) {
-	return isDBusServiceExist(wmDest)
+	return isDBusServiceExist(wmServiceName)
 }
 
 func launchWM() error {
@@ -37,5 +39,7 @@ func launchWM() error {
 }
 
 func newWMTask() *taskInfo {
-	return newTaskInfo(wmName, isWMRunning, launchWM)
+	task := newTaskInfo(wmTaskName, isWMRunning, launchWM)
+	task.launchDelay = 3 * time.Second
+	return task
 }

@@ -20,18 +20,18 @@
 package watchdog
 
 const (
-	desktopName = "dde-desktop"
-	desktopDest = "com.deepin.dde.desktop"
+	ddeDockTaskName    = "dde-dock"
+	ddeDockServiceName = "com.deepin.dde.Dock"
 )
 
-func isDesktopRunning() (bool, error) {
-	return isDBusServiceExist(desktopDest)
+func isDDEDockRunning() (bool, error) {
+	return isDBusServiceExist(ddeDockServiceName)
 }
 
-func launchDesktop() error {
-	return startService(desktopDest)
+func launchDDEDock() error {
+	return startService(ddeDockServiceName)
 }
 
-func newDesktopTask() *taskInfo {
-	return newTaskInfo(desktopName, isDesktopRunning, launchDesktop)
+func newDDEDockTask() *taskInfo {
+	return newTaskInfo(ddeDockTaskName, isDDEDockRunning, launchDDEDock)
 }

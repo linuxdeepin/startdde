@@ -44,10 +44,13 @@ import (
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/procfs"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 type SessionManager struct {
+	mu                    sync.Mutex
+	Locked                bool
 	CurrentUid            string
 	cookieLocker          sync.Mutex
 	cookies               map[string]chan time.Time
@@ -200,6 +203,34 @@ func (m *SessionManager) ToggleDebug() {
 		doSetLogLevel(log.LevelDebug)
 		logger.Debug("Debug mode enabled")
 	}
+}
+
+func (m *SessionManager) SetLocked(dMsg dbus.DMessage, value bool) error {
+	pid := dMsg.GetSenderPID()
+	process := procfs.Process(pid)
+	exe, err := process.Exe()
+	if err != nil {
+		return err
+	}
+
+	if exe != "/usr/bin/dde-lock" {
+		return fmt.Errorf("exe %q is invalid", exe)
+	}
+
+	m.mu.Lock()
+	if m.Locked != value {
+		m.Locked = value
+		dbus.NotifyChange(m, "Locked")
+	}
+	m.mu.Unlock()
+	return nil
+}
+
+func (m *SessionManager) getLocked() bool {
+	m.mu.Lock()
+	v := m.Locked
+	m.mu.Unlock()
+	return v
 }
 
 func callSwapSchedHelperPrepare(sessionID string) error {
@@ -453,7 +484,7 @@ func setupEnvironments() {
 	}
 }
 
-func startSession(conn *x.Conn) {
+func startSession(conn *x.Conn) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -467,7 +498,7 @@ func startSession(conn *x.Conn) {
 	err := dbus.InstallOnSession(manager)
 	if err != nil {
 		logger.Error("Install Session DBus Failed:", err)
-		return
+		return nil
 	}
 
 	setupEnvironments()
@@ -486,6 +517,8 @@ func startSession(conn *x.Conn) {
 		}
 	}()
 	go manager.launchAutostart()
+
+	return manager
 }
 
 func isDeepinVersionChanged() (bool, error) {

@@ -32,7 +32,8 @@ import (
 )
 
 const (
-	ddePolkitAgentCommand = "/usr/lib/polkit-1-dde/dde-polkit-agent"
+	ddePolkitAgentTaskName = "dde-polkit-agent"
+	ddePolkitAgentCommand  = "/usr/lib/polkit-1-dde/dde-polkit-agent"
 )
 
 func isDDEPolkitAgentRunning() (bool, error) {
@@ -78,5 +79,5 @@ func launchDDEPolkitAgent() error {
 }
 
 func newDDEPolkitAgent() *taskInfo {
-	return newTaskInfo("dde-polkit-agent", isDDEPolkitAgentRunning, launchDDEPolkitAgent)
+	return newTaskInfo(ddePolkitAgentTaskName, isDDEPolkitAgentRunning, launchDDEPolkitAgent)
 }

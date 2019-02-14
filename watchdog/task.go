@@ -20,6 +20,7 @@
 package watchdog
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -37,12 +38,12 @@ type taskInfo struct {
 	failed        bool
 	prevTimestamp int64 // previous launch timestamp
 
-	isRunning func() (bool, error)
-	launcher  func() error
+	isRunning   func() (bool, error)
+	launch      func() error
+	launchDelay time.Duration
 
 	locker sync.Mutex
 }
-type taskInfos []*taskInfo
 
 func newTaskInfo(name string,
 	isRunning func() (bool, error), launcher func() error) *taskInfo {
@@ -57,7 +58,8 @@ func newTaskInfo(name string,
 		failed:        false,
 		prevTimestamp: time.Now().Unix(),
 		isRunning:     isRunning,
-		launcher:      launcher,
+		launch:        launcher,
+		launchDelay:   time.Millisecond,
 	}
 
 	return task
@@ -86,8 +88,10 @@ func (task *taskInfo) Launch() error {
 
 	task.prevTimestamp = time.Now().Unix()
 	logger.Debug("launch task", task.Name, task.Times)
-	return task.launcher()
+	return task.launch()
 }
+
+var errNoNeedLaunch = errors.New("no need launch")
 
 func (task *taskInfo) CanLaunch() bool {
 	task.locker.Lock()
@@ -99,13 +103,15 @@ func (task *taskInfo) CanLaunch() bool {
 
 	isRun, err := task.isRunning()
 	if err != nil {
-		logger.Warning(err)
+		if err != errNoNeedLaunch {
+			logger.Warning(err)
+		}
 		return false
 	}
 	return isRun == false
 }
 
-func (task *taskInfo) Over() bool {
+func (task *taskInfo) getFailed() bool {
 	task.locker.Lock()
 	defer task.locker.Unlock()
 	return task.failed

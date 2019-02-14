@@ -40,7 +40,7 @@ var (
 	maxLaunchTimes = 10
 )
 
-func Start() {
+func Start(getLockedFn func() bool) {
 	if _manager != nil {
 		return
 	}
@@ -60,18 +60,24 @@ func Start() {
 	}
 	logger.Debug("[WATCHDOG] max launch times:", maxLaunchTimes)
 	_manager = newManager()
-	_manager.AddTask(newDockTask())
-	_manager.AddTask(newDesktopTask())
-	_manager.AddTask(newDDEPolkitAgent())
+	_manager.AddTimedTask(newDDEDockTask())
+	_manager.AddTimedTask(newDDEDesktopTask())
+	_manager.AddTimedTask(newDDEPolkitAgent())
 	go _manager.StartLoop()
 
 	wmTask := newWMTask()
-	_manager.taskMap = map[string]*taskInfo{
-		wmDest: wmTask,
+	_manager.AddDBusTask(wmServiceName, wmTask)
+
+	if getLockedFn != nil {
+		ddeLockTask := newDDELock(getLockedFn)
+		_manager.AddDBusTask(ddeLockServiceName, ddeLockTask)
 	}
 
-	go func() {
-		time.Sleep(10 * time.Second)
+	err = _manager.listenNameOwnerChanged()
+	if err != nil {
+		logger.Warning(err)
+	}
+	time.AfterFunc(10*time.Second, func() {
 		isRun, err := wmTask.isRunning()
 		if err != nil {
 			logger.Warning(err)
@@ -79,14 +85,12 @@ func Start() {
 		}
 
 		if !isRun {
-			err := wmTask.launcher()
+			err := wmTask.launch()
 			if err != nil {
 				logger.Warning(err)
 			}
 		}
-
-		_manager.listenNameOwnerChanged()
-	}()
+	})
 	return
 }
 
@@ -117,7 +121,7 @@ func (m *Manager) listenNameOwnerChanged() error {
 				if !ok {
 					continue
 				}
-				taskInfo := m.taskMap[name]
+				taskInfo := m.dbusTasks[name]
 				if taskInfo == nil {
 					continue
 				}
@@ -135,14 +139,12 @@ func (m *Manager) listenNameOwnerChanged() error {
 				if oldOwner != "" && newOwner == "" {
 					logger.Debugf("name lost %q, old owner: %q", name, oldOwner)
 
-					go func() {
-						logger.Debug("sleep 3s")
-						time.Sleep(3 * time.Second)
+					time.AfterFunc(taskInfo.launchDelay, func() {
 						err := taskInfo.Launch()
 						if err != nil {
 							logger.Warningf("failed to launch task %s: %v", taskInfo.Name, err)
 						}
-					}()
+					})
 
 				} else if oldOwner == "" && newOwner != "" {
 					logger.Debugf("name acquired %q, new owner: %q", name, newOwner)
@@ -157,7 +159,7 @@ func (m *Manager) listenNameOwnerChanged() error {
 					process := procfs.Process(pid)
 					exe, err := process.Exe()
 					if err != nil {
-						logger.Warning("failed to get process %d exe:", pid)
+						logger.Warningf("failed to get process %d exe:", pid)
 						continue
 					}
 					logger.Debugf("exe: %q", exe)

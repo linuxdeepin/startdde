@@ -105,9 +105,12 @@ func main() {
 		}
 	}()
 
-	startSession(xConn)
-
-	watchdog.Start()
+	sessionManager := startSession(xConn)
+	var getLockedFn func() bool
+	if sessionManager != nil {
+		getLockedFn = sessionManager.getLocked
+	}
+	watchdog.Start(getLockedFn)
 
 	if globalGSettingsConfig.iowaitEnabled {
 		go iowait.Start(logger)
