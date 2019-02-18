@@ -334,6 +334,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
+	var cmdSuffixes []string
 	var uiApp *swapsched.UIApp
 	if swapSchedDispatcher != nil {
 		if isDEComponent(appInfo) {
@@ -360,7 +361,16 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	if appId != "" {
 		if m.shouldUseProxy(appId) {
 			logger.Debug("launch: use proxy")
-			cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+			if supportProxyServerOption(appId) {
+				proxyServerUrl, err := getProxyServerUrl()
+				if err == nil {
+					cmdSuffixes = append(cmdSuffixes, "--proxy-server="+proxyServerUrl)
+				} else {
+					logger.Warning("failed to get google chrome proxy server url:", err)
+				}
+			} else {
+				cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+			}
 		}
 		if m.shouldDisableScaling(appId) {
 			logger.Debug("launch: disable scaling")
@@ -373,6 +383,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	ctx.Lock()
 	ctx.SetTimestamp(timestamp)
 	ctx.SetCmdPrefixes(cmdPrefixes)
+	ctx.SetCmdSuffixes(cmdSuffixes)
 	cmd, err := iStartCmd.StartCommand(files, ctx)
 	ctx.Unlock()
 
