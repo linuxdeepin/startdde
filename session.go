@@ -469,6 +469,9 @@ func setupEnvironments() {
 		}
 	}
 
+	envVars["LANG"] = os.Getenv("LANG")
+	envVars["LANGUAGE"] = os.Getenv("LANGUAGE")
+
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		logger.Warning(err)
