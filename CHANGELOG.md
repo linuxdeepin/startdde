@@ -1,3 +1,10 @@
+[3.12.0] 2019-02-22
+*   feat: app proxy support google chrome
+*   chore: set LANG and LANGUAGE for dbus daemon
+*   feat(watchdog): add task for dde-lock
+*   feat: limit ~/.dde-env only for deepin session
+*   fix: can not play shutdown music
+
 [3.11.0] 2019-01-25
 *   feat: do not save env in .pam_environment
 *   feat: no use sys config allow switch
