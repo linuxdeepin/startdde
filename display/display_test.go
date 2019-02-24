@@ -67,7 +67,7 @@ func TestMonitor(t *testing.T) {
 		var infos = MonitorInfos{lvds, edp}
 		So(infos.getByName("DVI-1"), ShouldBeNil)
 		So(infos.getByName("LVDS-1").cfg.Name, ShouldEqual, "LVDS-1")
-		So(infos.getMonitorsId(), ShouldEqual, "xxxxlvds-1,xxxxedp-1")
+		So(infos.getMonitorsId(), ShouldEqual, "xxxxedp-1,xxxxlvds-1")
 		So(infos.numberOfConnected(), ShouldEqual, 2)
 		So(infos.canBePrimary("eDP-1").Name, ShouldEqual, "eDP-1")
 		edp.Connected = false

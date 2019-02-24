@@ -22,6 +22,7 @@ package display
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -418,7 +419,8 @@ func (ms MonitorInfos) getMonitorsId() string {
 	if len(ids) == 0 {
 		return ""
 	}
-	return strings.Join(ids, ",")
+	sort.Strings(ids)
+	return strings.Join(ids, monitorsIdDelimiter)
 }
 
 func (ms MonitorInfos) getBaseInfos() MonitorBaseInfos {

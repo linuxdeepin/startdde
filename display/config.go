@@ -24,7 +24,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
+	"strings"
 	"sync"
+
+	"pkg.deepin.io/lib/strv"
 )
 
 type configMonitor struct {
@@ -125,9 +129,52 @@ func newConfigManagerFromFile(filename string) (*configManager, error) {
 		BaseGroup: make(map[string]*configMonitor),
 		filename:  filename,
 	}
-	err = json.Unmarshal(data, &config.BaseGroup)
+	var baseGroup map[string]*configMonitor
+	err = json.Unmarshal(data, &baseGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	// fix baseGroup keys
+	for key, value := range baseGroup {
+		cfgKey := parseConfigKey(key)
+		config.BaseGroup[cfgKey.String()] = value
+	}
+
 	return &config, nil
+}
+
+type configKey struct {
+	name     string
+	idFields []string
+}
+
+func parseConfigKey(str string) *configKey {
+	var name string
+	var idFields []string
+	idx := strings.LastIndex(str, customModeDelim)
+	if idx == -1 {
+		idFields = strings.Split(str, monitorsIdDelimiter)
+	} else {
+		name = str[:idx]
+		idFields = strings.Split(str[idx+1:], monitorsIdDelimiter)
+	}
+
+	sort.Strings(idFields)
+	return &configKey{
+		name:     name,
+		idFields: idFields,
+	}
+}
+
+func (ck *configKey) String() string {
+	if ck.name == "" {
+		return strings.Join(ck.idFields, monitorsIdDelimiter)
+	}
+	return ck.name + customModeDelim + strings.Join(ck.idFields, monitorsIdDelimiter)
+}
+
+func (ck *configKey) matchMonitorsId(id string) bool {
+	idFields := strings.Split(id, monitorsIdDelimiter)
+	return strv.Strv(idFields).Equal(ck.idFields)
 }

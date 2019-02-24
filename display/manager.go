@@ -24,7 +24,6 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"strings"
 	"sync"
 
 	"gir/gio-2.0"
@@ -53,7 +52,8 @@ const (
 	gsKeyPrimary     = "primary"
 	gsKeyCustomMode  = "current-custom-mode"
 
-	customModeDelim = "+"
+	customModeDelim     = "+"
+	monitorsIdDelimiter = ","
 )
 
 type Manager struct {
@@ -838,16 +838,16 @@ func (dpy *Manager) getCustomIdList() []string {
 	set := dpy.config.getIdList()
 	logger.Debug("~~~~~~~~~[getCustomIdList] id:", id)
 	logger.Debug("---------[getCustomIdList] set:", set)
-	var tmp []string
+	var result []string
 	for k, v := range set {
 		if v == "" {
 			continue
 		}
-		list := strings.Split(k, customModeDelim)
-		if list[len(list)-1] == id {
-			tmp = append(tmp, v)
+		cfgKey := parseConfigKey(k)
+		if cfgKey.matchMonitorsId(id) {
+			result = append(result, v)
 		}
 	}
-	sort.Strings(tmp)
-	return tmp
+	sort.Strings(result)
+	return result
 }
