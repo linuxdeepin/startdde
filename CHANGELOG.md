@@ -1,3 +1,6 @@
+[3.12.1] 2019-02-25
+*   fix(display): monitors config lost
+
 [3.12.0] 2019-02-22
 *   feat: app proxy support google chrome
 *   chore: set LANG and LANGUAGE for dbus daemon
