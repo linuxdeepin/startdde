@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"gir/glib-2.0"
+	"pkg.deepin.io/gir/glib-2.0"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"

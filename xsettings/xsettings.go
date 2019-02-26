@@ -22,7 +22,7 @@ package xsettings
 import (
 	"fmt"
 
-	"gir/gio-2.0"
+	"pkg.deepin.io/gir/gio-2.0"
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/gsettings"

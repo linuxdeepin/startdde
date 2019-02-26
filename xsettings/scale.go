@@ -28,7 +28,7 @@ import (
 	ddaemon "dbus/com/deepin/daemon/daemon/system"
 	"dbus/com/deepin/daemon/greeter"
 
-	"gir/gio-2.0"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/dde/api/userenv"
 	"pkg.deepin.io/lib/dbus"
 )

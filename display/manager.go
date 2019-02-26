@@ -26,7 +26,7 @@ import (
 	"sort"
 	"sync"
 
-	"gir/gio-2.0"
+	"pkg.deepin.io/gir/gio-2.0"
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/drandr"

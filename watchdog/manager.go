@@ -22,7 +22,7 @@ package watchdog
 import (
 	"time"
 
-	"gir/gio-2.0"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/gsettings"
 	dutils "pkg.deepin.io/lib/utils"
 )
