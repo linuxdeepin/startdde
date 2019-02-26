@@ -20,14 +20,14 @@
 package main
 
 import (
-	"dbus/com/deepin/daemon/display"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"pkg.deepin.io/lib/dbus"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
+	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -61,37 +61,71 @@ func correctVMResolution() {
 		return
 	}
 
-	dispDest := "com.deepin.daemon.Display"
-	dispPath := dbus.ObjectPath("/com/deepin/daemon/Display")
-	disp, err := display.NewDisplay(dispDest, dispPath)
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
-		logger.Warning("Failed to connect display dbus:", err)
+		logger.Warning(err)
 		return
 	}
-	defer display.DestroyDisplay(disp)
+	disp := display.NewDisplay(sessionBus)
 
-	output, err := display.NewMonitor(dispDest, dbus.ObjectPath(fmt.Sprintf("%v/Monitor%s", dispPath,
-		strings.Replace(disp.Primary.Get(), "-", "_", -1))))
+	primary, err := disp.Primary().Get(0)
 	if err != nil {
-		logger.Warningf("Failed to connect %q dbus: %v", disp.Primary.Get(), err)
+		logger.Warning(err)
 		return
 	}
-	defer display.DestroyMonitor(output)
+
+	monitorPath := dbus.ObjectPath(fmt.Sprintf("%v/Monitor%s", disp.Path_(),
+		strings.Replace(primary, "-", "_", -1)))
+	output, err := display.NewMonitor(sessionBus, monitorPath)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	width, err := output.Width().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	height, err := output.Width().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	X, err := output.X().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	y, err := output.Y().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
 
 	// if resolution < 1024x768, try set to 1024x768
-	if int16(output.Width.Get())-output.X.Get() > 1024 ||
-		int16(output.Height.Get())-output.Y.Get() > 768 {
-		return
-	}
-	err = output.SetModeBySize(1024, 768)
-	if err != nil {
-		logger.Warning("Failed to set mode to 1024x768 for:", output.Name.Get(), err)
+	if int16(width)-X > 1024 ||
+		int16(height)-y > 768 {
 		return
 	}
 
-	err = disp.ApplyChanges()
+	outputName, err := output.Name().Get(0)
 	if err != nil {
-		logger.Warning("Failed to apply mode change for:", output.Name.Get(), err)
+		logger.Warning(err)
+		return
+	}
+	err = output.SetModeBySize(0, 1024, 768)
+	if err != nil {
+		logger.Warning("Failed to set mode to 1024x768 for:", outputName, err)
+		return
+	}
+
+	err = disp.ApplyChanges(0)
+	if err != nil {
+		logger.Warning("Failed to apply mode change for:", outputName, err)
 		return
 	}
 }

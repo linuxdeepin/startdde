@@ -24,9 +24,9 @@ import (
 	"fmt"
 	"os/exec"
 
-	"dbus/com/deepin/api/soundthemeplayer"
-
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"pkg.deepin.io/dde/api/soundutils"
+	dbus1 "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/pulse"
 )
 
@@ -76,7 +76,7 @@ func playLogoutSound() {
 	}
 	logger.Debugf("ALSA device: %q", device)
 	quitPulseAudio()
-	err = soundThemePlayer.Play(soundutils.GetSoundTheme(),
+	err = soundThemePlayer.Play(0, soundutils.GetSoundTheme(),
 		soundutils.EventDesktopLogout, device)
 	if err != nil {
 		logger.Warning("SoundThemePlayer.Play err:", err)
@@ -84,15 +84,12 @@ func playLogoutSound() {
 }
 
 func initSoundThemePlayer() {
-	var err error
-	soundThemePlayer, err = soundthemeplayer.NewSoundThemePlayer(
-		"com.deepin.api.SoundThemePlayer",
-		"/com/deepin/api/SoundThemePlayer",
-	)
-
+	sysBus, err := dbus1.SystemBus()
 	if err != nil {
-		panic(fmt.Errorf("NewSoundThemePlayer err: %v", err))
+		return
 	}
+
+	soundThemePlayer = soundthemeplayer.NewSoundThemePlayer(sysBus)
 }
 
 func quitPulseAudio() {

@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"dbus/com/deepin/daemon/apps"
+	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
 
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
@@ -38,6 +38,7 @@ import (
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
+	dbus1 "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/fsnotify"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/keyfile"
@@ -68,7 +69,7 @@ type StartManager struct {
 	userAutostartPath   string
 	AutostartChanged    func(string, string)
 	delayHandler        *mapDelayHandler
-	launchedRecorder    *apps.LaunchedRecorder
+	daemonApps          *daemonApps.Apps
 	launchContext       *appinfo.AppLaunchContext
 	proxyChainsConfFile string
 	proxyChainsBin      string
@@ -142,11 +143,12 @@ func newStartManager(conn *x.Conn) *StartManager {
 	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
-	var err error
-	m.launchedRecorder, err = apps.NewLaunchedRecorder("com.deepin.daemon.Apps", "/com/deepin/daemon/Apps")
+	sysBus, err := dbus1.SystemBus()
 	if err != nil {
-		logger.Warning("NewLaunchedRecorder failed:", err)
+		logger.Warning(err)
 	}
+
+	m.daemonApps = daemonApps.NewApps(sysBus)
 	return m
 }
 
@@ -199,8 +201,8 @@ func (m *StartManager) LaunchAppWithOptions(desktopFile string, timestamp uint32
 	}
 
 	// mark app launched
-	if m.launchedRecorder != nil {
-		m.launchedRecorder.MarkLaunched(desktopFile)
+	if m.daemonApps != nil {
+		m.daemonApps.MarkLaunched(0, desktopFile)
 	}
 	return err
 }
@@ -227,8 +229,8 @@ func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uin
 		logger.Warning("launch failed:", err)
 	}
 	// mark app launched
-	if m.launchedRecorder != nil {
-		m.launchedRecorder.MarkLaunched(desktopFile)
+	if m.daemonApps != nil {
+		m.daemonApps.MarkLaunched(0, desktopFile)
 	}
 	return err
 }

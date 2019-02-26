@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"dbus/org/freedesktop/login1"
+	"github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/api/soundutils"
@@ -42,6 +42,7 @@ import (
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
+	dbus1 "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/procfs"
@@ -89,7 +90,7 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) terminate() {
-	err := objLoginSessionSelf.Terminate()
+	err := objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("LoginSessionSelf Terminate failed:", err)
 	}
@@ -111,7 +112,7 @@ func (m *SessionManager) ForceLogout() {
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
-	str, _ := objLogin.CanPowerOff()
+	str, _ := objLogin.CanPowerOff(0)
 	if str == "yes" {
 		return true
 	}
@@ -125,15 +126,15 @@ func (m *SessionManager) Shutdown() {
 
 func (m *SessionManager) RequestShutdown() {
 	preparePlayShutdownSound()
-	objLogin.PowerOff(true)
+	objLogin.PowerOff(0, true)
 }
 
 func (m *SessionManager) ForceShutdown() {
-	objLogin.PowerOff(false)
+	objLogin.PowerOff(0, false)
 }
 
 func (shudown *SessionManager) CanReboot() bool {
-	str, _ := objLogin.CanReboot()
+	str, _ := objLogin.CanReboot(0)
 	if str == "yes" {
 		return true
 	}
@@ -147,11 +148,11 @@ func (m *SessionManager) Reboot() {
 
 func (m *SessionManager) RequestReboot() {
 	preparePlayShutdownSound()
-	objLogin.Reboot(true)
+	objLogin.Reboot(0, true)
 }
 
 func (m *SessionManager) ForceReboot() {
-	objLogin.Reboot(false)
+	objLogin.Reboot(0, false)
 }
 
 func (m *SessionManager) CanSuspend() bool {
@@ -160,7 +161,7 @@ func (m *SessionManager) CanSuspend() bool {
 		return false
 	}
 
-	str, _ := objLogin.CanSuspend()
+	str, _ := objLogin.CanSuspend(0)
 	if str == "yes" {
 		return true
 	}
@@ -168,11 +169,11 @@ func (m *SessionManager) CanSuspend() bool {
 }
 
 func (m *SessionManager) RequestSuspend() {
-	objLogin.Suspend(false)
+	objLogin.Suspend(0, false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
-	str, _ := objLogin.CanHibernate()
+	str, _ := objLogin.CanHibernate(0)
 	if str == "yes" {
 		return true
 	}
@@ -180,7 +181,7 @@ func (m *SessionManager) CanHibernate() bool {
 }
 
 func (m *SessionManager) RequestHibernate() {
-	objLogin.Hibernate(false)
+	objLogin.Hibernate(0, false)
 }
 
 func (m *SessionManager) RequestLock() error {
@@ -249,12 +250,14 @@ func initSession() {
 	const login1ObjPath = "/org/freedesktop/login1"
 	const login1SessionSelfObjPath = login1ObjPath + "/session/self"
 
-	objLogin, err = login1.NewManager(login1Dest, login1ObjPath)
+	sysBus, err := dbus1.SystemBus()
 	if err != nil {
-		panic(fmt.Errorf("new Login1 Failed: %s", err))
+		logger.Warning(err)
+		return
 	}
 
-	objLoginSessionSelf, err = login1.NewSession(login1Dest, login1SessionSelfObjPath)
+	objLogin = login1.NewManager(sysBus)
+	objLoginSessionSelf, err = login1.NewSession(sysBus, login1SessionSelfObjPath)
 	if err != nil {
 		panic(fmt.Errorf("new Login1 session self Failed: %s", err))
 	}
@@ -279,7 +282,10 @@ func initSwapSched() {
 		return
 	}
 
-	sessionID := objLoginSessionSelf.Id.Get()
+	sessionID, err := objLoginSessionSelf.Id().Get(0)
+	if err != nil {
+		logger.Warning(err)
+	}
 
 	err = callSwapSchedHelperPrepare(sessionID)
 	if err != nil {

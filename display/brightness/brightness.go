@@ -23,11 +23,11 @@ import (
 	"errors"
 	"fmt"
 
-	"dbus/com/deepin/daemon/helper/backlight"
-
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "pkg.deepin.io/lib/backlight/display"
+	"pkg.deepin.io/lib/dbus1"
 )
 
 const (
@@ -40,11 +40,11 @@ var helper *backlight.Backlight
 
 func InitBacklightHelper() {
 	var err error
-	helper, err = backlight.NewBacklight("com.deepin.daemon.helper.Backlight",
-		"/com/deepin/daemon/helper/Backlight")
+	sysBus, err := dbus.SystemBus()
 	if err != nil {
-		fmt.Println("New backlight helper failed:", err)
+		return
 	}
+	helper = backlight.NewBacklight(sysBus)
 }
 
 func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
@@ -208,7 +208,7 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	const backlightTypeDisplay = 1
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
-	return helper.SetBrightness(backlightTypeDisplay, controller.Name, br)
+	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
 }
 
 func _getBacklight(controller *displayBl.Controller) (float64, error) {

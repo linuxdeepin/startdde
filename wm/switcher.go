@@ -26,11 +26,13 @@ import (
 	"strings"
 	"sync"
 
-	libwm "dbus/com/deepin/wm"
-
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
+	libwm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
 	"pkg.deepin.io/lib/dbus"
+	dbus1 "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
 
@@ -55,6 +57,7 @@ var wmNameMap = map[string]string{
 
 //Switcher wm switch manager
 type Switcher struct {
+	sigLoop         *dbusutil.SignalLoop // session bus
 	logger          *log.Logger
 	userConfig      *userConfig
 	mu              sync.Mutex
@@ -217,6 +220,12 @@ func (s *Switcher) isCardChanged() (change bool) {
 }
 
 func (s *Switcher) init() {
+	sessionBus, err := dbus1.SessionBus()
+	if err != nil {
+		s.logger.Warning(err)
+	}
+	s.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
+	s.sigLoop.Start()
 	cardChanged := s.isCardChanged()
 	if !s.wmChooserLaunched && cardChanged {
 		s.initUserConfig()
@@ -230,12 +239,15 @@ func (s *Switcher) init() {
 
 func (s *Switcher) listenStartupReady() {
 	var err error
-	s.wm, err = libwm.NewWm("com.deepin.wm", "/com/deepin/wm")
+	sessionBus, err := dbus1.SessionBus()
 	if err != nil {
-		panic(err)
+		s.logger.Warning(err)
+		return
 	}
 
-	s.wm.ConnectStartupReady(func(wmName string) {
+	s.wm = libwm.NewWm(sessionBus)
+	s.wm.InitSignalExt(s.sigLoop, true)
+	_, err = s.wm.ConnectStartupReady(func(wmName string) {
 		s.mu.Lock()
 		count := s.wmStartupCount
 		s.wmStartupCount++
@@ -245,12 +257,19 @@ func (s *Switcher) listenStartupReady() {
 		if count > 0 {
 			switch wmName {
 			case deepin3DWM:
-				showOSD(osdSwitch3DWM)
+				err = showOSD(osdSwitch3DWM)
 			case deepin2DWM:
-				showOSD(osdSwitch2DWM)
+				err = showOSD(osdSwitch2DWM)
+			}
+			if err != nil {
+				s.logger.Warning("failed to show osd:", err)
 			}
 		}
 	})
+
+	if err != nil {
+		s.logger.Warning(err)
+	}
 }
 
 func (s *Switcher) listenWMChanged() {
@@ -424,4 +443,13 @@ func (s *Switcher) supportRunGoodWM() bool {
 	}
 
 	return support
+}
+
+func showOSD(name string) error {
+	sessionBus, err := dbus1.SessionBus()
+	if err != nil {
+		return err
+	}
+	osdObj := osd.NewOSD(sessionBus)
+	return osdObj.ShowOSD(0, name)
 }
