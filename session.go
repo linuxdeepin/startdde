@@ -38,6 +38,7 @@ import (
 	"pkg.deepin.io/dde/startdde/keyring"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/dde/startdde/swapsched"
+	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/cgroup"
@@ -224,6 +225,25 @@ func (m *SessionManager) SetLocked(dMsg dbus.DMessage, value bool) error {
 		dbus.NotifyChange(m, "Locked")
 	}
 	m.mu.Unlock()
+
+	watchdogManager := watchdog.GetManager()
+	if watchdogManager != nil {
+		task := watchdogManager.GetTask("dde-lock")
+		if task != nil {
+			if value {
+				if task.GetFailed() {
+					task.Reset()
+				}
+			} else {
+				task.Reset()
+			}
+		} else {
+			logger.Warning("not found task dde-lock")
+		}
+	} else {
+		logger.Warning("watchdogManager is nil")
+	}
+
 	return nil
 }
 

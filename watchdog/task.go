@@ -65,6 +65,13 @@ func newTaskInfo(name string,
 	return task
 }
 
+func (task *taskInfo) Reset() {
+	task.locker.Lock()
+	task.Times = 0
+	task.failed = false
+	task.locker.Unlock()
+}
+
 func (task *taskInfo) Launch() error {
 	if !task.CanLaunch() {
 		task.Times = 0
@@ -115,6 +122,10 @@ func (task *taskInfo) getFailed() bool {
 	task.locker.Lock()
 	defer task.locker.Unlock()
 	return task.failed
+}
+
+func (task *taskInfo) GetFailed() bool {
+	return task.getFailed()
 }
 
 func (task *taskInfo) Enable(enabled bool) {

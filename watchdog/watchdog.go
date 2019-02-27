@@ -191,3 +191,7 @@ func Stop() {
 func SetLogLevel(level log.Priority) {
 	logger.SetLogLevel(level)
 }
+
+func GetManager() *Manager {
+	return _manager
+}
