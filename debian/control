@@ -5,7 +5,6 @@ Maintainer: Deepin Packages Builder <packages@deepin.com>
 Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  golang-dlib-dev (>> 1.8.0+),
  golang-github-linuxdeepin-go-x11-client-dev (>= 0.0.4),
- dde-go-dbus-factory(>= 3.1.17),
  dde-api-dev(>> 3.16.0+),
  golang-github-linuxdeepin-go-dbus-factory-dev (>= 0.0.5),
  golang-github-smartystreets-goconvey-dev,
