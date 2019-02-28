@@ -61,10 +61,13 @@ type SessionManager struct {
 }
 
 const (
-	cmdShutdown      = "/usr/bin/dde-shutdown"
-	lockFrontDest    = "com.deepin.dde.lockFront"
-	lockFrontIfc     = lockFrontDest
-	lockFrontObjPath = "/com/deepin/dde/lockFront"
+	cmdShutdown                = "/usr/bin/dde-shutdown"
+	lockFrontDest              = "com.deepin.dde.lockFront"
+	lockFrontIfc               = lockFrontDest
+	lockFrontObjPath           = "/com/deepin/dde/lockFront"
+	envQtScreenScaleFactors    = "QT_SCREEN_SCALE_FACTORS"
+	envQtAutoScreenScaleFactor = "QT_AUTO_SCREEN_SCALE_FACTOR"
+	envQtFontDPI               = "QT_FONT_DPI"
 )
 
 const (
@@ -495,8 +498,18 @@ func setupEnvironments() {
 		}
 	}
 
-	envVars["LANG"] = os.Getenv("LANG")
-	envVars["LANGUAGE"] = os.Getenv("LANGUAGE")
+	for _, envName := range []string{
+		"LANG",
+		"LANGUAGE",
+		envQtScreenScaleFactors,
+		envQtAutoScreenScaleFactor,
+		envQtFontDPI,
+	} {
+		envValue, ok := os.LookupEnv(envName)
+		if ok {
+			envVars[envName] = envValue
+		}
+	}
 
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {

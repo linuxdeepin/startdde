@@ -43,7 +43,6 @@ func (m *XSManager) getScaleFactor() float64 {
 const (
 	gsKeyScaleFactor = "scale-factor"
 	EnvQtScaleFactor = "QT_SCALE_FACTOR"
-	EnvJavaOptions   = "_JAVA_OPTIONS"
 
 	baseCursorSize = 24
 )
