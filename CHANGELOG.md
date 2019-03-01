@@ -1,3 +1,9 @@
+[3.12.2] 2019-03-01
+*   feat(watchdog): SetLocked reset dde-lock task
+*   chore(deb): remove dde-go-dbus-factory from build depends
+*   chore: use go-dbus-factory
+*   chore: use pkg.deepin.io/gir
+
 [3.12.1] 2019-02-25
 *   fix(display): monitors config lost
 
