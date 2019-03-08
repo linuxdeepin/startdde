@@ -250,6 +250,16 @@ func getCmdDesc(exe string, args []string) string {
 }
 
 func (m *StartManager) RunCommand(exe string, args []string) error {
+	return m.runCommandWithOptions(exe, args, nil)
+}
+
+func (m *StartManager) RunCommandWithOptions(exe string, args []string,
+	options map[string]dbus.Variant) error {
+	return m.runCommandWithOptions(exe, args, options)
+}
+
+func (m *StartManager) runCommandWithOptions(exe string, args []string,
+	options map[string]dbus.Variant) error {
 	var _name = exe
 	if len(args) != 0 {
 		_name += " " + strings.Join(args, " ")
@@ -261,6 +271,7 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 		}
 		_cmd.exe = exe
 		_cmd.args = args
+		_cmd.options = options
 		setCurAction("RunCommand")
 		return nil
 	}
@@ -280,6 +291,14 @@ func (m *StartManager) RunCommand(exe string, args []string) error {
 		cmd = exec.Command(globalCgExecBin, args...)
 	} else {
 		cmd = exec.Command(exe, args...)
+	}
+
+	if dirVar, ok := options["dir"]; ok {
+		if dirStr, ok := dirVar.Value().(string); ok {
+			cmd.Dir = dirStr
+		} else {
+			return errors.New("type of option dir is not string")
+		}
 	}
 
 	err = cmd.Start()

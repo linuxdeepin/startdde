@@ -207,8 +207,9 @@ var (
 		timestamp uint32
 	}{}
 	_cmd = struct {
-		exe  string
-		args []string
+		exe     string
+		args    []string
+		options map[string]dbus.Variant
 	}{}
 )
 
@@ -254,7 +255,7 @@ func handleCurAction(action string) error {
 		err = START_MANAGER.LaunchAppAction(_appAction.desktop,
 			_appAction.action, _appAction.timestamp)
 	case "RunCommand":
-		err = START_MANAGER.RunCommand(_cmd.exe, _cmd.args)
+		err = START_MANAGER.runCommandWithOptions(_cmd.exe, _cmd.args, _cmd.options)
 	}
 	if err != nil {
 		logger.Warning("Failed to launch action:", err)
