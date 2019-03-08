@@ -839,11 +839,18 @@ func startAutostartProgram() {
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
 	for _, desktopFile := range START_MANAGER.AutostartList() {
 		go func(desktopFile string) {
-			if delayTime := getDelayTime(desktopFile); delayTime != 0 {
-				time.Sleep(delayTime)
+			delay, err := getDelayTime(desktopFile)
+			if err != nil {
+				logger.Warning(err)
 			}
 
-			START_MANAGER.LaunchApp(desktopFile, 0, nil)
+			if delay != 0 {
+				time.Sleep(delay)
+			}
+			err = START_MANAGER.LaunchApp(desktopFile, 0, nil)
+			if err != nil {
+				logger.Warning(err)
+			}
 		}(desktopFile)
 	}
 	START_MANAGER.listenAutostartFileEvents()

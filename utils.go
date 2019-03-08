@@ -22,7 +22,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -30,8 +29,9 @@ import (
 	"strings"
 	"time"
 
-	"pkg.deepin.io/gir/glib-2.0"
+	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -129,41 +129,15 @@ func copyFile(src, dst string, copyFlag CopyFlag) error {
 	return copyFileAux(src, dst, copyFlag)
 }
 
-func saveKeyFile(file *glib.KeyFile, path string) error {
-	_, content, err := file.ToData()
+func getDelayTime(desktopFile string) (time.Duration, error) {
+	dai, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	stat, err := os.Lstat(path)
-	if err != nil {
-		return err
-	}
+	num, _ := dai.GetInt(desktopappinfo.MainSection, KeyXGnomeAutostartDelay)
 
-	err = ioutil.WriteFile(path, []byte(content), stat.Mode())
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func getDelayTime(o string) time.Duration {
-	f := glib.NewKeyFile()
-	defer f.Free()
-
-	_, err := f.LoadFromFile(o, glib.KeyFileFlagsNone)
-	if err != nil {
-		logger.Warning("load", o, "failed:", err)
-		return 0
-	}
-
-	num, err := f.GetInteger(glib.KeyFileDesktopGroup, KeyXGnomeAutostartDelay)
-	if err != nil {
-		logger.Debug("get", KeyXGnomeAutostartDelay, "failed", err)
-		return 0
-	}
-
-	return time.Second * time.Duration(num)
+	return time.Second * time.Duration(num), nil
 }
 
 func showDDEWelcome() error {
@@ -255,4 +229,15 @@ func isOSDRunning() (bool, error) {
 		return false, err
 	}
 	return has, nil
+}
+
+func getLightDMAutoLoginUser() (string, error) {
+	kf := keyfile.NewKeyFile()
+	err := kf.LoadFromFile("/etc/lightdm/lightdm.conf")
+	if err != nil {
+		return "", err
+	}
+
+	v, err := kf.GetString("Seat:*", "autologin-user")
+	return v, err
 }

@@ -22,7 +22,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
+	"os/user"
+	"path/filepath"
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"pkg.deepin.io/dde/api/soundutils"
@@ -33,8 +37,40 @@ import (
 var soundThemePlayer *soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
+	markFile := filepath.Join(os.TempDir(), "startdde-login-sound-mark")
+	_, err := os.Stat(markFile)
+	if err == nil {
+		// already played
+		return
+	} else if !os.IsNotExist(err) {
+		logger.Warning(err)
+	}
+
+	defer func() {
+		err := ioutil.WriteFile(markFile, nil, 0644)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}()
+
+	autoLoginUser, err := getLightDMAutoLoginUser()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	u, err := user.Current()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	if u.Username != autoLoginUser {
+		return
+	}
+
 	logger.Info("PlaySystemSound DesktopLogin")
-	err := soundutils.PlaySystemSound(soundutils.EventDesktopLogin, "")
+	err = soundutils.PlaySystemSound(soundutils.EventDesktopLogin, "")
 	if err != nil {
 		logger.Warning("PlaySystemSound DesktopLogin failed:", err)
 	}
