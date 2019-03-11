@@ -20,6 +20,7 @@
 package display
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -101,15 +102,23 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 	dpy.saveBrightness()
 }
 
-func (dpy *Manager) initBrightness() {
+func (dpy *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	value := dpy.setting.GetString(gsKeyBrightness)
-	brightnessTable := make(map[string]float64)
-	if len(value) != 0 {
-		err := jsonUnmarshal(value, &brightnessTable)
-		if err != nil {
-			logger.Warningf("[initBrightness] unmarshal (%s) failed: %v",
-				value, err)
-		}
+	if value == "" {
+		return nil, nil
+	}
+	var result map[string]float64
+	err := json.Unmarshal([]byte(value), &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (dpy *Manager) initBrightness() {
+	brightnessTable, err := dpy.getSavedBrightnessTable()
+	if err != nil {
+		logger.Warning(err)
 	}
 
 	for _, info := range dpy.outputInfos {
@@ -121,7 +130,10 @@ func (dpy *Manager) initBrightness() {
 	}
 
 	for name, value := range brightnessTable {
-		dpy.doSetBrightness(value, name)
+		err = dpy.doSetBrightness(value, name)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 }
 

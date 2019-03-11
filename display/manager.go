@@ -26,10 +26,10 @@ import (
 	"sort"
 	"sync"
 
-	"pkg.deepin.io/gir/gio-2.0"
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/drandr"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/utils"
@@ -574,12 +574,31 @@ func (dpy *Manager) updateMonitors() {
 		}
 	}
 
+	savedBrTable, err := dpy.getSavedBrightnessTable()
+	if err != nil {
+		logger.Warning(err)
+	}
+
 	for _, oinfo := range dpy.outputInfos {
 		m, err := dpy.outputToMonitorInfo(oinfo)
 		if err != nil {
 			logger.Debug("[updateMonitors] Error:", err)
 			continue
 		}
+
+		dpy.brightnessMutex.Lock()
+		_, ok := dpy.Brightness[m.Name]
+		if !ok {
+			v, ok := savedBrTable[m.Name]
+			if !ok {
+				v = 1
+			}
+			err = dpy.doSetBrightness(v, m.Name)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+		dpy.brightnessMutex.Unlock()
 
 		err = dbus.InstallOnSession(m)
 		if err != nil {
