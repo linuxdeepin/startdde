@@ -40,7 +40,7 @@ var (
 	maxLaunchTimes = 10
 )
 
-func Start(getLockedFn func() bool) {
+func Start(getLockedFn func() bool, useKwin bool) {
 	if _manager != nil {
 		return
 	}
@@ -65,8 +65,11 @@ func Start(getLockedFn func() bool) {
 	_manager.AddTimedTask(newDDEPolkitAgent())
 	go _manager.StartLoop()
 
-	wmTask := newWMTask()
-	_manager.AddDBusTask(wmServiceName, wmTask)
+	var wmTask *taskInfo
+	if !useKwin {
+		wmTask = newWMTask()
+		_manager.AddDBusTask(wmServiceName, wmTask)
+	}
 
 	if getLockedFn != nil {
 		ddeLockTask := newDDELock(getLockedFn)
@@ -77,20 +80,22 @@ func Start(getLockedFn func() bool) {
 	if err != nil {
 		logger.Warning(err)
 	}
-	time.AfterFunc(10*time.Second, func() {
-		isRun, err := wmTask.isRunning()
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-
-		if !isRun {
-			err := wmTask.launch()
+	if wmTask != nil {
+		time.AfterFunc(10*time.Second, func() {
+			isRun, err := wmTask.isRunning()
 			if err != nil {
 				logger.Warning(err)
+				return
 			}
-		}
-	})
+
+			if !isRun {
+				err := wmTask.launch()
+				if err != nil {
+					logger.Warning(err)
+				}
+			}
+		})
+	}
 	return
 }
 

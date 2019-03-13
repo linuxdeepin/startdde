@@ -62,6 +62,11 @@ func reapZombies() {
 	}
 }
 
+func shouldUseDDEKwin() bool {
+	_, err := os.Stat("/usr/bin/kwin_no_scale")
+	return err == nil
+}
+
 func main() {
 	globalGSettingsConfig = getGSettingsConfig()
 	reapZombies()
@@ -105,12 +110,14 @@ func main() {
 		}
 	}()
 
-	sessionManager := startSession(xConn)
+	useKwin := shouldUseDDEKwin()
+
+	sessionManager := startSession(xConn, useKwin)
 	var getLockedFn func() bool
 	if sessionManager != nil {
 		getLockedFn = sessionManager.getLocked
 	}
-	watchdog.Start(getLockedFn)
+	watchdog.Start(getLockedFn, useKwin)
 
 	if globalGSettingsConfig.iowaitEnabled {
 		go iowait.Start(logger)

@@ -359,8 +359,13 @@ func newSessionManager() *SessionManager {
 	return m
 }
 
-func (manager *SessionManager) launchWindowManager() {
+func (manager *SessionManager) launchWindowManager(useKwin bool) {
 	logger.Debug("Will launch wm")
+	if useKwin {
+		manager.launch("kwin_no_scale", false)
+		return
+	}
+
 	err := wm.Start(logger, globalWmChooserLaunched)
 	if err != nil {
 		logger.Error("Failed to start wm module:", err)
@@ -526,7 +531,7 @@ func setupEnvironments() {
 	}
 }
 
-func startSession(conn *x.Conn) *SessionManager {
+func startSession(conn *x.Conn, useKwin bool) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -546,7 +551,7 @@ func startSession(conn *x.Conn) *SessionManager {
 	setupEnvironments()
 
 	manager.setPropStage(SessionStageInitBegin)
-	manager.launchWindowManager()
+	manager.launchWindowManager(useKwin)
 	manager.setPropStage(SessionStageInitEnd)
 
 	manager.setPropStage(SessionStageCoreBegin)
