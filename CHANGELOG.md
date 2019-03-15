@@ -1,3 +1,11 @@
+[3.13.0] 2019-03-15
+*   fix: panic if getSavedBrightnessTable return nil map
+*   feat: run kwin as wm if install package dde-kwin
+*   feat: support monitor-dependent scaling
+*   fix(display): connect an external monitor, give incorrect brightness value
+*   feat: play login sound only when login automatically
+*   change(api): session manager add method RunCommandWithOptions
+
 [3.12.2] 2019-03-01
 *   feat(watchdog): SetLocked reset dde-lock task
 *   chore(deb): remove dde-go-dbus-factory from build depends
