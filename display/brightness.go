@@ -126,6 +126,9 @@ func (dpy *Manager) initBrightness() {
 			continue
 		}
 
+		if brightnessTable == nil {
+			brightnessTable = make(map[string]float64)
+		}
 		brightnessTable[info.Name] = 1
 	}
 
