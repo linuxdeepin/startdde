@@ -31,7 +31,6 @@ import (
 	"time"
 
 	"github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
-
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
@@ -40,7 +39,9 @@ import (
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/wm"
+	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	dbus1 "pkg.deepin.io/lib/dbus1"
@@ -558,6 +559,7 @@ func startSession(conn *x.Conn, useKwin bool) *SessionManager {
 	startStartManager(conn)
 	manager.launchDDE()
 	go func() {
+		setLeftPtrCursor()
 		err := keyring.CheckLogin()
 		if err != nil {
 			logger.Warning("Failed to init keyring:", err)
@@ -609,4 +611,17 @@ func isDeepinVersionChanged() (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func setLeftPtrCursor() {
+	gs := gio.NewSettings("com.deepin.xsettings")
+	defer gs.Unref()
+
+	theme := gs.GetString("gtk-cursor-theme-name")
+	size := gs.GetInt("gtk-cursor-theme-size")
+
+	err := xcursor.LoadAndApply(theme, "left_ptr", int(size))
+	if err != nil {
+		logger.Warning(err)
+	}
 }
