@@ -249,10 +249,10 @@ func handleCurAction(action string) error {
 	var err error
 	switch action {
 	case "LaunchApp":
-		err = START_MANAGER.LaunchAppWithOptions(_app.desktop, _app.timestamp,
+		err = START_MANAGER.launchAppWithOptions(_app.desktop, _app.timestamp,
 			_app.files, _app.options)
 	case "LaunchAppAction":
-		err = START_MANAGER.LaunchAppAction(_appAction.desktop,
+		err = START_MANAGER.launchAppAction(_appAction.desktop,
 			_appAction.action, _appAction.timestamp)
 	case "RunCommand":
 		err = START_MANAGER.runCommandWithOptions(_cmd.exe, _cmd.args, _cmd.options)
