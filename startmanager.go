@@ -170,17 +170,50 @@ func (m *StartManager) GetApps() (map[uint32]string, error) {
 	return swapSchedDispatcher.GetAppsSeqDescMap(), nil
 }
 
-func (m *StartManager) Launch(desktopFile string) (bool, error) {
-	return m.LaunchWithTimestamp(desktopFile, 0)
-}
-
-func (m *StartManager) LaunchWithTimestamp(desktopFile string, timestamp uint32) (bool, error) {
-	err := m.LaunchApp(desktopFile, timestamp, nil)
+// deprecated
+func (m *StartManager) Launch(dMsg dbus.DMessage, desktopFile string) (bool, error) {
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return false, err
+	}
+	err = m.launchAppWithOptions(desktopFile, 0, nil, nil)
 	return err == nil, err
 }
 
-func (m *StartManager) LaunchAppWithOptions(desktopFile string, timestamp uint32, files []string,
-	options map[string]dbus.Variant) error {
+// deprecated
+func (m *StartManager) LaunchWithTimestamp(dMsg dbus.DMessage, desktopFile string,
+	timestamp uint32) (bool, error) {
+
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return false, err
+	}
+	err = m.launchAppWithOptions(desktopFile, timestamp, nil, nil)
+	return err == nil, err
+}
+
+func (m *StartManager) LaunchApp(dMsg dbus.DMessage, desktopFile string,
+	timestamp uint32, files []string) error {
+
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return err
+	}
+	return m.launchAppWithOptions(desktopFile, timestamp, files, nil)
+}
+
+func (m *StartManager) LaunchAppWithOptions(dMsg dbus.DMessage, desktopFile string,
+	timestamp uint32, files []string, options map[string]dbus.Variant) error {
+
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return err
+	}
+	return m.launchAppWithOptions(desktopFile, timestamp, files, options)
+}
+
+func (m *StartManager) launchAppWithOptions(desktopFile string, timestamp uint32,
+	files []string, options map[string]dbus.Variant) error {
 
 	err := handleMemInsufficient(desktopFile)
 	if err != nil {
@@ -202,16 +235,24 @@ func (m *StartManager) LaunchAppWithOptions(desktopFile string, timestamp uint32
 
 	// mark app launched
 	if m.daemonApps != nil {
-		m.daemonApps.MarkLaunched(0, desktopFile)
+		err := m.daemonApps.MarkLaunched(0, desktopFile)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 	return err
 }
 
-func (m *StartManager) LaunchApp(desktopFile string, timestamp uint32, files []string) error {
-	return m.LaunchAppWithOptions(desktopFile, timestamp, files, nil)
+func (m *StartManager) LaunchAppAction(dMsg dbus.DMessage, desktopFile, action string, timestamp uint32) error {
+
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return err
+	}
+	return m.launchAppAction(desktopFile, action, timestamp)
 }
 
-func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uint32) error {
+func (m *StartManager) launchAppAction(desktopFile, action string, timestamp uint32) error {
 	err := handleMemInsufficient(desktopFile + action)
 	if err != nil {
 		if getCurAction() != "" {
@@ -224,13 +265,16 @@ func (m *StartManager) LaunchAppAction(desktopFile, action string, timestamp uin
 		return nil
 	}
 
-	err = m.launchAppAction(desktopFile, action, timestamp, m.launchContext)
+	err = m.launchAppActionAux(desktopFile, action, timestamp, m.launchContext)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
 	// mark app launched
 	if m.daemonApps != nil {
-		m.daemonApps.MarkLaunched(0, desktopFile)
+		err := m.daemonApps.MarkLaunched(0, desktopFile)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 	return err
 }
@@ -249,17 +293,35 @@ func getCmdDesc(exe string, args []string) string {
 	return prefix + exe
 }
 
-func (m *StartManager) RunCommand(exe string, args []string) error {
+func (m *StartManager) RunCommand(dMsg dbus.DMessage, exe string, args []string) error {
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return err
+	}
 	return m.runCommandWithOptions(exe, args, nil)
 }
 
-func (m *StartManager) RunCommandWithOptions(exe string, args []string,
+func (m *StartManager) RunCommandWithOptions(dMsg dbus.DMessage, exe string, args []string,
 	options map[string]dbus.Variant) error {
+
+	err := checkDMsgUid(dMsg)
+	if err != nil {
+		return err
+	}
 	return m.runCommandWithOptions(exe, args, options)
+}
+
+func checkDMsgUid(dMsg dbus.DMessage) error {
+	uid := dMsg.GetSenderUID()
+	if os.Getuid() == int(uid) {
+		return nil
+	}
+	return errors.New("permission denied")
 }
 
 func (m *StartManager) runCommandWithOptions(exe string, args []string,
 	options map[string]dbus.Variant) error {
+
 	var _name = exe
 	if len(args) != 0 {
 		_name += " " + strings.Join(args, " ")
@@ -454,7 +516,7 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 	return m.launch(appInfo, timestamp, files, ctx, appInfo, desktopFile)
 }
 
-func (m *StartManager) launchAppAction(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
+func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
 	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
@@ -847,7 +909,7 @@ func startAutostartProgram() {
 			if delay != 0 {
 				time.Sleep(delay)
 			}
-			err = START_MANAGER.LaunchApp(desktopFile, 0, nil)
+			err = START_MANAGER.launchAppWithOptions(desktopFile, 0, nil, nil)
 			if err != nil {
 				logger.Warning(err)
 			}
