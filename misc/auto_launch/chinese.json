@@ -48,5 +48,15 @@
           "Args": []
         }
       ]
+    },
+    {
+      "Priority": 6,
+      "Group": [
+        {
+          "Command": "/usr/bin/dde-shutdown",
+          "Wait": false,
+          "Args": ["-d"]
+        }
+      ]
     }
   ]
