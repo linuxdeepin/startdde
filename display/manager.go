@@ -463,8 +463,8 @@ func (dpy *Manager) tryApplyConfig() error {
 
 func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	var corrected bool = false
-	logger.Debugf("============[applyConfigSettings] config: %#v", cMonitor.String())
-	logger.Debugf("============[applyConfigSettings] monitors: %#v", dpy.Monitors.getMonitorsId())
+	logger.Debugf("============[applyConfigSettings] config: %s", cMonitor.String())
+	logger.Debugf("============[applyConfigSettings] monitors: %s", dpy.Monitors.getMonitorsId())
 	for _, info := range cMonitor.BaseInfos {
 		m := dpy.Monitors.get(info.UUID)
 		if m == nil {
@@ -491,7 +491,7 @@ func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
 	if err != nil {
 		return err
 	}
-	dpy.rotateInputPointor()
+	dpy.rotateInputDevices()
 	dpy.doSetPrimary(cMonitor.Primary, true, true)
 	return nil
 }
@@ -764,7 +764,7 @@ func (dpy *Manager) detectHasChanged() {
 	}
 }
 
-func (dpy *Manager) rotateInputPointor() {
+func (dpy *Manager) rotateInputDevices() {
 	connected := dpy.Monitors
 	if len(connected) == 0 {
 		return
@@ -773,7 +773,7 @@ func (dpy *Manager) rotateInputPointor() {
 	if !connected.isRotation() {
 		return
 	}
-	rotateInputPointor(connected[0].Rotation)
+	rotateInputDevices(connected[0].cfg.Rotation)
 }
 
 func (dpy *Manager) multiOutputCheck() (MonitorInfos, error) {

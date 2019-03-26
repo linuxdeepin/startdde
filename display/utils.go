@@ -58,20 +58,29 @@ func (s uint16Splice) equal(list uint16Splice) bool {
 	return true
 }
 
-func rotateInputPointor(rotation uint16) {
+func rotateInputDevices(rotation uint16) {
 	devs := utils.ListDevice()
 	for _, dev := range devs {
 		if dev.Type == utils.DevTypeMouse {
 			m, _ := dxinput.NewMouseFromDeviceInfo(dev)
-			m.SetRotation(uint8(rotation))
+			err := m.SetRotation(uint8(rotation))
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 		if dev.Type == utils.DevTypeTouchpad {
 			tpad, _ := dxinput.NewTouchpadFromDevInfo(dev)
-			tpad.SetRotation(uint8(rotation))
+			err := tpad.SetRotation(uint8(rotation))
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 		if dev.Type == utils.DevTypeTouchscreen {
 			touch, _ := dxinput.NewTouchscreenFromDevInfo(dev)
-			touch.SetRotation(uint8(rotation))
+			err := touch.SetRotation(uint8(rotation))
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 	}
 }

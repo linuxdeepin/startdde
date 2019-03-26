@@ -22,6 +22,7 @@ package display
 import (
 	"fmt"
 	"os"
+
 	"pkg.deepin.io/dde/api/drandr"
 )
 
@@ -140,7 +141,7 @@ func (dpy *Manager) ApplyChanges() error {
 		return err
 	}
 
-	dpy.rotateInputPointor()
+	dpy.rotateInputDevices()
 
 	err = dpy.doSetPrimary(dpy.Primary, true, true)
 	if err != nil {
