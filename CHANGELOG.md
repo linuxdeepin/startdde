@@ -1,3 +1,9 @@
+[3.13.1] 2019-03-27
+*   fix(display): cancel rotation, but the rotation of the touchpad is not restored
+*   chore: `auto_launch/chinese.json` add dde-shutdown
+*   feat: add check uid for lannch app and run cmd
+*   fix: root window cursor is not `left_ptr` when use kwin as wm
+
 [3.13.0] 2019-03-15
 *   fix: panic if getSavedBrightnessTable return nil map
 *   feat: run kwin as wm if install package dde-kwin
