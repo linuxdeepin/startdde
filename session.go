@@ -95,7 +95,24 @@ func (m *SessionManager) Logout() {
 }
 
 func (m *SessionManager) terminate() {
-	err := objLoginSessionSelf.Terminate(0)
+	// NOTE: Proactively stop the bamfdaemon service.
+	// If you don't do this, it will exit in the failed state because X Server exits,
+	// causing the restart to be too frequent and not being started properly.
+	// This is a temporary workaround.
+	bus, err := dbus.SessionBus()
+	if err == nil {
+		systemdUser := bus.Object("org.freedesktop.systemd1", "/org/freedesktop/systemd1")
+		var jobPath dbus.ObjectPath
+		err = systemdUser.Call("org.freedesktop.systemd1.Manager.StopUnit",
+			dbus.FlagNoAutoStart, "bamfdaemon.service", "replace").Store(&jobPath)
+		if err != nil {
+			logger.Warning("failed to stop bamfdaemon.service:", err)
+		}
+	} else {
+		logger.Warning(err)
+	}
+
+	err = objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("LoginSessionSelf Terminate failed:", err)
 	}
