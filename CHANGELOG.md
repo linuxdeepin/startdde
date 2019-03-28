@@ -1,3 +1,6 @@
+[3.13.2] 2019-03-28
+*   fix: bamfdaemon.service start request repeated too quickly
+
 [3.13.1] 2019-03-27
 *   fix(display): cancel rotation, but the rotation of the touchpad is not restored
 *   chore: `auto_launch/chinese.json` add dde-shutdown
