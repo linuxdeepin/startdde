@@ -55,8 +55,7 @@ func playLoginSound() {
 
 	autoLoginUser, err := getLightDMAutoLoginUser()
 	if err != nil {
-		logger.Warning(err)
-		return
+		logger.Debug(err)
 	}
 
 	u, err := user.Current()
