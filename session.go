@@ -39,6 +39,7 @@ import (
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/wm"
+	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
@@ -381,6 +382,10 @@ func (manager *SessionManager) launchWindowManager(useKwin bool) {
 	logger.Debug("Will launch wm")
 	if useKwin {
 		manager.launch("kwin_no_scale", false)
+		err := wm_kwin.Start(logger, globalWmChooserLaunched)
+		if err != nil {
+			logger.Warning(err)
+		}
 		return
 	}
 
