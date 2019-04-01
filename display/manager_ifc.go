@@ -157,6 +157,7 @@ func (dpy *Manager) ApplyChanges() error {
 }
 
 func (dpy *Manager) ResetChanges() error {
+	logger.Debug("ResetChanges")
 	if !dpy.HasChanged {
 		return nil
 	}
@@ -177,6 +178,9 @@ func (dpy *Manager) ResetChanges() error {
 
 	cMonitor := dpy.config.get(id)
 	if cMonitor == nil {
+		if len(dpy.outputInfos) == 1 {
+			return dpy.doSwitchToExtend()
+		}
 		logger.Warning("No config found for:", id)
 		return fmt.Errorf("No config found for '%s'", id)
 	}
