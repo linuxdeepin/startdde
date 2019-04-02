@@ -165,15 +165,23 @@ func (m *XSManager) GetScaleFactor() float64 {
 	return m.getScaleFactor()
 }
 
+// deprecated
 func (m *XSManager) SetScaleFactor(scale float64) error {
-	if scale < 0 {
-		return fmt.Errorf("invalid scale value: %v", scale)
+	primary, err := getPrimaryScreenName(m.conn)
+	if err != nil {
+		return err
 	}
 
-	if getScaleStatus() {
-		return fmt.Errorf("there is a scale job running")
-	}
+	err = m.setScreenScaleFactors(map[string]float64{primary: scale})
+	return err
+}
 
-	go m.setScaleFactor(scale, true)
-	return nil
+func (m *XSManager) SetScreenScaleFactors(factors map[string]float64) error {
+	err := m.setScreenScaleFactors(factors)
+	return err
+}
+
+func (m *XSManager) GetScreenScaleFactors() (map[string]float64, error) {
+	v := m.getScreenScaleFactors()
+	return v, nil
 }
