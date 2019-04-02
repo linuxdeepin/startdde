@@ -21,10 +21,14 @@ package xsettings
 
 import (
 	"fmt"
+	"sync"
 
-	"pkg.deepin.io/gir/gio-2.0"
+	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
 	"github.com/linuxdeepin/go-x11-client"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbus"
+	dbus1 "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 )
@@ -41,10 +45,18 @@ type XSManager struct {
 	conn  *x.Conn
 	owner x.Window
 
-	gs *gio.Settings
+	gs        *gio.Settings
+	greeter   *greeter.Greeter
+	sysDaemon *ddeSysDaemon.Daemon
 
-	SetScaleFactorDone func()
-	restartOSD         bool // whether to restart dde-osd
+	plymouthScalingMu    sync.Mutex
+	plymouthScalingTasks []int
+	plymouthScaling      bool
+
+	SetScaleFactorStarted func()
+	SetScaleFactorDone    func()
+	restartOSD            bool // whether to restart dde-osd
+	emitSignal            bool
 }
 
 type xsSetting struct {
@@ -74,15 +86,22 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 	m.gs = gio.NewSettings(xsSchema)
 	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
 		recommendedScaleFactor != defaultScaleFactor {
-		m.setScaleFactor(recommendedScaleFactor, false)
+		m.setScaleFactor(recommendedScaleFactor)
 		m.restartOSD = true
 	}
+	m.emitSignal = true
 
 	err = m.setSettings(m.getSettingsInSchema())
 	if err != nil {
 		logger.Warning("Change xsettings property failed:", err)
 	}
 
+	systemBus, err := dbus1.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+	m.greeter = greeter.NewGreeter(systemBus)
+	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
 	return m, nil
 }
 

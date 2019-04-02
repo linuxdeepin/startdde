@@ -43,10 +43,6 @@ func (m *XSManager) updateDPI() {
 		scale = 1
 	}
 
-	// TODO: update QT DPI
-	// QT_SCALE_FACTOR will cause dde-dock not show
-	// os.Setenv("QT_SCALE_FACTOR", fmt.Sprintf("%v", scale))
-
 	var infos []xsSetting
 	scaledDPI := int32(float64(DPI_FALLBACK*1024) * scale)
 	if scaledDPI != m.gs.GetInt("xft-dpi") {

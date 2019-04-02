@@ -41,7 +41,6 @@ import (
 	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
-	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
@@ -63,13 +62,10 @@ type SessionManager struct {
 }
 
 const (
-	cmdShutdown                = "/usr/bin/dde-shutdown"
-	lockFrontDest              = "com.deepin.dde.lockFront"
-	lockFrontIfc               = lockFrontDest
-	lockFrontObjPath           = "/com/deepin/dde/lockFront"
-	envQtScreenScaleFactors    = "QT_SCREEN_SCALE_FACTORS"
-	envQtAutoScreenScaleFactor = "QT_AUTO_SCREEN_SCALE_FACTOR"
-	envQtFontDPI               = "QT_FONT_DPI"
+	cmdShutdown      = "/usr/bin/dde-shutdown"
+	lockFrontDest    = "com.deepin.dde.lockFront"
+	lockFrontIfc     = lockFrontDest
+	lockFrontObjPath = "/com/deepin/dde/lockFront"
 )
 
 const (
@@ -288,7 +284,6 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 
 func initSession() {
 	var err error
-	const login1Dest = "org.freedesktop.login1"
 	const login1ObjPath = "/org/freedesktop/login1"
 	const login1SessionSelfObjPath = login1ObjPath + "/session/self"
 
@@ -506,17 +501,11 @@ func setupEnvironments() {
 	envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
 	envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
 
-	qtScaleFactorStr, ok := os.LookupEnv(xsettings.EnvQtScaleFactor)
-	if ok {
-		envVars[xsettings.EnvQtScaleFactor] = qtScaleFactorStr
+	scaleFactor := 1.0
+	if globalXSManager != nil {
+		scaleFactor = globalXSManager.GetScaleFactor()
 	}
-
-	// make double click possible for Qt-based applications on touchscreens
-	qtScaleFactor, err := strconv.ParseFloat(qtScaleFactorStr, 32)
-	if err != nil {
-		qtScaleFactor = 1
-	}
-	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * qtScaleFactor))
+	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
 
 	for key, value := range envVars {
 		logger.Debugf("set env %s = %q", key, value)
@@ -529,9 +518,6 @@ func setupEnvironments() {
 	for _, envName := range []string{
 		"LANG",
 		"LANGUAGE",
-		envQtScreenScaleFactors,
-		envQtAutoScreenScaleFactor,
-		envQtFontDPI,
 	} {
 		envValue, ok := os.LookupEnv(envName)
 		if ok {
