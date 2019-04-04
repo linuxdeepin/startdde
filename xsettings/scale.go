@@ -139,12 +139,27 @@ func (m *XSManager) setScreenScaleFactorsForQt(factors map[string]float64) error
 		return err
 	}
 
-	value := joinScreenScaleFactors(factors)
-	value = strconv.Quote(value)
+	var value string
+	switch len(factors) {
+	case 0:
+		return errors.New("factors is empty")
+	case 1:
+		value = strconv.FormatFloat(getMapFirstValueSF(factors), 'f', 2, 64)
+	default:
+		value = joinScreenScaleFactors(factors)
+		value = strconv.Quote(value)
+	}
 	kf.SetValue("Theme", "ScreenScaleFactors", value)
 	kf.DeleteKey("Theme", "ScaleFactor")
 	err = kf.SaveToFile(filename)
 	return err
+}
+
+func getMapFirstValueSF(m map[string]float64) float64 {
+	for _, value := range m {
+		return value
+	}
+	return 0
 }
 
 func getPrimaryScreenName(xConn *x.Conn) (string, error) {
