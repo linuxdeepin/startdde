@@ -1,3 +1,8 @@
+[3.14.0] 2019-04-08
+*   feat: set screenScaleFactors to a number
+*   feat: set scale factor for qt in a new way
+*   chore: update build depends
+
 [3.13.3] 2019-04-02
 *   fix(display): rotate the screen for the first time, then reset, but failed
 *   feat: add wm_kwin.WMSwitcher for control kwin compositor
