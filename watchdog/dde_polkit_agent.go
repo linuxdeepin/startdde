@@ -36,7 +36,7 @@ const (
 	ddePolkitAgentCommand  = "/usr/lib/polkit-1-dde/dde-polkit-agent"
 )
 
-func isDDEPolkitAgentRunning() (bool, error) {
+func isDdePolkitAgentRunning() (bool, error) {
 	if !utils.IsFileExist(ddePolkitAgentCommand) {
 		return false, errors.New("dde-polkit-agent bin not exist")
 	}
@@ -62,7 +62,7 @@ func isDDEPolkitAgentRunning() (bool, error) {
 	return cmdline[0] == ddePolkitAgentCommand, nil
 }
 
-func launchDDEPolkitAgent() error {
+func launchDdePolkitAgent() error {
 	var cmd = exec.Command(ddePolkitAgentCommand)
 	err := cmd.Start()
 	if err != nil {
@@ -78,6 +78,6 @@ func launchDDEPolkitAgent() error {
 	return nil
 }
 
-func newDDEPolkitAgent() *taskInfo {
-	return newTaskInfo(ddePolkitAgentTaskName, isDDEPolkitAgentRunning, launchDDEPolkitAgent)
+func newDdePolkitAgent() *taskInfo {
+	return newTaskInfo(ddePolkitAgentTaskName, isDdePolkitAgentRunning, launchDdePolkitAgent)
 }

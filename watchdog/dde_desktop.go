@@ -24,14 +24,14 @@ const (
 	ddeDesktopServiceName = "com.deepin.dde.desktop"
 )
 
-func isDDEDesktopRunning() (bool, error) {
+func isDdeDesktopRunning() (bool, error) {
 	return isDBusServiceExist(ddeDesktopServiceName)
 }
 
-func launchDDEDesktop() error {
+func launchDdeDesktop() error {
 	return startService(ddeDesktopServiceName)
 }
 
-func newDDEDesktopTask() *taskInfo {
-	return newTaskInfo(ddeDesktopTaskName, isDDEDesktopRunning, launchDDEDesktop)
+func newDdeDesktopTask() *taskInfo {
+	return newTaskInfo(ddeDesktopTaskName, isDdeDesktopRunning, launchDdeDesktop)
 }

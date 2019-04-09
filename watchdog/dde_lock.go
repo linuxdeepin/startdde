@@ -5,17 +5,17 @@ const (
 	ddeLockServiceName = "com.deepin.dde.lockFront"
 )
 
-func launchDDELock() error {
+func launchDdeLock() error {
 	return startService(ddeLockServiceName)
 }
 
-func newDDELock(getLockedFn func() bool) *taskInfo {
-	isDDELockRunning := func() (bool, error) {
+func newDdeLock(getLockedFn func() bool) *taskInfo {
+	isDdeLockRunning := func() (bool, error) {
 		if getLockedFn() {
 			return isDBusServiceExist(ddeLockServiceName)
 		} else {
 			return false, errNoNeedLaunch
 		}
 	}
-	return newTaskInfo(ddeLockTaskName, isDDELockRunning, launchDDELock)
+	return newTaskInfo(ddeLockTaskName, isDdeLockRunning, launchDdeLock)
 }

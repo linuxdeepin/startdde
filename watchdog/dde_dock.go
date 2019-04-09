@@ -24,14 +24,14 @@ const (
 	ddeDockServiceName = "com.deepin.dde.Dock"
 )
 
-func isDDEDockRunning() (bool, error) {
+func isDdeDockRunning() (bool, error) {
 	return isDBusServiceExist(ddeDockServiceName)
 }
 
-func launchDDEDock() error {
+func launchDdeDock() error {
 	return startService(ddeDockServiceName)
 }
 
-func newDDEDockTask() *taskInfo {
-	return newTaskInfo(ddeDockTaskName, isDDEDockRunning, launchDDEDock)
+func newDdeDockTask() *taskInfo {
+	return newTaskInfo(ddeDockTaskName, isDdeDockRunning, launchDdeDock)
 }
