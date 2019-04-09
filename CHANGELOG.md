@@ -1,3 +1,7 @@
+[3.14.1] 2019-04-09
+*   feat: set kwin compositing with com.deepin.wm
+*   feat(watchdog): add task for kwin
+
 [3.14.0] 2019-04-08
 *   feat: set screenScaleFactors to a number
 *   feat: set scale factor for qt in a new way
