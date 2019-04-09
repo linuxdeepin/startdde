@@ -60,46 +60,47 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	}
 	logger.Debug("[WATCHDOG] max launch times:", maxLaunchTimes)
 	_manager = newManager()
-	_manager.AddTimedTask(newDDEDockTask())
-	_manager.AddTimedTask(newDDEDesktopTask())
-	_manager.AddTimedTask(newDDEPolkitAgent())
+	_manager.AddTimedTask(newDdeDockTask())
+	_manager.AddTimedTask(newDdeDesktopTask())
+	_manager.AddTimedTask(newDdePolkitAgent())
 	go _manager.StartLoop()
 
 	var wmTask *taskInfo
-	if !useKwin {
+	if useKwin {
+		wmTask = newDdeKWinTask()
+		_manager.AddDBusTask(kWinServiceName, wmTask)
+	} else {
 		wmTask = newWMTask()
 		_manager.AddDBusTask(wmServiceName, wmTask)
 	}
 
 	if getLockedFn != nil {
-		ddeLockTask := newDDELock(getLockedFn)
+		ddeLockTask := newDdeLock(getLockedFn)
 		_manager.AddDBusTask(ddeLockServiceName, ddeLockTask)
 	}
 
-	err = _manager.listenNameOwnerChanged()
+	err = _manager.listenDBusSignals()
 	if err != nil {
 		logger.Warning(err)
 	}
-	if wmTask != nil {
-		time.AfterFunc(10*time.Second, func() {
-			isRun, err := wmTask.isRunning()
+	time.AfterFunc(10*time.Second, func() {
+		isRun, err := wmTask.isRunning()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		if !isRun {
+			err := wmTask.launch()
 			if err != nil {
 				logger.Warning(err)
-				return
 			}
-
-			if !isRun {
-				err := wmTask.launch()
-				if err != nil {
-					logger.Warning(err)
-				}
-			}
-		})
-	}
+		}
+	})
 	return
 }
 
-func (m *Manager) listenNameOwnerChanged() error {
+func (m *Manager) listenDBusSignals() error {
 	bus, err := dbus.SessionBus()
 	if err != nil {
 		return err
