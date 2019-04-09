@@ -1,10 +1,11 @@
 package wm_kwin
 
 import (
+	"errors"
 	"time"
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
-	"github.com/linuxdeepin/go-dbus-factory/org.kde.kwin"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
@@ -49,24 +50,10 @@ func Start(l *log.Logger, wmChooseLaunched bool) error {
 	return nil
 }
 
-func newSwitcher(service *dbusutil.Service) *Switcher {
-	s := &Switcher{
-		service: service,
-	}
-
-	sigLoop := dbusutil.NewSignalLoop(service.Conn(), 10)
-	sigLoop.Start()
-	s.compositor = kwin.NewCompositor(service.Conn())
-	s.compositor.InitSignalExt(sigLoop, true)
-	return s
-}
-
 type Switcher struct {
-	service                 *dbusutil.Service
-	sigLoop                 *dbusutil.SignalLoop
-	compositingToggledCount int
-
-	compositor *kwin.Compositor
+	service *dbusutil.Service
+	sigLoop *dbusutil.SignalLoop
+	wm      *wm.Wm
 
 	signals *struct {
 		WMChanged struct {
@@ -80,8 +67,21 @@ type Switcher struct {
 	}
 }
 
+func newSwitcher(service *dbusutil.Service) *Switcher {
+	s := &Switcher{
+		service: service,
+	}
+
+	sessionBus := service.Conn()
+	sigLoop := dbusutil.NewSignalLoop(sessionBus, 10)
+	sigLoop.Start()
+	s.wm = wm.NewWm(sessionBus)
+	s.wm.InitSignalExt(sigLoop, true)
+	return s
+}
+
 func (s *Switcher) AllowSwitch() (bool, *dbus.Error) {
-	possible, err := s.compositor.CompositingPossible().Get(0)
+	possible, err := s.wm.CompositingPossible().Get(0)
 	if err != nil {
 		return false, dbusutil.ToError(err)
 	}
@@ -89,28 +89,49 @@ func (s *Switcher) AllowSwitch() (bool, *dbus.Error) {
 }
 
 func (s *Switcher) CurrentWM() (string, *dbus.Error) {
-	active, err := s.compositor.Active().Get(0)
+	enabled, err := s.wm.CompositingEnabled().Get(0)
 	if err != nil {
 		return "", dbusutil.ToError(err)
 	}
 
 	wmName := wmName2D
-	if active {
+	if enabled {
 		wmName = wmName3D
 	}
 	return wmName, nil
 }
 
-func (s *Switcher) RequestSwitchWM() *dbus.Error {
-	active, err := s.compositor.Active().Get(0)
+func (s *Switcher) requestSwitchWM() error {
+	enabled, err := s.wm.CompositingEnabled().Get(0)
 	if err != nil {
-		return dbusutil.ToError(err)
+		return err
 	}
-	if active {
-		err = s.compositor.Suspend(0)
-	} else {
-		err = s.compositor.Resume(0)
+
+	if enabled {
+		// disable compositing
+		err = s.wm.CompositingEnabled().Set(0, false)
+		return err
 	}
+
+	// try enable compositing
+	possible, err := s.wm.CompositingPossible().Get(0)
+	if err != nil {
+		return err
+	}
+
+	if possible {
+		err = s.wm.CompositingEnabled().Set(0, true)
+		return err
+	}
+	err = showOSD(osdSwitchWMError)
+	if err != nil {
+		logger.Warning(err)
+	}
+	return errors.New("compositing is impossible")
+}
+
+func (s *Switcher) RequestSwitchWM() *dbus.Error {
+	err := s.requestSwitchWM()
 	return dbusutil.ToError(err)
 }
 
@@ -126,16 +147,11 @@ func (s *Switcher) emitSignalWMChanged(wmName string) {
 }
 
 func (s *Switcher) listenDBusSignal() {
-	_, err := s.compositor.ConnectCompositingToggled(func(active bool) {
-		s.compositingToggledCount++
-		if s.compositingToggledCount == 1 {
-			return
-		}
-
+	_, err := s.wm.ConnectCompositingEnabledChanged(func(enabled bool) {
 		wmName := wmName2D
 		osdName := osdSwitch2DWM
 
-		if active {
+		if enabled {
 			wmName = wmName3D
 			osdName = osdSwitch3DWM
 		}
