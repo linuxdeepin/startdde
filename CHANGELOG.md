@@ -1,3 +1,6 @@
+[3.14.2] 2019-04-10
+*   chore: update depends for wm
+
 [3.14.1] 2019-04-09
 *   feat: set kwin compositing with com.deepin.wm
 *   feat(watchdog): add task for kwin
