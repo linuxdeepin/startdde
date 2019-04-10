@@ -376,7 +376,7 @@ func newSessionManager() *SessionManager {
 func (manager *SessionManager) launchWindowManager(useKwin bool) {
 	logger.Debug("Will launch wm")
 	if useKwin {
-		manager.launch("kwin_no_scale", false)
+		manager.launch("kwin_no_scale", true)
 		err := wm_kwin.Start(logger, globalWmChooserLaunched)
 		if err != nil {
 			logger.Warning(err)
