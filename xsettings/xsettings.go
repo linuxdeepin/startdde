@@ -81,12 +81,23 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 		logger.Errorf("Owned '%s' failed", settingPropSettings)
 		return nil, fmt.Errorf("Owned '%s' failed", settingPropSettings)
 	}
+
+	systemBus, err := dbus1.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+	m.greeter = greeter.NewGreeter(systemBus)
+	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
+
 	logger.Debug("recommended scale factor:", recommendedScaleFactor)
 
 	m.gs = gio.NewSettings(xsSchema)
 	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
 		recommendedScaleFactor != defaultScaleFactor {
-		m.setScaleFactor(recommendedScaleFactor)
+		err = m.SetScaleFactor(recommendedScaleFactor)
+		if err != nil {
+			logger.Warning("failed to set scale factor:", err)
+		}
 		m.restartOSD = true
 	}
 	m.emitSignal = true
@@ -96,12 +107,6 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 		logger.Warning("Change xsettings property failed:", err)
 	}
 
-	systemBus, err := dbus1.SystemBus()
-	if err != nil {
-		return nil, err
-	}
-	m.greeter = greeter.NewGreeter(systemBus)
-	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
 	return m, nil
 }
 

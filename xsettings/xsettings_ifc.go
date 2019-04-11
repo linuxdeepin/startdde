@@ -165,7 +165,6 @@ func (m *XSManager) GetScaleFactor() float64 {
 	return m.getScaleFactor()
 }
 
-// deprecated
 func (m *XSManager) SetScaleFactor(scale float64) error {
 	primary, err := getPrimaryScreenName(m.conn)
 	if err != nil {
