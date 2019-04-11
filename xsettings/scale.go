@@ -232,26 +232,29 @@ func (m *XSManager) setScaleFactorForPlymouthReal(factor int) {
 
 	if currentFactor == factor {
 		logger.Debug("quick end scalePlymouth", factor)
+		m.emitSignalSetScaleFactor(true)
 		return
 	}
 
-	emitSignal := m.emitSignal
-
-	if emitSignal {
-		err := dbus.Emit(m, "SetScaleFactorStarted")
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
+	m.emitSignalSetScaleFactor(false)
 	err = m.sysDaemon.ScalePlymouth(0, uint32(factor))
-	if emitSignal {
-		err := dbus.Emit(m, "SetScaleFactorDone")
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
+	m.emitSignalSetScaleFactor(true)
 
 	logger.Debug("end scalePlymouth", factor)
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
+func (m *XSManager) emitSignalSetScaleFactor(done bool) {
+	if !m.emitSignal {
+		return
+	}
+	signalName := "SetScaleFactorStarted"
+	if done {
+		signalName = "SetScaleFactorDone"
+	}
+	err := dbus.Emit(m, signalName)
 	if err != nil {
 		logger.Warning(err)
 	}
