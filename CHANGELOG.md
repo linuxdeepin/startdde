@@ -1,3 +1,8 @@
+[3.14.3] 2019-04-12
+*   fix: do not set recommended scale factor for qt app
+*   chore: waiting for kwin after launch it
+*   fix: not send SetScaleFactorDone signal
+
 [3.14.2] 2019-04-10
 *   chore: update depends for wm
 
