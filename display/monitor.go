@@ -95,6 +95,7 @@ func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
 	}
 	cmd += fmt.Sprintf(" --mode %dx%d", m.cfg.Width, m.cfg.Height)
 	cmd += fmt.Sprintf(" --pos %dx%d", m.cfg.X, m.cfg.Y)
+	cmd += " --panning 0x0"
 	// NOTE: do not set rate, because set rate may cause xrandr to report
 	// configure crtc failed error
 	var ro = "normal"
