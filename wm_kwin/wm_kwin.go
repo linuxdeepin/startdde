@@ -1,14 +1,20 @@
 package wm_kwin
 
 import (
+	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 const (
@@ -26,7 +32,7 @@ const (
 
 var logger *log.Logger
 
-func Start(l *log.Logger, wmChooseLaunched bool) error {
+func Start(l *log.Logger, wmChooserLaunched bool) error {
 	logger = l
 
 	sessionBus, err := dbus.SessionBus()
@@ -47,7 +53,26 @@ func Start(l *log.Logger, wmChooseLaunched bool) error {
 	}
 
 	s.listenDBusSignal()
+	if wmChooserLaunched {
+		syncWmChooserChoice()
+	}
 	return nil
+}
+
+func syncWmChooserChoice() {
+	lastWm, err := getWMSwitchLastWm()
+	if err == nil {
+		enabled := false
+		if lastWm == "deepin-wm" {
+			enabled = true
+		}
+		err = setCompositingEnabledInKWinRc(enabled)
+		if err != nil {
+			logger.Warning("failed to set compositingg enable in KWinRc:", err)
+		}
+	} else if !os.IsNotExist(err) {
+		logger.Warning("failed to get last wm:", err)
+	}
 }
 
 type Switcher struct {
@@ -176,4 +201,39 @@ func showOSD(name string) error {
 	}
 	osdObj := osd.NewOSD(sessionBus)
 	return osdObj.ShowOSD(0, name)
+}
+
+func getWMSwitchLastWm() (lastWm string, err error) {
+	filename := filepath.Join(basedir.GetUserConfigDir(), "deepin/deepin-wm-switcher/config.json")
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
+	}
+
+	var v struct {
+		LastWm string `json:"last_wm"`
+	}
+	err = json.Unmarshal(content, &v)
+	if err != nil {
+		return
+	}
+	return v.LastWm, nil
+}
+
+func setCompositingEnabledInKWinRc(enabled bool) error {
+	dir := basedir.GetUserConfigDir()
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+	filename := filepath.Join(dir, "kwinrc")
+	kf := keyfile.NewKeyFile()
+	err = kf.LoadFromFile(filename)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	kf.SetBool("Compositing", "Enabled", enabled)
+	err = kf.SaveToFile(filename)
+	return err
 }
