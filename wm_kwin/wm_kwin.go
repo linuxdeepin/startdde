@@ -68,7 +68,7 @@ func syncWmChooserChoice() {
 		}
 		err = setCompositingEnabledInKWinRc(enabled)
 		if err != nil {
-			logger.Warning("failed to set compositingg enable in KWinRc:", err)
+			logger.Warning("failed to set compositing enabled in KWinRc:", err)
 		}
 	} else if !os.IsNotExist(err) {
 		logger.Warning("failed to get last wm:", err)
