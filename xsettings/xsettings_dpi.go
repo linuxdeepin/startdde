@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"pkg.deepin.io/lib/utils"
@@ -87,6 +88,8 @@ func (m *XSManager) updateDPI() {
 }
 
 func (m *XSManager) updateXResources() {
+	scaleFactor := m.gs.GetDouble("scale-factor")
+	xftDpi := int(DPI_FALLBACK * scaleFactor)
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
 			key:   "Xcursor.theme",
@@ -95,6 +98,10 @@ func (m *XSManager) updateXResources() {
 		&xresourceInfo{
 			key:   "Xcursor.size",
 			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
+		},
+		&xresourceInfo{
+			key:   "Xft.dpi",
+			value: strconv.Itoa(xftDpi),
 		},
 	})
 }
