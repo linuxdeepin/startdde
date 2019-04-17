@@ -39,7 +39,7 @@ const (
 
 // TODO: update 'antialias, hinting, hintstyle, rgba, cursor-theme, cursor-size'
 func (m *XSManager) updateDPI() {
-	scale := m.gs.GetDouble("scale-factor")
+	scale := m.gs.GetDouble(gsKeyScaleFactor)
 	if scale <= 0 {
 		scale = 1
 	}
@@ -56,11 +56,11 @@ func (m *XSManager) updateDPI() {
 	}
 
 	// update window scale and cursor size
-	windowScale := m.gs.GetInt("window-scale")
+	windowScale := m.gs.GetInt(gsKeyWindowScale)
 	if windowScale > 1 {
 		scaledDPI = int32(DPI_FALLBACK * 1024)
 	}
-	cursorSize := m.gs.GetInt("gtk-cursor-theme-size")
+	cursorSize := m.gs.GetInt(gsKeyGtkCursorThemeSize)
 	v, _ := m.GetInteger("Gdk/WindowScalingFactor")
 	if v != windowScale {
 		infos = append(infos, xsSetting{
@@ -88,7 +88,7 @@ func (m *XSManager) updateDPI() {
 }
 
 func (m *XSManager) updateXResources() {
-	scaleFactor := m.gs.GetDouble("scale-factor")
+	scaleFactor := m.gs.GetDouble(gsKeyScaleFactor)
 	xftDpi := int(DPI_FALLBACK * scaleFactor)
 	updateXResources(xresourceInfos{
 		&xresourceInfo{
@@ -97,7 +97,7 @@ func (m *XSManager) updateXResources() {
 		},
 		&xresourceInfo{
 			key:   "Xcursor.size",
-			value: fmt.Sprintf("%d", m.gs.GetInt("gtk-cursor-theme-size")),
+			value: fmt.Sprintf("%d", m.gs.GetInt(gsKeyGtkCursorThemeSize)),
 		},
 		&xresourceInfo{
 			key:   "Xft.dpi",
@@ -109,7 +109,7 @@ func (m *XSManager) updateXResources() {
 var ffDir = path.Join(os.Getenv("HOME"), ".mozilla/firefox")
 
 func (m *XSManager) updateFirefoxDPI() {
-	scale := m.gs.GetDouble("scale-factor")
+	scale := m.gs.GetDouble(gsKeyScaleFactor)
 	if scale <= 0 {
 		// firefox default value: -1
 		scale = -1

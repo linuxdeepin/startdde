@@ -22,6 +22,8 @@ package xsettings
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -44,9 +46,16 @@ func (m *XSManager) getScaleFactor() float64 {
 }
 
 const (
-	gsKeyScaleFactor       = "scale-factor"
-	gsKeyIndividualScaling = "individual-scaling"
-	baseCursorSize         = 24
+	gsKeyScaleFactor        = "scale-factor"
+	gsKeyWindowScale        = "window-scale"
+	gsKeyGtkCursorThemeSize = "gtk-cursor-theme-size"
+	gsKeyIndividualScaling  = "individual-scaling"
+	baseCursorSize          = 24
+
+	qtThemeSection               = "Theme"
+	qtThemeKeyScreenScaleFactors = "ScreenScaleFactors"
+	qtThemeKeyScaleFactor        = "ScaleFactor"
+	qtThemeKeyScaleLogicalDpi    = "ScaleLogicalDpi"
 )
 
 func (m *XSManager) setScaleFactor(scale float64) {
@@ -58,13 +67,13 @@ func (m *XSManager) setScaleFactor(scale float64) {
 	if windowScale < 1 {
 		windowScale = 1
 	}
-	oldWindowScale := m.gs.GetInt("window-scale")
+	oldWindowScale := m.gs.GetInt(gsKeyWindowScale)
 	if oldWindowScale != windowScale {
-		m.gs.SetInt("window-scale", windowScale)
+		m.gs.SetInt(gsKeyWindowScale, windowScale)
 	}
 
 	cursorSize := int32(baseCursorSize * scale)
-	m.gs.SetInt("gtk-cursor-theme-size", cursorSize)
+	m.gs.SetInt(gsKeyGtkCursorThemeSize, cursorSize)
 	// set cursor size for deepin-metacity
 	gsWrapGDI := gio.NewSettings("com.deepin.wrap.gnome.desktop.interface")
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
@@ -149,9 +158,15 @@ func (m *XSManager) setScreenScaleFactorsForQt(factors map[string]float64) error
 		value = joinScreenScaleFactors(factors)
 		value = strconv.Quote(value)
 	}
-	kf.SetValue("Theme", "ScreenScaleFactors", value)
-	kf.DeleteKey("Theme", "ScaleFactor")
+	kf.SetValue(qtThemeSection, qtThemeKeyScreenScaleFactors, value)
+	kf.DeleteKey(qtThemeSection, qtThemeKeyScaleFactor)
+	kf.SetValue(qtThemeSection, qtThemeKeyScaleLogicalDpi, "-1,-1")
 	err = kf.SaveToFile(filename)
+	if err != nil {
+		return err
+	}
+
+	err = m.updateGreeterQtTheme(kf)
 	return err
 }
 
@@ -209,7 +224,6 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64) error {
 		logger.Warning(err)
 	}
 
-	err = m.updateGreeterQtTheme()
 	return err
 }
 
@@ -321,18 +335,33 @@ func getPlymouthThemeScaleFactor(theme string) int {
 	}
 }
 
-func (m *XSManager) updateGreeterQtTheme() error {
-	filename := getQtThemeFile()
-	f, err := os.Open(filename)
+func (m *XSManager) updateGreeterQtTheme(kf *keyfile.KeyFile) error {
+	tempFile, err := ioutil.TempFile("", "startdde-qt-theme-")
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err := f.Close()
+		err := tempFile.Close()
+		if err != nil {
+			logger.Warning(err)
+		}
+		err = os.Remove(tempFile.Name())
 		if err != nil {
 			logger.Warning(err)
 		}
 	}()
-	err = m.greeter.UpdateGreeterQtTheme(0, dbus1.UnixFD(f.Fd()))
+
+	kf.SetValue(qtThemeSection, qtThemeKeyScaleLogicalDpi, "96,96")
+	err = kf.SaveToWriter(tempFile)
+	if err != nil {
+		return err
+	}
+
+	_, err = tempFile.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	err = m.greeter.UpdateGreeterQtTheme(0, dbus1.UnixFD(tempFile.Fd()))
 	return err
 }
