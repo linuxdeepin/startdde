@@ -159,7 +159,7 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeInt,
 	},
 	{
-		gsKey:  "gtk-cursor-theme-size",
+		gsKey:  gsKeyGtkCursorThemeSize,
 		xsKey:  "Gtk/CursorThemeSize",
 		gsType: gsKeyTypeInt,
 	},
