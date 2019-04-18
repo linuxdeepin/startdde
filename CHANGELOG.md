@@ -1,3 +1,9 @@
+[3.14.4] 2019-04-18
+*   feat: set ScaleLogicalDpi in qt-theme.ini
+*   feat(xsettings): set Xft.dpi in x resources for wps
+*   chore(xsettings): do not set Xft.dpi in RESOURCE_MANAGER
+*   fix: kwin is not affected by the choice of dde-wm-chooser
+
 [3.14.3] 2019-04-12
 *   fix: do not set recommended scale factor for qt app
 *   chore: waiting for kwin after launch it
