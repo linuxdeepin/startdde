@@ -56,7 +56,6 @@ type XSManager struct {
 	SetScaleFactorStarted func()
 	SetScaleFactorDone    func()
 	restartOSD            bool // whether to restart dde-osd
-	emitSignal            bool
 }
 
 type xsSetting struct {
@@ -94,13 +93,12 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 	m.gs = gio.NewSettings(xsSchema)
 	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
 		recommendedScaleFactor != defaultScaleFactor {
-		err = m.SetScaleFactor(recommendedScaleFactor)
+		err = m.setScaleFactorWithoutNotify(recommendedScaleFactor)
 		if err != nil {
 			logger.Warning("failed to set scale factor:", err)
 		}
 		m.restartOSD = true
 	}
-	m.emitSignal = true
 
 	err = m.setSettings(m.getSettingsInSchema())
 	if err != nil {

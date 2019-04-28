@@ -171,12 +171,12 @@ func (m *XSManager) SetScaleFactor(scale float64) error {
 		return err
 	}
 
-	err = m.setScreenScaleFactors(map[string]float64{primary: scale})
+	err = m.setScreenScaleFactors(map[string]float64{primary: scale}, true)
 	return err
 }
 
 func (m *XSManager) SetScreenScaleFactors(factors map[string]float64) error {
-	err := m.setScreenScaleFactors(factors)
+	err := m.setScreenScaleFactors(factors, true)
 	return err
 }
 
