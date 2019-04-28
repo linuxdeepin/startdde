@@ -58,7 +58,7 @@ const (
 	qtThemeKeyScaleLogicalDpi    = "ScaleLogicalDpi"
 )
 
-func (m *XSManager) setScaleFactor(scale float64) {
+func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	logger.Debug("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
 
@@ -79,7 +79,7 @@ func (m *XSManager) setScaleFactor(scale float64) {
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
 	gsWrapGDI.Unref()
 
-	m.setScaleFactorForPlymouth(int(windowScale))
+	m.setScaleFactorForPlymouth(int(windowScale), emitSignal)
 }
 
 func parseScreenFactors(str string) map[string]float64 {
@@ -191,7 +191,17 @@ func getPrimaryScreenName(xConn *x.Conn) (string, error) {
 	return outputInfo.Name, nil
 }
 
-func (m *XSManager) setScreenScaleFactors(factors map[string]float64) error {
+func (m *XSManager) setScaleFactorWithoutNotify(scale float64) error {
+	primary, err := getPrimaryScreenName(m.conn)
+	if err != nil {
+		return err
+	}
+
+	err = m.setScreenScaleFactors(map[string]float64{primary: scale}, false)
+	return err
+}
+
+func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal bool) error {
 	logger.Debug("setScreenScaleFactors", factors)
 	for _, f := range factors {
 		if f <= 0 {
@@ -209,7 +219,7 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64) error {
 	} else {
 		logger.Warning("not found value for primary", primary)
 	}
-	m.setScaleFactor(primaryFactor)
+	m.setScaleFactor(primaryFactor, emitSignal)
 
 	factorsJoined := joinScreenScaleFactors(factors)
 	m.gs.SetString(gsKeyIndividualScaling, factorsJoined)
@@ -234,7 +244,7 @@ func (m *XSManager) getScreenScaleFactors() map[string]float64 {
 
 const plymouthConfigFile = "/etc/plymouth/plymouthd.conf"
 
-func (m *XSManager) setScaleFactorForPlymouthReal(factor int) {
+func (m *XSManager) setScaleFactorForPlymouthReal(factor int, emitSignal bool) {
 	logger.Debug("scalePlymouth", factor)
 	currentFactor := 0
 	theme, err := getPlymouthTheme(plymouthConfigFile)
@@ -246,13 +256,13 @@ func (m *XSManager) setScaleFactorForPlymouthReal(factor int) {
 
 	if currentFactor == factor {
 		logger.Debug("quick end scalePlymouth", factor)
-		m.emitSignalSetScaleFactor(true)
+		m.emitSignalSetScaleFactor(true, emitSignal)
 		return
 	}
 
-	m.emitSignalSetScaleFactor(false)
+	m.emitSignalSetScaleFactor(false, emitSignal)
 	err = m.sysDaemon.ScalePlymouth(0, uint32(factor))
-	m.emitSignalSetScaleFactor(true)
+	m.emitSignalSetScaleFactor(true, emitSignal)
 
 	logger.Debug("end scalePlymouth", factor)
 	if err != nil {
@@ -260,8 +270,8 @@ func (m *XSManager) setScaleFactorForPlymouthReal(factor int) {
 	}
 }
 
-func (m *XSManager) emitSignalSetScaleFactor(done bool) {
-	if !m.emitSignal {
+func (m *XSManager) emitSignalSetScaleFactor(done, emitSignal bool) {
+	if !emitSignal {
 		return
 	}
 	signalName := "SetScaleFactorStarted"
@@ -274,10 +284,10 @@ func (m *XSManager) emitSignalSetScaleFactor(done bool) {
 	}
 }
 
-func (m *XSManager) startScaleFactorForPlymouth(factor int) {
+func (m *XSManager) startScaleFactorForPlymouth(factor int, emitSignal bool) {
 	logger.Debug("startScaleFactorForPlymouth", factor)
 	go func() {
-		m.setScaleFactorForPlymouthReal(factor)
+		m.setScaleFactorForPlymouthReal(factor, emitSignal)
 		m.endScaleFactorForPlymouth()
 	}()
 }
@@ -293,11 +303,11 @@ func (m *XSManager) endScaleFactorForPlymouth() {
 		factor := m.plymouthScalingTasks[len(m.plymouthScalingTasks)-1]
 		logger.Debug("use last in tasks:", factor, m.plymouthScalingTasks)
 		m.plymouthScalingTasks = nil
-		m.startScaleFactorForPlymouth(factor)
+		m.startScaleFactorForPlymouth(factor, true)
 	}
 }
 
-func (m *XSManager) setScaleFactorForPlymouth(factor int) {
+func (m *XSManager) setScaleFactorForPlymouth(factor int, emitSignal bool) {
 	if factor > 2 {
 		factor = 2
 	}
@@ -308,7 +318,7 @@ func (m *XSManager) setScaleFactorForPlymouth(factor int) {
 		logger.Debug("add to tasks", factor)
 	} else {
 		m.plymouthScaling = true
-		m.startScaleFactorForPlymouth(factor)
+		m.startScaleFactorForPlymouth(factor, emitSignal)
 	}
 
 	m.plymouthScalingMu.Unlock()
