@@ -62,6 +62,13 @@ func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	logger.Debug("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
 
+	// set scale factor for deepin wine apps
+	scaleStr := strconv.FormatFloat(scale, 'f', 2, 64)
+	err := userenv.SetAndSaveToFile(userenv.DefaultFile(), "DEEPIN_WINE_SCALE", scaleStr)
+	if err != nil {
+		logger.Warning("failed to set scale factor for deepin wine apps:", err)
+	}
+
 	// if 1.7 < scale < 2, window scale = 2
 	windowScale := int32(math.Trunc((scale+0.3)*10) / 10)
 	if windowScale < 1 {
