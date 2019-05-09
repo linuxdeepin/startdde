@@ -1,3 +1,7 @@
+[3.14.5] 2019-05-09
+*   feat(xsettings): set scale factor for deepin wine apps
+*   fix(xsettings): send notification the first time auto set scale
+
 [3.14.4] 2019-04-18
 *   feat: set ScaleLogicalDpi in qt-theme.ini
 *   feat(xsettings): set Xft.dpi in x resources for wps
