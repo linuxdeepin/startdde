@@ -41,6 +41,7 @@ import (
 	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
+	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
@@ -506,6 +507,12 @@ func setupEnvironments() {
 		scaleFactor = globalXSManager.GetScaleFactor()
 	}
 	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
+
+	// set scale factor for deepin wine apps
+	if scaleFactor != 1.0 {
+		envVars[xsettings.EnvDeepinWineScale] = strconv.FormatFloat(
+			scaleFactor, 'f', 2, 64)
+	}
 
 	for key, value := range envVars {
 		logger.Debugf("set env %s = %q", key, value)

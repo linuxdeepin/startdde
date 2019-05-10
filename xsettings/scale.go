@@ -46,6 +46,7 @@ func (m *XSManager) getScaleFactor() float64 {
 }
 
 const (
+	EnvDeepinWineScale      = "DEEPIN_WINE_SCALE"
 	gsKeyScaleFactor        = "scale-factor"
 	gsKeyWindowScale        = "window-scale"
 	gsKeyGtkCursorThemeSize = "gtk-cursor-theme-size"
@@ -61,13 +62,6 @@ const (
 func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	logger.Debug("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
-
-	// set scale factor for deepin wine apps
-	scaleStr := strconv.FormatFloat(scale, 'f', 2, 64)
-	err := userenv.SetAndSaveToFile(userenv.DefaultFile(), "DEEPIN_WINE_SCALE", scaleStr)
-	if err != nil {
-		logger.Warning("failed to set scale factor for deepin wine apps:", err)
-	}
 
 	// if 1.7 < scale < 2, window scale = 2
 	windowScale := int32(math.Trunc((scale+0.3)*10) / 10)
@@ -136,9 +130,12 @@ func cleanUpDdeEnv() error {
 		"QT_SCREEN_SCALE_FACTORS",
 		"QT_AUTO_SCREEN_SCALE_FACTOR",
 		"QT_FONT_DPI",
+		EnvDeepinWineScale,
 	} {
-		delete(ue, key)
-		needSave = true
+		if _, ok := ue[key]; ok {
+			delete(ue, key)
+			needSave = true
+		}
 	}
 
 	if needSave {
