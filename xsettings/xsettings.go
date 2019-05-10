@@ -21,6 +21,7 @@ package xsettings
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
@@ -98,6 +99,22 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 			logger.Warning("failed to set scale factor:", err)
 		}
 		m.restartOSD = true
+	}
+
+	_, err = os.Stat("/etc/lightdm/deepin/qt-theme.ini")
+	if err != nil {
+		if os.IsNotExist(err) {
+			// lightdm-deepin-greeter does not have the qt-theme.ini file yet.
+			scaleFactor := m.getScaleFactor()
+			if scaleFactor != defaultScaleFactor {
+				err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
+				if err != nil {
+					logger.Warning("failed to set scale factor for qt:", err)
+				}
+			}
+		} else {
+			logger.Warning(err)
+		}
 	}
 
 	err = m.setSettings(m.getSettingsInSchema())
