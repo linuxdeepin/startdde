@@ -1,3 +1,7 @@
+[3.14.6] 2019-05-14
+*   feat: handle deepin-greeter missing qt-theme.ini
+*   chore: do not set DEEPIN_WINE_SCALE in ~/.dde_env
+
 [3.14.5] 2019-05-09
 *   feat(xsettings): set scale factor for deepin wine apps
 *   fix(xsettings): send notification the first time auto set scale
