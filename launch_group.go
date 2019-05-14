@@ -22,6 +22,7 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -39,6 +40,7 @@ type launchGroup struct {
 type launchGroups []*launchGroup
 
 const (
+	envAutoLaunchFile   = "STARTDDE_AUTO_LAUNCH"
 	sysLaunchGroupFile  = "/usr/share/startdde/auto_launch.json"
 	userLaunchGroupFile = "startdde/auto_launch.json"
 )
@@ -56,6 +58,11 @@ func (infos launchGroups) Swap(i, j int) {
 }
 
 func loadGroupFile() (launchGroups, error) {
+	launchGroupFile := os.Getenv(envAutoLaunchFile)
+	if launchGroupFile != "" {
+		return doLoadGroupFile(launchGroupFile)
+	}
+
 	userFile := filepath.Join(basedir.GetUserConfigDir(), userLaunchGroupFile)
 	infos, err := doLoadGroupFile(userFile)
 	if err != nil {
