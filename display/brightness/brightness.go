@@ -179,11 +179,6 @@ func getBacklightController(output randr.Output, conn *x.Conn) (*displayBl.Contr
 		return c, nil
 	}
 
-	if len(controllers) >= 1 {
-		// return first
-		return controllers[0], nil
-	}
-
 	return nil, errNotFoundBacklightController
 }
 
