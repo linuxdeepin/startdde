@@ -235,7 +235,7 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 
 	err = cleanUpDdeEnv()
 	if err != nil {
-		logger.Warning(err)
+		logger.Warning("failed to clean up dde env", err)
 	}
 
 	return err

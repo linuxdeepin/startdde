@@ -89,8 +89,18 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 	m.greeter = greeter.NewGreeter(systemBus)
 	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
 
-	logger.Debug("recommended scale factor:", recommendedScaleFactor)
+	m.adjustScaleFactor(recommendedScaleFactor)
+	err = m.setSettings(m.getSettingsInSchema())
+	if err != nil {
+		logger.Warning("Change xsettings property failed:", err)
+	}
 
+	return m, nil
+}
+
+func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
+	logger.Debug("recommended scale factor:", recommendedScaleFactor)
+	var err error
 	m.gs = gio.NewSettings(xsSchema)
 	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
 		recommendedScaleFactor != defaultScaleFactor {
@@ -99,6 +109,21 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 			logger.Warning("failed to set scale factor:", err)
 		}
 		m.restartOSD = true
+	}
+
+	// migrate old configuration
+	if os.Getenv("STARTDDE_MIGRATE_SCALE_FACTOR") != "" {
+		scaleFactor := m.getScaleFactor()
+		err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
+		if err != nil {
+			logger.Warning("failed to set scale factor for qt:", err)
+		}
+
+		err = cleanUpDdeEnv()
+		if err != nil {
+			logger.Warning("failed to clean up dde env:", err)
+		}
+		return
 	}
 
 	_, err = os.Stat("/etc/lightdm/deepin/qt-theme.ini")
@@ -116,13 +141,6 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 			logger.Warning(err)
 		}
 	}
-
-	err = m.setSettings(m.getSettingsInSchema())
-	if err != nil {
-		logger.Warning("Change xsettings property failed:", err)
-	}
-
-	return m, nil
 }
 
 func (m *XSManager) setSettings(settings []xsSetting) error {
