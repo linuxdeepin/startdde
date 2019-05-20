@@ -231,6 +231,21 @@ func isOSDRunning() (bool, error) {
 	return has, nil
 }
 
+func isNotificationsOwned() (bool, error) {
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		return false, err
+	}
+
+	var has bool
+	err = sessionBus.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0,
+		"org.freedesktop.Notifications").Store(&has)
+	if err != nil {
+		return false, err
+	}
+	return has, nil
+}
+
 func getLightDMAutoLoginUser() (string, error) {
 	kf := keyfile.NewKeyFile()
 	err := kf.LoadFromFile("/etc/lightdm/lightdm.conf")
