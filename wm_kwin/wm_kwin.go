@@ -10,6 +10,7 @@ import (
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
+	"pkg.deepin.io/dde/startdde/video_card"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
@@ -34,6 +35,7 @@ var logger *log.Logger
 
 func Start(l *log.Logger, wmChooserLaunched bool) error {
 	logger = l
+	video_card.SetLogger(l)
 
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {
@@ -52,9 +54,20 @@ func Start(l *log.Logger, wmChooserLaunched bool) error {
 		return err
 	}
 
+	cardChange := video_card.IsCardChange()
+	logger.Debug("card change:", cardChange)
+
 	s.listenDBusSignal()
 	if wmChooserLaunched {
 		syncWmChooserChoice()
+	} else if cardChange {
+		support := video_card.SupportRunGoodWM()
+		if !support {
+			err = setCompositingEnabledInKWinRc(false)
+			if err != nil {
+				logger.Warning("failed to set compositing enabled in KWinRc:", err)
+			}
+		}
 	}
 	return nil
 }
@@ -106,6 +119,22 @@ func newSwitcher(service *dbusutil.Service) *Switcher {
 }
 
 func (s *Switcher) AllowSwitch() (bool, *dbus.Error) {
+	compositingEnabled, err := s.wm.CompositingEnabled().Get(0)
+	if err != nil {
+		return false, dbusutil.ToError(err)
+	}
+
+	if compositingEnabled {
+		// disabling compositing is always allowed
+		return true, nil
+	}
+
+	// enable compositing
+	support := video_card.SupportRunGoodWM()
+	if !support {
+		return false, nil
+	}
+
 	possible, err := s.wm.CompositingPossible().Get(0)
 	if err != nil {
 		return false, dbusutil.ToError(err)
@@ -132,30 +161,22 @@ func (s *Switcher) requestSwitchWM() error {
 		return err
 	}
 
-	if enabled {
-		// disable compositing
-		err = s.wm.CompositingEnabled().Set(0, false)
-		return err
-	}
-
-	// try enable compositing
-	possible, err := s.wm.CompositingPossible().Get(0)
-	if err != nil {
-		return err
-	}
-
-	if possible {
-		err = s.wm.CompositingEnabled().Set(0, true)
-		return err
-	}
-	err = showOSD(osdSwitchWMError)
-	if err != nil {
-		logger.Warning(err)
-	}
-	return errors.New("compositing is impossible")
+	return s.wm.CompositingEnabled().Set(0, !enabled)
 }
 
 func (s *Switcher) RequestSwitchWM() *dbus.Error {
+	allow, busErr := s.AllowSwitch()
+	if busErr != nil {
+		return busErr
+	}
+
+	if !allow {
+		err := showOSD(osdSwitchWMError)
+		if err != nil {
+			logger.Warning(err)
+		}
+		return dbusutil.ToError(errors.New("switch WM is not allowed"))
+	}
 	err := s.requestSwitchWM()
 	return dbusutil.ToError(err)
 }
@@ -199,6 +220,7 @@ func showOSD(name string) error {
 	if err != nil {
 		return err
 	}
+	logger.Debug("show osd:", name)
 	osdObj := osd.NewOSD(sessionBus)
 	return osdObj.ShowOSD(0, name)
 }
