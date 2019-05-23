@@ -1,3 +1,8 @@
+[3.14.6.1] 2019-05-23
+*   feat(wm_kwin): check video card workability
+*   fix(xsettings): the font is abnormally enlarged after the upgrade
+*   fix(diplay): getBacklightController return wrong controller
+
 [3.14.6] 2019-05-14
 *   feat: handle deepin-greeter missing qt-theme.ini
 *   chore: do not set DEEPIN_WINE_SCALE in ~/.dde_env
