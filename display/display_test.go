@@ -123,7 +123,8 @@ func TestCalcRecommendedScaleFactor(t *testing.T) {
 	Convey("Test calcRecommendedScaleFactor", t, func() {
 		So(calcRecommendedScaleFactor(1366, 310), ShouldEqual, 1.0)
 		So(calcRecommendedScaleFactor(1920, 527), ShouldEqual, 1.0)
-		So(calcRecommendedScaleFactor(3840, 520), ShouldEqual, 2.0)
+		So(calcRecommendedScaleFactor(3840, 520), ShouldEqual, 1.75)
 		So(calcRecommendedScaleFactor(1920, 294), ShouldEqual, 1.5)
+		So(calcRecommendedScaleFactor(2160, 275), ShouldEqual, 1.75)
 	})
 }
