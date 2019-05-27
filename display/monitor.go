@@ -52,6 +52,7 @@ type MonitorInfo struct {
 
 	// MonitorBaseInfo
 	// dbus unsupported inherit
+	ID             uint32
 	Name           string
 	Enabled        bool
 	Connected      bool
