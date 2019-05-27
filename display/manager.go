@@ -644,6 +644,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 	base := toMonitorBaseInfo(output, id)
 	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
+		ID:             output.Id,
 		cfg:            &base,
 		Name:           base.Name,
 		Enabled:        base.Enabled,
