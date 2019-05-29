@@ -1,3 +1,8 @@
+[3.14.6.2] 2019-05-29
+*   Revert "feat(wm_kwin): check video card workability"
+*   fix(display): monitor path is invalid
+*   fix(display): refine the recommended scale factor
+
 [3.14.6.1] 2019-05-23
 *   feat(wm_kwin): check video card workability
 *   fix(xsettings): the font is abnormally enlarged after the upgrade
