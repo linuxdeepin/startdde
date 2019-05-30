@@ -121,6 +121,9 @@ func getQtThemeFile() string {
 func cleanUpDdeEnv() error {
 	ue, err := userenv.Load()
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 
