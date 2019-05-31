@@ -1,3 +1,6 @@
+[3.14.6.3] 2019-05-31
+*   fix(xsettings): the font is abnormally enlarged after upgrade from SP2
+
 [3.14.6.2] 2019-05-29
 *   Revert "feat(wm_kwin): check video card workability"
 *   fix(display): monitor path is invalid
