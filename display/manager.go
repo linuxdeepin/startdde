@@ -192,14 +192,35 @@ func calcRecommendedScaleFactor(pxWidth, mmWidth float64) float64 {
 	}
 	ppm := pxWidth / mmWidth
 	scaleFactor := ppm / (1366.0 / 310.0)
-	if scaleFactor > 1+2.0/3.0 {
-		scaleFactor = 2
-	} else if scaleFactor > 1+1.0/3.0 {
-		scaleFactor = 1.5
-	} else {
-		scaleFactor = 1
+	return toListedScaleFactor(scaleFactor)
+}
+
+func toListedScaleFactor(s float64) float64 {
+	const (
+		min  = 1.0
+		max  = 3.0
+		step = 0.25
+	)
+	if s <= min {
+		return min
+	} else if s >= max {
+		return max
 	}
-	return scaleFactor
+
+	for i := min; i <= max; i += step {
+		if i > s {
+			ii := i - step
+			d1 := s - ii
+			d2 := i - s
+
+			if d1 >= d2 {
+				return i
+			} else {
+				return ii
+			}
+		}
+	}
+	return max
 }
 
 func (dpy *Manager) init() {
@@ -623,6 +644,7 @@ func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo,
 	base := toMonitorBaseInfo(output, id)
 	modes := dpy.getModesByIds(output.Modes)
 	var info = MonitorInfo{
+		ID:             output.Id,
 		cfg:            &base,
 		Name:           base.Name,
 		Enabled:        base.Enabled,

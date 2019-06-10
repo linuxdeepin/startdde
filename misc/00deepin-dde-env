@@ -1,11 +1,17 @@
-if [ "$1" = "/usr/bin/startdde" -a -f "$HOME/.dde_env" ]; then
-	. "$HOME/.dde_env"
-    # Handling configuration migration issues
-    if [ -n "$QT_SCALE_FACTOR" ]; then
+if [ "$1" = "/usr/bin/startdde" ]; then
+    if [ -f "$HOME/.dde_env" ]; then
+        . "$HOME/.dde_env"
+        # Handling configuration migration issues
+        if [ -n "$QT_SCALE_FACTOR" ]; then
+            unset QT_SCALE_FACTOR
+            unset QT_SCREEN_SCALE_FACTORS
+            unset QT_AUTO_SCREEN_SCALE_FACTOR
+            unset QT_FONT_DPI
+            export STARTDDE_MIGRATE_SCALE_FACTOR=1
+        fi
+    elif [ -f "$HOME/.pam_environment" -a -n "$QT_SCALE_FACTOR" ]; then
+        # Handling configuration migration issues for earlier version
         unset QT_SCALE_FACTOR
-        unset QT_SCREEN_SCALE_FACTORS
-        unset QT_AUTO_SCREEN_SCALE_FACTOR
-        unset QT_FONT_DPI
         export STARTDDE_MIGRATE_SCALE_FACTOR=1
     fi
 fi

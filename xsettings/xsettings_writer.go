@@ -23,8 +23,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-
-	"github.com/linuxdeepin/go-x11-client"
 )
 
 func (info *xsDataInfo) modifyProperty(setting xsSetting) xsItemInfos {
@@ -36,6 +34,7 @@ func (info *xsDataInfo) modifyProperty(setting xsSetting) xsItemInfos {
 	for _, item := range items {
 		if item.header.name == setting.prop {
 			var ptr = &item
+			item.header.lastChangeSerial++
 			ptr.changePropValue(setting.value)
 		}
 		tmp = append(tmp, item)
@@ -152,7 +151,7 @@ func newXSItemHeader(prop string) *xsItemHeader {
 		unused:           1,
 		nameLen:          int16(len(prop)),
 		name:             prop,
-		lastChangeSerial: x.CurrentTime,
+		lastChangeSerial: 1,
 	}
 	header.pad = int(3 - (header.nameLen+3)%4)
 

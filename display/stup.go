@@ -21,7 +21,6 @@ package display
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/api/drandr"
@@ -120,10 +119,9 @@ func (dpy *Manager) setPropTouchMap(v map[string]string) {
 }
 
 func (m *MonitorInfo) GetDBusInfo() dbus.DBusInfo {
-	name := strings.Replace(m.Name, "-", "_", -1)
 	return dbus.DBusInfo{
 		Dest:       dbusDest,
-		ObjectPath: fmt.Sprintf("%s/Monitor%s", dbusPath, name),
+		ObjectPath: fmt.Sprintf("%s/Monitor%d", dbusPath, m.ID),
 		Interface:  monitorDBusIFC,
 	}
 }
