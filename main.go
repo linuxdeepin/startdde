@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/linuxdeepin/go-x11-client"
+	"pkg.deepin.io/dde/startdde/appusage"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
@@ -111,6 +112,11 @@ func main() {
 	}()
 
 	useKwin := shouldUseDDEKwin()
+
+	err = appusage.Start()
+	if err != nil {
+		logger.Warning("failed to start app usage recorder:", err)
+	}
 
 	sessionManager := startSession(xConn, useKwin)
 	var getLockedFn func() bool

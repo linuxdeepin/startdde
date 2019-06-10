@@ -31,7 +31,6 @@ import (
 	"time"
 
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
-
 	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/gir/gio-2.0"
