@@ -637,8 +637,9 @@ func (dpy *Manager) updateMonitors() {
 func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
 	id := dpy.sumOutputUUID(output)
 	// check output whether exists
-	if m := dpy.allMonitors.get(id); m != nil {
-		return nil, fmt.Errorf("Output '%s' has exist in monitors", output.Name)
+	m := dpy.allMonitors.get(id)
+	if m != nil && m.ID == output.Id {
+		return nil, fmt.Errorf("output '%s' has exist in monitors", output.Name)
 	}
 
 	base := toMonitorBaseInfo(output, id)
