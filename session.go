@@ -408,9 +408,20 @@ func (m *SessionManager) launchDDE() {
 	osdRunning, err := isOSDRunning()
 	if err != nil {
 		logger.Warning(err)
-	} else if osdRunning && globalXSManager.NeedRestartOSD() {
-		// restart osd
-		m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+	} else {
+		if osdRunning {
+			if globalXSManager.NeedRestartOSD() {
+				logger.Info("Restart dde-osd")
+				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+			}
+		} else {
+			notificationsOwned, err := isNotificationsOwned()
+			if err != nil {
+				logger.Warning("failed to get org.freedesktop.Notifications status:", err)
+			} else if !notificationsOwned {
+				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+			}
+		}
 	}
 
 	groups, err := loadGroupFile()
