@@ -1,3 +1,7 @@
+[3.14.6.4] 2019-06-12
+*   fix(display): outputToMonitorInfo
+*   fix(xsettings): make last change series auto increment
+
 [3.14.6.3] 2019-05-31
 *   fix(xsettings): the font is abnormally enlarged after upgrade from SP2
 
