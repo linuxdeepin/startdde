@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
-	"github.com/linuxdeepin/go-x11-client"
+	greeter "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
+	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbus"
 	dbus1 "pkg.deepin.io/lib/dbus1"
@@ -150,7 +150,7 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 	}
 
 	xsInfo := marshalSettingData(datas)
-	xsInfo.serial = xsDataSerial
+	xsInfo.serial++ // auto increment
 	for _, s := range settings {
 		item := xsInfo.getPropItem(s.prop)
 		if item != nil {
