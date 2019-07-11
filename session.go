@@ -46,6 +46,7 @@ import (
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbus"
 	dbus1 "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/procfs"
@@ -60,6 +61,9 @@ type SessionManager struct {
 	cookies               map[string]chan time.Time
 	Stage                 int32
 	allowSessionDaemonRun bool
+	loginSession          *login1.Session
+
+	Unlock func()
 }
 
 const (
@@ -238,6 +242,11 @@ func (m *SessionManager) SetLocked(dMsg dbus.DMessage, value bool) error {
 		return fmt.Errorf("exe %q is invalid", exe)
 	}
 
+	m.setLocked(value)
+	return nil
+}
+
+func (m *SessionManager) setLocked(value bool) {
 	m.mu.Lock()
 	if m.Locked != value {
 		m.Locked = value
@@ -263,7 +272,13 @@ func (m *SessionManager) SetLocked(dMsg dbus.DMessage, value bool) error {
 		logger.Warning("watchdogManager is nil")
 	}
 
-	return nil
+	if !value && m.loginSession != nil {
+		// unlock
+		err := m.loginSession.Unlock(0)
+		if err != nil {
+			logger.Warning("failed to unlock login session:", err)
+		}
+	}
 }
 
 func (m *SessionManager) getLocked() bool {
@@ -370,7 +385,11 @@ func newSessionManager() *SessionManager {
 	m := &SessionManager{}
 	m.cookies = make(map[string]chan time.Time)
 	m.setPropName("CurrentUid")
-
+	var err error
+	m.loginSession, err = getLoginSession()
+	if err != nil {
+		logger.Warning("failed to get current login session:", err)
+	}
 	return m
 }
 
@@ -558,7 +577,9 @@ func setupEnvironments() {
 	}
 }
 
-func startSession(conn *x.Conn, useKwin bool) *SessionManager {
+func startSession(conn *x.Conn, useKwin bool,
+	sysSignalLoop *dbusutil.SignalLoop) *SessionManager {
+
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -592,6 +613,19 @@ func startSession(conn *x.Conn, useKwin bool) *SessionManager {
 		}
 	}()
 	go manager.launchAutostart()
+
+	if manager.loginSession != nil {
+		manager.loginSession.InitSignalExt(sysSignalLoop, true)
+		_, err = manager.loginSession.ConnectLock(manager.handleLoginSessionLock)
+		if err != nil {
+			logger.Warning("failed to connect signal Lock:", err)
+		}
+
+		_, err = manager.loginSession.ConnectUnlock(manager.handleLoginSessionUnlock)
+		if err != nil {
+			logger.Warning("failled to connect signal Unlock:", err)
+		}
+	}
 
 	return manager
 }
@@ -649,5 +683,39 @@ func setLeftPtrCursor() {
 	err := xcursor.LoadAndApply(theme, "left_ptr", int(size))
 	if err != nil {
 		logger.Warning(err)
+	}
+}
+
+func getLoginSession() (*login1.Session, error) {
+	sysBus, err := dbus1.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+
+	loginManager := login1.NewManager(sysBus)
+	sessionPath, err := loginManager.GetSession(0, "")
+	if err != nil {
+		return nil, err
+	}
+	session, err := login1.NewSession(sysBus, sessionPath)
+	if err != nil {
+		return nil, err
+	}
+	return session, nil
+}
+
+func (m *SessionManager) handleLoginSessionLock() {
+	logger.Debug("login session lock")
+	err := m.RequestLock()
+	if err != nil {
+		logger.Warning("failed to request lock:", err)
+	}
+}
+
+func (m *SessionManager) handleLoginSessionUnlock() {
+	logger.Debug("login session unlock")
+	err := dbus.Emit(m, "Unlock")
+	if err != nil {
+		logger.Warning("failed to emit signal Unlock:", err)
 	}
 }
