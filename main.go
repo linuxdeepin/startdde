@@ -31,6 +31,8 @@ import (
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/dbus"
+	dbus1 "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
@@ -112,7 +114,15 @@ func main() {
 
 	useKwin := shouldUseDDEKwin()
 
-	sessionManager := startSession(xConn, useKwin)
+	sysBus, err := dbus1.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		os.Exit(1)
+	}
+	sysSignalLoop := dbusutil.NewSignalLoop(sysBus, 10)
+	sysSignalLoop.Start()
+
+	sessionManager := startSession(xConn, useKwin, sysSignalLoop)
 	var getLockedFn func() bool
 	if sessionManager != nil {
 		getLockedFn = sessionManager.getLocked
