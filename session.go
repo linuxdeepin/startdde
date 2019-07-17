@@ -30,8 +30,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
-	"github.com/linuxdeepin/go-x11-client"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/dpms"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
 	"pkg.deepin.io/dde/startdde/keyring"
@@ -149,11 +150,13 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
+	setDPMSMode(false)
 	preparePlayShutdownSound()
 	objLogin.PowerOff(0, true)
 }
 
 func (m *SessionManager) ForceShutdown() {
+	setDPMSMode(false)
 	objLogin.PowerOff(0, false)
 }
 
@@ -171,11 +174,13 @@ func (m *SessionManager) Reboot() {
 }
 
 func (m *SessionManager) RequestReboot() {
+	setDPMSMode(false)
 	preparePlayShutdownSound()
 	objLogin.Reboot(0, true)
 }
 
 func (m *SessionManager) ForceReboot() {
+	setDPMSMode(false)
 	objLogin.Reboot(0, false)
 }
 
@@ -717,5 +722,22 @@ func (m *SessionManager) handleLoginSessionUnlock() {
 	err := dbus.Emit(m, "Unlock")
 	if err != nil {
 		logger.Warning("failed to emit signal Unlock:", err)
+	}
+}
+
+func setDPMSMode(on bool) {
+	conn, err := x.NewConn()
+	if err != nil {
+		logger.Warning("Failed to connect x11:", err)
+		return
+	}
+
+	var mode = uint16(dpms.DPMSModeOn)
+	if !on {
+		mode = uint16(dpms.DPMSModeOff)
+	}
+	err = dpms.ForceLevelChecked(conn, mode).Check(conn)
+	if err != nil {
+		logger.Warning("Failed to set dpms mode:", on, err)
 	}
 }
