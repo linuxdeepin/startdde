@@ -63,13 +63,15 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	_manager.AddTimedTask(newDdeDockTask())
 	_manager.AddTimedTask(newDdeDesktopTask())
 	_manager.AddTimedTask(newDdePolkitAgent())
-	_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
 	go _manager.StartLoop()
 
+	var wmTask *taskInfo
 	if useKwin {
-		_manager.AddDBusTask(kWinServiceName, newDdeKWinTask())
+		wmTask = newDdeKWinTask()
+		_manager.AddDBusTask(kWinServiceName, wmTask)
 	} else {
-		_manager.AddDBusTask(wmServiceName, newWMTask())
+		wmTask = newWMTask()
+		_manager.AddDBusTask(wmServiceName, wmTask)
 	}
 
 	if getLockedFn != nil {
@@ -82,13 +84,20 @@ func Start(getLockedFn func() bool, useKwin bool) {
 		logger.Warning(err)
 	}
 	time.AfterFunc(10*time.Second, func() {
-		for _, task := range _manager.dbusTasks {
-			err = task.Launch()
+		isRun, err := wmTask.isRunning()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		if !isRun {
+			err := wmTask.launch()
 			if err != nil {
 				logger.Warning(err)
 			}
 		}
 	})
+	return
 }
 
 func (m *Manager) listenDBusSignals() error {

@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"os/exec"
 	"time"
 )
 
@@ -14,7 +15,19 @@ func isDdeKWinRunning() (bool, error) {
 }
 
 func launchDdeKWin() error {
-	return launchCommand(ddeKWinCommand, nil, "dde-kwin")
+	var cmd = exec.Command(ddeKWinCommand)
+	err := cmd.Start()
+	if err != nil {
+		logger.Warning("failed to start dde-kwin:", err)
+		return err
+	}
+	go func() {
+		err := cmd.Wait()
+		if err != nil {
+			logger.Warning("dde-kwin exit with error:", err)
+		}
+	}()
+	return nil
 }
 
 func newDdeKWinTask() *taskInfo {
