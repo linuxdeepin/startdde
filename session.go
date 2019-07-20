@@ -198,6 +198,7 @@ func (m *SessionManager) CanSuspend() bool {
 }
 
 func (m *SessionManager) RequestSuspend() {
+	setDPMSMode(false)
 	objLogin.Suspend(0, false)
 }
 
@@ -210,6 +211,7 @@ func (m *SessionManager) CanHibernate() bool {
 }
 
 func (m *SessionManager) RequestHibernate() {
+	setDPMSMode(false)
 	objLogin.Hibernate(0, false)
 }
 
