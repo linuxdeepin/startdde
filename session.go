@@ -150,14 +150,14 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) RequestShutdown() {
-	setDPMSMode(false)
 	preparePlayShutdownSound()
 	objLogin.PowerOff(0, true)
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) ForceShutdown() {
-	setDPMSMode(false)
 	objLogin.PowerOff(0, false)
+	setDPMSMode(false)
 }
 
 func (shudown *SessionManager) CanReboot() bool {
@@ -174,14 +174,14 @@ func (m *SessionManager) Reboot() {
 }
 
 func (m *SessionManager) RequestReboot() {
-	setDPMSMode(false)
 	preparePlayShutdownSound()
 	objLogin.Reboot(0, true)
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) ForceReboot() {
-	setDPMSMode(false)
 	objLogin.Reboot(0, false)
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) CanSuspend() bool {
@@ -198,8 +198,8 @@ func (m *SessionManager) CanSuspend() bool {
 }
 
 func (m *SessionManager) RequestSuspend() {
-	setDPMSMode(false)
 	objLogin.Suspend(0, false)
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
@@ -211,8 +211,8 @@ func (m *SessionManager) CanHibernate() bool {
 }
 
 func (m *SessionManager) RequestHibernate() {
-	setDPMSMode(false)
 	objLogin.Hibernate(0, false)
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) RequestLock() error {
