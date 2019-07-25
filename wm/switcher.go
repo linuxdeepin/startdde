@@ -68,6 +68,8 @@ type Switcher struct {
 	currentWM         string
 	WMChanged         func(string)
 	wmChooserLaunched bool
+
+	conn *x.Conn
 }
 
 const (
@@ -275,28 +277,22 @@ func (s *Switcher) listenStartupReady() {
 func (s *Switcher) listenWMChanged() {
 	s.currentWM = s.getWM()
 
-	conn, err := x.NewConn()
+	root := s.conn.GetDefaultScreen().Root
+	err := x.ChangeWindowAttributesChecked(s.conn, root, x.CWEventMask, []uint32{
+		x.EventMaskPropertyChange}).Check(s.conn)
 	if err != nil {
 		s.logger.Warning(err)
 		return
 	}
 
-	root := conn.GetDefaultScreen().Root
-	err = x.ChangeWindowAttributesChecked(conn, root, x.CWEventMask, []uint32{
-		x.EventMaskPropertyChange}).Check(conn)
-	if err != nil {
-		s.logger.Warning(err)
-		return
-	}
-
-	atomNetSupportingWMCheck, err := conn.GetAtom("_NET_SUPPORTING_WM_CHECK")
+	atomNetSupportingWMCheck, err := s.conn.GetAtom("_NET_SUPPORTING_WM_CHECK")
 	if err != nil {
 		s.logger.Warning(err)
 		return
 	}
 
 	eventChan := make(chan x.GenericEvent, 10)
-	conn.AddEventChan(eventChan)
+	s.conn.AddEventChan(eventChan)
 
 	handlePropNotifyEvent := func(event *x.PropertyNotifyEvent) {
 		if event.Atom != atomNetSupportingWMCheck || event.Window != root {
@@ -304,14 +300,14 @@ func (s *Switcher) listenWMChanged() {
 		}
 		switch event.State {
 		case x.PropertyNewValue:
-			win, err := ewmh.GetSupportingWMCheck(conn).Reply(conn)
+			win, err := ewmh.GetSupportingWMCheck(s.conn).Reply(s.conn)
 			if err != nil {
 				s.logger.Warning(err)
 				return
 			}
 			s.logger.Debug("win:", win)
 
-			wmName, err := ewmh.GetWMName(conn, win).Reply(conn)
+			wmName, err := ewmh.GetWMName(s.conn, win).Reply(s.conn)
 			if err != nil {
 				s.logger.Warning(err)
 				return

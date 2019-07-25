@@ -20,6 +20,7 @@
 package wm
 
 import (
+	"github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/lib/dbus"
 	"pkg.deepin.io/lib/log"
 )
@@ -32,7 +33,12 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 		return nil
 	}
 
+	conn, err := x.NewConn()
+	if err != nil {
+		return err
+	}
 	_s = new(Switcher)
+	_s.conn = conn
 	_s.wmChooserLaunched = wmChooserLaunched
 	_s.logger = logger
 	_s.init()
@@ -40,7 +46,7 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 	_s.listenWMChanged()
 	_s.adjustSogouSkin()
 
-	err := dbus.InstallOnSession(_s)
+	err = dbus.InstallOnSession(_s)
 	if err != nil {
 		return err
 	}

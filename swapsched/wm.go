@@ -13,6 +13,7 @@ func (cb ActiveWindowHandler) Monitor() error {
 		logger.Warning(err)
 		return err
 	}
+	defer conn.Close()
 
 	root := conn.GetDefaultScreen().Root
 	err = x.ChangeWindowAttributesChecked(conn, root, x.CWEventMask, []uint32{

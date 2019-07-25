@@ -728,17 +728,11 @@ func (m *SessionManager) handleLoginSessionUnlock() {
 }
 
 func setDPMSMode(on bool) {
-	conn, err := x.NewConn()
-	if err != nil {
-		logger.Warning("Failed to connect x11:", err)
-		return
-	}
-
 	var mode = uint16(dpms.DPMSModeOn)
 	if !on {
 		mode = uint16(dpms.DPMSModeOff)
 	}
-	err = dpms.ForceLevelChecked(conn, mode).Check(conn)
+	err := dpms.ForceLevelChecked(XConn, mode).Check(XConn)
 	if err != nil {
 		logger.Warning("Failed to set dpms mode:", on, err)
 	}
