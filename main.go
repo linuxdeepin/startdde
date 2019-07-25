@@ -25,7 +25,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/linuxdeepin/go-x11-client"
+	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
@@ -49,6 +49,8 @@ var globalCgExecBin string
 var globalWmChooserLaunched bool
 
 var globalXSManager *xsettings.XSManager
+
+var XConn *x.Conn
 
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
@@ -74,11 +76,13 @@ func main() {
 	reapZombies()
 
 	// init x conn
-	xConn, err := x.NewConn()
+	conn, err := x.NewConn()
 	if err != nil {
 		logger.Warning(err)
 		os.Exit(1)
 	}
+	defer conn.Close()
+	XConn = conn
 
 	flag.Parse()
 	initSoundThemePlayer()
@@ -97,7 +101,7 @@ func main() {
 		logger.Warning(err)
 	}
 
-	xsManager, err := xsettings.Start(xConn, logger,
+	xsManager, err := xsettings.Start(XConn, logger,
 		display.GetRecommendedScaleFactor())
 	if err != nil {
 		logger.Warning(err)
@@ -122,7 +126,7 @@ func main() {
 	sysSignalLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSignalLoop.Start()
 
-	sessionManager := startSession(xConn, useKwin, sysSignalLoop)
+	sessionManager := startSession(XConn, useKwin, sysSignalLoop)
 	var getLockedFn func() bool
 	if sessionManager != nil {
 		getLockedFn = sessionManager.getLocked
