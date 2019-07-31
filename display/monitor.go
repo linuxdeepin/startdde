@@ -41,6 +41,8 @@ type MonitorBaseInfo struct {
 	Rotation    uint16
 	Reflect     uint16
 	RefreshRate float64
+	MmWidth     uint32
+	MmHeight    uint32
 
 	nameType string
 }
@@ -69,6 +71,8 @@ type MonitorInfo struct {
 	CurrentMode    drandr.ModeInfo
 	Modes          drandr.ModeInfos
 	PreferredModes drandr.ModeInfos
+	MmWidth        uint32
+	MmHeight       uint32
 }
 type MonitorInfos []*MonitorInfo
 
@@ -231,6 +235,8 @@ func toMonitorBaseInfo(output drandr.OutputInfo, uuid string) MonitorBaseInfo {
 		Y:        output.Crtc.Y,
 		Width:    output.Crtc.Width,
 		Height:   output.Crtc.Height,
+		MmWidth:  output.MmWidth,
+		MmHeight: output.MmHeight,
 		Rotation: output.Crtc.Rotation,
 		Reflect:  output.Crtc.Reflect,
 		nameType: strings.ToLower(numReg.ReplaceAllString(output.Name, "")),
