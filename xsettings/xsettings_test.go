@@ -21,11 +21,12 @@ package xsettings
 
 import (
 	"fmt"
-	C "gopkg.in/check.v1"
 	"io/ioutil"
 	"os"
-	"pkg.deepin.io/lib/utils"
 	"testing"
+
+	C "gopkg.in/check.v1"
+	"pkg.deepin.io/lib/utils"
 )
 
 type testWrapper struct{}
@@ -94,14 +95,14 @@ var (
 )
 
 func (*testWrapper) TestXSWriter(c *C.C) {
-	datas := unmarshalSettingData(&xsTestInfo)
+	datas := marshalSettingData(&xsTestInfo)
 	for i := 0; i < len(datas); i++ {
 		c.Check(datas[i], C.Equals, xsTestDatas[i])
 	}
 }
 
 func (*testWrapper) TestXSReader(c *C.C) {
-	info := marshalSettingData(xsTestDatas)
+	info := unmarshalSettingData(xsTestDatas)
 	c.Check(info.byteOrder, C.Equals, xsTestInfo.byteOrder)
 	c.Check(info.unused, C.Equals, xsTestInfo.unused)
 	c.Check(info.serial, C.Equals, xsTestInfo.serial)

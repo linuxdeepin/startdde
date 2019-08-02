@@ -20,6 +20,9 @@
 package xsettings
 
 import (
+	"strconv"
+	"strings"
+
 	"pkg.deepin.io/gir/gio-2.0"
 )
 
@@ -30,9 +33,11 @@ const (
 )
 
 type typeGSKeyInfo struct {
-	gsKey  string
-	xsKey  string
-	gsType int
+	gsKey   string
+	gsType  int
+	xsKey   string
+	xsType  *int8
+	convert func(interface{}) interface{}
 }
 
 type typeGSKeyInfos []typeGSKeyInfo
@@ -253,6 +258,38 @@ var gsInfos = typeGSKeyInfos{
 		xsKey:  "Xft/Hinting",
 		gsType: gsKeyTypeBool,
 	},
+	{
+		gsKey:   "qt-active-color",
+		gsType:  gsKeyTypeString,
+		xsKey:   "Qt/AcitveColor",
+		xsType:  &settingTypeColorVar,
+		convert: convertStrToColor,
+	},
+}
+
+var settingTypeColorVar = settingTypeColor
+
+func convertStrToColor(in interface{}) interface{} {
+	str, ok := in.(string)
+	if !ok {
+		return nil
+	}
+
+	fields := strings.Split(str, ",")
+	if len(fields) != 4 {
+		return nil
+	}
+
+	// R G B A
+	var array [4]int16
+	for idx, field := range fields {
+		fieldNum, err := strconv.ParseInt(field, 10, 16)
+		if err != nil {
+			return nil
+		}
+		array[idx] = int16(fieldNum)
+	}
+	return array
 }
 
 func (infos typeGSKeyInfos) getInfoByGSKey(key string) *typeGSKeyInfo {
@@ -276,6 +313,10 @@ func (infos typeGSKeyInfos) getInfoByXSKey(key string) *typeGSKeyInfo {
 }
 
 func (info *typeGSKeyInfo) getKeySType() int8 {
+	if info.xsType != nil {
+		return *info.xsType
+	}
+
 	switch info.gsType {
 	case gsKeyTypeBool, gsKeyTypeInt:
 		return settingTypeInteger
@@ -286,21 +327,25 @@ func (info *typeGSKeyInfo) getKeySType() int8 {
 	return settingTypeInteger
 }
 
-func (info *typeGSKeyInfo) getKeyValue(s *gio.Settings) interface{} {
+func (info *typeGSKeyInfo) getKeyValue(s *gio.Settings) (result interface{}) {
 	switch info.gsType {
 	case gsKeyTypeBool:
 		v := s.GetBoolean(info.gsKey)
 		if v {
-			return int32(1)
+			result = int32(1)
+		} else {
+			result = int32(0)
 		}
-		return int32(0)
 	case gsKeyTypeInt:
-		return int32(s.GetInt(info.gsKey))
+		result = int32(s.GetInt(info.gsKey))
 	case gsKeyTypeString:
-		return s.GetString(info.gsKey)
+		result = s.GetString(info.gsKey)
 	}
 
-	return nil
+	if info.convert != nil {
+		result = info.convert(result)
+	}
+	return
 }
 
 func (info *typeGSKeyInfo) setKeyValue(s *gio.Settings, v interface{}) {

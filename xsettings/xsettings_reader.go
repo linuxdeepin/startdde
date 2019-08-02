@@ -110,16 +110,16 @@ func (info *xsDataInfo) getPropItem(prop string) *xsItemInfo {
 	return nil
 }
 
-func marshalSettingData(datas []byte) *xsDataInfo {
+func unmarshalSettingData(data []byte) *xsDataInfo {
 	var info = xsDataInfo{unused: 3}
-	if len(datas) == 0 {
+	if len(data) == 0 {
 		info.byteOrder = xsDataOrder
 		info.numSettings = 0
 		info.serial = xsDataSerial
 		return &info
 	}
 
-	var reader = bytes.NewReader(datas)
+	var reader = bytes.NewReader(data)
 
 	popInteger(reader, &info.byteOrder)
 	popUnused(reader, info.unused)

@@ -35,7 +35,7 @@ func (m *XSManager) ListProps() string {
 		return ""
 	}
 
-	infos := marshalSettingData(datas)
+	infos := unmarshalSettingData(datas)
 	if infos == nil || len(infos.items) == 0 {
 		return ""
 	}
@@ -143,7 +143,7 @@ func (m *XSManager) getSettingValue(prop string) (interface{}, int8, error) {
 		return nil, -1, err
 	}
 
-	xsInfo := marshalSettingData(datas)
+	xsInfo := unmarshalSettingData(datas)
 	item := xsInfo.getPropItem(prop)
 	if item == nil {
 		return nil, -1, errPropNotFound

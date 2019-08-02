@@ -149,12 +149,16 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 		return err
 	}
 
-	xsInfo := marshalSettingData(datas)
+	xsInfo := unmarshalSettingData(datas)
 	xsInfo.serial++ // auto increment
 	for _, s := range settings {
 		item := xsInfo.getPropItem(s.prop)
 		if item != nil {
 			xsInfo.items = xsInfo.modifyProperty(s)
+			continue
+		}
+
+		if s.value == nil {
 			continue
 		}
 
@@ -172,7 +176,7 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 		xsInfo.numSettings++
 	}
 
-	data := unmarshalSettingData(xsInfo)
+	data := marshalSettingData(xsInfo)
 	return changeSettingProp(m.owner, data, m.conn)
 }
 
@@ -226,12 +230,19 @@ func (m *XSManager) handleGSettingsChanged() {
 			return
 		}
 
-		m.setSettings([]xsSetting{{
-			sType: info.getKeySType(),
-			prop:  info.xsKey,
-			value: info.getKeyValue(m.gs),
-		},
-		})
+		value := info.getKeyValue(m.gs)
+		if value != nil {
+			err := m.setSettings([]xsSetting{
+				{
+					sType: info.getKeySType(),
+					prop:  info.xsKey,
+					value: value,
+				},
+			})
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
 	})
 }
 

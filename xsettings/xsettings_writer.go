@@ -87,7 +87,7 @@ func (item *xsItemInfo) changeValueColor(value [4]int16) {
 	v.alpha = value[3]
 }
 
-func unmarshalSettingData(info *xsDataInfo) []byte {
+func marshalSettingData(info *xsDataInfo) []byte {
 	var buf = new(bytes.Buffer)
 
 	pushInteger(buf, &info.byteOrder)
