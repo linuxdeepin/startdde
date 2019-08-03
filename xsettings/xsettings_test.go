@@ -44,17 +44,14 @@ var (
 
 	xsTestInfo = xsDataInfo{
 		byteOrder:   xsDataOrder,
-		unused:      3,
 		serial:      xsDataSerial,
 		numSettings: 3,
 		items: xsItemInfos{
 			{
 				header: &xsItemHeader{
 					sType:            settingTypeInteger,
-					unused:           1,
 					nameLen:          15,
 					name:             "Net/DoubleClick",
-					pad:              1,
 					lastChangeSerial: 0,
 				},
 				value: &integerValueInfo{value: 5},
@@ -62,25 +59,20 @@ var (
 			{
 				header: &xsItemHeader{
 					sType:            settingTypeString,
-					unused:           1,
 					nameLen:          13,
 					name:             "Net/ThemeName",
-					pad:              3,
 					lastChangeSerial: 0,
 				},
 				value: &stringValueInfo{
 					length: 6,
 					value:  "Deepin",
-					pad:    2,
 				},
 			},
 			{
 				header: &xsItemHeader{
 					sType:            settingTypeColor,
-					unused:           1,
 					nameLen:          15,
 					name:             "Net/SchemaColor",
-					pad:              1,
 					lastChangeSerial: 0,
 				},
 				value: &colorValueInfo{
@@ -104,20 +96,15 @@ func (*testWrapper) TestXSWriter(c *C.C) {
 func (*testWrapper) TestXSReader(c *C.C) {
 	info := unmarshalSettingData(xsTestDatas)
 	c.Check(info.byteOrder, C.Equals, xsTestInfo.byteOrder)
-	c.Check(info.unused, C.Equals, xsTestInfo.unused)
 	c.Check(info.serial, C.Equals, xsTestInfo.serial)
 	c.Check(info.numSettings, C.Equals, xsTestInfo.numSettings)
-	for i := int32(0); i < info.numSettings; i++ {
+	for i := uint32(0); i < info.numSettings; i++ {
 		c.Check(info.items[i].header.sType, C.Equals,
 			xsTestInfo.items[i].header.sType)
-		c.Check(info.items[i].header.unused, C.Equals,
-			xsTestInfo.items[i].header.unused)
 		c.Check(info.items[i].header.nameLen, C.Equals,
 			xsTestInfo.items[i].header.nameLen)
 		c.Check(info.items[i].header.name, C.Equals,
 			xsTestInfo.items[i].header.name)
-		c.Check(info.items[i].header.pad, C.Equals,
-			xsTestInfo.items[i].header.pad)
 		c.Check(info.items[i].header.lastChangeSerial, C.Equals,
 			xsTestInfo.items[i].header.lastChangeSerial)
 		switch info.items[i].header.sType {
@@ -129,7 +116,6 @@ func (*testWrapper) TestXSReader(c *C.C) {
 			v1 := info.items[i].value.(*stringValueInfo)
 			v2 := xsTestInfo.items[i].value.(*stringValueInfo)
 			c.Check(v1.length, C.Equals, v2.length)
-			c.Check(v1.pad, C.Equals, v2.pad)
 			c.Check(v1.value, C.Equals, v2.value)
 		case settingTypeColor:
 			v1 := info.items[i].value.(*colorValueInfo)
@@ -150,10 +136,8 @@ func (*testWrapper) TestNewXSItemInteger(c *C.C) {
 	info := newXSItemInteger(prop, value)
 	header := info.header
 	c.Check(header.sType, C.Equals, settingTypeInteger)
-	c.Check(header.unused, C.Equals, 1)
-	c.Check(header.nameLen, C.Equals, int16(len(prop)))
+	c.Check(header.nameLen, C.Equals, uint16(len(prop)))
 	c.Check(header.name, C.Equals, prop)
-	c.Check(header.pad, C.Equals, 1)
 	v1 := info.value.(*integerValueInfo)
 	c.Check(v1.value, C.Equals, value)
 }
@@ -166,29 +150,24 @@ func (*testWrapper) TestNewXSItemString(c *C.C) {
 	info := newXSItemString(prop, value)
 	header := info.header
 	c.Check(header.sType, C.Equals, settingTypeString)
-	c.Check(header.unused, C.Equals, 1)
-	c.Check(header.nameLen, C.Equals, int16(len(prop)))
+	c.Check(header.nameLen, C.Equals, uint16(len(prop)))
 	c.Check(header.name, C.Equals, prop)
-	c.Check(header.pad, C.Equals, 3)
 	v1 := info.value.(*stringValueInfo)
-	c.Check(v1.length, C.Equals, int32(len(value)))
-	c.Check(v1.pad, C.Equals, 2)
+	c.Check(v1.length, C.Equals, uint32(len(value)))
 	c.Check(v1.value, C.Equals, value)
 }
 
 func (*testWrapper) TestNewXSItemColor(c *C.C) {
 	var (
 		prop  = "Net/SchemaColor"
-		value = [4]int16{255, 0, 128, 100}
+		value = [4]uint16{255, 0, 128, 100}
 	)
 
 	info := newXSItemColor(prop, value)
 	header := info.header
 	c.Check(header.sType, C.Equals, settingTypeColor)
-	c.Check(header.unused, C.Equals, 1)
-	c.Check(header.nameLen, C.Equals, int16(len(prop)))
+	c.Check(header.nameLen, C.Equals, uint16(len(prop)))
 	c.Check(header.name, C.Equals, prop)
-	c.Check(header.pad, C.Equals, 1)
 	v1 := info.value.(*colorValueInfo)
 	c.Check(v1.red, C.Equals, value[0])
 	c.Check(v1.blue, C.Equals, value[1])

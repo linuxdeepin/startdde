@@ -60,9 +60,9 @@ type XSManager struct {
 }
 
 type xsSetting struct {
-	sType int8
+	sType uint8
 	prop  string
-	value interface{} // int32, string, [4]int16
+	value interface{} // int32, string, [4]uint16
 }
 
 func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, error) {
@@ -169,7 +169,7 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 		case settingTypeString:
 			tmp = newXSItemString(s.prop, s.value.(string))
 		case settingTypeColor:
-			tmp = newXSItemColor(s.prop, s.value.([4]int16))
+			tmp = newXSItemColor(s.prop, s.value.([4]uint16))
 		}
 
 		xsInfo.items = append(xsInfo.items, *tmp)
@@ -183,18 +183,23 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 func (m *XSManager) getSettingsInSchema() []xsSetting {
 	var settings []xsSetting
 	for _, key := range m.gs.ListKeys() {
-		info := gsInfos.getInfoByGSKey(key)
+		info := gsInfos.getByGSKey(key)
 		if info == nil {
+			continue
+		}
+
+		value, err := info.getValue(m.gs)
+		if err != nil {
+			logger.Warning(err)
 			continue
 		}
 
 		settings = append(settings, xsSetting{
 			sType: info.getKeySType(),
 			prop:  info.xsKey,
-			value: info.getKeyValue(m.gs),
+			value: value,
 		})
 	}
-
 	return settings
 }
 
@@ -225,14 +230,14 @@ func (m *XSManager) handleGSettingsChanged() {
 			return
 		}
 
-		info := gsInfos.getInfoByGSKey(key)
+		info := gsInfos.getByGSKey(key)
 		if info == nil {
 			return
 		}
 
-		value := info.getKeyValue(m.gs)
-		if value != nil {
-			err := m.setSettings([]xsSetting{
+		value, err := info.getValue(m.gs)
+		if err == nil {
+			err = m.setSettings([]xsSetting{
 				{
 					sType: info.getKeySType(),
 					prop:  info.xsKey,
@@ -242,6 +247,8 @@ func (m *XSManager) handleGSettingsChanged() {
 			if err != nil {
 				logger.Warning(err)
 			}
+		} else {
+			logger.Warning(err)
 		}
 	})
 }

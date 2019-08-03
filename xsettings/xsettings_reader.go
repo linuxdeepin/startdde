@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	settingTypeInteger int8 = iota
+	settingTypeInteger uint8 = iota
 	settingTypeString
 	settingTypeColor
 )
@@ -37,9 +37,8 @@ var (
 )
 
 type stringValueInfo struct {
-	length int32
+	length uint32
 	value  string
-	pad    int
 }
 
 type integerValueInfo struct {
@@ -47,21 +46,19 @@ type integerValueInfo struct {
 }
 
 type colorValueInfo struct {
-	red   int16
-	blue  int16
-	green int16
+	red   uint16
+	blue  uint16
+	green uint16
 	//If the setting does not need the alpha field,
 	//it should be set to 65535.
-	alpha int16
+	alpha uint16
 }
 
 type xsItemHeader struct {
-	sType            int8  // setting type
-	unused           int   //1byte
-	nameLen          int16 // name length
+	sType            uint8  // setting type
+	nameLen          uint16 // name length
 	name             string
-	pad              int // 用于内存对齐，计算方法：3-(nameLen+3)%4
-	lastChangeSerial int32
+	lastChangeSerial uint32
 }
 
 type xsItemInfo struct {
@@ -72,10 +69,9 @@ type xsItemInfo struct {
 type xsItemInfos []xsItemInfo
 
 type xsDataInfo struct {
-	byteOrder   int8
-	unused      int // 3byte
-	serial      int32
-	numSettings int32
+	byteOrder   uint8
+	serial      uint32
+	numSettings uint32
 
 	items xsItemInfos
 }
@@ -111,7 +107,7 @@ func (info *xsDataInfo) getPropItem(prop string) *xsItemInfo {
 }
 
 func unmarshalSettingData(data []byte) *xsDataInfo {
-	var info = xsDataInfo{unused: 3}
+	var info xsDataInfo
 	if len(data) == 0 {
 		info.byteOrder = xsDataOrder
 		info.numSettings = 0
@@ -121,82 +117,77 @@ func unmarshalSettingData(data []byte) *xsDataInfo {
 
 	var reader = bytes.NewReader(data)
 
-	popInteger(reader, &info.byteOrder)
-	popUnused(reader, info.unused)
-	popInteger(reader, &info.serial)
-	popInteger(reader, &info.numSettings)
+	readInteger(reader, &info.byteOrder)
+	readSkip(reader, 3)
+	readInteger(reader, &info.serial)
+	readInteger(reader, &info.numSettings)
 	for i := 0; i < int(info.numSettings); i++ {
 		var item = xsItemInfo{
-			header: &xsItemHeader{
-				unused: 1,
-			},
+			header: &xsItemHeader{},
 		}
-		popXSItemInfo(reader, &item)
+		readXSItemInfo(reader, &item)
 		info.items = append(info.items, item)
 	}
 
 	return &info
 }
 
-func popUnused(reader io.Reader, num int) {
+func readSkip(reader io.Reader, num int) {
 	var buf = make([]byte, num)
 	binary.Read(reader, defaultByteOrder, &buf)
 }
 
-func popInteger(reader io.Reader, v interface{}) {
+func readInteger(reader io.Reader, v interface{}) {
 	binary.Read(reader, defaultByteOrder, v)
 }
 
-func popString(reader io.Reader, v *string, length int) {
+func readString(reader io.Reader, v *string, length int) {
 	var buf = make([]byte, length)
 	binary.Read(reader, defaultByteOrder, &buf)
 	*v = string(buf)
 }
 
-func popXSItemInfo(reader io.Reader, item *xsItemInfo) {
-	popXSItemHeader(reader, item.header)
+func readXSItemInfo(reader io.Reader, item *xsItemInfo) {
+	readXSItemHeader(reader, item.header)
 
 	switch item.header.sType {
 	case settingTypeInteger:
 		var v = integerValueInfo{}
-		popXSValueInteger(reader, &v)
+		readXSValueInteger(reader, &v)
 		item.value = &v
 	case settingTypeString:
 		var v = stringValueInfo{}
-		popXSValueString(reader, &v)
+		readXSValueString(reader, &v)
 		item.value = &v
 	case settingTypeColor:
 		var v = colorValueInfo{}
-		popXSValueColor(reader, &v)
+		readXSValueColor(reader, &v)
 		item.value = &v
 	}
 }
 
-func popXSItemHeader(reader io.Reader, header *xsItemHeader) {
-	popInteger(reader, &header.sType)
-	header.unused = 1
-	popUnused(reader, header.unused)
-	popInteger(reader, &header.nameLen)
-	popString(reader, &header.name, int(header.nameLen))
-	header.pad = int(3 - (header.nameLen+3)%4)
-	popUnused(reader, header.pad)
-	popInteger(reader, &header.lastChangeSerial)
+func readXSItemHeader(reader io.Reader, header *xsItemHeader) {
+	readInteger(reader, &header.sType)
+	readSkip(reader, 1)
+	readInteger(reader, &header.nameLen)
+	readString(reader, &header.name, int(header.nameLen))
+	readSkip(reader, pad(int(header.nameLen)))
+	readInteger(reader, &header.lastChangeSerial)
 }
 
-func popXSValueInteger(reader io.Reader, v *integerValueInfo) {
-	popInteger(reader, &v.value)
+func readXSValueInteger(reader io.Reader, v *integerValueInfo) {
+	readInteger(reader, &v.value)
 }
 
-func popXSValueString(reader io.Reader, v *stringValueInfo) {
-	popInteger(reader, &v.length)
-	popString(reader, &v.value, int(v.length))
-	v.pad = int(3 - (v.length+3)%4)
-	popUnused(reader, v.pad)
+func readXSValueString(reader io.Reader, v *stringValueInfo) {
+	readInteger(reader, &v.length)
+	readString(reader, &v.value, int(v.length))
+	readSkip(reader, pad(int(v.length)))
 }
 
-func popXSValueColor(reader io.Reader, v *colorValueInfo) {
-	popInteger(reader, &v.red)
-	popInteger(reader, &v.blue)
-	popInteger(reader, &v.green)
-	popInteger(reader, &v.alpha)
+func readXSValueColor(reader io.Reader, v *colorValueInfo) {
+	readInteger(reader, &v.red)
+	readInteger(reader, &v.blue)
+	readInteger(reader, &v.green)
+	readInteger(reader, &v.alpha)
 }

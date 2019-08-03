@@ -50,7 +50,7 @@ func (item *xsItemInfo) changePropValue(value interface{}) {
 	case settingTypeString:
 		item.changeValueString(value.(string))
 	case settingTypeColor:
-		item.changeValueColor(value.([4]int16))
+		item.changeValueColor(value.([4]uint16))
 	}
 }
 
@@ -69,12 +69,11 @@ func (item *xsItemInfo) changeValueString(value string) {
 		return
 	}
 
-	v.length = int32(len(value))
+	v.length = uint32(len(value))
 	v.value = value
-	v.pad = int(3 - (v.length+3)%4)
 }
 
-func (item *xsItemInfo) changeValueColor(value [4]int16) {
+func (item *xsItemInfo) changeValueColor(value [4]uint16) {
 	v, ok := item.value.(*colorValueInfo)
 	if !ok || (v.red == value[0] && v.blue == value[1] &&
 		v.green == value[2] && v.alpha == value[3]) {
@@ -90,12 +89,12 @@ func (item *xsItemInfo) changeValueColor(value [4]int16) {
 func marshalSettingData(info *xsDataInfo) []byte {
 	var buf = new(bytes.Buffer)
 
-	pushInteger(buf, &info.byteOrder)
-	pushUnused(buf, info.unused)
-	pushInteger(buf, &info.serial)
-	pushInteger(buf, &info.numSettings)
+	writeInteger(buf, &info.byteOrder)
+	writeSkip(buf, 3)
+	writeInteger(buf, &info.serial)
+	writeInteger(buf, &info.numSettings)
 	for _, item := range info.items {
-		pushXSItemInfo(buf, &item)
+		writeXSItemInfo(buf, &item)
 	}
 
 	return buf.Bytes()
@@ -120,16 +119,15 @@ func newXSItemString(prop string, v string) *xsItemInfo {
 	item.header.sType = settingTypeString
 
 	var value = stringValueInfo{
-		length: int32(len(v)),
+		length: uint32(len(v)),
 		value:  v,
 	}
-	value.pad = int(3 - (value.length+3)%4)
 
 	item.value = &value
 	return &item
 }
 
-func newXSItemColor(prop string, v [4]int16) *xsItemInfo {
+func newXSItemColor(prop string, v [4]uint16) *xsItemInfo {
 	var item = xsItemInfo{
 		header: newXSItemHeader(prop),
 	}
@@ -148,64 +146,61 @@ func newXSItemColor(prop string, v [4]int16) *xsItemInfo {
 
 func newXSItemHeader(prop string) *xsItemHeader {
 	var header = xsItemHeader{
-		unused:           1,
-		nameLen:          int16(len(prop)),
+		nameLen:          uint16(len(prop)),
 		name:             prop,
 		lastChangeSerial: 1,
 	}
-	header.pad = int(3 - (header.nameLen+3)%4)
-
 	return &header
 }
 
-func pushUnused(writer io.Writer, num int) {
+func writeSkip(writer io.Writer, num int) {
 	var buf = make([]byte, num)
 	binary.Write(writer, defaultByteOrder, buf)
 }
 
-func pushInteger(writer io.Writer, v interface{}) {
+func writeInteger(writer io.Writer, v interface{}) {
 	binary.Write(writer, defaultByteOrder, v)
 }
 
-func pushString(writer io.Writer, v string) {
+func writeString(writer io.Writer, v string) {
 	binary.Write(writer, defaultByteOrder, []byte(v))
 }
 
-func pushXSItemInfo(writer io.Writer, item *xsItemInfo) {
-	pushXSInfoHeader(writer, item.header)
+func writeXSItemInfo(writer io.Writer, item *xsItemInfo) {
+	writeXSInfoHeader(writer, item.header)
 
 	switch item.header.sType {
 	case settingTypeInteger:
-		pushXSValueInteger(writer, item.value.(*integerValueInfo))
+		writeXSValueInteger(writer, item.value.(*integerValueInfo))
 	case settingTypeString:
-		pushXSValueString(writer, item.value.(*stringValueInfo))
+		writeXSValueString(writer, item.value.(*stringValueInfo))
 	case settingTypeColor:
-		pushXSValueColor(writer, item.value.(*colorValueInfo))
+		writeXSValueColor(writer, item.value.(*colorValueInfo))
 	}
 }
 
-func pushXSInfoHeader(writer io.Writer, header *xsItemHeader) {
-	pushInteger(writer, &header.sType)
-	pushUnused(writer, header.unused)
-	pushInteger(writer, &header.nameLen)
-	pushString(writer, header.name)
-	pushUnused(writer, header.pad)
-	pushInteger(writer, &header.lastChangeSerial)
+func writeXSInfoHeader(writer io.Writer, header *xsItemHeader) {
+	writeInteger(writer, &header.sType)
+	writeSkip(writer, 1)
+	writeInteger(writer, &header.nameLen)
+	writeString(writer, header.name)
+	writeSkip(writer, pad(int(header.nameLen)))
+	writeInteger(writer, &header.lastChangeSerial)
 }
 
-func pushXSValueInteger(writer io.Writer, v *integerValueInfo) {
-	pushInteger(writer, &v.value)
+func writeXSValueInteger(writer io.Writer, v *integerValueInfo) {
+	writeInteger(writer, &v.value)
 }
 
-func pushXSValueString(writer io.Writer, v *stringValueInfo) {
-	pushInteger(writer, &v.length)
-	pushString(writer, v.value)
-	pushUnused(writer, v.pad)
+func writeXSValueString(writer io.Writer, v *stringValueInfo) {
+	writeInteger(writer, &v.length)
+	writeString(writer, v.value)
+	writeSkip(writer, pad(int(v.length)))
 }
 
-func pushXSValueColor(writer io.Writer, v *colorValueInfo) {
-	pushInteger(writer, &v.red)
-	pushInteger(writer, &v.blue)
-	pushInteger(writer, &v.green)
-	pushInteger(writer, &v.alpha)
+func writeXSValueColor(writer io.Writer, v *colorValueInfo) {
+	writeInteger(writer, &v.red)
+	writeInteger(writer, &v.blue)
+	writeInteger(writer, &v.green)
+	writeInteger(writer, &v.alpha)
 }

@@ -20,6 +20,8 @@
 package xsettings
 
 import (
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -33,11 +35,12 @@ const (
 )
 
 type typeGSKeyInfo struct {
-	gsKey   string
-	gsType  int
-	xsKey   string
-	xsType  *int8
-	convert func(interface{}) interface{}
+	gsKey         string
+	gsType        int
+	xsKey         string
+	xsType        *uint8
+	convertGsToXs func(interface{}) (interface{}, error)
+	convertXsToGs func(interface{}) (interface{}, error)
 }
 
 type typeGSKeyInfos []typeGSKeyInfo
@@ -259,40 +262,51 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeBool,
 	},
 	{
-		gsKey:   "qt-active-color",
-		gsType:  gsKeyTypeString,
-		xsKey:   "Qt/AcitveColor",
-		xsType:  &settingTypeColorVar,
-		convert: convertStrToColor,
+		gsKey:         "qt-active-color",
+		gsType:        gsKeyTypeString,
+		xsKey:         "Qt/ActiveColor",
+		xsType:        &settingTypeColorVar,
+		convertGsToXs: convertStrToColor,
+		convertXsToGs: convertColorToStr,
 	},
 }
 
 var settingTypeColorVar = settingTypeColor
 
-func convertStrToColor(in interface{}) interface{} {
+func convertStrToColor(in interface{}) (interface{}, error) {
 	str, ok := in.(string)
 	if !ok {
-		return nil
+		return nil, errors.New("type is not string")
 	}
 
 	fields := strings.Split(str, ",")
 	if len(fields) != 4 {
-		return nil
+		return nil, errors.New("length is not 4")
 	}
 
 	// R G B A
-	var array [4]int16
+	var array [4]uint16
 	for idx, field := range fields {
-		fieldNum, err := strconv.ParseInt(field, 10, 16)
+		fieldNum, err := strconv.ParseUint(field, 10, 16)
 		if err != nil {
-			return nil
+			return nil, err
 		}
-		array[idx] = int16(fieldNum)
+		array[idx] = uint16(fieldNum)
 	}
-	return array
+	return array, nil
 }
 
-func (infos typeGSKeyInfos) getInfoByGSKey(key string) *typeGSKeyInfo {
+func convertColorToStr(in interface{}) (interface{}, error) {
+	array, ok := in.([4]uint16)
+	if !ok {
+		return nil, errors.New("type is not [4]uint16")
+	}
+
+	return fmt.Sprintf("%d,%d,%d,%d", array[0], array[1],
+		array[2], array[3]), nil
+}
+
+func (infos typeGSKeyInfos) getByGSKey(key string) *typeGSKeyInfo {
 	for _, info := range infos {
 		if key == info.gsKey {
 			return &info
@@ -302,7 +316,7 @@ func (infos typeGSKeyInfos) getInfoByGSKey(key string) *typeGSKeyInfo {
 	return nil
 }
 
-func (infos typeGSKeyInfos) getInfoByXSKey(key string) *typeGSKeyInfo {
+func (infos typeGSKeyInfos) getByXSKey(key string) *typeGSKeyInfo {
 	for _, info := range infos {
 		if key == info.xsKey {
 			return &info
@@ -312,7 +326,7 @@ func (infos typeGSKeyInfos) getInfoByXSKey(key string) *typeGSKeyInfo {
 	return nil
 }
 
-func (info *typeGSKeyInfo) getKeySType() int8 {
+func (info *typeGSKeyInfo) getKeySType() uint8 {
 	if info.xsType != nil {
 		return *info.xsType
 	}
@@ -327,7 +341,7 @@ func (info *typeGSKeyInfo) getKeySType() int8 {
 	return settingTypeInteger
 }
 
-func (info *typeGSKeyInfo) getKeyValue(s *gio.Settings) (result interface{}) {
+func (info *typeGSKeyInfo) getValue(s *gio.Settings) (result interface{}, err error) {
 	switch info.gsType {
 	case gsKeyTypeBool:
 		v := s.GetBoolean(info.gsKey)
@@ -342,13 +356,21 @@ func (info *typeGSKeyInfo) getKeyValue(s *gio.Settings) (result interface{}) {
 		result = s.GetString(info.gsKey)
 	}
 
-	if info.convert != nil {
-		result = info.convert(result)
+	if info.convertGsToXs != nil {
+		result, err = info.convertGsToXs(result)
 	}
 	return
 }
 
-func (info *typeGSKeyInfo) setKeyValue(s *gio.Settings, v interface{}) {
+func (info *typeGSKeyInfo) setValue(s *gio.Settings, v interface{}) error {
+	var err error
+	if info.convertXsToGs != nil {
+		v, err = info.convertXsToGs(v)
+		if err != nil {
+			return err
+		}
+	}
+
 	switch info.gsType {
 	case gsKeyTypeBool:
 		tmp := v.(int32)
@@ -362,4 +384,5 @@ func (info *typeGSKeyInfo) setKeyValue(s *gio.Settings, v interface{}) {
 	case gsKeyTypeString:
 		s.SetString(info.gsKey, v.(string))
 	}
+	return nil
 }

@@ -20,6 +20,7 @@
 package xsettings
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -54,7 +55,10 @@ func (m *XSManager) SetInteger(prop string, v int32) error {
 		logger.Debugf("Set '%s' to '%v' failed: %v", prop, v, err)
 		return err
 	}
-	m.setGSettingsByXProp(prop, v)
+	err = m.setGSettingsByXProp(prop, v)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -85,7 +89,10 @@ func (m *XSManager) SetString(prop, v string) error {
 		logger.Debugf("Set '%s' to '%v' failed: %v", prop, v, err)
 		return err
 	}
-	m.setGSettingsByXProp(prop, v)
+	err = m.setGSettingsByXProp(prop, v)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -104,61 +111,71 @@ func (m *XSManager) GetString(prop string) (string, error) {
 	return v.(*stringValueInfo).value, nil
 }
 
-func (m *XSManager) SetColor(prop string, v [4]int16) error {
+func (m *XSManager) SetColor(prop string, v []uint16) error {
+	if len(v) != 4 {
+		return errors.New("length of value is not 4")
+	}
+
+	var val [4]uint16
+	copy(val[:], v)
+
 	var setting = xsSetting{
 		sType: settingTypeColor,
 		prop:  prop,
-		value: v,
+		value: val,
 	}
 
 	err := m.setSettings([]xsSetting{setting})
 	if err != nil {
-		logger.Debugf("Set '%s' to '%v' failed: %v", prop, v, err)
+		logger.Debugf("Set '%s' to '%v' failed: %v", prop, val, err)
 		return err
 	}
-	m.setGSettingsByXProp(prop, v)
+	err = m.setGSettingsByXProp(prop, val)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (m *XSManager) GetColor(prop string) ([4]int16, error) {
+func (m *XSManager) GetColor(prop string) ([]uint16, error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
 		logger.Debugf("Get '%s' value failed: %v", prop, err)
-		return [4]int16{}, err
+		return nil, err
 	}
 
 	if sType != settingTypeColor {
-		return [4]int16{}, errPropTypeNotMatch
+		return nil, errPropTypeNotMatch
 	}
 
 	tmp := v.(*colorValueInfo)
 
-	return [4]int16{tmp.red, tmp.blue, tmp.green, tmp.alpha}, nil
+	return []uint16{tmp.red, tmp.blue, tmp.green, tmp.alpha}, nil
 }
 
-func (m *XSManager) getSettingValue(prop string) (interface{}, int8, error) {
+func (m *XSManager) getSettingValue(prop string) (interface{}, uint8, error) {
 	datas, err := getSettingPropValue(m.owner, m.conn)
 	if err != nil {
-		return nil, -1, err
+		return nil, 0, err
 	}
 
 	xsInfo := unmarshalSettingData(datas)
 	item := xsInfo.getPropItem(prop)
 	if item == nil {
-		return nil, -1, errPropNotFound
+		return nil, 0, errPropNotFound
 	}
 
 	return item.value, item.header.sType, nil
 }
 
-func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) {
-	info := gsInfos.getInfoByXSKey(prop)
+func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) error {
+	info := gsInfos.getByXSKey(prop)
 	if info == nil {
-		return
+		return errPropNotFound
 	}
 
-	info.setKeyValue(m.gs, v)
+	return info.setValue(m.gs, v)
 }
 
 func (m *XSManager) GetScaleFactor() float64 {

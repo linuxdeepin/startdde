@@ -131,3 +131,7 @@ func changeWindowPid(conn *x.Conn, wid x.Window) error {
 	pid := uint32(os.Getpid())
 	return ewmh.SetWMPidChecked(conn, wid, pid).Check(conn)
 }
+
+func pad(n int) int {
+	return x.Pad(n)
+}
