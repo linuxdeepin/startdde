@@ -1,42 +1,50 @@
-/*
- * Copyright (C) 2017 ~ 2018 Deepin Technology Co., Ltd.
- *
- * Author:     jouyouyun <jouyouwen717@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package display
 
 import (
-	"pkg.deepin.io/dde/startdde/display/brightness"
-	"pkg.deepin.io/lib/dbus"
+	"pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/log"
 )
 
+var logger = log.NewLogger("daemon/display")
+
+const (
+	dbusServiceName = "com.deepin.daemon.Display"
+	dbusInterface   = "com.deepin.daemon.Display"
+	dbusPath        = "/com/deepin/daemon/Display"
+)
+
+var _dpy *Manager
+
 func Start() error {
-	brightness.InitBacklightHelper()
-	manager, err := newManager()
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
-		logger.Error("New display manager failed:", err)
 		return err
 	}
-	err = dbus.InstallOnSession(manager)
+	service := dbusutil.NewService(sessionBus)
+	m := newManager(service)
+
+	m.init()
+	err = service.Export(dbusPath, m)
 	if err != nil {
-		logger.Error("Install session bus failed:", err)
 		return err
 	}
-	_dpy = manager
-	manager.init()
+
+	err = service.RequestName(dbusServiceName)
+	if err != nil {
+		return err
+	}
+	_dpy = m
 	return nil
+}
+
+func SetLogLevel(level log.Priority) {
+	logger.SetLogLevel(level)
+}
+
+func GetRecommendedScaleFactor() float64 {
+	if _dpy == nil {
+		return 1.0
+	}
+	return _dpy.recommendScaleFactor
 }

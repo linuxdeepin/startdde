@@ -1,38 +1,45 @@
-/*
- * Copyright (C) 2017 ~ 2018 Deepin Technology Co., Ltd.
- *
- * Author:     jouyouyun <jouyouwen717@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package display
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
-	"sort"
-	"strings"
+	"math"
+	"strconv"
 	"sync"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/api/drandr"
+	"pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
-type MonitorBaseInfo struct {
-	UUID        string // sum md5 of name and modes, for config
-	Name        string
+const (
+	dbusInterfaceMonitor = dbusInterface + ".Monitor"
+)
+
+type Monitor struct {
+	m       *Manager
+	service *dbusutil.Service
+	crtc    randr.Crtc
+	uuid    string
+	PropsMu sync.RWMutex
+
+	ID        uint32
+	Name      string
+	Connected bool
+
+	// dbusutil-gen: equal=nil
+	Rotations []uint16
+	// dbusutil-gen: equal=nil
+	Reflects []uint16
+	// dbusutil-gen: equal=nil
+	BestMode ModeInfo
+	// dbusutil-gen: equal=nil
+	Modes []ModeInfo
+	// dbusutil-gen: equal=nil
+	PreferredModes []ModeInfo
+	MmWidth        uint32
+	MmHeight       uint32
+
 	Enabled     bool
 	X           int16
 	Y           int16
@@ -41,470 +48,314 @@ type MonitorBaseInfo struct {
 	Rotation    uint16
 	Reflect     uint16
 	RefreshRate float64
-	MmWidth     uint32
-	MmHeight    uint32
 
-	nameType string
-}
-type MonitorBaseInfos []*MonitorBaseInfo
+	// dbusutil-gen: equal=nil
+	CurrentMode ModeInfo
 
-type MonitorInfo struct {
-	locker sync.Mutex
-	cfg    *MonitorBaseInfo
-
-	// MonitorBaseInfo
-	// dbus unsupported inherit
-	ID             uint32
-	Name           string
-	Enabled        bool
-	Connected      bool
-	X              int16
-	Y              int16
-	Width          uint16
-	Height         uint16
-	Rotation       uint16
-	Reflect        uint16
-	RefreshRate    float64
-	Rotations      []uint16
-	Reflects       []uint16
-	BestMode       drandr.ModeInfo
-	CurrentMode    drandr.ModeInfo
-	Modes          drandr.ModeInfos
-	PreferredModes drandr.ModeInfos
-	MmWidth        uint32
-	MmHeight       uint32
-}
-type MonitorInfos []*MonitorInfo
-
-func (m *MonitorInfo) generateCommandline(primary string, auto bool) string {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-	if !m.Connected {
-		return ""
+	backup  *MonitorBackup
+	methods *struct {
+		Enable         func() `in:"enabled"`
+		SetMode        func() `in:"mode"`
+		SetModeBySize  func() `in:"width,height"`
+		SetPosition    func() `in:"x,y"`
+		SetReflect     func() `in:"value"`
+		SetRotation    func() `in:"value"`
+		SetRefreshRate func() `in:"value"`
 	}
-
-	var cmd = ""
-	cmd += " --output " + m.cfg.Name
-	if !m.cfg.Enabled {
-		cmd += " --off"
-		return cmd
-	}
-
-	if auto {
-		cmd += " --auto"
-	}
-
-	if m.cfg.Name == primary {
-		cmd += " --primary"
-	}
-	cmd += fmt.Sprintf(" --mode %dx%d", m.cfg.Width, m.cfg.Height)
-	cmd += fmt.Sprintf(" --pos %dx%d", m.cfg.X, m.cfg.Y)
-	// NOTE: do not set rate, because set rate may cause xrandr to report
-	// configure crtc failed error
-	var ro = "normal"
-	switch m.cfg.Rotation {
-	case randr.RotationRotate90:
-		ro = "left"
-	case randr.RotationRotate180:
-		ro = "inverted"
-	case randr.RotationRotate270:
-		ro = "right"
-	}
-	cmd += " --rotate " + ro
-
-	var re = "normal"
-	switch m.cfg.Reflect {
-	case randr.RotationReflectX:
-		re = "x"
-	case randr.RotationReflectY:
-		re = "y"
-	case randr.RotationReflectX | randr.RotationReflectY:
-		re = "xy"
-	}
-	cmd += " --reflect " + re
-	return cmd
 }
 
-func (m *MonitorInfo) canDisable() bool {
-	connected := _dpy.Monitors.listConnected()
-	var count = 0
-	for _, v := range connected {
-		if !v.Enabled {
-			continue
+func (m *Monitor) GetInterfaceName() string {
+	return dbusInterfaceMonitor
+}
+
+func (m *Monitor) getPath() dbus.ObjectPath {
+	return dbus.ObjectPath(dbusPath + "/Monitor_" + strconv.Itoa(int(m.ID)))
+}
+
+type MonitorBackup struct {
+	Enabled  bool
+	Mode     ModeInfo
+	X, Y     int16
+	Reflect  uint16
+	Rotation uint16
+}
+
+func (m *Monitor) markChanged() {
+	m.m.setPropHasChanged(true)
+	if m.backup == nil {
+		m.backup = &MonitorBackup{
+			Enabled:  m.Enabled,
+			Mode:     m.CurrentMode,
+			X:        m.X,
+			Y:        m.Y,
+			Reflect:  m.Reflect,
+			Rotation: m.Rotation,
 		}
-		count++
 	}
-	return count > 1
 }
 
-func (m *MonitorInfo) doEnable(enabled bool) error {
-	if !enabled && !m.canDisable() {
-		return fmt.Errorf("Reject closed the last output")
+func (m *Monitor) hasChanged() bool {
+	return m.backup != nil
+}
+
+func (m *Monitor) Enable(enabled bool) *dbus.Error {
+	if m.Enabled == enabled {
+		return nil
 	}
+
+	m.markChanged()
+	m.enable(enabled)
+	return nil
+}
+
+func (m *Monitor) enable(enabled bool) {
 	m.setPropEnabled(enabled)
-	return nil
 }
 
-func (m *MonitorInfo) queryMode(v uint32) drandr.ModeInfo {
-	for _, info := range m.Modes {
-		if info.Id == v {
-			return info
+func (m *Monitor) SetMode(mode uint32) *dbus.Error {
+	if m.CurrentMode.Id == mode {
+		return nil
+	}
+
+	var newMode ModeInfo
+	for _, modeInfo := range m.Modes {
+		if modeInfo.Id == mode {
+			newMode = modeInfo
+			break
 		}
 	}
-	return drandr.ModeInfo{}
-}
 
-func (m *MonitorInfo) doSetMode(v uint32) error {
-	info := m.queryMode(v)
-	if info.Id != v {
-		return fmt.Errorf("Invalid output mode: %v", v)
+	if newMode.Id == 0 {
+		return dbusutil.ToError(errors.New("invalid mode"))
 	}
-	m.setPropCurrentMode(info)
-	w, h := parseModeByRotation(info.Width, info.Height, m.Rotation)
-	m.setPropWidth(w)
-	m.setPropHeight(h)
-	m.setPropRefreshRate(info.Rate)
+
+	m.markChanged()
+	m.setMode(newMode)
 	return nil
 }
 
-func (m *MonitorInfo) doSetModeBySize(w, h uint16) error {
-	matches := m.Modes.QueryBySize(w, h)
-	if len(matches) == 0 {
-		logger.Warning("Invalid mode size:", w, h)
-		return fmt.Errorf("The mode size %dx%d invalid", w, h)
+func (m *Monitor) setMode(mode ModeInfo) {
+	m.PropsMu.Lock()
+	m.setPropCurrentMode(mode)
+
+	width := mode.Width
+	height := mode.Height
+
+	if needSwapWidthHeight(m.Rotation) {
+		width, height = height, width
 	}
 
-	// only set the first mode
-	return m.doSetMode(matches[0].Id)
+	m.setPropWidth(width)
+	m.setPropHeight(height)
+	m.setPropRefreshRate(mode.Rate)
+	m.PropsMu.Unlock()
 }
 
-func (m *MonitorInfo) doSetRefreshRate(rate float64) error {
-	matches := m.Modes.QueryBySize(m.Width, m.Height)
-	if len(matches) == 0 || !matches.HasRefreshRate(rate) {
-		return fmt.Errorf("Invalid refresh rate: %v", rate)
+func (m *Monitor) getBestMode(manager *Manager, outputInfo *randr.GetOutputInfoReply) ModeInfo {
+	mode := manager.getModeInfo(outputInfo.GetPreferredMode())
+	if mode.Id == 0 && len(m.Modes) > 0 {
+		mode = m.Modes[0]
+	} else if mode.Id != 0 {
+		mode = getFirstModeBySize(m.Modes, mode.Width, mode.Height)
 	}
-	m.setPropRefreshRate(rate)
+	return mode
+}
+
+func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
+	mode := getFirstModeBySizeRate(m.Modes, width, height, rate)
+	if mode.Id != 0 {
+		return mode
+	}
+	mode = getFirstModeBySize(m.Modes, width, height)
+	if mode.Id != 0 {
+		return mode
+	}
+	return m.BestMode
+}
+
+func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
+	mode := getFirstModeBySize(m.Modes, width, height)
+	if mode.Id == 0 {
+		return dbusutil.ToError(errors.New("not found match mode"))
+	}
+	return m.SetMode(mode.Id)
+}
+
+func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
+	if m.Width == 0 || m.Height == 0 {
+		return dbusutil.ToError(errors.New("width or height is 0"))
+	}
+	mode := getFirstModeBySizeRate(m.Modes, m.Width, m.Height, value)
+	if mode.Id == 0 {
+		return dbusutil.ToError(errors.New("not found match mode"))
+	}
+	return m.SetMode(mode.Id)
+}
+
+func getFirstModeBySize(modes []ModeInfo, width, height uint16) ModeInfo {
+	for _, modeInfo := range modes {
+		if modeInfo.Width == width && modeInfo.Height == height {
+			return modeInfo
+		}
+	}
+	return ModeInfo{}
+}
+
+func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) ModeInfo {
+	for _, modeInfo := range modes {
+		if modeInfo.Width == width && modeInfo.Height == height &&
+			math.Abs(modeInfo.Rate-rate) <= 0.01 {
+			return modeInfo
+		}
+	}
+	return ModeInfo{}
+}
+
+func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
+	if m.X == X && m.Y == y {
+		return nil
+	}
+
+	m.markChanged()
+	m.setPosition(X, y)
 	return nil
 }
 
-func (m *MonitorInfo) doSetPosition(x, y int16) {
-	m.setPropX(x)
+func (m *Monitor) setPosition(X, y int16) {
+	m.PropsMu.Lock()
+	m.setPropX(X)
 	m.setPropY(y)
+	m.PropsMu.Unlock()
 }
 
-func (m *MonitorInfo) validRotation(v uint16) bool {
-	for _, r := range m.Rotations {
-		if r == v {
-			return true
-		}
+func (m *Monitor) SetReflect(value uint16) *dbus.Error {
+	if m.Reflect == value {
+		return nil
 	}
-	return false
-}
-
-func (m *MonitorInfo) doSetRotation(v uint16) error {
-	if !m.validRotation(v) {
-		return fmt.Errorf("Invalid rotation valid: %v", v)
-	}
-	m.setPropRotation(v)
+	m.markChanged()
+	m.setPropReflect(value)
 	return nil
 }
 
-func (m *MonitorInfo) validReflect(v uint16) bool {
-	for _, r := range m.Reflects {
-		if r == v {
-			return true
-		}
-	}
-	return false
+func (m *Monitor) setReflect(value uint16) {
+	m.PropsMu.Lock()
+	m.setPropReflect(value)
+	m.PropsMu.Unlock()
 }
 
-func (m *MonitorInfo) doSetReflect(v uint16) error {
-	if !m.validReflect(v) {
-		return fmt.Errorf("Invalid reflect valid: %v", v)
+func (m *Monitor) SetRotation(value uint16) *dbus.Error {
+	if m.Rotation == value {
+		return nil
 	}
-	m.setPropReflect(v)
+	m.markChanged()
+	m.setRotation(value)
 	return nil
 }
 
-func toMonitorBaseInfo(output drandr.OutputInfo, uuid string) MonitorBaseInfo {
-	var info = MonitorBaseInfo{
-		UUID:     uuid,
-		Name:     output.Name,
-		Enabled:  output.Connection,
-		X:        output.Crtc.X,
-		Y:        output.Crtc.Y,
-		Width:    output.Crtc.Width,
-		Height:   output.Crtc.Height,
-		MmWidth:  output.MmWidth,
-		MmHeight: output.MmHeight,
-		Rotation: output.Crtc.Rotation,
-		Reflect:  output.Crtc.Reflect,
-		nameType: strings.ToLower(numReg.ReplaceAllString(output.Name, "")),
+func (m *Monitor) setRotation(value uint16) {
+	m.PropsMu.Lock()
+	width := m.CurrentMode.Width
+	height := m.CurrentMode.Height
+
+	if needSwapWidthHeight(value) {
+		width, height = height, width
 	}
-	return info
+
+	m.setPropRotation(value)
+	m.setPropWidth(width)
+	m.setPropHeight(height)
+	m.PropsMu.Unlock()
 }
 
-func parseModeByRotation(width, height, rotation uint16) (uint16, uint16) {
-	switch rotation {
-	case randr.RotationRotate90, randr.RotationRotate270:
-		return height, width
+func (m *Monitor) resetChanges() {
+	if m.backup == nil {
+		return
+	}
+
+	logger.Debug("restore from backup", m.ID)
+	b := m.backup
+	m.setPropEnabled(b.Enabled)
+	m.setPropX(b.X)
+	m.setPropY(b.Y)
+	m.setPropRotation(b.Rotation)
+	m.setPropReflect(b.Reflect)
+
+	m.setPropCurrentMode(b.Mode)
+	m.setPropWidth(b.Mode.Width)
+	m.setPropHeight(b.Mode.Height)
+	m.setPropRefreshRate(b.Mode.Rate)
+
+	m.backup = nil
+	return
+}
+
+func getRandrStatusStr(status uint8) string {
+	switch status {
+	case randr.SetConfigSuccess:
+		return "success"
+	case randr.SetConfigFailed:
+		return "failed"
+	case randr.SetConfigInvalidConfigTime:
+		return "invalid config time"
+	case randr.SetConfigInvalidTime:
+		return "invalid time"
 	default:
-		return width, height
+		return fmt.Sprintf("unknown status %d", status)
 	}
 }
 
-func (ms MonitorInfos) get(id string) *MonitorInfo {
-	for _, m := range ms {
-		if m.cfg.UUID == id {
-			return m
-		}
+func (m *Monitor) applyConfig(cfg crtcConfig) error {
+	m.PropsMu.RLock()
+	name := m.Name
+	m.PropsMu.RUnlock()
+	logger.Debugf("applyConfig output: %v %v", m.ID, name)
+
+	m.m.PropsMu.RLock()
+	cfgTs := m.m.configTimestamp
+	m.m.PropsMu.RUnlock()
+
+	logger.Debugf("setCrtcConfig crtc: %v, cfgTs: %v, x: %v, y: %v,"+
+		" mode: %v, rotation|reflect: %v, outputs: %v",
+		cfg.crtc, cfgTs, cfg.x, cfg.y, cfg.mode, cfg.rotation, cfg.outputs)
+	setCfg, err := randr.SetCrtcConfig(m.m.xConn, cfg.crtc, 0, cfgTs,
+		cfg.x, cfg.y, cfg.mode, cfg.rotation,
+		cfg.outputs).Reply(m.m.xConn)
+	if err != nil {
+		return err
+	}
+	if setCfg.Status != randr.SetConfigSuccess {
+		err = fmt.Errorf("failed to configure crtc %v: %v",
+			cfg.crtc, getRandrStatusStr(setCfg.Status))
+		return err
 	}
 	return nil
 }
 
-func (ms MonitorInfos) getByName(name string) *MonitorInfo {
-	for _, m := range ms {
-		if m.Name == name {
-			return m
+func toMonitorConfigs(monitors []*Monitor, primary string) []*MonitorConfig {
+	found := false
+	result := make([]*MonitorConfig, len(monitors))
+	for i, m := range monitors {
+		cfg := m.toConfig()
+		if !found && m.Name == primary {
+			cfg.Primary = true
+			found = true
 		}
+		result[i] = cfg
 	}
-	return nil
+	return result
 }
 
-func (ms MonitorInfos) listConnected() MonitorInfos {
-	var list MonitorInfos
-	for _, m := range ms {
-		if !m.Connected {
-			continue
-		}
-		list = append(list, m)
+func (m *Monitor) toConfig() *MonitorConfig {
+	return &MonitorConfig{
+		UUID:        m.uuid,
+		Name:        m.Name,
+		Enabled:     m.Enabled,
+		X:           m.X,
+		Y:           m.Y,
+		Width:       m.Width,
+		Height:      m.Height,
+		Rotation:    m.Rotation,
+		Reflect:     m.Reflect,
+		RefreshRate: m.RefreshRate,
 	}
-	return list
-}
-
-func (ms MonitorInfos) numberOfConnected() int {
-	var cnt int = 0
-	for _, m := range ms {
-		if m.Connected {
-			cnt += 1
-		}
-	}
-	return cnt
-}
-
-func (ms MonitorInfos) canBePrimary(name string) *MonitorInfo {
-	for _, m := range ms {
-		if m.Name == name && m.Connected && m.Enabled {
-			return m
-		}
-	}
-	return nil
-}
-
-func (ms MonitorInfos) sort(priority []string) MonitorInfos {
-	if ms.numberOfConnected() < 2 {
-		return ms
-	}
-	ms = ms.sortByNameType()
-	ms = ms.sortByPriority(priority)
-	return ms
-}
-
-// sortByNameType preference put the bulit-in output at the top,
-// the extendable output should after the built-in
-func (ms MonitorInfos) sortByNameType() MonitorInfos {
-	var (
-		builtin MonitorInfos
-		vga     MonitorInfos
-		dvi     MonitorInfos
-		dp      MonitorInfos
-		hdmi    MonitorInfos
-		other   MonitorInfos
-	)
-	for _, info := range ms {
-		switch info.cfg.nameType {
-		case "edp", "lvds", "lcd", "dsi":
-			builtin = append(builtin, info)
-		case "vga":
-			vga = append(vga, info)
-		case "dvi":
-			dvi = append(dvi, info)
-		case "dp":
-			dp = append(dp, info)
-		case "hdmi":
-			hdmi = append(hdmi, info)
-		default:
-			other = append(other, info)
-		}
-	}
-
-	var ret MonitorInfos
-	if len(builtin) != 0 {
-		ret = append(ret, builtin...)
-	}
-	if len(vga) != 0 {
-		ret = append(ret, vga...)
-	}
-	if len(dvi) != 0 {
-		ret = append(ret, dvi...)
-	}
-	if len(dp) != 0 {
-		ret = append(ret, dp...)
-	}
-	if len(hdmi) != 0 {
-		ret = append(ret, hdmi...)
-	}
-	if len(other) != 0 {
-		ret = append(ret, other...)
-	}
-	return ret
-}
-
-func (ms MonitorInfos) sortByPriority(priority []string) MonitorInfos {
-	if len(priority) == 0 {
-		return ms
-	}
-
-	var ret MonitorInfos
-	for _, v := range priority {
-		info := ms.getByName(v)
-		if info == nil {
-			continue
-		}
-		ret = append(ret, info)
-	}
-	if len(ret) == 0 {
-		return ms
-	}
-
-	for _, info := range ms {
-		if tmp := ret.getByName(info.Name); tmp != nil {
-			continue
-		}
-		ret = append(ret, info)
-	}
-	return ret
-}
-
-// see also: gnome-desktop/libgnome-desktop/gnome-rr.c
-//           '_gnome_rr_output_name_is_builtin_display'
-func isBuiltinOutput(name string) bool {
-	name = strings.ToLower(name)
-	switch {
-	case strings.HasPrefix(name, "vga"):
-		return false
-	case strings.HasPrefix(name, "hdmi"):
-		return false
-	case strings.HasPrefix(name, "dvi"):
-		return false
-
-	case strings.HasPrefix(name, "lvds"):
-		// Most drivers use an "LVDS" prefix
-		return true
-	case strings.HasPrefix(name, "lcd"):
-		// fglrx uses "LCD" in some versions
-		return true
-	case strings.HasPrefix(name, "edp"):
-		// eDP is for internal built-in panel connections
-		return true
-	case strings.HasPrefix(name, "dsi"):
-		return true
-	case name == "default":
-		return true
-	}
-	return true
-}
-
-func (ms MonitorInfos) getMonitorsId() string {
-	var ids []string
-	for _, m := range ms {
-		if !m.Connected {
-			continue
-		}
-		ids = append(ids, m.cfg.UUID)
-	}
-	if len(ids) == 0 {
-		return ""
-	}
-	sort.Strings(ids)
-	return strings.Join(ids, monitorsIdDelimiter)
-}
-
-func (ms MonitorInfos) getBaseInfos() MonitorBaseInfos {
-	var base MonitorBaseInfos
-	for _, m := range ms {
-		if !m.Connected {
-			continue
-		}
-		base = append(base, m.cfg.Duplicate())
-	}
-	return base
-}
-
-func (ms MonitorInfos) genCommandline(primary string, auto bool) string {
-	var cmd = "xrandr "
-	for _, m := range ms {
-		cmd += m.generateCommandline(primary, auto)
-	}
-	return cmd
-}
-
-func (ms MonitorInfos) isRotation() bool {
-	// check all connected monitor whether rotate the same diretion
-	var (
-		init     bool = false
-		rotation uint16
-	)
-	for _, m := range ms {
-		if !m.Connected {
-			continue
-		}
-		if !init {
-			init = true
-			rotation = m.Rotation
-			continue
-		}
-
-		if rotation != m.Rotation {
-			return false
-		}
-	}
-	return true
-}
-
-func (infos MonitorInfos) FoundCommonModes() drandr.ModeInfos {
-	var modeGroup []drandr.ModeInfos
-	for _, m := range infos {
-		if !m.Connected {
-			continue
-		}
-		modeGroup = append(modeGroup, m.Modes)
-	}
-
-	return drandr.FindCommonModes(modeGroup...)
-}
-
-func (infos MonitorBaseInfos) String() string {
-	data, _ := json.Marshal(infos)
-	return string(data)
-}
-
-func (info *MonitorBaseInfo) Duplicate() *MonitorBaseInfo {
-	return &MonitorBaseInfo{
-		UUID:        info.UUID,
-		Name:        info.Name,
-		Enabled:     info.Enabled,
-		X:           info.X,
-		Y:           info.Y,
-		Width:       info.Width,
-		Height:      info.Height,
-		Rotation:    info.Rotation,
-		Reflect:     info.Reflect,
-		RefreshRate: info.RefreshRate,
-	}
-}
-
-func (info *MonitorBaseInfo) String() string {
-	data, _ := json.Marshal(info)
-	return string(data)
 }

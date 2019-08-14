@@ -35,23 +35,21 @@ func (err InvalidOutputNameError) Error() string {
 	return fmt.Sprintf("invalid output name %q", err.Name)
 }
 
-func (dpy *Manager) saveBrightness() {
-	dpy.brightnessMutex.RLock()
-	jsonStr := jsonMarshal(dpy.Brightness)
-	dpy.brightnessMutex.RUnlock()
-	dpy.setting.SetString(gsKeyBrightness, jsonStr)
+func (m *Manager) saveBrightness() {
+	jsonStr := jsonMarshal(m.Brightness)
+	m.settings.SetString(gsKeyBrightness, jsonStr)
 }
 
-func (dpy *Manager) ChangeBrightness(raised bool) {
+func (m *Manager) changeBrightness(raised bool) error {
 	var step float64 = 0.05
 	if !raised {
 		step = -step
 	}
 
-	for _, info := range dpy.outputInfos {
-		dpy.brightnessMutex.RLock()
-		v, ok := dpy.Brightness[info.Name]
-		dpy.brightnessMutex.RUnlock()
+	monitors := m.getConnectedMonitors()
+
+	for _, monitor := range monitors {
+		v, ok := m.Brightness[monitor.Name]
 		if !ok {
 			v = 1.0
 		}
@@ -59,8 +57,8 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 		var br float64
 		setBr := true
 
-		if blCtrl, err := brightness.GetBacklightController(info.Id, dpy.conn); err != nil {
-			logger.Debugf("get output %q backlight controller failed: %v", info.Name, err)
+		if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
+			logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
 		} else {
 			max := blCtrl.MaxBrightness
 			cur, err := blCtrl.GetBrightness()
@@ -87,23 +85,26 @@ func (dpy *Manager) ChangeBrightness(raised bool) {
 			if br < 0.0 {
 				br = 0.0
 			}
-			logger.Debug("[changeBrightness] will set to:", info.Name, br)
-			dpy.brightnessMutex.Lock()
-			dpy.doSetBrightness(br, info.Name)
-			dpy.brightnessMutex.Unlock()
+			logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
+			err := m.doSetBrightness(br, monitor.Name)
+			if err != nil {
+				return err
+			}
 		} else {
-			logger.Debug("[changeBrightness] will update to:", info.Name, br)
-			dpy.brightnessMutex.Lock()
-			dpy.doSetBrightnessFake(br, info.Name)
-			dpy.brightnessMutex.Unlock()
+			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
+			err := m.doSetBrightnessFake(br, monitor.Name)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	dpy.saveBrightness()
+	m.saveBrightness()
+	return nil
 }
 
-func (dpy *Manager) getSavedBrightnessTable() (map[string]float64, error) {
-	value := dpy.setting.GetString(gsKeyBrightness)
+func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
+	value := m.settings.GetString(gsKeyBrightness)
 	if value == "" {
 		return nil, nil
 	}
@@ -115,62 +116,74 @@ func (dpy *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	return result, nil
 }
 
-func (dpy *Manager) initBrightness() {
-	brightnessTable, err := dpy.getSavedBrightnessTable()
+func (m *Manager) initBrightness() {
+	m.Brightness = make(map[string]float64)
+	brightnessTable, err := m.getSavedBrightnessTable()
 	if err != nil {
 		logger.Warning(err)
 	}
 
-	for _, info := range dpy.outputInfos {
-		if _, ok := brightnessTable[info.Name]; ok {
+	monitors := m.getConnectedMonitors()
+	for _, monitor := range monitors {
+		if _, ok := brightnessTable[monitor.Name]; ok {
 			continue
 		}
 
 		if brightnessTable == nil {
 			brightnessTable = make(map[string]float64)
 		}
-		brightnessTable[info.Name] = 1
+		brightnessTable[monitor.Name] = 1
 	}
 
+	brightness.InitBacklightHelper()
+
 	for name, value := range brightnessTable {
-		err = dpy.doSetBrightness(value, name)
+		err = m.doSetBrightness(value, name)
 		if err != nil {
 			logger.Warning(err)
 		}
 	}
 }
 
-func (dpy *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
-	info := dpy.outputInfos.QueryByName(name)
-	if info.Name == "" {
+func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
+	monitors := m.getConnectedMonitors()
+	// TODO
+	var monitor0 *Monitor
+	for _, monitor := range monitors {
+		if monitor.Name == name {
+			monitor0 = monitor
+			break
+		}
+	}
+	if monitor0 == nil {
 		return InvalidOutputNameError{name}
 	}
 
 	if !fake {
 		isBuiltin := isBuiltinOutput(name)
-		err := brightness.Set(value, dpy.setting.GetString(gsKeySetter), isBuiltin,
-			info.Id, dpy.conn)
+		err := brightness.Set(value, m.settings.GetString(gsKeySetter), isBuiltin,
+			monitor0.ID, m.xConn)
 		if err != nil {
 			logger.Warningf("failed to set brightness to %v for %s: %v", value, name, err)
 			return err
 		}
 	}
 
-	oldValue := dpy.Brightness[name]
+	oldValue := m.Brightness[name]
 	if oldValue == value {
 		return nil
 	}
 
 	// update brightness of the output
-	dpy.Brightness[name] = value
-	dpy.notifyBrightnessChange()
+	m.Brightness[name] = value
+	m.emitPropChangedBrightness(m.Brightness)
 	return nil
 }
 
-func (dpy *Manager) doSetBrightness(value float64, name string) error {
-	return dpy.doSetBrightnessAux(false, value, name)
+func (m *Manager) doSetBrightness(value float64, name string) error {
+	return m.doSetBrightnessAux(false, value, name)
 }
 
-func (dpy *Manager) doSetBrightnessFake(value float64, name string) error {
-	return dpy.doSetBrightnessAux(true, value, name)
+func (m *Manager) doSetBrightnessFake(value float64, name string) error {
+	return m.doSetBrightnessAux(true, value, name)
 }

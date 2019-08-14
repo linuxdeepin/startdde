@@ -1,127 +1,149 @@
-/*
- * Copyright (C) 2017 ~ 2018 Deepin Technology Co., Ltd.
- *
- * Author:     jouyouyun <jouyouwen717@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package display
 
 import (
 	"github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/api/drandr"
 )
 
-func (dpy *Manager) listenEvent() {
+func (m *Manager) listenEvent() {
 	eventChan := make(chan x.GenericEvent, 100)
-	dpy.conn.AddEventChan(eventChan)
+	m.xConn.AddEventChan(eventChan)
 
-	root := dpy.conn.GetDefaultScreen().Root
-	err := randr.SelectInputChecked(dpy.conn, root,
+	root := m.xConn.GetDefaultScreen().Root
+	err := randr.SelectInputChecked(m.xConn, root,
 		randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|
-			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange).Check(dpy.conn)
+			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange).Check(m.xConn)
 	if err != nil {
 		logger.Warning("failed to select randr event:", err)
 		return
 	}
 
-	rrExtData := dpy.conn.GetExtensionData(randr.Ext())
+	rrExtData := m.xConn.GetExtensionData(randr.Ext())
 
 	go func() {
 		for ev := range eventChan {
-			dpy.eventLocker.Lock()
 			switch ev.GetEventCode() {
 			case randr.NotifyEventCode + rrExtData.FirstEvent:
 				event, _ := randr.NewNotifyEvent(ev)
 				switch event.SubCode {
+				case randr.NotifyCrtcChange:
+					e, _ := event.NewCrtcChangeNotifyEvent()
+					m.handleCrtcChanged(e)
+
 				case randr.NotifyOutputChange:
-					ocEv, _ := event.NewOutputChangeNotifyEvent()
-					dpy.handleOutputChanged(ocEv)
+					e, _ := event.NewOutputChangeNotifyEvent()
+					m.handleOutputChanged(e)
+
+				case randr.NotifyOutputProperty:
+					e, _ := event.NewOutputPropertyNotifyEvent()
+					m.handleOutputPropertyChanged(e)
 				}
+
 			case randr.ScreenChangeNotifyEventCode + rrExtData.FirstEvent:
-				event, _ := randr.NewScreenChangeNotifyEvent(ev)
-				dpy.handleScreenChanged(event)
+				e, _ := randr.NewScreenChangeNotifyEvent(ev)
+				m.handleScreenChanged(e)
 			}
-			dpy.eventLocker.Unlock()
 		}
 	}()
 }
 
-func (dpy *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
-	if ev.Connection != randr.ConnectionConnected && ev.Mode != 0 {
-		randr.SetCrtcConfig(dpy.conn, ev.Crtc,
-			x.CurrentTime, dpy.lastConfigTime, 0, 0, 0,
-			randr.RotationRotate0, nil)
-	}
-	if ev.Mode == 0 || ev.Crtc == 0 {
-		// TODO: if info in blacklist, what happen?
-		dpy.fixOutputNotClosed(ev.Output)
-	}
-}
+func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
+	logger.Debug("output changed", ev.Output)
 
-var autoOpenTimes int = 0
-
-func (dpy *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
-	logger.Debugf("handleScreenChanged ev: %#v", ev)
-	// firstly compare plan whether equal
-	oldLen := len(dpy.outputInfos)
-	screenInfo, err := drandr.GetScreenInfo(dpy.conn)
+	outputInfo, err := m.updateOutputInfo(ev.Output)
 	if err != nil {
-		logger.Error("Get screen info failed:", err)
-		return
+		logger.Warning(err)
 	}
-	outputInfos := screenInfo.Outputs.ListConnectionOutputs()
-	tmpInfos, tmpList := dpy.filterOutputs(outputInfos)
-	if oldLen != len(tmpInfos) && dpy.isOutputCrtcInvalid(tmpInfos) && autoOpenTimes < 2 {
-		// only try 2 times
-		autoOpenTimes++
-		doAction("xrandr --auto")
-		return
-	}
-	if autoOpenTimes != 0 || (len(tmpList) != 0 && len(tmpList) != len(dpy.disableList)) {
-		dpy.disableList = tmpList
-		dpy.disableOutputs()
-	}
-	autoOpenTimes = 0
 
-	dpy.outputInfos = tmpInfos
-	dpy.modeInfos = screenInfo.Modes
-	dpy.updateMonitors()
-	logger.Debug("[Event] compare:", dpy.lastConfigTime, ev.ConfigTimestamp, oldLen, len(dpy.outputInfos))
-	// some platform the config timestamp maybe equal between twice event, so not check
-	// if dpy.lastConfigTime < ev.ConfigTimestamp {
-	if oldLen != len(dpy.outputInfos) {
-		logger.Infof("Detect new output config, try to apply it: %#v", screenInfo.Outputs)
-		dpy.lastConfigTime = ev.ConfigTimestamp
-		err := dpy.tryApplyConfig()
-		if err != nil {
-			logger.Error("Apply failed for event:", err)
+	if outputInfo.Connection != randr.ConnectionConnected &&
+		outputInfo.Name == m.Primary {
+
+		for output0, outputInfo0 := range m.outputMap {
+			if outputInfo0.Connection == randr.ConnectionConnected {
+				// set first connected output as primary
+				err = m.setOutputPrimary(output0)
+				if err != nil {
+					logger.Warning(err)
+				}
+				break
+			}
 		}
 	}
-	dpy.updateScreenSize()
-	dpy.doSetPrimary(dpy.Primary, true, false) // update if monitor mode changed
-	// TODO: map touchscreen
+
+	m.PropsMu.RLock()
+	hasChanged := m.HasChanged
+	m.PropsMu.RUnlock()
+	if hasChanged {
+		// 编辑 Monitor 模式下拒绝事件更新 Monitor 的字段。
+		return
+	}
+
+	m.updateMonitor(ev.Output, outputInfo)
+
+	oldMonitorsId := m.monitorsId
+	newMonitorsId := getMonitorsId(m.monitorMap)
+	if newMonitorsId != oldMonitorsId {
+		m.applyDisplayMode()
+		m.monitorsId = newMonitorsId
+	}
 }
 
-func (dpy *Manager) isOutputCrtcInvalid(infos drandr.OutputInfos) bool {
-	// output connected, but no crtc
-	for _, info := range infos {
-		if info.Crtc.Id == 0 || info.Crtc.Width == 0 || info.Crtc.Height == 0 {
-			return true
+func (m *Manager) handleOutputPropertyChanged(ev *randr.OutputPropertyNotifyEvent) {
+	logger.Debug("output property changed", ev.Output, ev.Atom)
+}
+
+func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
+	logger.Debug("crtc changed", ev.Crtc)
+	crtcInfo, err := m.updateCrtcInfo(ev.Crtc)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	var rOutput randr.Output
+	var rOutputInfo *randr.GetOutputInfoReply
+
+	m.outputMapMu.Lock()
+	for output, outputInfo := range m.outputMap {
+		if outputInfo.Crtc == ev.Crtc {
+			rOutput = output
+			rOutputInfo = outputInfo
+			break
 		}
 	}
-	return false
+	m.outputMapMu.Unlock()
+
+	if rOutputInfo != nil {
+		m.PropsMu.Lock()
+		if m.Primary == rOutputInfo.Name {
+			m.setPropPrimaryRect(getCrtcRect(crtcInfo))
+		}
+		m.PropsMu.Unlock()
+	}
+
+	if m.HasChanged {
+		return
+	}
+
+	if rOutput != 0 {
+		m.outputMapMu.Lock()
+		monitor := m.monitorMap[rOutput]
+		m.outputMapMu.Unlock()
+		if monitor != nil {
+			logger.Debug("update monitor crtc", monitor.ID, monitor.Name)
+			m.updateMonitorCrtcInfo(monitor, crtcInfo)
+		}
+	}
+}
+
+func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
+	logger.Debugf("screen changed cfgTs: %v", ev.ConfigTimestamp)
+
+	m.PropsMu.Lock()
+	m.setPropScreenWidth(ev.Width)
+	m.setPropScreenHeight(ev.Height)
+	m.configTimestamp = ev.ConfigTimestamp
+	m.PropsMu.Unlock()
+
+	m.updateOutputPrimary()
 }

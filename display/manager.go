@@ -1,38 +1,22 @@
-/*
- * Copyright (C) 2017 ~ 2018 Deepin Technology Co., Ltd.
- *
- * Author:     jouyouyun <jouyouwen717@gmail.com>
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 package display
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"os"
-	"regexp"
+	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
-	"github.com/linuxdeepin/go-x11-client"
+	"pkg.deepin.io/lib/xdg/basedir"
+
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/api/drandr"
 	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/dbus"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/utils"
+	"pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
 const (
@@ -44,145 +28,213 @@ const (
 )
 
 const (
-	displaySchemaId  = "com.deepin.dde.display"
+	gsSchemaDisplay  = "com.deepin.dde.display"
 	gsKeyDisplayMode = "display-mode"
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
-	gsKeyPrimary     = "primary"
-	gsKeyCustomMode  = "current-custom-mode"
+	//gsKeyPrimary     = "primary"
+	gsKeyCustomMode = "current-custom-mode"
 
 	customModeDelim     = "+"
 	monitorsIdDelimiter = ","
 )
 
+//go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
+
 type Manager struct {
-	conn           *x.Conn
-	outputInfos    drandr.OutputInfos
-	modeInfos      drandr.ModeInfos
-	config         *configManager
-	lastConfigTime x.Timestamp
-
-	HasChanged      bool
-	DisplayMode     uint8
-	ScreenWidth     uint16
-	ScreenHeight    uint16
-	Primary         string
-	CurrentCustomId string
-	CustomIdList    []string
-	PrimaryRect     x.Rectangle
-	Monitors        MonitorInfos
-	// TODO rename Brightness to brightness, prefer to use GetBrightness() to get the brightness info
-	Brightness      map[string]float64
-	brightnessMutex sync.RWMutex
-	TouchMap        map[string]string
-
-	disableList []string
-
-	// TODO: add mutex locker in used
-	allMonitors          MonitorInfos
-	setting              *gio.Settings
-	ifcLocker            sync.Mutex
-	eventLocker          sync.Mutex
+	service              *dbusutil.Service
+	xConn                *x.Conn
+	PropsMu              sync.RWMutex
+	config               Config
 	recommendScaleFactor float64
-}
+	modes                []randr.ModeInfo
+	monitorMap           map[randr.Output]*Monitor
+	monitorMapMu         sync.Mutex
+	crtcMap              map[randr.Crtc]*randr.GetCrtcInfoReply
+	crtcMapMu            sync.Mutex
+	outputMap            map[randr.Output]*randr.GetOutputInfoReply
+	outputMapMu          sync.Mutex
+	configTimestamp      x.Timestamp
+	settings             *gio.Settings
+	monitorsId           string
 
-var (
-	_dpy           *Manager
-	monitorsLocker sync.Mutex
-	logger         = log.NewLogger(dbusDest)
-	configFile     = os.Getenv("HOME") + "/.config/deepin/startdde/display.json"
-)
+	// dbusutil-gen: equal=nil
+	Monitors []dbus.ObjectPath
+	// dbusutil-gen: equal=nil
+	CustomIdList []string
+	HasChanged   bool
+	DisplayMode  byte
+	// dbusutil-gen: equal=nil
+	Brightness map[string]float64
+	// dbusutil-gen: equal=nil
+	TouchMap        map[string]string
+	CurrentCustomId string
+	Primary         string
+	// dbusutil-gen: equal=nil
+	PrimaryRect  x.Rectangle
+	ScreenWidth  uint16
+	ScreenHeight uint16
 
-func SetLogLevel(level log.Priority) {
-	logger.SetLogLevel(level)
-}
-
-func GetRecommendedScaleFactor() float64 {
-	if _dpy == nil {
-		return 1.0
+	methods *struct {
+		AssociateTouch         func() `in:"outputName,touch"`
+		ChangeBrightness       func() `in:"raised"`
+		DeleteCustomMode       func() `in:"name"`
+		GetBrightness          func() `out:"values"`
+		ListOutputNames        func() `out:"names"`
+		ListOutputsCommonModes func() `out:"modes"`
+		ModifyConfigName       func() `in:"name,newName"`
+		SetAndSaveBrightness   func() `in:"outputName,value"`
+		SetBrightness          func() `in:"outputName,value"`
+		SetPrimary             func() `in:"outputName"`
+		SwitchMode             func() `in:"mode,name"`
 	}
-	return _dpy.recommendScaleFactor
 }
 
-func getDisconnectedOutputs(infos drandr.OutputInfos) drandr.OutputInfos {
-	var ret drandr.OutputInfos
-	for _, info := range infos {
-		if !info.Connection {
-			ret = append(ret, info)
-		}
-	}
-	return ret
+type ModeInfo struct {
+	Id     uint32
+	Width  uint16
+	Height uint16
+	Rate   float64
 }
 
-func newManager() (*Manager, error) {
+var configFile = filepath.Join(basedir.GetUserConfigDir(), "deepin/startdde/display.json")
+
+func getXConn() (*x.Conn, error) {
 	conn, err := x.NewConn()
 	if err != nil {
 		return nil, err
 	}
-
-	screenInfo, err := drandr.GetScreenInfo(conn)
+	_, err = randr.QueryVersion(conn, randr.MajorVersion, randr.MinorVersion).Reply(conn)
 	if err != nil {
-		conn.Close()
-		return nil, err
+		logger.Warning(err)
+	}
+	return conn, nil
+}
+
+func newManager(service *dbusutil.Service) *Manager {
+	m := &Manager{
+		service:    service,
+		monitorMap: make(map[randr.Output]*Monitor),
 	}
 
-	s, err := utils.CheckAndNewGSettings(displaySchemaId)
+	m.settings = gio.NewSettings(gsSchemaDisplay)
+	m.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
+	if m.DisplayMode == DisplayModeUnknow {
+		m.DisplayMode = DisplayModeExtend
+	}
+	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
+
+	var err error
+	m.xConn, err = getXConn()
 	if err != nil {
-		conn.Close()
-		return nil, err
+		logger.Fatal(err)
 	}
 
-	config, err := newConfigManagerFromFile(configFile)
+	screen := m.xConn.GetDefaultScreen()
+	m.ScreenWidth = screen.WidthInPixels
+	m.ScreenHeight = screen.HeightInPixels
+
+	resources, err := m.getScreenResources()
+	if err == nil {
+		m.modes = resources.Modes
+		m.configTimestamp = resources.ConfigTimestamp
+		err = m.initCrtcMap(resources.Crtcs)
+		if err != nil {
+			logger.Warning(err)
+		}
+		err = m.initOutputMap(resources.Outputs)
+		if err != nil {
+			logger.Warning(err)
+		}
+	} else {
+		logger.Warning(err)
+	}
+
+	for output, outputInfo := range m.outputMap {
+		err = m.addMonitor(output, outputInfo)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+	m.updatePropMonitors()
+	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
+	m.updateOutputPrimary()
+
+	m.config, err = loadConfig(configFile)
 	if err != nil {
-		config = &configManager{
-			BaseGroup: make(map[string]*configMonitor),
-			filename:  configFile,
+		if !os.IsNotExist(err) {
+			logger.Warning(err)
+		}
+		m.config = make(Config)
+	}
+	m.CustomIdList = m.getCustomIdList()
+	return m
+}
+
+func (m *Manager) applyDisplayMode() {
+	logger.Debug("applyDisplayMode")
+	var err error
+	if m.DisplayMode == DisplayModeCustom {
+		err = m.switchModeCustom(m.CurrentCustomId)
+		if err != nil {
+			logger.Warning(err)
+		}
+		return
+	}
+
+	monitors := m.getConnectedMonitors()
+	if len(monitors) == 1 {
+		// 单屏
+		screenCfg := m.getScreenConfig()
+		if screenCfg.Single != nil {
+			err = m.applyMonitorConfigs([]*MonitorConfig{screenCfg.Single})
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+
+		err = m.setOutputPrimary(randr.Output(monitors[0].ID))
+		if err != nil {
+			logger.Warning(err)
 		}
 	}
 
-	disconnectedOutputNames := getDisconnectedOutputs(screenInfo.Outputs).ListNames()
-	turnOffOutputs(disconnectedOutputNames)
-
-	sw, sh := screenInfo.GetScreenSize()
-	var m = Manager{
-		conn:         conn,
-		outputInfos:  screenInfo.Outputs.ListConnectionOutputs(),
-		modeInfos:    screenInfo.Modes,
-		config:       config,
-		ScreenWidth:  sw,
-		ScreenHeight: sh,
-		Brightness:   make(map[string]float64),
-		TouchMap:     make(map[string]string),
+	switch m.DisplayMode {
+	case DisplayModeMirror:
+		err = m.switchModeMirror()
+	case DisplayModeExtend:
+		err = m.switchModeExtend()
+	case DisplayModeOnlyOne:
+		err = m.switchModeOnlyOne("")
 	}
-	m.setting = s
-	m.DisplayMode = uint8(m.setting.GetEnum(gsKeyDisplayMode))
-	if m.DisplayMode == DisplayModeUnknow {
-		m.setPropDisplayMode(DisplayModeExtend)
-		m.DisplayMode = DisplayModeExtend
-	}
-	m.Primary = m.setting.GetString(gsKeyPrimary)
-	m.CurrentCustomId = m.setting.GetString(gsKeyCustomMode)
-	m.outputInfos, m.disableList = m.filterOutputs(m.outputInfos)
 
-	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
-	return &m, nil
+	if err != nil {
+		logger.Warning(err)
+	}
+
+}
+
+func (m *Manager) init() {
+	m.listenEvent()
+	m.applyDisplayMode()
+	m.initBrightness()
+	m.initTouchMap()
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
-	if len(m.outputInfos) == 0 {
+	minScaleFactor := 3.0
+	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
 		return 1.0
 	}
-
-	minScaleFactor := 3.0
-	for i := 0; i < len(m.outputInfos); i++ {
-		outputInfo := &m.outputInfos[i]
-		scaleFactor := calcRecommendedScaleFactor(float64(outputInfo.Crtc.Width),
-			float64(outputInfo.MmWidth))
+	for _, monitor := range monitors {
+		scaleFactor := calcRecommendedScaleFactor(float64(monitor.Width), float64(monitor.MmWidth))
 		if minScaleFactor > scaleFactor {
 			minScaleFactor = scaleFactor
 		}
 	}
+
 	return minScaleFactor
 }
 
@@ -223,61 +275,1142 @@ func toListedScaleFactor(s float64) float64 {
 	return max
 }
 
-func (dpy *Manager) init() {
-	if len(dpy.outputInfos) == 0 {
-		// TODO: wait for output connected
-		logger.Warning("No output plugin")
-		return
-	}
-
-	dpy.disableOutputs()
-	dpy.updateMonitors()
-	logger.Debug("-----After init:", dpy.Monitors.getMonitorsId())
-	if len(dpy.Primary) == 0 || dpy.Monitors.getByName(dpy.Primary) == nil {
-		dpy.Primary = dpy.Monitors[0].Name
-	}
-	dpy.doSetPrimary(dpy.Primary, true, false)
-
-	// check config version
-	dpy.checkConfigVersion()
-
-	dpy.setPropCustomIdList(dpy.getCustomIdList())
-
-	dpy.listenEvent()
-	err := dpy.tryApplyConfig()
-	if err != nil {
-		logger.Error("Try apply settings failed for init:", err)
-	}
-
-	dpy.initBrightness()
-	dpy.initTouchMap()
-	dpy.updateScreenSize()
+func (m *Manager) getScreenResources() (*randr.GetScreenResourcesReply, error) {
+	root := m.xConn.GetDefaultScreen().Root
+	resources, err := randr.GetScreenResources(m.xConn, root).Reply(m.xConn)
+	return resources, err
 }
 
-func (dpy *Manager) initTouchMap() {
-	value := dpy.setting.GetString(gsKeyMapOutput)
-	if len(value) == 0 {
-		dpy.TouchMap = make(map[string]string)
-		dpy.setPropTouchMap(dpy.TouchMap)
+func (m *Manager) initCrtcMap(crtcs []randr.Crtc) error {
+	m.crtcMap = make(map[randr.Crtc]*randr.GetCrtcInfoReply)
+	for _, crtc := range crtcs {
+		crtcInfo, err := m.getCrtcInfo(crtc)
+		if err != nil {
+			return err
+		}
+		m.crtcMap[crtc] = crtcInfo
+	}
+	return nil
+}
+
+func (m *Manager) initOutputMap(outputs []randr.Output) error {
+	m.outputMap = make(map[randr.Output]*randr.GetOutputInfoReply)
+	for _, output := range outputs {
+		outputInfo, err := m.getOutputInfo(output)
+		if err != nil {
+			return err
+		}
+		m.outputMap[output] = outputInfo
+	}
+	return nil
+}
+
+func (m *Manager) getCrtcInfo(crtc randr.Crtc) (*randr.GetCrtcInfoReply, error) {
+	m.PropsMu.RLock()
+	cfgTs := m.configTimestamp
+	m.PropsMu.RUnlock()
+
+	crtcInfo, err := randr.GetCrtcInfo(m.xConn, crtc, cfgTs).Reply(m.xConn)
+	if err != nil {
+		return nil, err
+	}
+	if crtcInfo.Status != randr.StatusSuccess {
+		return nil, fmt.Errorf("status is not success, is %v", crtcInfo.Status)
+	}
+	return crtcInfo, err
+}
+
+func (m *Manager) updateCrtcInfo(crtc randr.Crtc) (*randr.GetCrtcInfoReply, error) {
+	crtcInfo, err := m.getCrtcInfo(crtc)
+	if err != nil {
+		return nil, err
+	}
+	m.crtcMapMu.Lock()
+	m.crtcMap[crtc] = crtcInfo
+	m.crtcMapMu.Unlock()
+	return crtcInfo, nil
+}
+
+func (m *Manager) getOutputInfo(output randr.Output) (*randr.GetOutputInfoReply, error) {
+	m.PropsMu.RLock()
+	cfgTs := m.configTimestamp
+	m.PropsMu.RUnlock()
+
+	outputInfo, err := randr.GetOutputInfo(m.xConn, output, cfgTs).Reply(m.xConn)
+	if err != nil {
+		return nil, err
+	}
+	if outputInfo.Status != randr.StatusSuccess {
+		return nil, fmt.Errorf("status is not success, is %v", outputInfo.Status)
+	}
+	return outputInfo, err
+}
+
+func (m *Manager) updateOutputInfo(output randr.Output) (*randr.GetOutputInfoReply, error) {
+	outputInfo, err := m.getOutputInfo(output)
+	if err != nil {
+		return nil, err
+	}
+	m.outputMapMu.Lock()
+	m.outputMap[output] = outputInfo
+	m.outputMapMu.Unlock()
+	return outputInfo, nil
+}
+
+func (m *Manager) getModeInfo(mode randr.Mode) ModeInfo {
+	if mode == 0 {
+		return ModeInfo{}
+	}
+	for _, modeInfo := range m.modes {
+		if modeInfo.Id == uint32(mode) {
+			return toModeInfo(modeInfo)
+		}
+	}
+	return ModeInfo{}
+}
+
+func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
+	var result []ModeInfo
+	for _, mode := range modes {
+		modeInfo := m.getModeInfo(mode)
+		if modeInfo.Id != 0 {
+			result = append(result, modeInfo)
+		}
+	}
+	return result
+}
+
+func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInfoReply) error {
+	m.monitorMapMu.Lock()
+	_, ok := m.monitorMap[output]
+	m.monitorMapMu.Unlock()
+	if ok {
+		return nil
+	}
+
+	connected := outputInfo.Connection == randr.ConnectionConnected
+	enabled := outputInfo.Crtc != 0
+	var err error
+	var crtcInfo *randr.GetCrtcInfoReply
+	if outputInfo.Crtc != 0 {
+		m.crtcMapMu.Lock()
+		crtcInfo = m.crtcMap[outputInfo.Crtc]
+		m.crtcMapMu.Unlock()
+
+		if crtcInfo == nil {
+			crtcInfo, err = m.updateCrtcInfo(outputInfo.Crtc)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+	}
+
+	edid, err := getOutputEDID(m.xConn, output)
+	if err != nil {
+		logger.Warning(err)
+	}
+	logger.Debug("addMonitor", output, outputInfo.Name)
+	monitor := &Monitor{
+		service:   m.service,
+		m:         m,
+		ID:        uint32(output),
+		Name:      outputInfo.Name,
+		Connected: connected,
+		MmWidth:   outputInfo.MmWidth,
+		MmHeight:  outputInfo.MmHeight,
+		Enabled:   enabled,
+		crtc:      outputInfo.Crtc,
+		uuid:      getOutputUUID(outputInfo.Name, edid),
+	}
+
+	monitor.Modes = m.getModeInfos(outputInfo.Modes)
+	monitor.BestMode = monitor.getBestMode(m, outputInfo)
+	monitor.PreferredModes = []ModeInfo{monitor.BestMode}
+
+	if crtcInfo != nil {
+		monitor.X = crtcInfo.X
+		monitor.Y = crtcInfo.Y
+		monitor.Width = crtcInfo.Width
+		monitor.Height = crtcInfo.Height
+
+		monitor.Reflects = getReflects(crtcInfo.Rotations)
+		monitor.Rotations = getRotations(crtcInfo.Rotations)
+		monitor.Rotation, monitor.Reflect = parseCrtcRotation(crtcInfo.Rotation)
+
+		monitor.CurrentMode = m.getModeInfo(crtcInfo.Mode)
+		monitor.RefreshRate = monitor.CurrentMode.Rate
+	}
+
+	err = m.service.Export(monitor.getPath(), monitor)
+	if err != nil {
+		return err
+	}
+	m.monitorMapMu.Lock()
+	m.monitorMap[output] = monitor
+	m.monitorMapMu.Unlock()
+	return nil
+}
+
+func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutputInfoReply) {
+	m.monitorMapMu.Lock()
+	monitor, ok := m.monitorMap[output]
+	m.monitorMapMu.Unlock()
+	if !ok {
+		err := m.addMonitor(output, outputInfo)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		m.updatePropMonitors()
 		return
 	}
 
-	err := jsonUnmarshal(value, &dpy.TouchMap)
+	connected := outputInfo.Connection == randr.ConnectionConnected
+	enabled := outputInfo.Crtc != 0
+	var err error
+	var crtcInfo *randr.GetCrtcInfoReply
+	if outputInfo.Crtc != 0 {
+		m.crtcMapMu.Lock()
+		crtcInfo = m.crtcMap[outputInfo.Crtc]
+		m.crtcMapMu.Unlock()
+
+		if crtcInfo == nil {
+			crtcInfo, err = m.updateCrtcInfo(outputInfo.Crtc)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+	}
+	monitor.PropsMu.Lock()
+	monitor.crtc = outputInfo.Crtc
+	monitor.setPropConnected(connected)
+	monitor.setPropEnabled(enabled)
+	monitor.setPropModes(m.getModeInfos(outputInfo.Modes))
+	monitor.setPropBestMode(monitor.getBestMode(m, outputInfo))
+	monitor.setPropPreferredModes([]ModeInfo{monitor.BestMode})
+	monitor.PropsMu.Unlock()
+	m.updateMonitorCrtcInfo(monitor, crtcInfo)
+}
+
+func (m *Manager) updateMonitorCrtcInfo(monitor *Monitor, crtcInfo *randr.GetCrtcInfoReply) {
+	if crtcInfo == nil {
+		monitor.PropsMu.Lock()
+		monitor.setPropX(0)
+		monitor.setPropY(0)
+		monitor.setPropWidth(0)
+		monitor.setPropHeight(0)
+
+		monitor.setPropReflects(nil)
+		monitor.setPropRotations(nil)
+		monitor.setPropRotation(0)
+		monitor.setPropReflect(0)
+
+		monitor.setPropCurrentMode(ModeInfo{})
+		monitor.setPropRefreshRate(0)
+		monitor.PropsMu.Unlock()
+		return
+	}
+
+	rotation, reflect := parseCrtcRotation(crtcInfo.Rotation)
+	monitor.PropsMu.Lock()
+	monitor.setPropX(crtcInfo.X)
+	monitor.setPropY(crtcInfo.Y)
+	monitor.setPropWidth(crtcInfo.Width)
+	monitor.setPropHeight(crtcInfo.Height)
+
+	monitor.setPropReflects(getReflects(crtcInfo.Rotations))
+	monitor.setPropRotations(getRotations(crtcInfo.Rotations))
+	monitor.setPropRotation(rotation)
+	monitor.setPropReflect(reflect)
+
+	monitor.setPropCurrentMode(m.getModeInfo(crtcInfo.Mode))
+	monitor.setPropRefreshRate(monitor.CurrentMode.Rate)
+	monitor.PropsMu.Unlock()
+}
+
+func (m *Manager) findFreeCrtc(output randr.Output) randr.Crtc {
+	m.crtcMapMu.Lock()
+	defer m.crtcMapMu.Unlock()
+
+	for crtc, crtcInfo := range m.crtcMap {
+		if len(crtcInfo.Outputs) == 0 && outputSliceContains(crtcInfo.PossibleOutputs, output) {
+			return crtc
+		}
+	}
+	return 0
+}
+
+func (m *Manager) switchModeMirror() (err error) {
+	logger.Debug("switch mode mirror")
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
+	monitors := m.getConnectedMonitors()
+	commonSizes := getMonitorsCommonSizes(monitors)
+	if len(commonSizes) == 0 {
+		err = errors.New("not found common size")
+		return
+	}
+	maxSize := getMaxAreaSize(commonSizes)
+	logger.Debug("max common size:", maxSize)
+	for _, monitor := range m.monitorMap {
+		if monitor.Connected {
+			monitor.enable(true)
+
+			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			var mode ModeInfo
+			if cfg != nil {
+				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+			} else {
+				mode = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
+			}
+			monitor.setMode(mode)
+			monitor.setPosition(0, 0)
+			monitor.setRotation(randr.RotationRotate0)
+			monitor.setReflect(0)
+
+		} else {
+			monitor.enable(false)
+		}
+	}
+
+	err = m.applyMonitorsConfig()
+	if err != nil {
+		return
+	}
+
+	monitor0 := getMinIDMonitor(m.getConnectedMonitors())
+	if monitor0 != nil {
+		err = m.setOutputPrimary(randr.Output(monitor0.ID))
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+type screenSize struct {
+	width    uint16
+	height   uint16
+	mmWidth  uint32
+	mmHeight uint32
+}
+
+func (m *Manager) getScreenSize1() screenSize {
+	width, height := m.getScreenSize()
+	mmWidth := uint32(float64(width) / 3.792)
+	mmHeight := uint32(float64(height) / 3.792)
+	return screenSize{
+		width:    width,
+		height:   height,
+		mmWidth:  mmWidth,
+		mmHeight: mmHeight,
+	}
+}
+
+func (m *Manager) setScreenSize(ss screenSize) error {
+	root := m.xConn.GetDefaultScreen().Root
+	err := randr.SetScreenSizeChecked(m.xConn, root, ss.width, ss.height, ss.mmWidth,
+		ss.mmHeight).Check(m.xConn)
+	logger.Debugf("set screen size %dx%d, mm: %dx%d",
+		ss.width, ss.height, ss.mmWidth, ss.mmHeight)
+	return err
+}
+
+type crtcConfig struct {
+	crtc    randr.Crtc
+	outputs []randr.Output
+
+	x        int16
+	y        int16
+	rotation uint16
+	mode     randr.Mode
+}
+
+// TODO rename this method
+func (m *Manager) applyMonitorsConfig() error {
+	x.GrabServer(m.xConn)
+	defer func() {
+		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}()
+
+	monitorCrtcCfgMap := make(map[randr.Output]crtcConfig)
+	for output, monitor := range m.monitorMap {
+		if monitor.Enabled {
+			crtc := monitor.crtc
+			if crtc == 0 {
+				crtc = m.findFreeCrtc(output)
+				if crtc == 0 {
+					return errors.New("failed to find free crtc")
+				}
+			}
+			monitorCrtcCfgMap[output] = crtcConfig{
+				crtc:     crtc,
+				x:        monitor.X,
+				y:        monitor.Y,
+				mode:     randr.Mode(monitor.CurrentMode.Id),
+				rotation: monitor.Rotation | monitor.Reflect,
+				outputs:  []randr.Output{output},
+			}
+		} else {
+			if monitor.crtc != 0 {
+				monitorCrtcCfgMap[output] = crtcConfig{
+					crtc:     monitor.crtc,
+					rotation: randr.RotationRotate0,
+				}
+			}
+		}
+	}
+
+	m.PropsMu.RLock()
+	cfgTs := m.configTimestamp
+	m.PropsMu.RUnlock()
+
+	screenSize := m.getScreenSize1()
+
+	m.crtcMapMu.Lock()
+	for crtc, crtcInfo := range m.crtcMap {
+		rect := getCrtcRect(crtcInfo)
+		logger.Debugf("crtc %v, rect: %+v", crtc, rect)
+		if int(rect.X)+int(rect.Width) <= int(screenSize.width) &&
+			int(rect.Y)+int(rect.Height) <= int(screenSize.height) {
+			// 适合
+		} else {
+			// 不适合新的屏幕大小，如果已经启用，则需要禁用它
+			if len(crtcInfo.Outputs) == 0 {
+				continue
+			}
+			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
+			err := m.disableCrtc(crtc, cfgTs)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	m.crtcMapMu.Unlock()
+
+	err := m.setScreenSize(screenSize)
+	if err != nil {
+		return err
+	}
+
+	for output, monitor := range m.monitorMap {
+		crtcCfg, ok := monitorCrtcCfgMap[output]
+		if !ok {
+			continue
+		}
+		err := monitor.applyConfig(crtcCfg)
+		if err != nil {
+			return err
+		}
+
+		outputInfo, err := m.updateOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+		}
+		if outputInfo.Crtc != 0 {
+			_, err = m.updateCrtcInfo(outputInfo.Crtc)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+		m.updateMonitor(output, outputInfo)
+	}
+
+	return nil
+}
+
+func (m *Manager) disableCrtc(crtc randr.Crtc, cfgTs x.Timestamp) error {
+	setCfg, err := randr.SetCrtcConfig(m.xConn, crtc, 0, cfgTs,
+		0, 0, 0, randr.RotationRotate0, nil).Reply(m.xConn)
+	if err != nil {
+		return err
+	}
+	if setCfg.Status != randr.SetConfigSuccess {
+		return fmt.Errorf("failed to disable crtc %d: %v",
+			crtc, getRandrStatusStr(setCfg.Status))
+	}
+	return nil
+}
+
+func (m *Manager) setOutputPrimary(output randr.Output) error {
+	logger.Debug("set output primary", output)
+	root := m.xConn.GetDefaultScreen().Root
+	return randr.SetOutputPrimaryChecked(m.xConn, root, output).Check(m.xConn)
+}
+
+func (m *Manager) getOutputPrimary() (randr.Output, error) {
+	root := m.xConn.GetDefaultScreen().Root
+	reply, err := randr.GetOutputPrimary(m.xConn, root).Reply(m.xConn)
+	if err != nil {
+		return 0, err
+	}
+	return reply.Output, nil
+}
+
+// 更新属性 Primary 和 PrimaryRect
+func (m *Manager) updateOutputPrimary() {
+	pOutput, err := m.getOutputPrimary()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	var newPrimary string
+	var newRect x.Rectangle
+
+	if pOutput != 0 {
+		m.outputMapMu.Lock()
+
+		for output, outputInfo := range m.outputMap {
+			if pOutput != output {
+				continue
+			}
+
+			newPrimary = outputInfo.Name
+
+			if outputInfo.Crtc == 0 {
+				logger.Warning("new primary output crtc is 0")
+			} else {
+				m.crtcMapMu.Lock()
+				crtcInfo := m.crtcMap[outputInfo.Crtc]
+				m.crtcMapMu.Unlock()
+				if crtcInfo == nil {
+					logger.Warning("crtcInfo is nil")
+				} else {
+					newRect = getCrtcRect(crtcInfo)
+				}
+			}
+			break
+		}
+
+		m.outputMapMu.Unlock()
+	}
+
+	m.PropsMu.Lock()
+	m.setPropPrimary(newPrimary)
+	m.setPropPrimaryRect(newRect)
+	m.PropsMu.Unlock()
+
+	logger.Debugf("updateOutputPrimary name: %q, rect: %#v", newPrimary, newRect)
+}
+
+func (m *Manager) setPrimary(name string) error {
+	switch m.DisplayMode {
+	case DisplayModeMirror:
+		return errors.New("not allow set primary in mirror mode")
+
+	case DisplayModeOnlyOne:
+		return m.switchModeOnlyOne(name)
+
+	case DisplayModeExtend, DisplayModeCustom:
+		screenCfg := m.getScreenConfig()
+		configs := screenCfg.getMonitorConfigs(m.DisplayMode, m.CurrentCustomId)
+
+		var monitor0 *Monitor
+		for _, monitor := range m.monitorMap {
+			if monitor.Name != name {
+				continue
+			}
+
+			if !monitor.Connected {
+				return errors.New("monitor is not connected")
+			}
+
+			monitor0 = monitor
+			break
+		}
+
+		if monitor0 == nil {
+			return errors.New("not found monitor")
+		}
+
+		if len(configs) == 0 {
+			if m.DisplayMode == DisplayModeCustom {
+				return errors.New("custom mode configs is empty")
+			}
+			configs = toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name)
+		} else {
+			// modify configs
+			updateMonitorConfigsName(configs, m.monitorMap)
+			setMonitorConfigsPrimary(configs, monitor0.uuid)
+		}
+
+		err := m.setOutputPrimary(randr.Output(monitor0.ID))
+		if err != nil {
+			return err
+		}
+
+		screenCfg.setMonitorConfigs(m.DisplayMode, m.CurrentCustomId, configs)
+
+		err = m.config.save(configFile)
+		if err != nil {
+			return err
+		}
+
+	default:
+		return fmt.Errorf("invalid display mode %v", m.DisplayMode)
+	}
+	return nil
+}
+
+func (m *Manager) switchModeExtend() (err error) {
+	logger.Debug("switch mode extend")
+	var monitors []*Monitor
+	for _, monitor := range m.monitorMap {
+		monitors = append(monitors, monitor)
+	}
+	sortMonitorsByID(monitors)
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
+
+	var xOffset int
+	var monitor0 *Monitor
+	for _, monitor := range monitors {
+		if monitor.Connected {
+			monitor.enable(true)
+
+			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			var mode ModeInfo
+			if cfg != nil {
+				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+				if monitor0 == nil && cfg.Primary {
+					monitor0 = monitor
+				}
+
+			} else {
+				mode = monitor.BestMode
+			}
+
+			monitor.setMode(mode)
+
+			if xOffset > math.MaxInt16 {
+				xOffset = math.MaxInt16
+			}
+			monitor.setPosition(int16(xOffset), 0)
+			monitor.setRotation(randr.RotationRotate0)
+			monitor.setReflect(0)
+
+			xOffset += int(monitor.Width)
+		} else {
+			monitor.enable(false)
+		}
+	}
+
+	if monitor0 == nil {
+		monitor0 = getMinIDMonitor(m.getConnectedMonitors())
+	}
+
+	err = m.applyMonitorsConfig()
+	if err != nil {
+		return
+	}
+
+	if monitor0 != nil {
+		err = m.setOutputPrimary(randr.Output(monitor0.ID))
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (m *Manager) getScreenConfig() *ScreenConfig {
+	id := getMonitorsId(m.monitorMap)
+	screenCfg := m.config[id]
+	if screenCfg == nil {
+		screenCfg = &ScreenConfig{}
+		m.config[id] = screenCfg
+	}
+	return screenCfg
+}
+
+func (m *Manager) switchModeOnlyOne(name string) (err error) {
+	logger.Debug("switch mode only one", name)
+
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeOnlyOne, "")
+
+	var monitor0 *Monitor
+	var needSaveCfg bool
+	if name != "" {
+		needSaveCfg = true
+		for _, monitor := range m.monitorMap {
+			if monitor.Name == name {
+				monitor0 = monitor
+
+				if !monitor.Connected {
+					err = errors.New("monitor is not connected")
+					return
+				}
+
+				break
+			}
+		}
+		if monitor0 == nil {
+			err = errors.New("not found monitor")
+			return
+		}
+	} else {
+		var enableUuid string
+		for _, cfg := range configs {
+			if cfg.Enabled {
+				enableUuid = cfg.UUID
+				break
+			}
+		}
+		if enableUuid != "" {
+			for _, monitor := range m.monitorMap {
+				if monitor.uuid == enableUuid {
+					monitor0 = monitor
+					break
+				}
+			}
+		}
+
+		if monitor0 == nil {
+			needSaveCfg = true
+			monitor0 = getMinIDMonitor(m.getConnectedMonitors())
+		}
+
+	}
+	if monitor0 == nil {
+		err = errors.New("monitor0 is nil")
+		return
+	}
+
+	for _, monitor := range m.monitorMap {
+		if monitor.uuid == monitor0.uuid {
+			monitor.enable(true)
+			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			var mode ModeInfo
+			var rotation uint16 = randr.RotationRotate0
+			var reflect uint16
+			if cfg != nil {
+				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+				rotation = cfg.Rotation
+				reflect = cfg.Reflect
+			} else {
+				mode = monitor.BestMode
+			}
+
+			monitor.setMode(mode)
+			monitor.setPosition(0, 0)
+			monitor.setRotation(rotation)
+			monitor.setReflect(reflect)
+
+		} else {
+			monitor.enable(false)
+		}
+	}
+
+	err = m.applyMonitorsConfig()
+	if err != nil {
+		return
+	}
+
+	// set primary output
+	err = m.setOutputPrimary(randr.Output(monitor0.ID))
+	if err != nil {
+		return
+	}
+
+	if needSaveCfg {
+		screenCfg.setMonitorConfigs(DisplayModeOnlyOne, "",
+			toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
+
+		logger.Debug("call config.save")
+		err = m.config.save(configFile)
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func (m *Manager) switchModeCustom(name string) (err error) {
+	logger.Debug("switch mode custom", name)
+	if name == "" {
+		err = errors.New("name is empty")
+		return
+	}
+
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
+	if len(configs) > 0 {
+		err = m.applyMonitorConfigs(configs)
+		return
+	}
+
+	err = m.switchModeExtend()
+	if err != nil {
+		return
+	}
+
+	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
+		toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
+
+	err = m.config.save(configFile)
+	if err != nil {
+		return
+	}
+	m.setPropCustomIdList(m.getCustomIdList())
+	return
+}
+
+func (m *Manager) switchMode(mode byte, name string) (err error) {
+	switch mode {
+	case DisplayModeMirror:
+		err = m.switchModeMirror()
+	case DisplayModeExtend:
+		err = m.switchModeExtend()
+	case DisplayModeOnlyOne:
+		err = m.switchModeOnlyOne(name)
+	case DisplayModeCustom:
+		err = m.switchModeCustom(name)
+		if err == nil {
+			m.setCurrentCustomId(name)
+		}
+	default:
+		err = errors.New("invalid mode")
+	}
+
+	if err == nil {
+		m.setDisplayMode(mode)
+	} else {
+		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
+	}
+	return
+}
+
+func (m *Manager) setDisplayMode(mode byte) {
+	m.setPropDisplayMode(mode)
+	m.settings.SetEnum(gsKeyDisplayMode, int32(mode))
+}
+
+func (m *Manager) save() (err error) {
+	logger.Debug("save")
+	id := getMonitorsId(m.monitorMap)
+	if id == "" {
+		err = errors.New("no output connected")
+		return
+	}
+
+	screenCfg := m.config[id]
+	if screenCfg == nil {
+		screenCfg = &ScreenConfig{}
+		m.config[id] = screenCfg
+	}
+	monitors := m.getConnectedMonitors()
+
+	if len(monitors) == 1 {
+		screenCfg.Single = monitors[0].toConfig()
+	} else {
+		screenCfg.setMonitorConfigs(m.DisplayMode, m.CurrentCustomId,
+			toMonitorConfigs(monitors, m.Primary))
+	}
+
+	err = m.config.save(configFile)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	m.markClean()
+	return nil
+}
+
+func (m *Manager) markClean() {
+	m.monitorMapMu.Lock()
+	for _, monitor := range m.monitorMap {
+		monitor.backup = nil
+	}
+	m.monitorMapMu.Unlock()
+
+	m.PropsMu.Lock()
+	m.setPropHasChanged(false)
+	m.PropsMu.Unlock()
+}
+
+func (m *Manager) getConnectedMonitors() []*Monitor {
+	m.monitorMapMu.Lock()
+	var monitors []*Monitor
+	for _, monitor := range m.monitorMap {
+		if monitor.Connected {
+			monitors = append(monitors, monitor)
+		}
+	}
+	m.monitorMapMu.Unlock()
+	return monitors
+}
+
+func (m *Manager) setCurrentCustomId(name string) {
+	m.setPropCurrentCustomId(name)
+	m.settings.SetString(gsKeyCustomMode, name)
+}
+
+func (m *Manager) applyMonitorConfigs(configs []*MonitorConfig) error {
+	var primaryOutput randr.Output
+	for output, monitor := range m.monitorMap {
+		monitorCfg := getMonitorConfigByUuid(configs, monitor.uuid)
+		if monitorCfg == nil {
+			monitor.enable(false)
+		} else {
+			if monitorCfg.Primary && monitorCfg.Enabled {
+				primaryOutput = output
+			}
+			monitor.enable(monitorCfg.Enabled)
+			monitor.setPosition(monitorCfg.X, monitorCfg.Y)
+			monitor.setRotation(monitorCfg.Rotation)
+			monitor.setReflect(monitorCfg.Reflect)
+			mode := monitor.selectMode(monitorCfg.Width, monitorCfg.Height, monitorCfg.RefreshRate)
+			monitor.setMode(mode)
+		}
+	}
+	err := m.applyMonitorsConfig()
+	if err != nil {
+		return err
+	}
+	if primaryOutput == 0 {
+		primaryOutput = randr.Output(getMinIDMonitor(m.getConnectedMonitors()).ID)
+		// TODO get enabled monitor
+	}
+	err = m.setOutputPrimary(primaryOutput)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) getCustomIdList() []string {
+	id := getMonitorsId(m.monitorMap)
+
+	screenCfg := m.config[id]
+	if screenCfg == nil {
+		return nil
+	}
+
+	result := make([]string, len(screenCfg.Custom))
+	for idx, custom := range screenCfg.Custom {
+		result[idx] = custom.Name
+	}
+	sort.Strings(result)
+	return result
+}
+
+func getMonitorsId(monitorMap map[randr.Output]*Monitor) string {
+	var ids []string
+	for _, monitor := range monitorMap {
+		if !monitor.Connected {
+			continue
+		}
+		ids = append(ids, monitor.uuid)
+	}
+	if len(ids) == 0 {
+		return ""
+	}
+	sort.Strings(ids)
+	return strings.Join(ids, monitorsIdDelimiter)
+}
+
+func (m *Manager) updatePropMonitors() {
+	monitors := m.getConnectedMonitors()
+	sort.Slice(monitors, func(i, j int) bool {
+		return monitors[i].ID < monitors[j].ID
+	})
+	paths := make([]dbus.ObjectPath, len(monitors))
+	for i, monitor := range monitors {
+		paths[i] = monitor.getPath()
+	}
+	m.setPropMonitors(paths)
+}
+
+func (m *Manager) modifyConfigName(name, newName string) (err error) {
+	if name == "" || newName == "" {
+		err = errors.New("name is empty")
+		return
+	}
+
+	id := getMonitorsId(m.monitorMap)
+	if id == "" {
+		err = errors.New("no output connected")
+		return
+	}
+
+	screenCfg := m.config[id]
+	if screenCfg == nil {
+		err = errors.New("not found screen config")
+		return
+	}
+
+	var customConfig *CustomModeConfig
+	for _, custom := range screenCfg.Custom {
+		if custom.Name == name {
+			customConfig = custom
+			break
+		}
+	}
+	if customConfig == nil {
+		err = fmt.Errorf("not found custom mode config %q", name)
+		return
+	}
+	if name == newName {
+		return nil
+	}
+
+	for _, custom := range screenCfg.Custom {
+		if custom.Name == newName {
+			err = fmt.Errorf("same name config %q already exists", newName)
+			return
+		}
+	}
+
+	customConfig.Name = newName
+	m.setPropCustomIdList(m.getCustomIdList())
+	if name == m.CurrentCustomId {
+		m.setCurrentCustomId(newName)
+	}
+
+	err = m.config.save(configFile)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	return nil
+}
+
+func (m *Manager) deleteCustomMode(name string) (err error) {
+	logger.Debugf("deleteCustomMode %q", name)
+	if name == "" {
+		err = errors.New("name is empty")
+		return
+	}
+
+	id := getMonitorsId(m.monitorMap)
+	if id == "" {
+		err = errors.New("no output connected")
+		return
+	}
+
+	if m.isCustomModeBeingUsed(name) {
+		err = errors.New("the custom mode is being used")
+		return
+	}
+
+	screenCfg := m.config[id]
+	if screenCfg == nil {
+		err = errors.New("not found screen config")
+		return
+	}
+
+	var customConfigs []*CustomModeConfig
+	foundName := false
+	for _, custom := range screenCfg.Custom {
+		if custom.Name == name {
+			foundName = true
+		} else {
+			customConfigs = append(customConfigs, custom)
+		}
+	}
+
+	if !foundName {
+		logger.Warning("not found custom mode config:", name)
+		// not found
+		return nil
+	}
+
+	screenCfg.Custom = customConfigs
+
+	if m.CurrentCustomId == name {
+		m.setCurrentCustomId("")
+	}
+
+	m.setPropCustomIdList(m.getCustomIdList())
+	err = m.config.save(configFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *Manager) isCustomModeBeingUsed(name string) bool {
+	return m.DisplayMode == DisplayModeCustom &&
+		m.CurrentCustomId == name
+}
+
+func (m *Manager) getScreenSize() (sw, sh uint16) {
+	var w, h int
+	for _, monitor := range m.monitorMap {
+		if !monitor.Connected || !monitor.Enabled {
+			continue
+		}
+
+		width := monitor.CurrentMode.Width
+		height := monitor.CurrentMode.Height
+
+		if needSwapWidthHeight(monitor.Rotation) {
+			width, height = height, width
+		}
+
+		w1 := int(monitor.X) + int(width)
+		h1 := int(monitor.Y) + int(height)
+
+		if w < w1 {
+			w = w1
+		}
+		if h < h1 {
+			h = h1
+		}
+	}
+	if w > math.MaxUint16 {
+		w = math.MaxUint16
+	}
+	if h > math.MaxUint16 {
+		h = math.MaxUint16
+	}
+	sw = uint16(w)
+	sh = uint16(h)
+	return
+}
+
+func (m *Manager) initTouchMap() {
+	value := m.settings.GetString(gsKeyMapOutput)
+	if len(value) == 0 {
+		m.TouchMap = make(map[string]string)
+		m.setPropTouchMap(m.TouchMap)
+		return
+	}
+
+	err := jsonUnmarshal(value, &m.TouchMap)
 	if err != nil {
 		logger.Warningf("[initTouchMap] unmarshal (%s) failed: %v",
 			value, err)
 		return
 	}
 
-	for touch, output := range dpy.TouchMap {
-		dpy.doSetTouchMap(touch, output)
+	for touch, output := range m.TouchMap {
+		m.doSetTouchMap(touch, output)
 	}
-	dpy.setPropTouchMap(dpy.TouchMap)
+	m.setPropTouchMap(m.TouchMap)
 }
 
-func (dpy *Manager) doSetTouchMap(output, touch string) error {
-	info := dpy.outputInfos.QueryByName(output)
-	if len(info.Name) == 0 {
+func (m *Manager) doSetTouchMap(output, touch string) error {
+	// TODO
+	monitors := m.getConnectedMonitors()
+	found := false
+	for _, monitor := range monitors {
+		if monitor.Name == output {
+			found = true
+			break
+		}
+	}
+	if !found {
 		return fmt.Errorf("Invalid output name: %s", output)
 	}
 
@@ -285,613 +1418,19 @@ func (dpy *Manager) doSetTouchMap(output, touch string) error {
 	return doAction(fmt.Sprintf("xinput --map-to-output %s %s", touch, output))
 }
 
-func (dpy *Manager) switchToMirror() error {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	connected, err := dpy.multiOutputCheck()
-	if err != nil {
-		return err
-	}
-
-	modes := connected.FoundCommonModes()
-	if len(modes) == 0 {
-		return fmt.Errorf("Not found common mode")
-	}
-
-	cmd := "xrandr "
-	primary := connected[0].Name
-	for _, m := range connected {
-		m.cfg.Enabled = true
-		m.doEnable(true)
-		m.cfg.X = 0
-		m.cfg.Y = 0
-		m.doSetPosition(0, 0)
-		m.cfg.Rotation = 1
-		m.doSetRotation(1)
-		m.cfg.Reflect = 0
-		m.doSetReflect(0)
-		mode := m.Modes.QueryBySize(modes[0].Width, modes[0].Height)[0]
-		m.cfg.Width = mode.Width
-		m.cfg.Height = mode.Height
-		m.cfg.RefreshRate = mode.Rate
-		m.doSetMode(mode.Id)
-		cmd += m.generateCommandline(primary, false)
-	}
-
-	err = doAction(cmd)
-	if err != nil {
-		logger.Errorf("[switchToMirror] apply (%s) failed: %v", cmd, err)
-		return err
-	}
-	return dpy.doSetPrimary(primary, true, true)
-}
-
-func (dpy *Manager) switchToExtend() error {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	return dpy.doSwitchToExtend()
-}
-
-func (dpy *Manager) doSwitchToExtend() error {
-	connected := dpy.Monitors.listConnected()
-	if len(connected) == 0 {
+func (dpy *Manager) associateTouch(outputName, touch string) error {
+	if dpy.TouchMap[touch] == outputName {
 		return nil
 	}
 
-	var (
-		startx int16 = 0
-		cmd          = "xrandr "
-	)
-	primary := connected[0].Name
-	for _, m := range connected {
-		m.cfg.Enabled = true
-		m.doEnable(true)
-		m.cfg.X = startx
-		m.cfg.Y = 0
-		m.doSetPosition(startx, 0)
-		m.cfg.Rotation = 1
-		m.doSetRotation(1)
-		m.cfg.Reflect = 0
-		m.doSetReflect(0)
-		m.cfg.Width = m.BestMode.Width
-		m.cfg.Height = m.BestMode.Height
-		m.cfg.RefreshRate = m.BestMode.Rate
-		m.doSetMode(m.BestMode.Id)
-		cmd += m.generateCommandline(primary, false)
-		startx += int16(m.Width)
-	}
-	err := doAction(cmd)
+	err := dpy.doSetTouchMap(outputName, touch)
 	if err != nil {
-		logger.Errorf("[switchToExtend] apply (%s) failed: %v", cmd, err)
+		logger.Warning("[AssociateTouch] set failed:", err)
 		return err
 	}
-	return dpy.doSetPrimary(primary, true, true)
-}
 
-func (dpy *Manager) switchToOnlyOne(name string) error {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	connected, err := dpy.multiOutputCheck()
-	if err != nil {
-		return nil
-	}
-
-	if m := connected.getByName(name); m == nil {
-		return fmt.Errorf("Not found this output")
-	}
-
-	cmd := "xrandr "
-	for _, m := range connected {
-		if m.Name != name {
-			m.cfg.Enabled = false
-			m.doEnable(false)
-		} else {
-			m.cfg.Enabled = true
-			m.doEnable(true)
-			m.cfg.X = 0
-			m.cfg.Y = 0
-			m.doSetPosition(0, 0)
-			m.cfg.Rotation = 1
-			m.doSetRotation(1)
-			m.cfg.Reflect = 0
-			m.doSetReflect(0)
-			m.cfg.Width = m.BestMode.Width
-			m.cfg.Height = m.BestMode.Height
-			m.cfg.RefreshRate = m.BestMode.Rate
-			m.doSetMode(m.BestMode.Id)
-		}
-		cmd += m.generateCommandline(name, false)
-	}
-	err = doAction(cmd)
-	if err != nil {
-		logger.Errorf("[switchToOnlyOne] apply (%s) failed: %v", cmd, err)
-		return err
-	}
-	return dpy.doSetPrimary(name, true, true)
-}
-
-func (dpy *Manager) switchToCustom(name string) error {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	// firstly find the matched config,
-	// then update monitors from config, finally apply these config.
-	id := dpy.Monitors.getMonitorsId()
-	logger.Debug("---------[switchToCustom] now id:", id)
-	if len(id) == 0 {
-		return fmt.Errorf("No output connected")
-	}
-	id = name + customModeDelim + id
-	cMonitor := dpy.config.get(id)
-	logger.Debug("----------[switchToCustom] config manager:", dpy.config.String())
-	if cMonitor == nil {
-		if dpy.DisplayMode != DisplayModeMirror {
-			dpy.doSwitchToExtend()
-		}
-		dpy.config.set(id, &configMonitor{
-			Name:      name,
-			Primary:   dpy.Primary,
-			BaseInfos: dpy.Monitors.getBaseInfos(),
-		})
-		dpy.setPropCustomIdList(dpy.getCustomIdList())
-		dpy.syncCurrentCustomId(name)
-		return dpy.config.writeFile()
-	}
-	err := dpy.applyConfigSettings(cMonitor)
-	if err == nil {
-		dpy.syncCurrentCustomId(name)
-	}
-	return err
-}
-
-func (dpy *Manager) tryApplyConfig() error {
-	outputLen := len(dpy.outputInfos)
-	if outputLen != 1 && dpy.DisplayMode != DisplayModeCustom {
-		// if multi-output and not custom mode, switch to the special mode
-		primary := dpy.Primary
-		if dpy.DisplayMode == DisplayModeOnlyOne {
-			name := dpy.setting.GetString(gsKeyPrimary)
-			if name != "" {
-				primary = name
-			}
-		}
-		logger.Info("-----------[tryApplyConfig] will switch to mode:", dpy.DisplayMode, primary)
-		return dpy.SwitchMode(dpy.DisplayMode, primary)
-	}
-
-	id := dpy.Monitors.getMonitorsId()
-	if outputLen != 1 && dpy.DisplayMode == DisplayModeCustom {
-		id = dpy.CurrentCustomId + customModeDelim + id
-	}
-	cMonitor := dpy.config.get(id)
-	if cMonitor == nil {
-		// no config found, switch to extend mode
-		if outputLen == 1 {
-			return dpy.switchToExtend()
-		}
-		return dpy.SwitchMode(DisplayModeExtend, "")
-	}
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	err := dpy.applyConfigSettings(cMonitor)
-	if err == nil {
-		dpy.setPropCustomIdList(dpy.getCustomIdList())
-		if cMonitor.Name != "" {
-			dpy.syncCurrentCustomId(cMonitor.Name)
-		}
-	}
-	return err
-}
-
-func (dpy *Manager) applyConfigSettings(cMonitor *configMonitor) error {
-	var corrected bool = false
-	logger.Debugf("============[applyConfigSettings] config: %s", cMonitor.String())
-	logger.Debugf("============[applyConfigSettings] monitors: %s", dpy.Monitors.getMonitorsId())
-	for _, info := range cMonitor.BaseInfos {
-		m := dpy.Monitors.get(info.UUID)
-		if m == nil {
-			logger.Errorf("Config has invalid info: %#v", info)
-			continue
-		}
-
-		// Sometime output name changed after driver updated
-		// so modified
-		if m.Name != info.Name {
-			corrected = true
-			if cMonitor.Primary == info.Name {
-				cMonitor.Primary = m.Name
-			}
-			info.Name = m.Name
-		}
-		dpy.updateMonitorFromBaseInfo(m, info)
-		m.doEnable(true)
-	}
-	if corrected {
-		dpy.config.writeFile()
-	}
-	err := dpy.doApply(cMonitor.Primary, false)
-	if err != nil {
-		return err
-	}
-	dpy.rotateInputDevices()
-	dpy.doSetPrimary(cMonitor.Primary, true, true)
+	dpy.TouchMap[touch] = outputName
+	dpy.setPropTouchMap(dpy.TouchMap)
+	dpy.settings.SetString(gsKeyMapOutput, jsonMarshal(dpy.TouchMap))
 	return nil
-}
-
-func (dpy *Manager) doSetPrimary(name string, effectRect, useConfig bool) error {
-	m := dpy.Monitors.canBePrimary(name)
-	if m != nil {
-		dpy.setPropPrimary(name)
-		if effectRect {
-			var (
-				X int16
-				y int16
-				w uint16
-				h uint16
-			)
-
-			if useConfig {
-				X = m.cfg.X
-				y = m.cfg.Y
-				w, h = parseModeByRotation(m.cfg.Width, m.cfg.Height, m.cfg.Rotation)
-				logger.Debug("------------Config rect:", X, y, w, h, m.cfg.Rotation)
-			} else {
-				X = m.X
-				y = m.Y
-				w, h = m.Width, m.Height
-				logger.Debug("------------Monitor rect:", X, y, w, h, m.Rotation)
-			}
-			dpy.setPropPrimaryRect(x.Rectangle{
-				X:      X,
-				Y:      y,
-				Width:  w,
-				Height: h,
-			})
-		}
-		return nil
-	}
-
-	// try set a primary from monitors
-	logger.Error("Invalid output name:", name)
-	return fmt.Errorf("Not found the monitor for %s, maybe closed or disconnected",
-		name)
-}
-
-func (dpy *Manager) trySetPrimary(effectRect bool) error {
-	// check the current primary validity
-	if m := dpy.Monitors.canBePrimary(dpy.Primary); m != nil {
-		logger.Warningf("The current primary '%s' wouldn't be changed", dpy.Primary)
-		return nil
-	}
-
-	for _, m := range dpy.Monitors {
-		if !m.Connected || !m.Enabled {
-			continue
-		}
-		dpy.setPropPrimary(m.Name)
-		if effectRect {
-			dpy.setPropPrimaryRect(x.Rectangle{
-				X:      m.X,
-				Y:      m.Y,
-				Width:  m.Width,
-				Height: m.Height,
-			})
-		}
-	}
-	logger.Error("Can't find any valid monitor")
-	return fmt.Errorf("No valid monitor was found")
-}
-
-func (dpy *Manager) updateMonitors() {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-	// Not rebuild monitor object, just update it.
-	// If disconnection, mark it.
-	for _, m := range dpy.allMonitors {
-		err := dpy.updateMonitor(m)
-		if err != nil {
-			m.setPropConnected(false)
-		} else {
-			m.setPropConnected(true)
-		}
-	}
-
-	savedBrTable, err := dpy.getSavedBrightnessTable()
-	if err != nil {
-		logger.Warning(err)
-	}
-
-	for _, oinfo := range dpy.outputInfos {
-		m, err := dpy.outputToMonitorInfo(oinfo)
-		if err != nil {
-			logger.Debug("[updateMonitors] Error:", err)
-			continue
-		}
-
-		dpy.brightnessMutex.Lock()
-		_, ok := dpy.Brightness[m.Name]
-		if !ok {
-			v, ok := savedBrTable[m.Name]
-			if !ok {
-				v = 1
-			}
-			err = dpy.doSetBrightness(v, m.Name)
-			if err != nil {
-				logger.Warning(err)
-			}
-		}
-		dpy.brightnessMutex.Unlock()
-
-		err = dbus.InstallOnSession(m)
-		if err != nil {
-			logger.Errorf("Install dbus for '%#v' failed: %v",
-				oinfo, err)
-			continue
-		}
-		logger.Info("[updateMonitors] add monitor:", m.Name, m.X, m.Y, m.Width, m.Height)
-		dpy.allMonitors = append(dpy.allMonitors, m)
-	}
-	dpy.sortMonitors()
-	dpy.setPropMonitors(dpy.allMonitors.listConnected())
-}
-
-func (dpy *Manager) outputToMonitorInfo(output drandr.OutputInfo) (*MonitorInfo, error) {
-	id := dpy.sumOutputUUID(output)
-	// check output whether exists
-	m := dpy.allMonitors.get(id)
-	if m != nil && m.ID == output.Id {
-		return nil, fmt.Errorf("output '%s' has exist in monitors", output.Name)
-	}
-
-	base := toMonitorBaseInfo(output, id)
-	modes := dpy.getModesByIds(output.Modes)
-	var info = MonitorInfo{
-		ID:             output.Id,
-		cfg:            &base,
-		Name:           base.Name,
-		Enabled:        base.Enabled,
-		Connected:      true,
-		X:              base.X,
-		Y:              base.Y,
-		Width:          base.Width,
-		Height:         base.Height,
-		MmWidth:        base.MmWidth,
-		MmHeight:       base.MmHeight,
-		Rotation:       base.Rotation,
-		Reflect:        base.Reflect,
-		RefreshRate:    base.RefreshRate,
-		Rotations:      output.Crtc.Rotations,
-		Reflects:       output.Crtc.Reflects,
-		Modes:          modes,
-		PreferredModes: dpy.getModesByIds(output.PreferredModes),
-	}
-	if tmp := modes.QueryBySize(base.Width, base.Height); len(tmp) != 0 {
-		info.CurrentMode = tmp[0]
-	}
-	if len(info.PreferredModes) != 0 {
-		info.BestMode = info.PreferredModes.Max()
-	} else {
-		info.BestMode = info.Modes.Max()
-	}
-	info.RefreshRate = info.CurrentMode.Rate
-	info.Width, info.Height = parseModeByRotation(info.Width, info.Height, info.Rotation)
-
-	// There should be no error occurs
-	// if info.CurrentMode.Width == 0 || info.CurrentMode.Height == 0 {
-	// 	info.CurrentMode = info.BestMode
-	// }
-
-	return &info, nil
-}
-
-func (dpy *Manager) updateMonitor(m *MonitorInfo) error {
-	oinfo := dpy.outputInfos.QueryByName(m.Name)
-	if oinfo.Id == 0 {
-		logger.Warning("Not found output:", m.Name)
-		return fmt.Errorf("Invalid output name: %s", m.Name)
-	}
-
-	m.locker.Lock()
-	defer m.locker.Unlock()
-	// EDID maybe changed because some reasons, but the display device not changed.
-	id := dpy.sumOutputUUID(oinfo)
-	if id != m.cfg.UUID {
-		m.cfg.UUID = id
-	}
-	m.setPropModes(dpy.getModesByIds(oinfo.Modes))
-	logger.Debugf("[updateMonitor] id: %s, crtc info: %#v", m.cfg.UUID, oinfo.Crtc)
-	if oinfo.Crtc.Id == 0 {
-		m.doEnable(false)
-	} else {
-		m.doEnable(true)
-		m.setPropRotations(oinfo.Crtc.Rotations)
-		m.setPropReflects(oinfo.Crtc.Reflects)
-		m.setPropPreferredModes(dpy.getModesByIds(oinfo.PreferredModes))
-		if len(m.PreferredModes) != 0 {
-			m.setPropBestMode(m.PreferredModes.Max())
-		} else {
-			m.setPropBestMode(m.Modes.Max())
-		}
-		m.doSetRotation(oinfo.Crtc.Rotation)
-		m.doSetReflect(oinfo.Crtc.Reflect)
-		// change mode should after change rotation
-		m.doSetPosition(oinfo.Crtc.X, oinfo.Crtc.Y)
-		err := m.doSetMode(oinfo.Crtc.Mode)
-		if err != nil {
-			logger.Warningf("[updateMonitor] Set mode '%v' failed: %v", oinfo.Crtc.Mode, err)
-			w, h := parseModeByRotation(oinfo.Crtc.Width, oinfo.Crtc.Height, m.Rotation)
-			m.doSetModeBySize(w, h)
-		}
-	}
-	return nil
-}
-
-func (dpy *Manager) updateMonitorFromBaseInfo(m *MonitorInfo, base *MonitorBaseInfo) error {
-	m.locker.Lock()
-	defer m.locker.Unlock()
-	oinfo := dpy.outputInfos.QueryByName(m.Name)
-	if oinfo.Id == 0 {
-		logger.Warning("Not found output:", m.Name)
-		return fmt.Errorf("Invalid output name: %s", m.Name)
-	}
-
-	logger.Debugf("Monitor: %s, base: %s", m.Name, base)
-	m.cfg = base.Duplicate()
-	return nil
-}
-
-var numReg = regexp.MustCompile(`-?[0-9]`)
-
-func (dpy *Manager) sumOutputUUID(output drandr.OutputInfo) string {
-	if len(output.EDID) < 128 {
-		return output.Name
-	}
-
-	id, _ := utils.SumStrMd5(string(output.EDID[:128]))
-	if id == "" {
-		return output.Name
-	}
-	return numReg.ReplaceAllString(output.Name, "") + id
-}
-
-func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
-	var modes drandr.ModeInfos
-	for _, v := range ids {
-		mode := dpy.modeInfos.Query(v)
-		if mode.Width == 0 || mode.Height == 0 {
-			logger.Warning("[getModesByIds] Invalid mode id:", v)
-			continue
-		}
-		// handle different rate but some width/height mode
-		//if matches := modes.QueryBySize(mode.Width, mode.Height); len(matches) != 0 {
-		//continue
-		//}
-		modes = append(modes, mode)
-	}
-	return modes
-}
-
-func (dpy *Manager) detectHasChanged() {
-	// Comment out the two following lines, because of deadlock. But why?
-	// monitorsLocker.Lock()
-	// defer monitorsLocker.Unlock()
-	if len(dpy.outputInfos) != 1 && dpy.DisplayMode != DisplayModeCustom {
-		// if multi-output and not custom mode, nothing
-		dpy.setPropHasChanged(false)
-		return
-	}
-
-	for _, m := range dpy.Monitors {
-		if !dpy.isMonitorChanged(m) {
-			continue
-		}
-		dpy.setPropHasChanged(true)
-		break
-	}
-}
-
-func (dpy *Manager) rotateInputDevices() {
-	connected := dpy.Monitors
-	if len(connected) == 0 {
-		return
-	}
-
-	if !connected.isRotation() {
-		return
-	}
-	rotateInputDevices(connected[0].cfg.Rotation)
-}
-
-func (dpy *Manager) multiOutputCheck() (MonitorInfos, error) {
-	connected := dpy.Monitors
-	if len(connected) == 0 {
-		return nil, fmt.Errorf("No connected output found")
-	}
-
-	if len(connected) < 2 {
-		return nil, fmt.Errorf("Only one output")
-	}
-	return connected, nil
-}
-
-func (dpy *Manager) isMonitorChanged(m *MonitorInfo) bool {
-	// m.locker.Lock()
-	// defer m.locker.Unlock()
-	if !m.Connected {
-		return false
-	}
-
-	oinfo := dpy.outputInfos.QueryByName(m.Name)
-	return (oinfo.Connection != m.Enabled) || (oinfo.Crtc.Mode != m.CurrentMode.Id) ||
-		(oinfo.Crtc.X != m.X) || (oinfo.Crtc.Y != m.Y) ||
-		(oinfo.Crtc.Rotation != m.Rotation) || (oinfo.Crtc.Reflect != m.Reflect)
-}
-
-func (dpy *Manager) fixOutputNotClosed(outputId randr.Output) {
-	if len(dpy.outputInfos) == 0 {
-		return
-	}
-	for _, info := range dpy.outputInfos {
-		if info.Id == uint32(outputId) {
-			return
-		}
-	}
-	dpy.doApply(dpy.Primary, true)
-}
-
-func (dpy *Manager) doApply(primary string, auto bool) error {
-	return doAction(dpy.Monitors.genCommandline(primary, auto))
-}
-
-func (dpy *Manager) updateScreenSize() {
-	monitorsLocker.Lock()
-	defer monitorsLocker.Unlock()
-
-	w, h := uint16(0), uint16(0)
-	for _, monitor := range dpy.Monitors {
-		if !monitor.Connected || !monitor.Enabled {
-			continue
-		}
-
-		t1 := uint16(monitor.X) + monitor.Width
-		t2 := uint16(monitor.Y) + monitor.Height
-		if w < t1 {
-			w = t1
-		}
-		if h < t2 {
-			h = t2
-
-		}
-	}
-	dpy.setPropScreenSize(w, h)
-}
-
-func (dpy *Manager) isIdDeletable(id string) bool {
-	if dpy.DisplayMode != DisplayModeCustom {
-		return true
-	}
-	return dpy.CurrentCustomId != id
-}
-
-func (dpy *Manager) syncCurrentCustomId(id string) {
-	dpy.setPropCurrentCustomId(id)
-	dpy.setting.SetString(gsKeyCustomMode, id)
-}
-
-func (dpy *Manager) getCustomIdList() []string {
-	id := dpy.Monitors.getMonitorsId()
-	set := dpy.config.getIdList()
-	logger.Debug("~~~~~~~~~[getCustomIdList] id:", id)
-	logger.Debug("---------[getCustomIdList] set:", set)
-	var result []string
-	for k, v := range set {
-		if v == "" {
-			continue
-		}
-		cfgKey := parseConfigKey(k)
-		if cfgKey.matchMonitorsId(id) {
-			result = append(result, v)
-		}
-	}
-	sort.Strings(result)
-	return result
 }
