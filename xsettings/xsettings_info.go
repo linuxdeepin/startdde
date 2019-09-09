@@ -22,6 +22,7 @@ package xsettings
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -292,6 +293,11 @@ func convertStrToColor(in interface{}) (interface{}, error) {
 			return nil, err
 		}
 		array[idx] = uint16(fieldNum)
+	}
+
+	// 把值从 0~65535 范围内修正为 0~255 范围内
+	for idx, value := range array {
+		array[idx] = uint16((float64(value) / float64(math.MaxUint16)) * float64(math.MaxUint8))
 	}
 	return array, nil
 }
