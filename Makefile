@@ -47,3 +47,6 @@ clean:
 	-rm -f startdde
 
 rebuild: clean build
+
+check_code_quality: prepare
+	env GOPATH="${CURDIR}/${GOBUILD_DIR}:${GOPATH}" go vet ./...
