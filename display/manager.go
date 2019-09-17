@@ -762,9 +762,9 @@ func (dpy *Manager) getModesByIds(ids []uint32) drandr.ModeInfos {
 			continue
 		}
 		// handle different rate but some width/height mode
-		if matches := modes.QueryBySize(mode.Width, mode.Height); len(matches) != 0 {
-			continue
-		}
+		//if matches := modes.QueryBySize(mode.Width, mode.Height); len(matches) != 0 {
+		//continue
+		//}
 		modes = append(modes, mode)
 	}
 	return modes
