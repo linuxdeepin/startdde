@@ -23,7 +23,6 @@ func Start() error {
 	}
 	service := dbusutil.NewService(sessionBus)
 	m := newManager(service)
-
 	m.init()
 	err = service.Export(dbusPath, m)
 	if err != nil {

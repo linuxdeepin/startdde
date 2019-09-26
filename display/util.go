@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -263,4 +264,12 @@ func doAction(cmd string) error {
 func needSwapWidthHeight(rotation uint16) bool {
 	return rotation&randr.RotationRotate90 != 0 ||
 		rotation&randr.RotationRotate270 != 0
+}
+
+func getConfigVersion(filename string) (string, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes.TrimSpace(content)), nil
 }

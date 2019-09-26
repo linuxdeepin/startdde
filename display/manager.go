@@ -3,14 +3,13 @@ package display
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
-
-	"pkg.deepin.io/lib/xdg/basedir"
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -98,8 +97,6 @@ type ModeInfo struct {
 	Rate   float64
 }
 
-var configFile = filepath.Join(basedir.GetUserConfigDir(), "deepin/startdde/display.json")
-
 func getXConn() (*x.Conn, error) {
 	conn, err := x.NewConn()
 	if err != nil {
@@ -161,13 +158,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateOutputPrimary()
 
-	m.config, err = loadConfig(configFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			logger.Warning(err)
-		}
-		m.config = make(Config)
-	}
+	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
 }
@@ -846,7 +837,7 @@ func (m *Manager) setPrimary(name string) error {
 
 		screenCfg.setMonitorConfigs(m.DisplayMode, m.CurrentCustomId, configs)
 
-		err = m.config.save(configFile)
+		err = m.saveConfig()
 		if err != nil {
 			return err
 		}
@@ -1023,8 +1014,7 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		screenCfg.setMonitorConfigs(DisplayModeOnlyOne, "",
 			toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
 
-		logger.Debug("call config.save")
-		err = m.config.save(configFile)
+		err = m.saveConfig()
 		if err != nil {
 			return
 		}
@@ -1055,7 +1045,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
 		toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
 
-	err = m.config.save(configFile)
+	err = m.saveConfig()
 	if err != nil {
 		return
 	}
@@ -1115,10 +1105,9 @@ func (m *Manager) save() (err error) {
 			toMonitorConfigs(monitors, m.Primary))
 	}
 
-	err = m.config.save(configFile)
+	err = m.saveConfig()
 	if err != nil {
-		logger.Warning(err)
-		return
+		return err
 	}
 	m.markClean()
 	return nil
@@ -1275,10 +1264,9 @@ func (m *Manager) modifyConfigName(name, newName string) (err error) {
 		m.setCurrentCustomId(newName)
 	}
 
-	err = m.config.save(configFile)
+	err = m.saveConfig()
 	if err != nil {
-		logger.Warning(err)
-		return
+		return err
 	}
 
 	return nil
@@ -1331,7 +1319,7 @@ func (m *Manager) deleteCustomMode(name string) (err error) {
 	}
 
 	m.setPropCustomIdList(m.getCustomIdList())
-	err = m.config.save(configFile)
+	err = m.saveConfig()
 	if err != nil {
 		return err
 	}
@@ -1418,19 +1406,39 @@ func (m *Manager) doSetTouchMap(output, touch string) error {
 	return doAction(fmt.Sprintf("xinput --map-to-output %s %s", touch, output))
 }
 
-func (dpy *Manager) associateTouch(outputName, touch string) error {
-	if dpy.TouchMap[touch] == outputName {
+func (m *Manager) associateTouch(outputName, touch string) error {
+	if m.TouchMap[touch] == outputName {
 		return nil
 	}
 
-	err := dpy.doSetTouchMap(outputName, touch)
+	err := m.doSetTouchMap(outputName, touch)
 	if err != nil {
 		logger.Warning("[AssociateTouch] set failed:", err)
 		return err
 	}
 
-	dpy.TouchMap[touch] = outputName
-	dpy.setPropTouchMap(dpy.TouchMap)
-	dpy.settings.SetString(gsKeyMapOutput, jsonMarshal(dpy.TouchMap))
+	m.TouchMap[touch] = outputName
+	m.setPropTouchMap(m.TouchMap)
+	m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.TouchMap))
+	return nil
+}
+
+func (m *Manager) saveConfig() error {
+	logger.Debug("save config")
+	dir := filepath.Dir(configFile)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(configVersionFile, []byte(configVersion), 0644)
+	if err != nil {
+		return err
+	}
+
+	err = m.config.save(configFile)
+	if err != nil {
+		return err
+	}
 	return nil
 }

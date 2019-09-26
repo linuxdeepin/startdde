@@ -6,9 +6,24 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
+
+const configVersion = "4.0"
+
+var (
+	configFile        string
+	configVersionFile string
+)
+
+func init() {
+	cfgDir := filepath.Join(basedir.GetUserConfigDir(), "deepin/startdde")
+	configFile = filepath.Join(cfgDir, "display.json")
+	configVersionFile = filepath.Join(cfgDir, "config.version")
+}
 
 type Config map[string]*ScreenConfig
 
@@ -144,12 +159,10 @@ func (s *ScreenConfig) setMonitorConfigs(mode uint8, customName string, configs 
 
 		// new custom
 		if !foundName {
-			s.Custom = []*CustomModeConfig{
-				{
-					Name:     customName,
-					Monitors: configs,
-				},
-			}
+			s.Custom = append(s.Custom, &CustomModeConfig{
+				Name:     customName,
+				Monitors: configs,
+			})
 		}
 
 	case DisplayModeMirror:
@@ -208,7 +221,7 @@ type MonitorConfig struct {
 	Primary     bool
 }
 
-func loadConfig(filename string) (Config, error) {
+func loadConfigV4(filename string) (Config, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -221,6 +234,38 @@ func loadConfig(filename string) (Config, error) {
 	}
 
 	return c, nil
+}
+
+func loadConfig() (config Config) {
+	cfgVer, err := getConfigVersion(configVersionFile)
+	if err == nil {
+		if cfgVer == "3.3" {
+			cfg0, err := loadConfigV3_3(configFile)
+			if err == nil {
+				config = cfg0.toConfig()
+			} else if !os.IsNotExist(err) {
+				logger.Warning(err)
+			}
+		}
+
+	} else if !os.IsNotExist(err) {
+		logger.Warning(err)
+	}
+
+	if len(config) == 0 {
+		config, err = loadConfigV4(configFile)
+		if err != nil {
+			config = make(Config)
+			if !os.IsNotExist(err) {
+				logger.Warning(err)
+			}
+		}
+	}
+
+	if logger.GetLogLevel() == log.LevelDebug {
+		logger.Debug("load config:", spew.Sdump(config))
+	}
+	return
 }
 
 func (c Config) save(filename string) error {
@@ -236,12 +281,6 @@ func (c Config) save(filename string) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	dir := filepath.Dir(filename)
-	err = os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
 	}
 
 	err = ioutil.WriteFile(filename, data, 0644)
