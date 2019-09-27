@@ -455,7 +455,6 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 			return
 		}
 
-		m.updatePropMonitors()
 		return
 	}
 
