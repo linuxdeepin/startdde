@@ -154,6 +154,7 @@ func newManager(service *dbusutil.Service) *Manager {
 			logger.Warning(err)
 		}
 	}
+	m.monitorsId = getMonitorsId(m.monitorMap)
 	m.updatePropMonitors()
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateOutputPrimary()
@@ -189,6 +190,7 @@ func (m *Manager) applyDisplayMode() {
 		if err != nil {
 			logger.Warning(err)
 		}
+		return
 	}
 
 	switch m.DisplayMode {
