@@ -13,7 +13,7 @@ func (m *Manager) ApplyChanges() *dbus.Error {
 	if !m.HasChanged {
 		return nil
 	}
-	err := m.applyMonitorsConfig()
+	err := m.apply()
 	return dbusutil.ToError(err)
 }
 
@@ -26,7 +26,7 @@ func (m *Manager) ResetChanges() *dbus.Error {
 		monitor.resetChanges()
 	}
 
-	err := m.applyMonitorsConfig()
+	err := m.apply()
 	if err != nil {
 		return dbusutil.ToError(err)
 	}

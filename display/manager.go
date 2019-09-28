@@ -180,15 +180,15 @@ func (m *Manager) applyDisplayMode() {
 		// 单屏
 		screenCfg := m.getScreenConfig()
 		if screenCfg.Single != nil {
-			err = m.applyMonitorConfigs([]*MonitorConfig{screenCfg.Single})
+			err = m.applyConfigs([]*MonitorConfig{screenCfg.Single})
 			if err != nil {
 				logger.Warning(err)
 			}
-		}
-
-		err = m.setOutputPrimary(randr.Output(monitors[0].ID))
-		if err != nil {
-			logger.Warning(err)
+		} else {
+			err = m.setOutputPrimary(randr.Output(monitors[0].ID))
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 		return
 	}
@@ -566,7 +566,7 @@ func (m *Manager) switchModeMirror() (err error) {
 		}
 	}
 
-	err = m.applyMonitorsConfig()
+	err = m.apply()
 	if err != nil {
 		return
 	}
@@ -619,8 +619,7 @@ type crtcConfig struct {
 	mode     randr.Mode
 }
 
-// TODO rename this method
-func (m *Manager) applyMonitorsConfig() error {
+func (m *Manager) apply() error {
 	x.GrabServer(m.xConn)
 	defer func() {
 		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
@@ -896,7 +895,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		monitor0 = getMinIDMonitor(m.getConnectedMonitors())
 	}
 
-	err = m.applyMonitorsConfig()
+	err = m.apply()
 	if err != nil {
 		return
 	}
@@ -1008,7 +1007,7 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		}
 	}
 
-	err = m.applyMonitorsConfig()
+	err = m.apply()
 	if err != nil {
 		return
 	}
@@ -1042,7 +1041,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
 	if len(configs) > 0 {
-		err = m.applyMonitorConfigs(configs)
+		err = m.applyConfigs(configs)
 		return
 	}
 
@@ -1155,7 +1154,7 @@ func (m *Manager) setCurrentCustomId(name string) {
 	m.settings.SetString(gsKeyCustomMode, name)
 }
 
-func (m *Manager) applyMonitorConfigs(configs []*MonitorConfig) error {
+func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs, monitor.uuid)
@@ -1169,17 +1168,22 @@ func (m *Manager) applyMonitorConfigs(configs []*MonitorConfig) error {
 			monitor.setPosition(monitorCfg.X, monitorCfg.Y)
 			monitor.setRotation(monitorCfg.Rotation)
 			monitor.setReflect(monitorCfg.Reflect)
-			mode := monitor.selectMode(monitorCfg.Width, monitorCfg.Height, monitorCfg.RefreshRate)
+
+			width := monitorCfg.Width
+			height := monitorCfg.Height
+			if needSwapWidthHeight(monitorCfg.Rotation) {
+				width, height = height, width
+			}
+			mode := monitor.selectMode(width, height, monitorCfg.RefreshRate)
 			monitor.setMode(mode)
 		}
 	}
-	err := m.applyMonitorsConfig()
+	err := m.apply()
 	if err != nil {
 		return err
 	}
 	if primaryOutput == 0 {
 		primaryOutput = randr.Output(getMinIDMonitor(m.getConnectedMonitors()).ID)
-		// TODO get enabled monitor
 	}
 	err = m.setOutputPrimary(primaryOutput)
 	if err != nil {
