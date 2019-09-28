@@ -197,7 +197,7 @@ func (m *Manager) applyDisplayMode() {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend("")
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne("")
 	}
@@ -849,7 +849,7 @@ func (m *Manager) setPrimary(name string) error {
 	return nil
 }
 
-func (m *Manager) switchModeExtend() (err error) {
+func (m *Manager) switchModeExtend(primary string) (err error) {
 	logger.Debug("switch mode extend")
 	var monitors []*Monitor
 	for _, monitor := range m.monitorMap {
@@ -899,6 +899,14 @@ func (m *Manager) switchModeExtend() (err error) {
 	err = m.applyMonitorsConfig()
 	if err != nil {
 		return
+	}
+
+	if primary != "" {
+		for _, m := range monitors {
+			if m.Enabled && m.Name == primary {
+				monitor0 = m
+			}
+		}
 	}
 
 	if monitor0 != nil {
@@ -1038,9 +1046,13 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		return
 	}
 
-	err = m.switchModeExtend()
-	if err != nil {
-		return
+	// 自定义配置不存在时，尽可能使用当前的显示配置，除了“只使用一个屏幕”的情况。
+	// 当只使用一个屏幕，为了开启显示器，切换到扩展模式，以扩展模式初始化自定义配置。
+	if m.DisplayMode == DisplayModeOnlyOne {
+		err = m.switchModeExtend(m.Primary)
+		if err != nil {
+			return
+		}
 	}
 
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
@@ -1059,7 +1071,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend("")
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne(name)
 	case DisplayModeCustom:
