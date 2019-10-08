@@ -28,11 +28,11 @@ func init() {
 type Config map[string]*ScreenConfig
 
 type ScreenConfig struct {
-	Custom  []*CustomModeConfig
-	Mirror  *MirrorModeConfig
-	Extend  *ExtendModeConfig
-	OnlyOne *OnlyOneModeConfig
-	Single  *MonitorConfig
+	Custom  []*CustomModeConfig `json:",omitempty"`
+	Mirror  *MirrorModeConfig   `json:",omitempty"`
+	Extend  *ExtendModeConfig   `json:",omitempty"`
+	OnlyOne *OnlyOneModeConfig  `json:",omitempty"`
+	Single  *MonitorConfig      `json:",omitempty"`
 }
 
 type CustomModeConfig struct {

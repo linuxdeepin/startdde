@@ -84,6 +84,7 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	oldMonitorsId := m.monitorsId
 	newMonitorsId := getMonitorsId(m.monitorMap)
 	if newMonitorsId != oldMonitorsId {
+		logger.Debug("new monitors id:", newMonitorsId)
 		m.applyDisplayMode()
 		m.monitorsId = newMonitorsId
 	}
@@ -138,13 +139,27 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 }
 
 func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
-	logger.Debugf("screen changed cfgTs: %v", ev.ConfigTimestamp)
+	logger.Debugf("screen changed cfgTs: %v, screen size: %vx%v ", ev.ConfigTimestamp,
+		ev.Width, ev.Height)
 
 	m.PropsMu.Lock()
 	m.setPropScreenWidth(ev.Width)
 	m.setPropScreenHeight(ev.Height)
-	m.configTimestamp = ev.ConfigTimestamp
+	cfgTsChanged := false
+	if m.configTimestamp != ev.ConfigTimestamp {
+		m.configTimestamp = ev.ConfigTimestamp
+		cfgTsChanged = true
+	}
 	m.PropsMu.Unlock()
+
+	if cfgTsChanged {
+		logger.Debug("config timestamp changed")
+		resources, err := m.getScreenResourcesCurrent()
+		if err != nil {
+			logger.Warning("failed to get screen resources:", err)
+		}
+		m.modes = resources.Modes
+	}
 
 	m.updateOutputPrimary()
 }

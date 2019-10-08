@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/gir/gio-2.0"
@@ -166,34 +167,35 @@ func newManager(service *dbusutil.Service) *Manager {
 
 func (m *Manager) applyDisplayMode() {
 	logger.Debug("applyDisplayMode")
-	var err error
-	if m.DisplayMode == DisplayModeCustom {
-		err = m.switchModeCustom(m.CurrentCustomId)
-		if err != nil {
-			logger.Warning(err)
-		}
-		return
-	}
-
 	monitors := m.getConnectedMonitors()
+	var err error
 	if len(monitors) == 1 {
 		// 单屏
 		screenCfg := m.getScreenConfig()
+		var config *MonitorConfig
 		if screenCfg.Single != nil {
-			err = m.applyConfigs([]*MonitorConfig{screenCfg.Single})
-			if err != nil {
-				logger.Warning(err)
-			}
+			config = screenCfg.Single
 		} else {
-			err = m.setOutputPrimary(randr.Output(monitors[0].ID))
-			if err != nil {
-				logger.Warning(err)
-			}
+			config = monitors[0].toConfig()
+			config.Enabled = true
+			config.Primary = true
+			mode := monitors[0].BestMode
+			config.Width = mode.Width
+			config.Height = mode.Height
+			config.RefreshRate = mode.Rate
+			config.Rotation = randr.RotationRotate0
+		}
+
+		err = m.applyConfigs([]*MonitorConfig{config})
+		if err != nil {
+			logger.Warning("failed to apply configs:", err)
 		}
 		return
 	}
 
 	switch m.DisplayMode {
+	case DisplayModeCustom:
+		err = m.switchModeCustom(m.CurrentCustomId)
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
@@ -205,7 +207,6 @@ func (m *Manager) applyDisplayMode() {
 	if err != nil {
 		logger.Warning(err)
 	}
-
 }
 
 func (m *Manager) init() {
@@ -271,6 +272,12 @@ func toListedScaleFactor(s float64) float64 {
 func (m *Manager) getScreenResources() (*randr.GetScreenResourcesReply, error) {
 	root := m.xConn.GetDefaultScreen().Root
 	resources, err := randr.GetScreenResources(m.xConn, root).Reply(m.xConn)
+	return resources, err
+}
+
+func (m *Manager) getScreenResourcesCurrent() (*randr.GetScreenResourcesCurrentReply, error) {
+	root := m.xConn.GetDefaultScreen().Root
+	resources, err := randr.GetScreenResourcesCurrent(m.xConn, root).Reply(m.xConn)
 	return resources, err
 }
 
@@ -474,7 +481,18 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 			}
 		}
 	}
+
+	var edid []byte
+	if connected {
+		edid, err = getOutputEDID(m.xConn, output)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+	uuid := getOutputUUID(outputInfo.Name, edid)
+
 	monitor.PropsMu.Lock()
+	monitor.uuid = uuid
 	monitor.crtc = outputInfo.Crtc
 	monitor.setPropConnected(connected)
 	monitor.setPropEnabled(enabled)
@@ -1045,9 +1063,19 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		return
 	}
 
-	// 自定义配置不存在时，尽可能使用当前的显示配置，除了“只使用一个屏幕”的情况。
-	// 当只使用一个屏幕，为了开启显示器，切换到扩展模式，以扩展模式初始化自定义配置。
-	if m.DisplayMode == DisplayModeOnlyOne {
+	// 自定义配置不存在时，尽可能使用当前的显示配置。
+	// hasDisabled 表示是否有连接了但是未启用的屏幕，如果有，为了开启显示器，
+	// 切换到扩展模式，以扩展模式初始化自定义配置。
+	hasDisabled := false
+	monitors := m.getConnectedMonitors()
+	for _, m := range monitors {
+		if !m.Enabled {
+			hasDisabled = true
+			break
+		}
+	}
+
+	if hasDisabled {
 		err = m.switchModeExtend(m.Primary)
 		if err != nil {
 			return
@@ -1155,6 +1183,7 @@ func (m *Manager) setCurrentCustomId(name string) {
 }
 
 func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
+	logger.Debug("applyConfigs", spew.Sdump(configs))
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs, monitor.uuid)
