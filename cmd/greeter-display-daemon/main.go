@@ -5,7 +5,6 @@ import (
 	"os/exec"
 	"sort"
 	"strings"
-	"sync"
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -23,7 +22,6 @@ type Manager struct {
 	xConn           *x.Conn
 	configTimestamp x.Timestamp
 	outputs         map[randr.Output]*Output
-	outputsMu       sync.Mutex
 }
 
 type Output struct {
