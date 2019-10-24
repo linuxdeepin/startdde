@@ -21,6 +21,7 @@ package main
 
 import (
 	"os/user"
+
 	"pkg.deepin.io/lib/dbus"
 )
 
@@ -32,9 +33,9 @@ const (
 
 func (m *SessionManager) GetDBusInfo() dbus.DBusInfo {
 	return dbus.DBusInfo{
-		START_DDE_DEST,
-		SHUTDOWN_PATH,
-		SHUTDOWN_IFC,
+		Dest:       START_DDE_DEST,
+		ObjectPath: SHUTDOWN_PATH,
+		Interface:  SHUTDOWN_IFC,
 	}
 }
 
