@@ -117,10 +117,12 @@ func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 }
 
 func (m *Manager) initBrightness() {
-	m.Brightness = make(map[string]float64)
 	brightnessTable, err := m.getSavedBrightnessTable()
 	if err != nil {
 		logger.Warning(err)
+	}
+	if brightnessTable == nil {
+		brightnessTable = make(map[string]float64)
 	}
 
 	monitors := m.getConnectedMonitors()
@@ -128,43 +130,33 @@ func (m *Manager) initBrightness() {
 		if _, ok := brightnessTable[monitor.Name]; ok {
 			continue
 		}
-
-		if brightnessTable == nil {
-			brightnessTable = make(map[string]float64)
-		}
 		brightnessTable[monitor.Name] = 1
 	}
+	m.Brightness = brightnessTable
+}
 
-	brightness.InitBacklightHelper()
-
-	for name, value := range brightnessTable {
-		err = m.doSetBrightness(value, name)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
+func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
+	isBuiltin := isBuiltinOutput(monitor.Name)
+	err := brightness.Set(value, m.settings.GetString(gsKeySetter), isBuiltin,
+		monitor.ID, m.xConn)
+	return err
 }
 
 func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
 	monitors := m.getConnectedMonitors()
-	// TODO
-	var monitor0 *Monitor
-	for _, monitor := range monitors {
-		if monitor.Name == name {
-			monitor0 = monitor
-			break
-		}
-	}
+	monitor0 := monitors.GetByName(name)
 	if monitor0 == nil {
-		return InvalidOutputNameError{name}
+		return InvalidOutputNameError{Name: name}
 	}
 
-	if !fake {
-		isBuiltin := isBuiltinOutput(name)
-		err := brightness.Set(value, m.settings.GetString(gsKeySetter), isBuiltin,
-			monitor0.ID, m.xConn)
+	monitor0.PropsMu.RLock()
+	enabled := monitor0.Enabled
+	monitor0.PropsMu.RUnlock()
+
+	if !fake && enabled {
+		err := m.setMonitorBrightness(monitor0, value)
 		if err != nil {
-			logger.Warningf("failed to set brightness to %v for %s: %v", value, name, err)
+			logger.Warningf("failed to set brightness for %s: %v", name, err)
 			return err
 		}
 	}
@@ -176,7 +168,11 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 
 	// update brightness of the output
 	m.Brightness[name] = value
-	m.emitPropChangedBrightness(m.Brightness)
+	err := m.emitPropChangedBrightness(m.Brightness)
+	if err != nil {
+		logger.Warning(err)
+	}
+
 	return nil
 }
 

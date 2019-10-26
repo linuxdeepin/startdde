@@ -359,3 +359,14 @@ func (m *Monitor) toConfig() *MonitorConfig {
 		RefreshRate: m.RefreshRate,
 	}
 }
+
+type Monitors []*Monitor
+
+func (monitors Monitors) GetByName(name string) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.Name == name {
+			return monitor
+		}
+	}
+	return nil
+}

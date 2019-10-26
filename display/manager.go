@@ -14,6 +14,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
@@ -210,9 +211,10 @@ func (m *Manager) applyDisplayMode() {
 }
 
 func (m *Manager) init() {
+	brightness.InitBacklightHelper()
+	m.initBrightness()
 	m.listenEvent()
 	m.applyDisplayMode()
-	m.initBrightness()
 	m.initTouchMap()
 }
 
@@ -727,6 +729,21 @@ func (m *Manager) apply() error {
 			}
 		}
 		m.updateMonitor(output, outputInfo)
+
+		if monitor.Enabled {
+			m.PropsMu.Lock()
+			value, ok := m.Brightness[monitor.Name]
+			if !ok {
+				value = 1
+				m.Brightness[monitor.Name] = value
+			}
+			m.PropsMu.Unlock()
+
+			err = m.setMonitorBrightness(monitor, value)
+			if err != nil {
+				logger.Warningf("failed to set brightness for %s: %v", monitor.Name, err)
+			}
+		}
 	}
 
 	return nil
@@ -1165,9 +1182,9 @@ func (m *Manager) markClean() {
 	m.PropsMu.Unlock()
 }
 
-func (m *Manager) getConnectedMonitors() []*Monitor {
+func (m *Manager) getConnectedMonitors() Monitors {
 	m.monitorMapMu.Lock()
-	var monitors []*Monitor
+	var monitors Monitors
 	for _, monitor := range m.monitorMap {
 		if monitor.Connected {
 			monitors = append(monitors, monitor)
