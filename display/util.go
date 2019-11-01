@@ -8,10 +8,12 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
 )
 
@@ -74,10 +76,79 @@ func parseCrtcRotation(origin uint16) (rotation, reflect uint16) {
 func toModeInfo(info randr.ModeInfo) ModeInfo {
 	return ModeInfo{
 		Id:     info.Id,
+		name:   info.Name,
 		Width:  info.Width,
 		Height: info.Height,
 		Rate:   calcModeRate(info),
 	}
+}
+
+var regMode = regexp.MustCompile(`^(\d+)x(\d+)(\D+)$`)
+
+func filterModeInfos(modes []ModeInfo) []ModeInfo {
+	result := make([]ModeInfo, 0, len(modes))
+	var filteredModeNames strv.Strv
+	for idx := range modes {
+		mode := modes[idx]
+		skip := false
+
+		if filteredModeNames.Contains(mode.name) {
+			skip = true
+		} else {
+			match := regMode.FindStringSubmatch(mode.name)
+			if match != nil {
+				m := findFirstMode(modes, func(mode1 ModeInfo) bool {
+					return mode.Width == mode1.Width &&
+						mode.Height == mode1.Height &&
+						len(mode1.name) > 0 &&
+						isDigit(mode1.name[len(mode1.name)-1])
+				})
+				if m != nil {
+					// 找到大小相同的 mode
+					skip = true
+					filteredModeNames = append(filteredModeNames, mode.name)
+				}
+			}
+
+			if !skip {
+				m := findFirstMode(result, func(mode1 ModeInfo) bool {
+					return mode.Width == mode1.Width &&
+						mode.Height == mode1.Height &&
+						formatRate(mode.Rate) == formatRate(mode1.Rate)
+				})
+				if m != nil {
+					//logger.Debugf("compare mode: %s, find m: %s",
+					//	spew.Sdump(mode), spew.Sdump(m))
+					skip = true
+				}
+			}
+		}
+
+		if skip {
+			//logger.Debugf("filterModeInfos skip mode %d|%x %s %.2f", mode.Id, mode.Id, mode.name, mode.Rate)
+		} else {
+			//logger.Debugf("add mode %d|%x %s %.2f", mode.Id, mode.Id, mode.name, mode.Rate)
+			result = append(result, mode)
+		}
+	}
+	return result
+}
+
+func formatRate(v float64) string {
+	return strconv.FormatFloat(v, 'f', 2, 64)
+}
+
+func isDigit(b byte) bool {
+	return '0' <= b && b <= '9'
+}
+
+func findFirstMode(modes []ModeInfo, fn func(mode ModeInfo) bool) *ModeInfo {
+	for _, mode := range modes {
+		if fn(mode) {
+			return &mode
+		}
+	}
+	return nil
 }
 
 func calcModeRate(info randr.ModeInfo) float64 {

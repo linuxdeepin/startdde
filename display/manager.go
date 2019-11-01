@@ -94,6 +94,7 @@ type Manager struct {
 
 type ModeInfo struct {
 	Id     uint32
+	name   string
 	Width  uint16
 	Height uint16
 	Rate   float64
@@ -379,6 +380,7 @@ func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
 			result = append(result, modeInfo)
 		}
 	}
+	result = filterModeInfos(result)
 	return result
 }
 
