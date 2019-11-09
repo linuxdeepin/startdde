@@ -552,6 +552,8 @@ func setupEnvironments() {
 		scaleFactor = globalXSManager.GetScaleFactor()
 	}
 	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
+	envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
+	envVars["QT_QPA_PLATFORM"] = "dxcb"
 
 	// set scale factor for deepin wine apps
 	if scaleFactor != 1.0 {
@@ -559,12 +561,15 @@ func setupEnvironments() {
 			scaleFactor, 'f', 2, 64)
 	}
 
+	systemctlArgs := make([]string, 0, len(envVars)+2)
+	systemctlArgs = append(systemctlArgs, "--user", "set-environment")
 	for key, value := range envVars {
 		logger.Debugf("set env %s = %q", key, value)
 		err = os.Setenv(key, value)
 		if err != nil {
 			logger.Warning(err)
 		}
+		systemctlArgs = append(systemctlArgs, key+"="+value)
 	}
 
 	for _, envName := range []string{
@@ -583,12 +588,15 @@ func setupEnvironments() {
 		return
 	}
 
-	// NOTE: since dbus-daemon --session launch with the --systemd-activation option,
-	// there is no need to call systemd's SetEnvironment method.
 	err = sessionBus.BusObject().Call("org.freedesktop.DBus."+
 		"UpdateActivationEnvironment", 0, envVars).Err
 	if err != nil {
 		logger.Warning(err)
+	}
+
+	err = exec.Command("systemctl", systemctlArgs...).Run()
+	if err != nil {
+		logger.Warning("failed to set env for systemd-user:", err)
 	}
 }
 
