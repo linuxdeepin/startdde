@@ -152,7 +152,7 @@ func (m *XSManager) setScreenScaleFactorsForQt(factors map[string]float64) error
 	kf := keyfile.NewKeyFile()
 	err := kf.LoadFromFile(filename)
 	if err != nil && !os.IsNotExist(err) {
-		return err
+		logger.Warning("failed to load qt-theme.ini:", err)
 	}
 
 	var value string
@@ -168,6 +168,12 @@ func (m *XSManager) setScreenScaleFactorsForQt(factors map[string]float64) error
 	kf.SetValue(qtThemeSection, qtThemeKeyScreenScaleFactors, value)
 	kf.DeleteKey(qtThemeSection, qtThemeKeyScaleFactor)
 	kf.SetValue(qtThemeSection, qtThemeKeyScaleLogicalDpi, "-1,-1")
+
+	err = os.MkdirAll(filepath.Dir(filename), 0755)
+	if err != nil {
+		return err
+	}
+
 	err = kf.SaveToFile(filename)
 	if err != nil {
 		return err

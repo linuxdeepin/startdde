@@ -592,6 +592,82 @@ func setupEnvironments() {
 	}
 }
 
+const (
+	sectionTheme     = "Theme"
+	keyIconThemeName = "IconThemeName"
+	keyFont          = "Font"
+	keyMonoFont      = "MonFont"
+	keyFontSize      = "FontSize"
+)
+
+func initQtThemeConfig() error {
+	appearanceGs := gio.NewSettings("com.deepin.dde.appearance")
+	var needSave bool
+
+	kf := keyfile.NewKeyFile()
+	qtThemeCfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/qt-theme.ini")
+	err := kf.LoadFromFile(qtThemeCfgFile)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Warning("failed to load qt-theme.ini:", err)
+	}
+	iconTheme, _ := kf.GetString(sectionTheme, keyIconThemeName)
+	if iconTheme == "" {
+		iconTheme = appearanceGs.GetString("icon-theme")
+		kf.SetString(sectionTheme, keyIconThemeName, iconTheme)
+		needSave = true
+	}
+
+	fontSize, _ := kf.GetFloat64(sectionTheme, keyFontSize)
+	if fontSize == 0 {
+		fontSize = appearanceGs.GetDouble("font-size")
+		kf.SetFloat64(sectionTheme, keyFontSize, fontSize)
+		needSave = true
+	}
+
+	var defaultFont, defaultMonoFont string
+	loadDefaultFontCfg := func() {
+		filename := "/usr/share/deepin-default-settings/fontconfig.json"
+		defaultFontCfg, err := loadDefaultFontConfig(filename)
+		if err != nil {
+			logger.Warning("failed to load default font config:", err)
+		}
+		defaultFont, defaultMonoFont = defaultFontCfg.Get()
+		if defaultFont == "" {
+			defaultFont = "Noto Sans"
+		}
+		if defaultMonoFont == "" {
+			defaultMonoFont = "Noto Mono"
+		}
+	}
+
+	font, _ := kf.GetString(sectionTheme, keyFont)
+	if font == "" {
+		if defaultFont == "" {
+			loadDefaultFontCfg()
+		}
+		kf.SetString(sectionTheme, keyFont, defaultFont)
+		needSave = true
+	}
+
+	monoFont, _ := kf.GetString(sectionTheme, keyMonoFont)
+	if monoFont == "" {
+		if defaultMonoFont == "" {
+			loadDefaultFontCfg()
+		}
+		kf.SetString(sectionTheme, keyMonoFont, defaultMonoFont)
+		needSave = true
+	}
+
+	if needSave {
+		err = os.MkdirAll(filepath.Dir(qtThemeCfgFile), 0755)
+		if err != nil {
+			return err
+		}
+		return kf.SaveToFile(qtThemeCfgFile)
+	}
+	return nil
+}
+
 func startSession(conn *x.Conn, useKwin bool,
 	sysSignalLoop *dbusutil.SignalLoop) *SessionManager {
 
@@ -612,6 +688,11 @@ func startSession(conn *x.Conn, useKwin bool,
 	}
 
 	setupEnvironments()
+
+	err = initQtThemeConfig()
+	if err != nil {
+		logger.Warning("failed to init qt-theme.ini", err)
+	}
 
 	manager.setPropStage(SessionStageInitBegin)
 	manager.launchWindowManager(useKwin)
