@@ -198,6 +198,14 @@ func (m *SessionManager) CanSuspend() bool {
 }
 
 func (m *SessionManager) RequestSuspend() {
+	_, err := os.Stat("/etc/deepin/no_suspend")
+	if err == nil {
+		// no suspend
+		time.Sleep(500 * time.Millisecond)
+		setDPMSMode(false)
+		return
+	}
+
 	objLogin.Suspend(0, false)
 	setDPMSMode(false)
 }
