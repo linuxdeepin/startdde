@@ -606,31 +606,14 @@ const (
 	keyFont          = "Font"
 	keyMonoFont      = "MonFont"
 	keyFontSize      = "FontSize"
+
+	xsKeyQtFontName     = "Qt/FontName"
+	xsKeyQtMonoFontName = "Qt/MonoFontName"
 )
 
 func initQtThemeConfig() error {
 	appearanceGs := gio.NewSettings("com.deepin.dde.appearance")
 	var needSave bool
-
-	kf := keyfile.NewKeyFile()
-	qtThemeCfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/qt-theme.ini")
-	err := kf.LoadFromFile(qtThemeCfgFile)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Warning("failed to load qt-theme.ini:", err)
-	}
-	iconTheme, _ := kf.GetString(sectionTheme, keyIconThemeName)
-	if iconTheme == "" {
-		iconTheme = appearanceGs.GetString("icon-theme")
-		kf.SetString(sectionTheme, keyIconThemeName, iconTheme)
-		needSave = true
-	}
-
-	fontSize, _ := kf.GetFloat64(sectionTheme, keyFontSize)
-	if fontSize == 0 {
-		fontSize = appearanceGs.GetDouble("font-size")
-		kf.SetFloat64(sectionTheme, keyFontSize, fontSize)
-		needSave = true
-	}
 
 	var defaultFont, defaultMonoFont string
 	loadDefaultFontCfg := func() {
@@ -646,6 +629,48 @@ func initQtThemeConfig() error {
 		if defaultMonoFont == "" {
 			defaultMonoFont = "Noto Mono"
 		}
+	}
+
+	xsQtFontName, err := globalXSManager.GetString(xsKeyQtFontName)
+	if err != nil {
+		logger.Warning(err)
+	} else if xsQtFontName == "" {
+		loadDefaultFontCfg()
+		err = globalXSManager.SetString(xsKeyQtFontName, defaultFont)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
+	xsQtMonoFontName, err := globalXSManager.GetString(xsKeyQtMonoFontName)
+	if err != nil {
+		logger.Warning(err)
+	} else if xsQtMonoFontName == "" {
+		loadDefaultFontCfg()
+		err = globalXSManager.SetString(xsKeyQtMonoFontName, defaultMonoFont)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
+	kf := keyfile.NewKeyFile()
+	qtThemeCfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/qt-theme.ini")
+	err = kf.LoadFromFile(qtThemeCfgFile)
+	if err != nil && !os.IsNotExist(err) {
+		logger.Warning("failed to load qt-theme.ini:", err)
+	}
+	iconTheme, _ := kf.GetString(sectionTheme, keyIconThemeName)
+	if iconTheme == "" {
+		iconTheme = appearanceGs.GetString("icon-theme")
+		kf.SetString(sectionTheme, keyIconThemeName, iconTheme)
+		needSave = true
+	}
+
+	fontSize, _ := kf.GetFloat64(sectionTheme, keyFontSize)
+	if fontSize == 0 {
+		fontSize = appearanceGs.GetDouble("font-size")
+		kf.SetFloat64(sectionTheme, keyFontSize, fontSize)
+		needSave = true
 	}
 
 	font, _ := kf.GetString(sectionTheme, keyFont)

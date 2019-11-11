@@ -270,6 +270,21 @@ var gsInfos = typeGSKeyInfos{
 		convertGsToXs: convertStrToColor,
 		convertXsToGs: convertColorToStr,
 	},
+	{
+		gsKey:  "qt-font-name",
+		gsType: gsKeyTypeString,
+		xsKey:  "Qt/FontName",
+	},
+	{
+		gsKey:  "qt-mono-font-name",
+		gsType: gsKeyTypeString,
+		xsKey:  "Qt/MonoFontName",
+	},
+	{
+		gsKey:  "qt-font-point-size",
+		gsType: gsKeyTypeInt,
+		xsKey:  "Qt/FontPointSize",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
