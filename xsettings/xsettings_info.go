@@ -33,6 +33,7 @@ const (
 	gsKeyTypeBool int = iota + 1
 	gsKeyTypeInt
 	gsKeyTypeString
+	gsKeyTypeDouble
 )
 
 type typeGSKeyInfo struct {
@@ -282,12 +283,31 @@ var gsInfos = typeGSKeyInfos{
 	},
 	{
 		gsKey:  "qt-font-point-size",
-		gsType: gsKeyTypeInt,
+		gsType: gsKeyTypeDouble,
 		xsKey:  "Qt/FontPointSize",
+		// xsType is string
+		convertGsToXs: convertDoubleToStr,
+		convertXsToGs: convertStrToDouble,
 	},
 }
 
 var settingTypeColorVar = settingTypeColor
+
+func convertDoubleToStr(in interface{}) (interface{}, error) {
+	value, ok := in.(float64)
+	if !ok {
+		return nil, errors.New("type is not float64")
+	}
+	return strconv.FormatFloat(value, 'f', -1, 64), nil
+}
+
+func convertStrToDouble(in interface{}) (interface{}, error) {
+	value, ok := in.(string)
+	if !ok {
+		return nil, errors.New("type is not string")
+	}
+	return strconv.ParseFloat(value, 64)
+}
 
 func convertStrToColor(in interface{}) (interface{}, error) {
 	str, ok := in.(string)
@@ -355,7 +375,7 @@ func (info *typeGSKeyInfo) getKeySType() uint8 {
 	switch info.gsType {
 	case gsKeyTypeBool, gsKeyTypeInt:
 		return settingTypeInteger
-	case gsKeyTypeString:
+	case gsKeyTypeString, gsKeyTypeDouble:
 		return settingTypeString
 	}
 
@@ -375,6 +395,8 @@ func (info *typeGSKeyInfo) getValue(s *gio.Settings) (result interface{}, err er
 		result = int32(s.GetInt(info.gsKey))
 	case gsKeyTypeString:
 		result = s.GetString(info.gsKey)
+	case gsKeyTypeDouble:
+		result = s.GetDouble(info.gsKey)
 	}
 
 	if info.convertGsToXs != nil {
@@ -404,6 +426,8 @@ func (info *typeGSKeyInfo) setValue(s *gio.Settings, v interface{}) error {
 		s.SetInt(info.gsKey, v.(int32))
 	case gsKeyTypeString:
 		s.SetString(info.gsKey, v.(string))
+	case gsKeyTypeDouble:
+		s.SetDouble(info.gsKey, v.(float64))
 	}
 	return nil
 }
