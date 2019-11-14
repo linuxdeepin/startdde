@@ -70,14 +70,6 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 		}
 	}
 
-	m.PropsMu.RLock()
-	hasChanged := m.HasChanged
-	m.PropsMu.RUnlock()
-	if hasChanged {
-		// 编辑 Monitor 模式下拒绝事件更新 Monitor 的字段。
-		return
-	}
-
 	m.updateMonitor(ev.Output, outputInfo)
 	m.updatePropMonitors()
 
@@ -85,6 +77,7 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	newMonitorsId := getMonitorsId(m.monitorMap)
 	if newMonitorsId != oldMonitorsId {
 		logger.Debug("new monitors id:", newMonitorsId)
+		m.markClean()
 		m.applyDisplayMode()
 		m.monitorsId = newMonitorsId
 	}
@@ -121,10 +114,6 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 			m.setPropPrimaryRect(getCrtcRect(crtcInfo))
 		}
 		m.PropsMu.Unlock()
-	}
-
-	if m.HasChanged {
-		return
 	}
 
 	if rOutput != 0 {
