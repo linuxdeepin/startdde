@@ -27,9 +27,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
@@ -63,8 +65,13 @@ type SessionManager struct {
 	Stage                 int32
 	allowSessionDaemonRun bool
 	loginSession          *login1.Session
+	dbusDaemon            *ofdbus.DBus // session dbus daemon
+	sigLoop               *dbusutil.SignalLoop
+	inhibitManager        InhibitManager
 
-	Unlock func()
+	Unlock           func()
+	InhibitorAdded   func(path dbus.ObjectPath)
+	InhibitorRemoved func(path dbus.ObjectPath)
 }
 
 const (
@@ -405,7 +412,40 @@ func newSessionManager() *SessionManager {
 	if err != nil {
 		logger.Warning("failed to get current login session:", err)
 	}
+
+	sessionBus, err := dbus1.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+	} else {
+		m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
+		m.sigLoop.Start()
+		m.dbusDaemon = ofdbus.NewDBus(sessionBus)
+	}
+
+	m.initInhibitManager()
+	m.listenDBusSignals()
 	return m
+}
+
+func (manager *SessionManager) listenDBusSignals() {
+	manager.dbusDaemon.InitSignalExt(manager.sigLoop, true)
+	_, err := manager.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
+		if newOwner == "" && oldOwner != "" && name == oldOwner &&
+			strings.HasPrefix(name, ":") {
+			// uniq name lost
+			ih := manager.inhibitManager.handleNameLost(name)
+			if ih != nil {
+				dbus.UnInstallObject(ih)
+				err := dbus.Emit(manager, signalInhibitorRemoved, ih.getPath())
+				if err != nil {
+					logger.Warning(err)
+				}
+			}
+		}
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func (manager *SessionManager) launchWindowManager(useKwin bool) {
