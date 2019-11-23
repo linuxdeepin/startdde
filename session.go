@@ -593,7 +593,6 @@ func setupEnvironments() {
 	}
 	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
 	envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
-	envVars["QT_QPA_PLATFORM"] = "dxcb;xcb"
 
 	// set scale factor for deepin wine apps
 	if scaleFactor != 1.0 {
