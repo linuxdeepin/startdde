@@ -226,7 +226,8 @@ func (m *Manager) calcRecommendedScaleFactor() float64 {
 		return 1.0
 	}
 	for _, monitor := range monitors {
-		scaleFactor := calcRecommendedScaleFactor(float64(monitor.Width), float64(monitor.MmWidth))
+		scaleFactor := calcRecommendedScaleFactor(float64(monitor.Width), float64(monitor.Height),
+			float64(monitor.MmWidth), float64(monitor.MmHeight))
 		if minScaleFactor > scaleFactor {
 			minScaleFactor = scaleFactor
 		}
@@ -235,12 +236,21 @@ func (m *Manager) calcRecommendedScaleFactor() float64 {
 	return minScaleFactor
 }
 
-func calcRecommendedScaleFactor(pxWidth, mmWidth float64) float64 {
-	if mmWidth == 0 {
+func calcRecommendedScaleFactor(widthPx, heightPx, widthMm, heightMm float64) float64 {
+	if widthMm == 0 || heightMm == 0 {
 		return 1
 	}
-	ppm := pxWidth / mmWidth
-	scaleFactor := ppm / (1366.0 / 310.0)
+
+	lenPx := math.Hypot(widthPx, heightPx)
+	lenMm := math.Hypot(widthMm, heightMm)
+
+	lenPxStd := math.Hypot(1920, 1080)
+	lenMmStd := math.Hypot(477, 268)
+
+	const a = 0.00158
+	fix := (lenMm - lenMmStd) * (lenPx / lenPxStd) * a
+	scaleFactor := (lenPx/lenMm)/(lenPxStd/lenMmStd) + fix
+
 	return toListedScaleFactor(scaleFactor)
 }
 
