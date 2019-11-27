@@ -44,7 +44,7 @@ install:
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
 	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
 	mkdir -p ${DESTDIR}/etc/X11/Xsession.d/
-	cp -f misc/00deepin-dde-env ${DESTDIR}/etc/X11/Xsession.d/
+	cp -f misc/Xsession.d/* ${DESTDIR}/etc/X11/Xsession.d/
 
 clean:
 	rm -rf ${GOPATH_DIR}
