@@ -249,29 +249,29 @@ func (s *Switcher) listenStartupReady() {
 
 	s.wm = libwm.NewWm(sessionBus)
 	s.wm.InitSignalExt(s.sigLoop, true)
-	_, err = s.wm.ConnectStartupReady(func(wmName string) {
-		s.mu.Lock()
-		count := s.wmStartupCount
-		s.wmStartupCount++
-		s.mu.Unlock()
-		s.logger.Debug("receive signal StartupReady", wmName, count)
-
-		if count > 0 {
-			switch wmName {
-			case deepin3DWM:
-				err = showOSD(osdSwitch3DWM)
-			case deepin2DWM:
-				err = showOSD(osdSwitch2DWM)
-			}
-			if err != nil {
-				s.logger.Warning("failed to show osd:", err)
-			}
-		}
-	})
-
-	if err != nil {
-		s.logger.Warning(err)
-	}
+	//_, err = s.wm.ConnectStartupReady(func(wmName string) {
+	//	s.mu.Lock()
+	//	count := s.wmStartupCount
+	//	s.wmStartupCount++
+	//	s.mu.Unlock()
+	//	s.logger.Debug("receive signal StartupReady", wmName, count)
+	//
+	//	if count > 0 {
+	//		switch wmName {
+	//		case deepin3DWM:
+	//			err = showOSD(osdSwitch3DWM)
+	//		case deepin2DWM:
+	//			err = showOSD(osdSwitch2DWM)
+	//		}
+	//		if err != nil {
+	//			s.logger.Warning("failed to show osd:", err)
+	//		}
+	//	}
+	//})
+	//
+	//if err != nil {
+	//	s.logger.Warning(err)
+	//}
 }
 
 func (s *Switcher) listenWMChanged() {
