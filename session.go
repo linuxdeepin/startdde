@@ -208,7 +208,7 @@ func (m *SessionManager) RequestSuspend() {
 	_, err := os.Stat("/etc/deepin/no_suspend")
 	if err == nil {
 		// no suspend
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Second)
 		setDPMSMode(false)
 		return
 	}
