@@ -57,6 +57,9 @@ type XSManager struct {
 	SetScaleFactorStarted func()
 	SetScaleFactorDone    func()
 	restartOSD            bool // whether to restart dde-osd
+
+	// locker for xsettings prop read and write
+	settingsLocker sync.RWMutex
 }
 
 type xsSetting struct {
@@ -144,6 +147,8 @@ func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 }
 
 func (m *XSManager) setSettings(settings []xsSetting) error {
+	m.settingsLocker.Lock()
+	defer m.settingsLocker.Unlock()
 	datas, err := getSettingPropValue(m.owner, m.conn)
 	if err != nil {
 		return err

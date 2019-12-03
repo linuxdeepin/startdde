@@ -155,6 +155,8 @@ func (m *XSManager) GetColor(prop string) ([]uint16, error) {
 }
 
 func (m *XSManager) getSettingValue(prop string) (interface{}, uint8, error) {
+	m.settingsLocker.RLock()
+	defer m.settingsLocker.RUnlock()
 	datas, err := getSettingPropValue(m.owner, m.conn)
 	if err != nil {
 		return nil, 0, err
