@@ -1,37 +1,41 @@
 [
-    {
-      "Priority": 9,
-      "Group": [
-        {
-          "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
-          "Wait": true,
-          "Args": []
-        },
-        {
-          "Command": "/usr/bin/dde-dock",
-          "Wait": true,
-          "Args": []
-        }
-      ]
-    },
-    {
-      "Priority": 8,
-      "Group": [
-        {
-          "Command": "/usr/bin/dde-desktop",
-          "Wait": true,
-          "Args": []
-        }
-      ]
-    },
-    {
-      "Priority": 7,
-      "Group": [
-        {
-          "Command": "dde-session-daemon-part2",
-          "Wait": true,
-          "Args": []
-        }
-      ]
-    }
-  ]
+  {
+    "Priority": 9,
+    "Group": [
+      {
+        "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
+        "Wait": true,
+        "Args": []
+      },
+      {
+        "Command": "/usr/bin/dde-dock",
+        "Wait": true,
+        "Args": []
+      }
+    ]
+  },
+  {
+    "Priority": 8,
+    "Group": [
+      {
+        "Command": "/usr/bin/dde-desktop",
+        "Wait": true,
+        "Args": []
+      }
+    ]
+  },
+  {
+    "Priority": 7,
+    "Group": [
+      {
+        "Command": "/usr/lib/polkit-1-dde/dde-polkit-agent",
+        "Wait": false
+      },
+      {
+        "Command": "dde-session-daemon-part2",
+        "Wait": true,
+        "Args": []
+      }
+    ]
+  }
+]
