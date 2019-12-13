@@ -58,11 +58,14 @@ const (
 	gKeyAppsDisableScaling = "apps-disable-scaling"
 
 	KeyXGnomeAutostartDelay = "X-GNOME-Autostart-Delay"
+	KeyXGnomeAutoRestart    = "X-GNOME-AutoRestart"
 	KeyXDeepinCreatedBy     = "X-Deepin-CreatedBy"
 	KeyXDeepinAppID         = "X-Deepin-AppID"
 
 	uiAppSchedHooksDir = "/usr/lib/UIAppSched.hooks"
 	launchedHookDir    = uiAppSchedHooksDir + "/launched"
+
+	restartRateLimitSeconds = 60
 )
 
 type StartManager struct {
@@ -71,6 +74,8 @@ type StartManager struct {
 	delayHandler        *mapDelayHandler
 	daemonApps          *daemonApps.Apps
 	launchContext       *appinfo.AppLaunchContext
+	restartTimeMap      map[string]time.Time
+	restartTimeMapMu    sync.Mutex
 	proxyChainsConfFile string
 	proxyChainsBin      string
 
@@ -140,6 +145,7 @@ func newStartManager(conn *x.Conn) *StartManager {
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
 	m.launchContext = appinfo.NewAppLaunchContext(conn)
+	m.restartTimeMap = make(map[string]time.Time)
 	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
@@ -160,6 +166,21 @@ func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
 		ObjectPath: startManagerObjPath,
 		Interface:  startManagerInterface,
 	}
+}
+
+func (m *StartManager) getRestartTime(appInfo *desktopappinfo.DesktopAppInfo) (time.Time, bool) {
+	filename := appInfo.GetFileName()
+	m.restartTimeMapMu.Lock()
+	t, ok := m.restartTimeMap[filename]
+	m.restartTimeMapMu.Unlock()
+	return t, ok
+}
+
+func (m *StartManager) setRestartTime(appInfo *desktopappinfo.DesktopAppInfo, t time.Time) {
+	filename := appInfo.GetFileName()
+	m.restartTimeMapMu.Lock()
+	m.restartTimeMap[filename] = t
+	m.restartTimeMapMu.Unlock()
 }
 
 func (m *StartManager) GetApps() (map[uint32]string, error) {
@@ -364,7 +385,7 @@ func (m *StartManager) runCommandWithOptions(exe string, args []string,
 	}
 
 	err = cmd.Start()
-	return waitCmd(cmd, err, uiApp, _name)
+	return m.waitCmd(nil, cmd, err, uiApp, _name)
 }
 
 func (m *StartManager) getAppIdByFilePath(file string) string {
@@ -477,7 +498,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	}
 	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	return waitCmd(cmd, err, uiApp, cmdName)
+	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
 }
 
 func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo, error) {
@@ -537,7 +558,8 @@ func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, tim
 	return m.launch(appInfo, timestamp, nil, ctx, &targetAction, desktopFile+actionSection)
 }
 
-func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp, cmdName string) error {
+func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec.Cmd, err error,
+	uiApp *swapsched.UIApp, cmdName string) error {
 	if uiApp != nil {
 		swapSchedDispatcher.AddApp(uiApp)
 	}
@@ -550,6 +572,31 @@ func waitCmd(cmd *exec.Cmd, err error, uiApp *swapsched.UIApp, cmdName string) e
 		err := cmd.Wait()
 		if err != nil {
 			logger.Warningf("%v: %v", cmd.Args, err)
+
+			if appInfo != nil {
+				autoRestart, _ := appInfo.GetBool(desktopappinfo.MainSection, KeyXGnomeAutoRestart)
+				if autoRestart {
+					now := time.Now()
+
+					canLaunch := true
+					if lastRestartTime, ok := m.getRestartTime(appInfo); ok {
+						elapsed := now.Sub(lastRestartTime)
+						if elapsed < restartRateLimitSeconds*time.Second {
+							logger.Warningf("app %q re-spawning too quickly", appInfo.GetFileName())
+							canLaunch = false
+						}
+					}
+
+					if canLaunch {
+						err = m.launch(appInfo, 0, nil, m.launchContext, appInfo,
+							appInfo.GetFileName())
+						if err != nil {
+							logger.Warningf("failed to restart app %q", appInfo.GetFileName())
+						}
+						m.setRestartTime(appInfo, now)
+					}
+				}
+			}
 		}
 		if uiApp != nil {
 			uiApp.SetStateEnd()
