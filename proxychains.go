@@ -45,6 +45,6 @@ func getProxyServerUrl() (string, error) {
 func supportProxyServerOption(appId string) bool {
 	return strings.HasPrefix(appId, "google-chrome") ||
 		strings.HasPrefix(appId, "browser360") ||
-		strings.HasPrefix(appId, "uosbrowser") ||
+		strings.HasPrefix(appId, "uos-browser") ||
 		strings.HasPrefix(appId, "chromium")
 }
