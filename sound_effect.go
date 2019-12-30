@@ -37,8 +37,14 @@ import (
 var soundThemePlayer *soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
+	// NOTE: always start pulseaudio
+	err := startPulseAudio()
+	if err != nil {
+		logger.Warning("failed to start pulseaudio:", err)
+	}
+
 	markFile := filepath.Join(os.TempDir(), "startdde-login-sound-mark")
-	_, err := os.Stat(markFile)
+	_, err = os.Stat(markFile)
 	if err == nil {
 		// already played
 		return
@@ -103,6 +109,7 @@ func playLogoutSound() {
 	device, mute, err := getDefaultSinkAlsaDevice()
 	if err != nil {
 		logger.Warning(err)
+		quitPulseAudio()
 		return
 	}
 
@@ -128,11 +135,53 @@ func initSoundThemePlayer() {
 	soundThemePlayer = soundthemeplayer.NewSoundThemePlayer(sysBus)
 }
 
+const (
+	audioInterface   = "com.deepin.daemon.Audio"
+	audioServiceName = audioInterface
+	audioPath        = "/com/deepin/daemon/Audio"
+)
+
+func startPulseAudio() error {
+	err := exec.Command("systemctl", "--user", "--runtime", "unmask", "pulseaudio.service").Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("systemctl", "--user", "start", "pulseaudio.service").Run()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func quitPulseAudio() {
 	logger.Debug("quit pulse audio")
-	out, err := exec.Command("/usr/bin/pulseaudio", "--kill").CombinedOutput()
+
+	sessionBus, err := dbus1.SessionBus()
 	if err != nil {
-		logger.Error("quit pulseaudio failed:", string(out))
+		logger.Warning("failed to get session bus:", err)
+	} else {
+		audioObj := sessionBus.Object(audioServiceName, audioPath)
+		err = audioObj.Call(audioInterface+".NoRestartPulseAudio", dbus1.FlagNoAutoStart).Err
+		if err != nil {
+			logger.Warning("failed to call NoRestartPulseAudio:", err)
+		}
+	}
+
+	// mask pulseaudio.service
+	out, err := exec.Command("systemctl", "--user", "--runtime", "--now", "mask",
+		"pulseaudio.service").CombinedOutput()
+	if err != nil {
+		logger.Warningf("temp mask pulseaudio.service failed err: %v, out: %s", err, out)
+	}
+
+	// view status
+	err = exec.Command("systemctl", "--quiet", "--user", "is-active",
+		"pulseaudio.service").Run()
+	if err == nil {
+		logger.Warning("pulseaudio.service is still running")
+	} else {
+		logger.Debug("pulseaudio.service is stopped, err:", err)
 	}
 }
 

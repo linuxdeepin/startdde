@@ -135,6 +135,8 @@ func (m *SessionManager) RequestLogout() {
 
 	if soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
+	} else {
+		quitPulseAudio()
 	}
 	m.terminate()
 }
