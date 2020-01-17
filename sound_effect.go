@@ -115,6 +115,7 @@ func playLogoutSound() {
 
 	if mute {
 		logger.Debug("default sink is mute")
+		quitPulseAudio()
 		return
 	}
 	logger.Debugf("ALSA device: %q", device)

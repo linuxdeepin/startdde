@@ -104,7 +104,7 @@ func (m *SessionManager) Logout() {
 	m.launch(cmdShutdown, false)
 }
 
-func (m *SessionManager) terminate() {
+func stopBAMFDaemon() {
 	// NOTE: Proactively stop the bamfdaemon service.
 	// If you don't do this, it will exit in the failed state because X Server exits,
 	// causing the restart to be too frequent and not being started properly.
@@ -121,28 +121,46 @@ func (m *SessionManager) terminate() {
 	} else {
 		logger.Warning(err)
 	}
+}
 
-	err = objLoginSessionSelf.Terminate(0)
-	if err != nil {
-		logger.Warning("LoginSessionSelf Terminate failed:", err)
+func (m *SessionManager) prepareLogout(force bool) {
+	if !force {
+		err := autostop.LaunchAutostopScripts(logger)
+		if err != nil {
+			logger.Warning("failed to run auto script:", err)
+		}
 	}
-	os.Exit(0)
+
+	stopBAMFDaemon()
+
+	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
+		playLogoutSound()
+		// PulseAudio should have quit
+	} else {
+		quitPulseAudio()
+	}
 }
 
 func (m *SessionManager) RequestLogout() {
 	logger.Info("Request Logout")
-	autostop.LaunchAutostopScripts(logger)
-
-	if soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
-		playLogoutSound()
-	} else {
-		quitPulseAudio()
-	}
-	m.terminate()
+	m.logout(false)
 }
 
 func (m *SessionManager) ForceLogout() {
-	m.terminate()
+	logger.Info("ForceLogout")
+	m.logout(true)
+}
+
+func (m *SessionManager) logout(force bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.prepareLogout(force)
+	err := objLoginSessionSelf.Terminate(0)
+	if err != nil {
+		logger.Warning("LoginSessionSelf Terminate failed:", err)
+	}
+	os.Exit(0)
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
@@ -158,15 +176,35 @@ func (m *SessionManager) Shutdown() {
 	m.launch(cmdShutdown, false)
 }
 
+func (m *SessionManager) prepareShutdown(force bool) {
+	stopBAMFDaemon()
+	if !force {
+		preparePlayShutdownSound()
+	}
+	quitPulseAudio()
+}
+
 func (m *SessionManager) RequestShutdown() {
-	preparePlayShutdownSound()
-	objLogin.PowerOff(0, true)
-	setDPMSMode(false)
+	logger.Info("RequestShutdown")
+	m.shutdown(false)
 }
 
 func (m *SessionManager) ForceShutdown() {
-	objLogin.PowerOff(0, false)
+	logger.Info("ForceShutdown")
+	m.shutdown(true)
+}
+
+func (m *SessionManager) shutdown(force bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.prepareShutdown(force)
+	err := objLogin.PowerOff(0, false)
+	if err != nil {
+		logger.Warning("failed to call login PowerOff:", err)
+	}
 	setDPMSMode(false)
+	os.Exit(0)
 }
 
 func (shudown *SessionManager) CanReboot() bool {
@@ -183,14 +221,26 @@ func (m *SessionManager) Reboot() {
 }
 
 func (m *SessionManager) RequestReboot() {
-	preparePlayShutdownSound()
-	objLogin.Reboot(0, true)
-	setDPMSMode(false)
+	logger.Info("RequestReboot")
+	m.reboot(false)
 }
 
 func (m *SessionManager) ForceReboot() {
-	objLogin.Reboot(0, false)
+	logger.Info("ForceReboot")
+	m.reboot(true)
+}
+
+func (m *SessionManager) reboot(force bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.prepareShutdown(force)
+	err := objLogin.Reboot(0, false)
+	if err != nil {
+		logger.Warning("failed to call login Reboot:", err)
+	}
 	setDPMSMode(false)
+	os.Exit(0)
 }
 
 func (m *SessionManager) CanSuspend() bool {
