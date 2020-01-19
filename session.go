@@ -131,6 +131,7 @@ func (m *SessionManager) prepareLogout(force bool) {
 		}
 	}
 
+	killSogouImeWatchdog()
 	stopBAMFDaemon()
 
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
@@ -142,7 +143,7 @@ func (m *SessionManager) prepareLogout(force bool) {
 }
 
 func (m *SessionManager) RequestLogout() {
-	logger.Info("Request Logout")
+	logger.Info("RequestLogout")
 	m.logout(false)
 }
 
@@ -177,11 +178,21 @@ func (m *SessionManager) Shutdown() {
 }
 
 func (m *SessionManager) prepareShutdown(force bool) {
+	killSogouImeWatchdog()
 	stopBAMFDaemon()
 	if !force {
 		preparePlayShutdownSound()
 	}
 	quitPulseAudio()
+}
+
+func killSogouImeWatchdog() {
+	out, err := exec.Command("pkill", "-ef", "sogouImeService").Output()
+	if err != nil {
+		logger.Debug("failed to kill sogouIme watchdog:", err)
+	} else {
+		logger.Infof("kill sogouIme out:%s", out)
+	}
 }
 
 func (m *SessionManager) RequestShutdown() {
@@ -204,6 +215,10 @@ func (m *SessionManager) shutdown(force bool) {
 		logger.Warning("failed to call login PowerOff:", err)
 	}
 	setDPMSMode(false)
+	err = objLoginSessionSelf.Terminate(0)
+	if err != nil {
+		logger.Warning("failed to terminate session self:", err)
+	}
 	os.Exit(0)
 }
 
@@ -240,6 +255,10 @@ func (m *SessionManager) reboot(force bool) {
 		logger.Warning("failed to call login Reboot:", err)
 	}
 	setDPMSMode(false)
+	err = objLoginSessionSelf.Terminate(0)
+	if err != nil {
+		logger.Warning("failed to terminate session self:", err)
+	}
 	os.Exit(0)
 }
 
