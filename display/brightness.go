@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
@@ -135,9 +137,23 @@ func (m *Manager) initBrightness() {
 	m.Brightness = brightnessTable
 }
 
+func (m *Manager) getBrightnessSetter() string {
+	// NOTE: 特殊处理龙芯笔记本亮度设置问题
+	blDir := "/sys/class/backlight/loongson"
+	_, err := os.Stat(blDir)
+	if err == nil {
+		_, err := os.Stat(filepath.Join(blDir, "device/edid"))
+		if err != nil {
+			return "backlight"
+		}
+	}
+
+	return m.settings.GetString(gsKeySetter)
+}
+
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
 	isBuiltin := isBuiltinOutput(monitor.Name)
-	err := brightness.Set(value, m.settings.GetString(gsKeySetter), isBuiltin,
+	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
 		monitor.ID, m.xConn)
 	return err
 }
