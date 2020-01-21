@@ -520,6 +520,10 @@ func (manager *SessionManager) listenDBusSignals() {
 }
 
 func (manager *SessionManager) launchWindowManager(useKwin bool) {
+	if globalUseWayland {
+		return
+	}
+
 	logger.Debug("Will launch wm")
 	if useKwin {
 		err := wm_kwin.Start(logger, globalWmChooserLaunched)

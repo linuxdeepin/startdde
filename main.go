@@ -27,6 +27,7 @@ import (
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
+	wl_display "pkg.deepin.io/dde/startdde/wl_display"
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
 	"pkg.deepin.io/dde/startdde/xsettings"
@@ -51,6 +52,8 @@ var globalWmChooserLaunched bool
 var globalXSManager *xsettings.XSManager
 
 var XConn *x.Conn
+
+var globalUseWayland bool
 
 func reapZombies() {
 	// We must reap children process even we hasn't create anyone at this moment,
@@ -96,13 +99,22 @@ func main() {
 	}
 	proxy.SetupProxy()
 
-	err = display.Start()
+
+	recommendedScaleFactor := 1.0
+	if os.Getenv("WAYLAND_DISPLAY") != "" {
+		globalUseWayland = true
+		err = wl_display.Start()
+		recommendedScaleFactor = wl_display.GetRecommendedScaleFactor()
+	} else {
+		err = display.Start()
+		recommendedScaleFactor = display.GetRecommendedScaleFactor()
+	}
 	if err != nil {
 		logger.Warning(err)
 	}
 
 	xsManager, err := xsettings.Start(XConn, logger,
-		display.GetRecommendedScaleFactor())
+		recommendedScaleFactor)
 	if err != nil {
 		logger.Warning(err)
 	} else {
