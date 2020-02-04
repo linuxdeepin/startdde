@@ -47,6 +47,14 @@ func InitBacklightHelper() {
 	helper = backlight.NewBacklight(sysBus)
 }
 
+func getHelper() *backlight.Backlight {
+	if helper == nil {
+		InitBacklightHelper()
+	}
+
+	return helper
+}
+
 func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
 	if value < 0 {
 		value = 0
@@ -203,7 +211,7 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	const backlightTypeDisplay = 1
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
-	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
+	return getHelper().SetBrightness(0, backlightTypeDisplay, controller.Name, br)
 }
 
 func _getBacklight(controller *displayBl.Controller) (float64, error) {

@@ -111,7 +111,7 @@ func getMaxAreaOutputDeviceMode(modes []outputDeviceMode) outputDeviceMode {
 	}
 	maxAreaMode := modes[0]
 	for _, mode := range modes[1:] {
-		if int(maxAreaMode.Width) * int(maxAreaMode.Height) < int(mode.Width) * int(mode.Height) {
+		if int(maxAreaMode.Width)*int(maxAreaMode.Height) < int(mode.Width)*int(mode.Height) {
 			maxAreaMode = mode
 		}
 	}

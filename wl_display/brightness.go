@@ -21,10 +21,12 @@ package display
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+
+	"pkg.deepin.io/dde/startdde/wl_display/brightness"
 )
 
 type InvalidOutputNameError struct {
@@ -42,67 +44,72 @@ func (m *Manager) saveBrightness() {
 
 func (m *Manager) changeBrightness(raised bool) error {
 	// TODO
-	return errors.New("TODO")
-	//var step float64 = 0.05
-	//if !raised {
-	//	step = -step
-	//}
-	//
-	//monitors := m.getConnectedMonitors()
-	//
-	//for _, monitor := range monitors {
-	//	v, ok := m.Brightness[monitor.Name]
-	//	if !ok {
-	//		v = 1.0
-	//	}
-	//
-	//	var br float64
-	//	setBr := true
-	//
-	//	if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
-	//		logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
-	//	} else {
-	//		max := blCtrl.MaxBrightness
-	//		cur, err := blCtrl.GetBrightness()
-	//		if err == nil {
-	//			// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
-	//			hv := float64(cur) / float64(max)
-	//			avg := (v + hv) / 2
-	//			delta := (v - hv) / avg
-	//			logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
-	//
-	//			if math.Abs(delta) > 0.05 {
-	//				logger.Debug("backlight actual brightness is not set")
-	//				setBr = false
-	//				br = hv
-	//			}
-	//		}
-	//	}
-	//
-	//	if setBr {
-	//		br = v + step
-	//		if br > 1.0 {
-	//			br = 1.0
-	//		}
-	//		if br < 0.0 {
-	//			br = 0.0
-	//		}
-	//		logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
-	//		err := m.doSetBrightness(br, monitor.Name)
-	//		if err != nil {
-	//			return err
-	//		}
-	//	} else {
-	//		logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
-	//		err := m.doSetBrightnessFake(br, monitor.Name)
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-	//
-	//m.saveBrightness()
-	//return nil
+	// return errors.New("TODO")
+	if m.xConn == nil {
+		logger.Warning("No xorg connection")
+		return nil
+	}
+
+	var step float64 = 0.05
+	if !raised {
+		step = -step
+	}
+
+	monitors := m.getConnectedMonitors()
+
+	for _, monitor := range monitors {
+		v, ok := m.Brightness[monitor.Name]
+		if !ok {
+			v = 1.0
+		}
+
+		var br float64
+		setBr := true
+
+		if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
+			logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
+		} else {
+			max := blCtrl.MaxBrightness
+			cur, err := blCtrl.GetBrightness()
+			if err == nil {
+				// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
+				hv := float64(cur) / float64(max)
+				avg := (v + hv) / 2
+				delta := (v - hv) / avg
+				logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
+
+				if math.Abs(delta) > 0.05 {
+					logger.Debug("backlight actual brightness is not set")
+					setBr = false
+					br = hv
+				}
+			}
+		}
+
+		if setBr {
+			br = v + step
+			if br > 1.0 {
+				br = 1.0
+			}
+			if br < 0.0 {
+				br = 0.0
+			}
+			logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
+			err := m.doSetBrightness(br, monitor.Name)
+			if err != nil {
+				return err
+			}
+		} else {
+			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
+			err := m.doSetBrightnessFake(br, monitor.Name)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	m.saveBrightness()
+	return nil
 }
 
 func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
@@ -152,12 +159,12 @@ func (m *Manager) getBrightnessSetter() string {
 }
 
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
-	//isBuiltin := isBuiltinOutput(monitor.Name)
-	//err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
-	//	monitor.ID, m.xConn)
-	//return err
+	isBuiltin := isBuiltinOutput(monitor.Name)
+	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
+		monitor.ID, m.xConn)
+	return err
 	// TODO
-	return errors.New("TODO")
+	//return errors.New("TODO")
 }
 
 func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {

@@ -19,7 +19,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -47,8 +47,8 @@ const (
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 
 type Manager struct {
-	service *dbusutil.Service
-	//xConn                *x.Conn
+	service          *dbusutil.Service
+	xConn            *x.Conn
 	display          *wl.Display
 	management       *output_management.Outputmanagement
 	devicesWg        sync.WaitGroup
@@ -111,7 +111,12 @@ type ModeInfo struct {
 }
 
 func newManager(service *dbusutil.Service) *Manager {
+	conn, err := x.NewConn()
+	if err != nil {
+		logger.Fatal(err)
+	}
 	m := &Manager{
+		xConn:      conn,
 		service:    service,
 		monitorMap: make(map[uint32]*Monitor),
 	}
@@ -122,8 +127,6 @@ func newManager(service *dbusutil.Service) *Manager {
 		m.DisplayMode = DisplayModeExtend
 	}
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
-
-	var err error
 
 	display, err := wl.Connect("")
 	if err != nil {
@@ -420,10 +423,10 @@ func (m *Manager) updateScreenSize() {
 
 	m.monitorMapMu.Lock()
 	for _, monitor := range m.monitorMap {
-		if screenWidth < uint16(monitor.X) + monitor.Width	{
+		if screenWidth < uint16(monitor.X)+monitor.Width {
 			screenWidth = uint16(monitor.X) + monitor.Width
 		}
-		if screenHeight < uint16(monitor.Y) + monitor.Height {
+		if screenHeight < uint16(monitor.Y)+monitor.Height {
 			screenHeight = uint16(monitor.Y) + monitor.Height
 		}
 	}
