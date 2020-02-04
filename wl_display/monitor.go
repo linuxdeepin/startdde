@@ -3,6 +3,7 @@ package display
 import (
 	"errors"
 	"fmt"
+	x "github.com/linuxdeepin/go-x11-client"
 	"math"
 	"strconv"
 	"sync"
@@ -359,6 +360,15 @@ func (m *Monitor) toConfig() *MonitorConfig {
 		Rotation:    m.Rotation,
 		Reflect:     m.Reflect,
 		RefreshRate: m.RefreshRate,
+	}
+}
+
+func (m *Monitor) getRect() x.Rectangle {
+	return x.Rectangle{
+		X:      m.X,
+		Y:      m.Y,
+		Width:  m.Width,
+		Height: m.Height,
 	}
 }
 

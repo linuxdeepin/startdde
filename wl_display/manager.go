@@ -149,8 +149,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.monitorsId = getMonitorsId(m.monitorMap)
 	logger.Debug("after registerGlobals", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
-	//m.updateOutputPrimary()
-	//
+	m.updateScreenSize()
+
 	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
@@ -377,9 +377,8 @@ func (m *Manager) addMonitor(device *outputDeviceHandler) error {
 
 func (m *Manager) updateMonitor(monitor *Monitor) {
 	device := monitor.device
-	logger.Debugf("updateMonitor %d %#v", monitor.ID, device)
+	logger.Debug("updateMonitor", monitor.ID)
 	monitor.PropsMu.Lock()
-	defer monitor.PropsMu.Unlock()
 
 	monitor.uuid = device.uuid
 	monitor.setPropEnabled(device.enabled)
@@ -398,6 +397,40 @@ func (m *Manager) updateMonitor(monitor *Monitor) {
 	monitor.setPropRefreshRate(monitor.CurrentMode.Rate)
 	monitor.setPropRotation(device.rotation())
 	//monitor.setPropReflect(0) //TODO
+
+	logger.Debugf("updateMonitor id: %d, x:%d, y: %d, width: %d, height: %d",
+		monitor.ID, monitor.X, monitor.Y, monitor.Width, monitor.Height)
+	rect := monitor.getRect()
+	monitor.PropsMu.Unlock()
+
+	// if monitor is primary, update primary rect
+	m.PropsMu.Lock()
+	if monitor.Name == m.Primary {
+		logger.Debugf("updateMonitor update primary rect: %+v", rect)
+		m.setPropPrimaryRect(rect)
+	}
+	m.PropsMu.Unlock()
+
+	m.updateScreenSize()
+}
+
+func (m *Manager) updateScreenSize() {
+	var screenWidth uint16
+	var screenHeight uint16
+
+	m.monitorMapMu.Lock()
+	for _, monitor := range m.monitorMap {
+		if screenWidth < uint16(monitor.X) + monitor.Width	{
+			screenWidth = uint16(monitor.X) + monitor.Width
+		}
+		if screenHeight < uint16(monitor.Y) + monitor.Height {
+			screenHeight = uint16(monitor.Y) + monitor.Height
+		}
+	}
+	m.monitorMapMu.Unlock()
+
+	m.setPropScreenWidth(screenWidth)
+	m.setPropScreenHeight(screenHeight)
 }
 
 func (m *Manager) switchModeMirror() (err error) {
@@ -694,8 +727,12 @@ loop:
 //}
 
 func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
-	// TODO
-	return errors.New("TODO")
+	rect := monitor.getRect()
+	m.PropsMu.Lock()
+	m.setPropPrimary(monitor.Name)
+	m.setPropPrimaryRect(rect)
+	m.PropsMu.Unlock()
+	return nil
 }
 
 //func (m *Manager) setOutputPrimary(output randr.Output) error {
@@ -1136,9 +1173,7 @@ func (m *Manager) setCurrentCustomId(name string) {
 }
 
 func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
-	// TODO
 	logger.Debug("applyConfigs", spew.Sdump(configs))
-	//var primaryOutput randr.Output
 	var primaryMonitor *Monitor
 	for _, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs, monitor.uuid)
@@ -1146,7 +1181,6 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 			monitor.enable(false)
 		} else {
 			if monitorCfg.Primary && monitorCfg.Enabled {
-				//primaryOutput = output
 				primaryMonitor = monitor
 			}
 			monitor.enable(monitorCfg.Enabled)
@@ -1168,7 +1202,6 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 		return err
 	}
 	if primaryMonitor == nil {
-		//primaryOutput = randr.Output(getMinIDMonitor(m.getConnectedMonitors()).ID)
 		primaryMonitor = getMinIDMonitor(m.getConnectedMonitors())
 	}
 	err = m.setMonitorPrimary(primaryMonitor)
