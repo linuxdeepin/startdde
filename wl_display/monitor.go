@@ -165,20 +165,20 @@ func (m *Monitor) setMode(mode ModeInfo) {
 //}
 
 func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
-	mode := getFirstModeBySizeRate(m.Modes, width, height, rate)
-	if mode.Id != 0 {
+	mode, ok := getFirstModeBySizeRate(m.Modes, width, height, rate)
+	if ok {
 		return mode
 	}
-	mode = getFirstModeBySize(m.Modes, width, height)
-	if mode.Id != 0 {
+	mode, ok = getFirstModeBySize(m.Modes, width, height)
+	if ok {
 		return mode
 	}
 	return m.BestMode
 }
 
 func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
-	mode := getFirstModeBySize(m.Modes, width, height)
-	if mode.Id == 0 {
+	mode, ok := getFirstModeBySize(m.Modes, width, height)
+	if !ok {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
 	return m.SetMode(mode.Id)
@@ -188,30 +188,30 @@ func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
 	if m.Width == 0 || m.Height == 0 {
 		return dbusutil.ToError(errors.New("width or height is 0"))
 	}
-	mode := getFirstModeBySizeRate(m.Modes, m.Width, m.Height, value)
-	if mode.Id == 0 {
+	mode, ok := getFirstModeBySizeRate(m.Modes, m.Width, m.Height, value)
+	if !ok {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
 	return m.SetMode(mode.Id)
 }
 
-func getFirstModeBySize(modes []ModeInfo, width, height uint16) ModeInfo {
+func getFirstModeBySize(modes []ModeInfo, width, height uint16) (ModeInfo,bool) {
 	for _, modeInfo := range modes {
 		if modeInfo.Width == width && modeInfo.Height == height {
-			return modeInfo
+			return modeInfo, true
 		}
 	}
-	return ModeInfo{}
+	return ModeInfo{},false
 }
 
-func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) ModeInfo {
+func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) (ModeInfo, bool) {
 	for _, modeInfo := range modes {
 		if modeInfo.Width == width && modeInfo.Height == height &&
 			math.Abs(modeInfo.Rate-rate) <= 0.01 {
-			return modeInfo
+			return modeInfo, true
 		}
 	}
-	return ModeInfo{}
+	return ModeInfo{}, false
 }
 
 func (m *Monitor) SetPosition(X, y int16) *dbus.Error {

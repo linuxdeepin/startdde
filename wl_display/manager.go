@@ -454,7 +454,7 @@ func (m *Manager) switchModeMirror() (err error) {
 			if cfg != nil {
 				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
 			} else {
-				mode = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
+				mode, _ = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
 			}
 			monitor.setMode(mode)
 			monitor.setPosition(0, 0)

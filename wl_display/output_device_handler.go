@@ -98,7 +98,24 @@ func (odh *outputDeviceHandler) getModes() []ModeInfo {
 }
 
 func (odh *outputDeviceHandler) getBestMode() ModeInfo {
+	if odh.preferredMode.Width == -1 {
+		// not found preferred mode
+		return getMaxAreaOutputDeviceMode(odh.modes).toModeInfo()
+	}
 	return odh.preferredMode.toModeInfo()
+}
+
+func getMaxAreaOutputDeviceMode(modes []outputDeviceMode) outputDeviceMode {
+	if len(modes) == 0 {
+		return outputDeviceMode{}
+	}
+	maxAreaMode := modes[0]
+	for _, mode := range modes[1:] {
+		if int(maxAreaMode.Width) * int(maxAreaMode.Height) < int(mode.Width) * int(mode.Height) {
+			maxAreaMode = mode
+		}
+	}
+	return maxAreaMode
 }
 
 func (odh *outputDeviceHandler) getCurrentMode() ModeInfo {
@@ -108,6 +125,7 @@ func (odh *outputDeviceHandler) getCurrentMode() ModeInfo {
 func newOutputDeviceHandler(device *outputdevice.Outputdevice) *outputDeviceHandler {
 	odh := &outputDeviceHandler{core: device}
 	odh.id = uint32(device.Id())
+	odh.preferredMode.Width = -1
 
 	device.AddModeHandler(odh)
 	device.AddDoneHandler(odh)

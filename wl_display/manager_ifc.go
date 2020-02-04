@@ -77,7 +77,7 @@ func (m *Manager) ListOutputsCommonModes() ([]ModeInfo, *dbus.Error) {
 	commonSizes := getMonitorsCommonSizes(monitors)
 	result := make([]ModeInfo, len(commonSizes))
 	for i, size := range commonSizes {
-		result[i] = getFirstModeBySize(monitors[0].Modes, size.width, size.height)
+		result[i], _ = getFirstModeBySize(monitors[0].Modes, size.width, size.height)
 	}
 	return result, nil
 }
