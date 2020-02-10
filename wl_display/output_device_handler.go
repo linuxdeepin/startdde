@@ -10,8 +10,9 @@ import (
 )
 
 type outputDeviceHandler struct {
-	core *outputdevice.Outputdevice
-	id   uint32
+	core    *outputdevice.Outputdevice
+	regName uint32
+	id      uint32
 
 	// mode
 	modes         []outputDeviceMode
@@ -122,9 +123,10 @@ func (odh *outputDeviceHandler) getCurrentMode() ModeInfo {
 	return odh.currentMode.toModeInfo()
 }
 
-func newOutputDeviceHandler(device *outputdevice.Outputdevice) *outputDeviceHandler {
+func newOutputDeviceHandler(device *outputdevice.Outputdevice, regName uint32) *outputDeviceHandler {
 	odh := &outputDeviceHandler{core: device}
 	odh.id = uint32(device.Id())
+	odh.regName = regName
 	odh.preferredMode.Width = -1
 
 	device.AddModeHandler(odh)

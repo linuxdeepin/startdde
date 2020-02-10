@@ -72,6 +72,7 @@ func (m *Manager) registerGlobals() error {
 	if err != nil {
 		return err
 	}
+	m.registry = registry
 
 	rgeChan := make(chan wl.RegistryGlobalEvent)
 	rgeHandler := registryGlobalHandler{ch: rgeChan}
@@ -87,7 +88,7 @@ loop:
 		select {
 		case ev := <-rgeChan:
 			//logger.Debugf("ev: %#v\n", ev)
-			err = m.registerInterface(registry, ev)
+			err = m.registerInterface(ev)
 			if err != nil {
 				logger.Warning(err)
 			}
@@ -97,25 +98,70 @@ loop:
 		}
 	}
 
-	// TODO: 可能不需要删除 global handler
 	registry.RemoveGlobalHandler(rgeHandler)
 	cbdHandler.Remove()
+
+	registry.AddGlobalHandler(m)
+	registry.AddGlobalRemoveHandler(m)
 	return nil
 }
 
-func (m *Manager) registerInterface(registry *wl.Registry, ev wl.RegistryGlobalEvent) error {
+func (m *Manager) updateMonitorsId() {
+	oldMonitorsId := m.monitorsId
+	newMonitorsId := m.getMonitorsId()
+	if newMonitorsId != oldMonitorsId {
+		logger.Debug("new monitors id:", newMonitorsId)
+		m.markClean()
+		m.applyDisplayMode()
+		m.monitorsId = newMonitorsId
+	}
+}
+
+func (m *Manager) HandleRegistryGlobal(ev wl.RegistryGlobalEvent) {
+	// handle monitor add
+	switch ev.Interface {
+	case "org_kde_kwin_outputdevice":
+		err := m.registerOutputDevice(ev)
+		if err != nil {
+			logger.Warningf("failed to register output device %v: %v", ev.Name, err)
+		}
+	}
+}
+
+func (m *Manager) HandleRegistryGlobalRemove(ev wl.RegistryGlobalRemoveEvent) {
+	// handle monitor remove
+	for id, monitor := range m.monitorMap {
+		if ev.Name == monitor.device.regName {
+			m.removeMonitor(id)
+			m.updatePropMonitors()
+			m.updateMonitorsId()
+			m.updateScreenSize()
+			return
+		}
+	}
+}
+
+func (m *Manager) registerOutputDevice(ev wl.RegistryGlobalEvent) error {
+	device := outputdevice.NewOutputdevice(m.display.Context())
+	logger.Debug("register output device", device.Id())
+	err := m.registry.Bind(ev.Name, ev.Interface, ev.Version, device)
+	if err != nil {
+		return err
+	}
+	odh := newOutputDeviceHandler(device, ev.Name)
+	odh.doneCb = m.handleOutputDeviceDone
+	odh.enabledCb = m.handleOutputDeviceEnabled
+	return nil
+}
+
+func (m *Manager) registerInterface(ev wl.RegistryGlobalEvent) error {
 	switch ev.Interface {
 
 	case "org_kde_kwin_outputdevice":
-		device := outputdevice.NewOutputdevice(m.display.Context())
-		logger.Debug("register output device", device.Id())
-		err := registry.Bind(ev.Name, ev.Interface, ev.Version, device)
+		err := m.registerOutputDevice(ev)
 		if err != nil {
 			return err
 		}
-		odh := newOutputDeviceHandler(device)
-		odh.doneCb = m.handleOutputDeviceDone
-		odh.enabledCb = m.handleOutputDeviceEnabled
 
 		m.devicesAllDoneMu.Lock()
 		if !m.devicesAllDone {
@@ -128,7 +174,7 @@ func (m *Manager) registerInterface(registry *wl.Registry, ev wl.RegistryGlobalE
 	case "org_kde_kwin_outputmanagement":
 		outputManagement := output_management.NewOutputmanagement(m.display.Context())
 		logger.Debug("register output management", outputManagement.Id())
-		err := registry.Bind(ev.Name, ev.Interface, ev.Version, outputManagement)
+		err := m.registry.Bind(ev.Name, ev.Interface, ev.Version, outputManagement)
 		if err != nil {
 			return err
 		}
