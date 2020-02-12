@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/linuxdeepin/go-x11-client"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/userenv"
 	"pkg.deepin.io/gir/gio-2.0"
@@ -194,14 +194,42 @@ func getPrimaryScreenName(xConn *x.Conn) (string, error) {
 	rootWin := xConn.GetDefaultScreen().Root
 	getPrimaryReply, err := randr.GetOutputPrimary(xConn, rootWin).Reply(xConn)
 	if err != nil {
-		return "", err
+		logger.Debug("Failed to get output primary:", err)
+		return getPrimaryScreenFromBus()
 	}
 	outputInfo, err := randr.GetOutputInfo(xConn, getPrimaryReply.Output,
 		x.CurrentTime).Reply(xConn)
 	if err != nil {
-		return "", err
+		logger.Debug("Failed to get output info:", err)
+		return getPrimaryScreenFromBus()
 	}
 	return outputInfo.Name, nil
+}
+
+var (
+	_sessionConn *dbus1.Conn
+)
+
+func getPrimaryScreenFromBus() (string, error) {
+	if _sessionConn == nil {
+		conn, err := dbus1.SessionBus()
+		if err != nil {
+			return "", err
+		}
+		_sessionConn = conn
+	}
+
+	variant, err := _sessionConn.Object("com.deepin.daemon.Display",
+		"/com/deepin/daemon/Display").GetProperty("com.deepin.daemon.Display.Primary")
+	if err != nil {
+		return "", err
+	}
+
+	primary, ok := (variant.Value()).(string)
+	if !ok {
+		return "", fmt.Errorf("invalid primary signature: %s", variant.String())
+	}
+	return primary, nil
 }
 
 func (m *XSManager) setScaleFactorWithoutNotify(scale float64) error {
