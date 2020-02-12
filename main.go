@@ -27,9 +27,9 @@ import (
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
-	wl_display "pkg.deepin.io/dde/startdde/wl_display"
 	"pkg.deepin.io/dde/startdde/iowait"
 	"pkg.deepin.io/dde/startdde/watchdog"
+	wl_display "pkg.deepin.io/dde/startdde/wl_display"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/lib/dbus"
 	dbus1 "pkg.deepin.io/lib/dbus1"
@@ -99,7 +99,6 @@ func main() {
 	}
 	proxy.SetupProxy()
 
-
 	recommendedScaleFactor := 1.0
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		globalUseWayland = true
@@ -112,6 +111,7 @@ func main() {
 	if err != nil {
 		logger.Warning(err)
 	}
+	logger.Info("In wayland mode:", globalUseWayland)
 
 	xsManager, err := xsettings.Start(XConn, logger,
 		recommendedScaleFactor)

@@ -39,7 +39,29 @@ type outputDeviceHandler struct {
 }
 
 func (odh *outputDeviceHandler) name() string {
-	return getNameFromModel(odh.model)
+	return getOutputDeviceName(odh.model, odh.make)
+}
+
+// such as: make('dell'), model('eDP-1-dell'), so name is 'eDP-1'
+func getOutputDeviceName(model, make string) string {
+	logger.Debugf("[DEBUG] get name: '%s', '%s'", model, make)
+	name := getNameFromModelAndMake(model, make)
+	if name != model {
+		return name
+	}
+	names := strings.Split(model, "-")
+	if len(names) <= 2 {
+		return getNameFromModel(model)
+	}
+
+	idx := len(names) - 1
+	for ; idx > 1; idx-- {
+		if len(names[idx]) > 1 {
+			continue
+		}
+		break
+	}
+	return strings.Join(names[:idx+1], "-")
 }
 
 func getNameFromModel(model string) string {
@@ -48,6 +70,12 @@ func getNameFromModel(model string) string {
 		return model
 	}
 	return model[:idx]
+}
+
+func getNameFromModelAndMake(model, make string) string {
+	preMake := strings.Split(make, " ")[0]
+	name := strings.Split(model, preMake)[0]
+	return strings.TrimRight(name, "-")
 }
 
 func (odh *outputDeviceHandler) rotation() uint16 {

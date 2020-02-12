@@ -841,9 +841,11 @@ func startSession(conn *x.Conn, useKwin bool,
 		logger.Warning("failed to init qt-theme.ini", err)
 	}
 
-	manager.setPropStage(SessionStageInitBegin)
-	manager.launchWindowManager(useKwin)
-	manager.setPropStage(SessionStageInitEnd)
+	if !globalUseWayland {
+		manager.setPropStage(SessionStageInitBegin)
+		manager.launchWindowManager(useKwin)
+		manager.setPropStage(SessionStageInitEnd)
+	}
 
 	manager.setPropStage(SessionStageCoreBegin)
 	startStartManager(conn)
