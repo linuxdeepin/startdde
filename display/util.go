@@ -282,6 +282,25 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 	return minMonitor
 }
 
+func getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
+	if len(monitors) == 0 {
+		return nil
+	}
+	// rest 是排除 HDMI 接口类型的显示器列表
+	var rest []*Monitor
+	for _, monitor := range monitors {
+		if strings.Contains(monitor.Name, "HDMI") {
+			continue
+		}
+		rest = append(rest, monitor)
+	}
+	if len(rest) == 0 {
+		// 全都排除了，说明排除过程没有效果
+		rest = monitors
+	}
+	return getMinIDMonitor(rest)
+}
+
 func jsonMarshal(v interface{}) string {
 	data, _ := json.Marshal(v)
 	return string(data)

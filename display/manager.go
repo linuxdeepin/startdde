@@ -939,7 +939,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	}
 
 	if monitor0 == nil {
-		monitor0 = getMinIDMonitor(m.getConnectedMonitors())
+		monitor0 = getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	}
 
 	err = m.apply()
@@ -1241,7 +1241,7 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 		return err
 	}
 	if primaryOutput == 0 {
-		primaryOutput = randr.Output(getMinIDMonitor(m.getConnectedMonitors()).ID)
+		primaryOutput = randr.Output(getDefaultPrimaryMonitor(m.getConnectedMonitors()).ID)
 	}
 	err = m.setOutputPrimary(primaryOutput)
 	if err != nil {
