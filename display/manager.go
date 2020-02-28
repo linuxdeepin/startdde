@@ -157,7 +157,7 @@ func newManager(service *dbusutil.Service) *Manager {
 			logger.Warning(err)
 		}
 	}
-	m.monitorsId = getMonitorsId(m.monitorMap)
+	m.monitorsId = m.getMonitorsId()
 	m.updatePropMonitors()
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateOutputPrimary()
@@ -182,6 +182,8 @@ func (m *Manager) applyDisplayMode() {
 			config.Enabled = true
 			config.Primary = true
 			mode := monitors[0].BestMode
+			config.X = 0
+			config.Y = 0
 			config.Width = mode.Width
 			config.Height = mode.Height
 			config.RefreshRate = mode.Rate
@@ -966,7 +968,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 }
 
 func (m *Manager) getScreenConfig() *ScreenConfig {
-	id := getMonitorsId(m.monitorMap)
+	id := m.getMonitorsId()
 	screenCfg := m.config[id]
 	if screenCfg == nil {
 		screenCfg = &ScreenConfig{}
@@ -1154,7 +1156,7 @@ func (m *Manager) setDisplayMode(mode byte) {
 
 func (m *Manager) save() (err error) {
 	logger.Debug("save")
-	id := getMonitorsId(m.monitorMap)
+	id := m.getMonitorsId()
 	if id == "" {
 		err = errors.New("no output connected")
 		return
@@ -1251,7 +1253,7 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 }
 
 func (m *Manager) getCustomIdList() []string {
-	id := getMonitorsId(m.monitorMap)
+	id := m.getMonitorsId()
 
 	screenCfg := m.config[id]
 	if screenCfg == nil {
@@ -1266,14 +1268,16 @@ func (m *Manager) getCustomIdList() []string {
 	return result
 }
 
-func getMonitorsId(monitorMap map[randr.Output]*Monitor) string {
+func (m *Manager) getMonitorsId() string {
 	var ids []string
-	for _, monitor := range monitorMap {
+	m.monitorMapMu.Lock()
+	for _, monitor := range m.monitorMap {
 		if !monitor.Connected {
 			continue
 		}
 		ids = append(ids, monitor.uuid)
 	}
+	m.monitorMapMu.Unlock()
 	if len(ids) == 0 {
 		return ""
 	}
@@ -1299,7 +1303,7 @@ func (m *Manager) modifyConfigName(name, newName string) (err error) {
 		return
 	}
 
-	id := getMonitorsId(m.monitorMap)
+	id := m.getMonitorsId()
 	if id == "" {
 		err = errors.New("no output connected")
 		return
@@ -1354,7 +1358,7 @@ func (m *Manager) deleteCustomMode(name string) (err error) {
 		return
 	}
 
-	id := getMonitorsId(m.monitorMap)
+	id := m.getMonitorsId()
 	if id == "" {
 		err = errors.New("no output connected")
 		return

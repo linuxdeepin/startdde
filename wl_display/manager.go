@@ -175,6 +175,8 @@ func (m *Manager) applyDisplayMode() {
 			config.Enabled = true
 			config.Primary = true
 			mode := monitors[0].BestMode
+			config.X = 0
+			config.Y = 0
 			config.Width = mode.Width
 			config.Height = mode.Height
 			config.RefreshRate = mode.Rate
