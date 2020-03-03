@@ -11,10 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"pkg.deepin.io/dde/startdde/wl_display/org_kde_kwin/output_management"
-
 	"github.com/davecgh/go-spew/spew"
-	"github.com/dkolbly/wl"
+	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
@@ -47,29 +45,20 @@ const (
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 
 type Manager struct {
-	service          *dbusutil.Service
-	xConn            *x.Conn
-	display          *wl.Display
-	registry         *wl.Registry
-	management       *output_management.Outputmanagement
-	devicesWg        sync.WaitGroup
-	devicesAllDone   bool
-	devicesAllDoneMu sync.Mutex
+	service    *dbusutil.Service
+	xConn      *x.Conn
+	management *kwayland.OutputManagement
 
 	PropsMu              sync.RWMutex
 	config               Config
 	recommendScaleFactor float64
-	//modes                []randr.ModeInfo
-	//monitorMap           map[randr.Output]*Monitor
-	monitorMap   map[uint32]*Monitor
-	monitorMapMu sync.Mutex
-	//crtcMap              map[randr.Crtc]*randr.GetCrtcInfoReply
-	//crtcMapMu            sync.Mutex
-	//outputMap            map[randr.Output]*randr.GetOutputInfoReply
-	//outputMapMu          sync.Mutex
-	//configTimestamp      x.Timestamp
-	settings   *gio.Settings
-	monitorsId string
+	monitorMap           map[uint32]*Monitor
+	monitorMapMu         sync.Mutex
+	settings             *gio.Settings
+	monitorsId           string
+	mig                  *monitorIdGenerator
+
+	sessionSigLoop *dbusutil.SignalLoop
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -111,6 +100,25 @@ type ModeInfo struct {
 	Rate   float64
 }
 
+type ModeInfos []ModeInfo
+
+func (infos ModeInfos) Len() int {
+	return len(infos)
+}
+
+func (infos ModeInfos) Less(i, j int) bool {
+	areaI := int(infos[i].Width) * int(infos[i].Height)
+	areaJ := int(infos[j].Width) * int(infos[j].Height)
+	if areaI == areaJ {
+		return infos[i].Rate < infos[j].Rate
+	}
+	return areaI < areaJ
+}
+
+func (infos ModeInfos) Swap(i, j int) {
+	infos[i], infos[j] = infos[j], infos[i]
+}
+
 func newManager(service *dbusutil.Service) *Manager {
 	conn, err := x.NewConn()
 	if err != nil {
@@ -129,35 +137,134 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 
-	display, err := wl.Connect("")
-	if err != nil {
-		logger.Fatal(err)
-	}
-	m.display = display
+	sessionBus := service.Conn()
+	m.management = kwayland.NewOutputManagement(sessionBus)
+	m.mig = newMonitorIdGenerator()
 
-	err = m.registerGlobals()
+	outputInfos, err := m.listOutput()
 	if err != nil {
 		logger.Warning(err)
+	} else {
+		for _, outputInfo := range outputInfos {
+			err = m.addMonitor(outputInfo)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+		m.updatePropMonitors()
 	}
 
-	if m.management == nil {
-		logger.Warning("m.management is nil")
-	}
-
-	go m.loopDispatch()
-	m.devicesWg.Wait()
-	m.devicesAllDoneMu.Lock()
-	m.devicesAllDone = true
-	m.devicesAllDoneMu.Unlock()
+	m.sessionSigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
+	m.sessionSigLoop.Start()
+	m.listenDBusSignals()
 
 	m.monitorsId = m.getMonitorsId()
-	logger.Debug("after registerGlobals", m.monitorsId, m.monitorMap)
+	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateScreenSize()
 
 	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
+}
+
+func (m *Manager) listenDBusSignals() {
+	m.management.InitSignalExt(m.sessionSigLoop, true)
+
+	_, err := m.management.ConnectOutputAdded(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		logger.Debugf("OutputAdded %#v", outputInfo)
+		err = m.addMonitor(outputInfo)
+		if err != nil {
+			logger.Warning(err)
+		} else {
+			m.updatePropMonitors()
+		}
+
+		m.updateMonitorsId()
+		m.updateScreenSize()
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = m.management.ConnectOutputChanged(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		// Workaround, because sometimes the output changed info not contains all props value.
+		// TODO: Remove in future
+		kinfo, err := newKOutputInfoByUUID(outputInfo.Uuid)
+		if err != nil {
+			logger.Info("Failed to make KOutputInfo:", outputInfo.Uuid)
+			return
+		}
+		logger.Debugf("OutputChanged %#v", kinfo)
+
+		monitorId := m.mig.getId(kinfo.Uuid)
+
+		monitor := m.monitorMap[monitorId]
+		if monitor == nil {
+			logger.Warning("not found monitor uuid:", kinfo.Uuid)
+			err = m.addMonitor(kinfo)
+			if err != nil {
+				logger.Warning(err)
+			} else {
+				m.updatePropMonitors()
+			}
+
+			m.updateMonitorsId()
+			m.updateScreenSize()
+			return
+		}
+
+		m.updateMonitor(monitor, kinfo)
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = m.management.ConnectOutputRemoved(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		logger.Debugf("OutputRemoved %#v", outputInfo)
+
+		monitorId := m.mig.getId(outputInfo.Uuid)
+		monitor := m.monitorMap[monitorId]
+		if monitor == nil {
+			logger.Warning("not found monitor uuid:", outputInfo.Uuid)
+			return
+		}
+
+		m.removeMonitor(monitorId)
+		m.updatePropMonitors()
+		m.updateMonitorsId()
+		m.updateScreenSize()
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
+func (m *Manager) updateMonitorsId() {
+	oldMonitorsId := m.monitorsId
+	newMonitorsId := m.getMonitorsId()
+	if newMonitorsId != oldMonitorsId {
+		logger.Debug("new monitors id:", newMonitorsId)
+		m.markClean()
+		m.applyDisplayMode()
+		m.monitorsId = newMonitorsId
+	}
 }
 
 func (m *Manager) applyDisplayMode() {
@@ -300,78 +407,37 @@ func toListedScaleFactor(s float64) float64 {
 //	return result
 //}
 
-func (m *Manager) handleOutputDeviceDone(device *outputDeviceHandler) {
-	logger.Debug("handleOutputDeviceDone", device.id)
-	m.monitorMapMu.Lock()
-	monitor, ok := m.monitorMap[device.id]
-	m.monitorMapMu.Unlock()
-	if ok {
-		m.updateMonitor(monitor)
-		m.updatePropMonitors()
-		return
-	}
-
-	err := m.addMonitor(device)
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		m.updatePropMonitors()
-	}
-
-	m.devicesAllDoneMu.Lock()
-	if !m.devicesAllDone {
-		m.devicesWg.Done()
-	} else {
-		m.updateMonitorsId()
-		m.updateScreenSize()
-	}
-	m.devicesAllDoneMu.Unlock()
-}
-
-func (m *Manager) handleOutputDeviceEnabled(device *outputDeviceHandler) {
-	logger.Debug("handleOutputDeviceEnabled", device.id)
-
-	m.monitorMapMu.Lock()
-	monitor, ok := m.monitorMap[device.id]
-	m.monitorMapMu.Unlock()
-	if ok {
-		monitor.PropsMu.Lock()
-		monitor.setPropEnabled(device.enabled)
-		monitor.PropsMu.Unlock()
-		return
-	}
-}
-
-func (m *Manager) addMonitor(device *outputDeviceHandler) error {
-	logger.Debugf("addMonitor %#v", device)
+func (m *Manager) addMonitor(outputInfo *KOutputInfo) error {
+	logger.Debugf("addMonitor %#v", outputInfo)
 	monitor := &Monitor{
 		m:         m,
 		service:   m.service,
-		ID:        device.id,
-		device:    device,
 		Connected: true,
 	}
-	monitor.uuid = device.uuid
-	monitor.Enabled = device.enabled
-	monitor.X = int16(device.x)
-	monitor.Y = int16(device.y)
-	monitor.MmWidth = uint32(device.physicalWidth)
-	monitor.MmHeight = uint32(device.physicalHeight)
-	monitor.Name = device.name()
+	monitor.ID = m.mig.getId(outputInfo.Uuid)
+	monitor.uuid = outputInfo.Uuid
+	monitor.Enabled = outputInfo.getEnabled()
+	monitor.X = int16(outputInfo.X)
+	monitor.Y = int16(outputInfo.Y)
+	monitor.MmWidth = uint32(outputInfo.PhysWidth)
+	monitor.MmHeight = uint32(outputInfo.PhysHeight)
+	monitor.Name = outputInfo.getName()
 
 	// mode info
-	monitor.Modes = device.getModes()
-	monitor.BestMode = device.getBestMode()
+	monitor.Modes = outputInfo.getModes()
+	monitor.BestMode = outputInfo.getBestMode()
 	monitor.PreferredModes = []ModeInfo{monitor.BestMode}
-	monitor.CurrentMode = device.getCurrentMode()
+	monitor.CurrentMode = outputInfo.getCurrentMode()
 	monitor.Width = monitor.CurrentMode.Width
 	monitor.Height = monitor.CurrentMode.Height
 	monitor.RefreshRate = monitor.CurrentMode.Rate
 
 	monitor.Rotations = []uint16{randr.RotationRotate0, randr.RotationRotate90,
 		randr.RotationRotate180, randr.RotationRotate270}
-	monitor.Rotation = device.rotation()
+	monitor.Rotation = outputInfo.rotation()
 
+	monitor.Reflects = []uint16{0, randr.RotationReflectX, randr.RotationReflectY,
+		randr.RotationReflectX | randr.RotationReflectY}
 	monitor.Reflect = 0 //TODO
 
 	err := m.service.Export(monitor.getPath(), monitor)
@@ -379,7 +445,7 @@ func (m *Manager) addMonitor(device *outputDeviceHandler) error {
 		return err
 	}
 	m.monitorMapMu.Lock()
-	m.monitorMap[device.id] = monitor
+	m.monitorMap[monitor.ID] = monitor
 	m.monitorMapMu.Unlock()
 	return nil
 }
@@ -397,27 +463,25 @@ func (m *Manager) removeMonitor(id uint32) {
 	}
 }
 
-func (m *Manager) updateMonitor(monitor *Monitor) {
-	device := monitor.device
+func (m *Manager) updateMonitor(monitor *Monitor, outputInfo *KOutputInfo) {
 	logger.Debug("updateMonitor", monitor.ID)
 	monitor.PropsMu.Lock()
 
-	monitor.uuid = device.uuid
-	monitor.setPropEnabled(device.enabled)
-	monitor.setPropX(int16(device.x))
-	monitor.setPropY(int16(device.y))
-	monitor.setPropMmWidth(uint32(device.physicalWidth))
-	monitor.setPropMmHeight(uint32(device.physicalHeight))
-	monitor.setPropName(device.name())
+	monitor.setPropEnabled(outputInfo.getEnabled())
+	monitor.setPropX(int16(outputInfo.X))
+	monitor.setPropY(int16(outputInfo.Y))
+	monitor.setPropMmWidth(uint32(outputInfo.PhysWidth))
+	monitor.setPropMmHeight(uint32(outputInfo.PhysHeight))
+	monitor.setPropName(outputInfo.getName())
 	// mode info
-	monitor.setPropModes(device.getModes())
-	monitor.setPropBestMode(device.getBestMode())
+	monitor.setPropModes(outputInfo.getModes())
+	monitor.setPropBestMode(outputInfo.getBestMode())
 	monitor.setPropPreferredModes([]ModeInfo{monitor.BestMode})
-	monitor.setPropCurrentMode(device.getCurrentMode())
+	monitor.setPropCurrentMode(outputInfo.getCurrentMode())
 	monitor.setPropWidth(monitor.CurrentMode.Width)
 	monitor.setPropHeight(monitor.CurrentMode.Height)
 	monitor.setPropRefreshRate(monitor.CurrentMode.Rate)
-	monitor.setPropRotation(device.rotation())
+	monitor.setPropRotation(outputInfo.rotation())
 	//monitor.setPropReflect(0) //TODO
 
 	logger.Debugf("updateMonitor id: %d, x:%d, y: %d, width: %d, height: %d",
@@ -542,87 +606,36 @@ type screenSize struct {
 //}
 
 func (m *Manager) apply() error {
-	configuration, err := m.management.CreateConfiguration()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err := configuration.Destroy()
-		if err != nil {
-			logger.Warning(err)
-		}
-	}()
+	// TODO: remove in future
+	return m.applyByWLOutput()
 
+	var outputInfos []*KOutputInfo
 	for _, monitor := range m.monitorMap {
-		dev := monitor.device.core
+		var outputInfo KOutputInfo
+		outputInfo.Uuid = monitor.uuid
 		if monitor.Enabled {
-			err = configuration.Enable(dev, 1)
-			if err != nil {
-				return err
+			outputInfo.Enabled = 1
+			outputInfo.ModeInfos = []KModeInfo{
+				{
+					Id: int32(monitor.CurrentMode.Id),
+				},
 			}
-
-			err = configuration.Mode(dev, int32(monitor.CurrentMode.Id))
-			if err != nil {
-				return err
-			}
-
-			err = configuration.Position(dev, int32(monitor.X), int32(monitor.Y))
-			if err != nil {
-				return err
-			}
-
-			err = configuration.Transform(dev,
-				toOutputDeviceTransform(monitor.Rotation, monitor.Reflect))
-			if err != nil {
-				return err
-			}
-
+			// position
+			outputInfo.X = int32(monitor.X)
+			outputInfo.Y = int32(monitor.Y)
+			outputInfo.Transform = int32(randrRotationToTransform(int(monitor.Rotation)))
 		} else {
-			err = configuration.Enable(dev, 0)
-			if err != nil {
-				return err
-			}
+			outputInfo.Enabled = 0
 		}
+		outputInfos = append(outputInfos, &outputInfo)
 	}
-
-	appliedChan := make(chan output_management.OutputconfigurationAppliedEvent)
-	ah := outputCfgAppliedHandler{appliedChan}
-	configuration.AddAppliedHandler(ah)
-
-	failedChan := make(chan output_management.OutputconfigurationFailedEvent)
-	fh := outputCfgFailedHandler{failedChan}
-	configuration.AddFailedHandler(fh)
-
-	defer func() {
-		configuration.RemoveAppliedHandler(ah)
-		configuration.RemoveFailedHandler(fh)
-	}()
-
-	err = configuration.Apply()
+	wrap := &outputInfoWrap{OutputInfo: outputInfos}
+	outputInfosJson := jsonMarshal(wrap)
+	err := m.management.Apply(0, outputInfosJson)
 	if err != nil {
 		return err
 	}
-
-loop:
-	for {
-		select {
-		case <-appliedChan:
-			logger.Debugf("applied success")
-			break loop
-
-		case m.display.Context().Dispatch() <- struct{}{}:
-		case <-failedChan:
-			logger.Warning("apply failed")
-			err = errors.New("output configuration apply failed")
-			break loop
-		}
-	}
-
-	for _, monitor := range m.monitorMap {
-		m.updateMonitor(monitor)
-	}
-
-	return err
+	return nil
 }
 
 //func (m *Manager) apply() error {

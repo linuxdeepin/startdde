@@ -19,7 +19,6 @@ const (
 type Monitor struct {
 	m       *Manager
 	service *dbusutil.Service
-	device  *outputDeviceHandler
 	//crtc    randr.Crtc
 	uuid    string
 	PropsMu sync.RWMutex
@@ -195,13 +194,13 @@ func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
 	return m.SetMode(mode.Id)
 }
 
-func getFirstModeBySize(modes []ModeInfo, width, height uint16) (ModeInfo,bool) {
+func getFirstModeBySize(modes []ModeInfo, width, height uint16) (ModeInfo, bool) {
 	for _, modeInfo := range modes {
 		if modeInfo.Width == width && modeInfo.Height == height {
 			return modeInfo, true
 		}
 	}
-	return ModeInfo{},false
+	return ModeInfo{}, false
 }
 
 func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) (ModeInfo, bool) {
