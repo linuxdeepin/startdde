@@ -966,11 +966,21 @@ func (m *SessionManager) handleLoginSessionUnlock() {
 }
 
 func setDPMSMode(on bool) {
-	var mode = uint16(dpms.DPMSModeOn)
-	if !on {
-		mode = uint16(dpms.DPMSModeOff)
+	var err error
+	if globalUseWayland {
+		if !on {
+			_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
+		} else {
+			_, err = exec.Command("dde_wldpms", "-s", "On").Output()
+		}
+	} else {
+		var mode = uint16(dpms.DPMSModeOn)
+		if !on {
+			mode = uint16(dpms.DPMSModeOff)
+		}
+		err = dpms.ForceLevelChecked(XConn, mode).Check(XConn)
 	}
-	err := dpms.ForceLevelChecked(XConn, mode).Check(XConn)
+
 	if err != nil {
 		logger.Warning("Failed to set dpms mode:", on, err)
 	}
