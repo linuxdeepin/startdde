@@ -1,6 +1,7 @@
 package display
 
 import (
+	"os"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
@@ -123,4 +124,8 @@ func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
 func (m *Manager) SetPrimary(outputName string) *dbus.Error {
 	err := m.setPrimary(outputName)
 	return dbusutil.ToError(err)
+}
+
+func (m *Manager) CanRotate() (bool, *dbus.Error) {
+	return os.Getenv("DEEPIN_DISPLAY_CAN_ROTATE") == "1", nil
 }

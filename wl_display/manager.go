@@ -89,6 +89,7 @@ type Manager struct {
 		SetBrightness          func() `in:"outputName,value"`
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
+		CanRotate              func() `out:"can"`
 	}
 }
 
