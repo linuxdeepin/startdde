@@ -22,7 +22,6 @@ package display
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -57,48 +56,48 @@ func (m *Manager) changeBrightness(raised bool) error {
 		}
 
 		var br float64
-		setBr := true
+		//setBr := true
 
-		if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
-			logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
-		} else {
-			max := blCtrl.MaxBrightness
-			cur, err := blCtrl.GetBrightness()
-			if err == nil {
-				// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
-				hv := float64(cur) / float64(max)
-				avg := (v + hv) / 2
-				delta := (v - hv) / avg
-				logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
+		//if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
+		//	logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
+		//} else {
+		//	max := blCtrl.MaxBrightness
+		//	cur, err := blCtrl.GetBrightness()
+		//	if err == nil {
+		//		// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
+		//		hv := float64(cur) / float64(max)
+		//		avg := (v + hv) / 2
+		//		delta := (v - hv) / avg
+		//		logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
+		//
+		//		if math.Abs(delta) > 0.05 {
+		//			logger.Debug("backlight actual brightness is not set")
+		//			setBr = false
+		//			br = hv
+		//		}
+		//	}
+		//}
 
-				if math.Abs(delta) > 0.05 {
-					logger.Debug("backlight actual brightness is not set")
-					setBr = false
-					br = hv
-				}
-			}
+		//if setBr {
+		br = v + step
+		if br > 1.0 {
+			br = 1.0
 		}
-
-		if setBr {
-			br = v + step
-			if br > 1.0 {
-				br = 1.0
-			}
-			if br < 0.0 {
-				br = 0.0
-			}
-			logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
-			err := m.doSetBrightness(br, monitor.Name)
-			if err != nil {
-				return err
-			}
-		} else {
-			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
-			err := m.doSetBrightnessFake(br, monitor.Name)
-			if err != nil {
-				return err
-			}
+		if br < 0.0 {
+			br = 0.0
 		}
+		logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
+		err := m.doSetBrightness(br, monitor.Name)
+		if err != nil {
+			return err
+		}
+		//} else {
+		//	logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
+		//	err := m.doSetBrightnessFake(br, monitor.Name)
+		//	if err != nil {
+		//		return err
+		//	}
+		//}
 	}
 
 	m.saveBrightness()
@@ -151,8 +150,14 @@ func (m *Manager) getBrightnessSetter() string {
 	return m.settings.GetString(gsKeySetter)
 }
 
+func (m *Manager) isBuiltinMonitor(monitor *Monitor) bool {
+	m.builtinMonitorMu.Lock()
+	defer m.builtinMonitorMu.Unlock()
+	return m.builtinMonitor == monitor
+}
+
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
-	isBuiltin := isBuiltinOutput(monitor.Name)
+	isBuiltin := m.isBuiltinMonitor(monitor)
 	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
 		monitor.ID, m.xConn)
 	return err

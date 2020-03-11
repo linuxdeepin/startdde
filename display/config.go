@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -15,14 +16,16 @@ import (
 const configVersion = "4.0"
 
 var (
-	configFile        string
-	configVersionFile string
+	configFile               string
+	configVersionFile        string
+	builtinMonitorConfigFile string
 )
 
 func init() {
 	cfgDir := filepath.Join(basedir.GetUserConfigDir(), "deepin/startdde")
 	configFile = filepath.Join(cfgDir, "display.json")
 	configVersionFile = filepath.Join(cfgDir, "config.version")
+	builtinMonitorConfigFile = filepath.Join(cfgDir, "builtin-monitor")
 }
 
 type Config map[string]*ScreenConfig
@@ -284,6 +287,27 @@ func (c Config) save(filename string) error {
 	}
 
 	err = ioutil.WriteFile(filename, data, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadBuiltinMonitorConfig(filename string) (string, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(content)), nil
+}
+
+func saveBuiltinMonitorConfig(filename, name string) error {
+	dir := filepath.Dir(filename)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filename, []byte(name), 0644)
 	if err != nil {
 		return err
 	}

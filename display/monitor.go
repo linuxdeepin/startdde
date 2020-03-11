@@ -64,6 +64,10 @@ type Monitor struct {
 	}
 }
 
+func (m *Monitor) String() string {
+	return fmt.Sprintf("<Monitor id=%d name=%s>", m.ID, m.Name)
+}
+
 func (m *Monitor) GetInterfaceName() string {
 	return dbusInterfaceMonitor
 }
