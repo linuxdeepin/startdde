@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
 	"io/ioutil"
 	"os/exec"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"regexp"
 	"sort"
 	"strconv"
@@ -362,4 +364,17 @@ func getConfigVersion(filename string) (string, error) {
 		return "", err
 	}
 	return string(bytes.TrimSpace(content)), nil
+}
+
+func getComputeChassis() (string, error) {
+	systemBus, err := dbus.SystemBus()
+	if err != nil {
+		return "", err
+	}
+	hostnameObj := hostname1.NewHostname(systemBus)
+	chassis, err := hostnameObj.Chassis().Get(0)
+	if err != nil {
+		return "", err
+	}
+	return chassis, nil
 }

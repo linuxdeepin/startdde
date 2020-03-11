@@ -1,6 +1,8 @@
 package display
 
 import (
+	"fmt"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"os"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
@@ -131,4 +133,26 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (m *Manager) getBuiltinMonitor() *Monitor {
+	m.builtinMonitorMu.Lock()
+	defer m.builtinMonitorMu.Unlock()
+	return m.builtinMonitor
+}
+
+func (m *Manager) GetBuiltinMonitor() (string, dbus.ObjectPath, *dbus.Error) {
+	builtinMonitor := m.getBuiltinMonitor()
+	if builtinMonitor == nil {
+		return "", "/", nil
+	}
+
+	m.monitorMapMu.Lock()
+	_, ok := m.monitorMap[randr.Output(builtinMonitor.ID)]
+	m.monitorMapMu.Unlock()
+	if !ok {
+		return "", "/", dbusutil.ToError(fmt.Errorf("not found monitor %d", builtinMonitor.ID))
+	}
+
+	return builtinMonitor.Name, builtinMonitor.getPath(), nil
 }

@@ -44,21 +44,25 @@ const (
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 
 type Manager struct {
-	service              *dbusutil.Service
-	xConn                *x.Conn
-	PropsMu              sync.RWMutex
-	config               Config
-	recommendScaleFactor float64
-	modes                []randr.ModeInfo
-	monitorMap           map[randr.Output]*Monitor
-	monitorMapMu         sync.Mutex
-	crtcMap              map[randr.Crtc]*randr.GetCrtcInfoReply
-	crtcMapMu            sync.Mutex
-	outputMap            map[randr.Output]*randr.GetOutputInfoReply
-	outputMapMu          sync.Mutex
-	configTimestamp      x.Timestamp
-	settings             *gio.Settings
-	monitorsId           string
+	service                  *dbusutil.Service
+	xConn                    *x.Conn
+	PropsMu                  sync.RWMutex
+	config                   Config
+	recommendScaleFactor     float64
+	modes                    []randr.ModeInfo
+	builtinMonitor           *Monitor
+	builtinMonitorMu         sync.Mutex
+	candidateBuiltinMonitors []*Monitor // 候补的
+	monitorMap               map[randr.Output]*Monitor
+	monitorMapMu             sync.Mutex
+	crtcMap                  map[randr.Crtc]*randr.GetCrtcInfoReply
+	crtcMapMu                sync.Mutex
+	outputMap                map[randr.Output]*randr.GetOutputInfoReply
+	outputMapMu              sync.Mutex
+	configTimestamp          x.Timestamp
+	settings                 *gio.Settings
+	monitorsId               string
+	isLaptop                 bool
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -90,6 +94,7 @@ type Manager struct {
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
+		GetBuiltinMonitor      func() `out:"name,path"`
 	}
 }
 
@@ -119,6 +124,14 @@ func newManager(service *dbusutil.Service) *Manager {
 		monitorMap: make(map[randr.Output]*Monitor),
 	}
 
+	chassis, err := getComputeChassis()
+	if err != nil {
+		logger.Warning(err)
+	}
+	if chassis == "laptop" {
+		m.isLaptop = true
+	}
+
 	m.settings = gio.NewSettings(gsSchemaDisplay)
 	m.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
 	if m.DisplayMode == DisplayModeUnknow {
@@ -126,7 +139,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 
-	var err error
 	m.xConn, err = getXConn()
 	if err != nil {
 		logger.Fatal(err)
@@ -158,6 +170,8 @@ func newManager(service *dbusutil.Service) *Manager {
 			logger.Warning(err)
 		}
 	}
+
+	m.initBuiltinMonitor()
 	m.monitorsId = m.getMonitorsId()
 	m.updatePropMonitors()
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
@@ -166,6 +180,85 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
+}
+
+func (m *Manager) initBuiltinMonitor() {
+	if !m.isLaptop {
+		return
+	}
+	builtinMonitorName, err := loadBuiltinMonitorConfig(builtinMonitorConfigFile)
+	if err != nil {
+		logger.Warning(err)
+	}
+	monitors := m.getConnectedMonitors()
+	if builtinMonitorName != "" {
+		for _, monitor := range monitors {
+			if monitor.Name == builtinMonitorName {
+				m.builtinMonitor = monitor
+			}
+		}
+	}
+
+	if m.builtinMonitor != nil {
+		return
+	}
+	builtinMonitorName = ""
+
+	var rest []*Monitor
+	for _, monitor := range monitors {
+		name := strings.ToLower(monitor.Name)
+		if strings.HasPrefix(name, "hdmi") || strings.HasPrefix(name, "vga") {
+			// ignore HDMI or VGA
+		} else {
+			rest = append(rest, monitor)
+		}
+	}
+
+	if len(rest) == 1 {
+		m.builtinMonitor = rest[0]
+		builtinMonitorName = m.builtinMonitor.Name
+	} else if len(rest) > 1 {
+		m.builtinMonitor = getMinIDMonitor(rest)
+		// 但是不保存到配置文件中
+		m.candidateBuiltinMonitors = rest
+	}
+	logger.Debug("rest:", rest)
+	logger.Debug("m.builtinMonitor:", m.builtinMonitor)
+	logger.Debug("m.candidateBuiltinMonitors:", m.candidateBuiltinMonitors)
+
+	err = saveBuiltinMonitorConfig(builtinMonitorConfigFile, builtinMonitorName)
+	if err != nil {
+		logger.Warning("failed to save builtin monitor config:", err)
+	}
+}
+
+func (m *Manager) updateBuiltinMonitorOnDisconnected(id uint32) {
+	m.builtinMonitorMu.Lock()
+	defer m.builtinMonitorMu.Unlock()
+
+	if len(m.candidateBuiltinMonitors) < 2 {
+		return
+	}
+	m.candidateBuiltinMonitors = monitorsRemove(m.candidateBuiltinMonitors, id)
+	if len(m.candidateBuiltinMonitors) == 1 {
+		// 当只剩下一个候补时能自动成为真的 builtin monitor
+		m.builtinMonitor = m.candidateBuiltinMonitors[0]
+		m.candidateBuiltinMonitors = nil
+		err := saveBuiltinMonitorConfig(builtinMonitorConfigFile, m.builtinMonitor.Name)
+		if err != nil {
+			logger.Warning("failed to save builtin monitor config:", err)
+		}
+	}
+}
+
+func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
+	var result []*Monitor
+	for _, m := range monitors {
+		if m.ID != id {
+			result = append(result, m)
+		}
+	}
+	return result
 }
 
 func (m *Manager) applyDisplayMode() {
@@ -505,6 +598,8 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 		if err != nil {
 			logger.Warning(err)
 		}
+	} else {
+		m.updateBuiltinMonitorOnDisconnected(monitor.ID)
 	}
 	uuid := getOutputUUID(outputInfo.Name, edid)
 

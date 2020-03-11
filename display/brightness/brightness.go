@@ -57,7 +57,7 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 	output := randr.Output(outputId)
 	switch setter {
 	case SetterBacklight:
-		return setBacklightOnlyOne(value)
+		return setBacklight(value, output, conn)
 	case SetterGamma:
 		return setOutputCrtcGamma(value, output, conn)
 	}
@@ -71,35 +71,36 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 }
 
 // unused function
-func Get(setter string, isButiltin bool, outputId uint32, conn *x.Conn) (float64, error) {
-	output := randr.Output(outputId)
-	switch setter {
-	case SetterBacklight:
-		return getBacklightOnlyOne()
-	case SetterGamma:
-		return 1, nil
-	}
-
-	// case SetterAuto
-	if isButiltin {
-		if supportBacklight(output, conn) {
-			return getBacklight(output, conn)
-		}
-	}
-	return 1, nil
-}
+//func Get(setter string, isButiltin bool, outputId uint32, conn *x.Conn) (float64, error) {
+//	output := randr.Output(outputId)
+//	switch setter {
+//	case SetterBacklight:
+//		return getBacklightOnlyOne()
+//	case SetterGamma:
+//		return 1, nil
+//	}
+//
+//	// case SetterAuto
+//	if isButiltin {
+//		if supportBacklight(output, conn) {
+//			return getBacklight(output, conn)
+//		}
+//	}
+//	return 1, nil
+//}
 
 func GetBacklightController(outputId uint32, conn *x.Conn) (*displayBl.Controller, error) {
-	output := randr.Output(outputId)
-	return getBacklightController(output, conn)
+	// TODO
+	//output := randr.Output(outputId)
+	//return getBacklightController(output, conn)
+	return nil, nil
 }
 
 func supportBacklight(output randr.Output, conn *x.Conn) bool {
 	if helper == nil {
 		return false
 	}
-	c, _ := getBacklightController(output, conn)
-	return c != nil
+	return len(controllers) > 0
 }
 
 func setOutputCrtcGamma(value float64, output randr.Output, conn *x.Conn) error {
@@ -154,48 +155,14 @@ func init() {
 	}
 }
 
-func getBacklightController(output randr.Output, conn *x.Conn) (*displayBl.Controller, error) {
-	// get output device EDID
-	atomEDID, err := conn.GetAtom("EDID")
-	if err != nil {
-		return nil, err
-	}
-
-	edidProp, err := randr.GetOutputProperty(conn, output,
-		atomEDID,      // Property
-		x.AtomInteger, // Type
-		0,             // LongOffset
-		32,            // LongLength
-		false,         //Delete
-		false,         //Pending
-	).Reply(conn)
-
-	if err != nil {
-		return nil, err
-	}
-
-	// find backlight controller
-	if c := controllers.GetByEDID(edidProp.Value); c != nil {
-		return c, nil
-	}
-
-	return nil, errNotFoundBacklightController
-}
-
 func setBacklight(value float64, output randr.Output, conn *x.Conn) error {
-	controller, err := getBacklightController(output, conn)
-	if err != nil {
-		return err
+	for _, controller := range controllers {
+		err := _setBacklight(value, controller)
+		if err != nil {
+			fmt.Printf("WARN: failed to set backlight %s: %v", controller.Name, err)
+		}
 	}
-	return _setBacklight(value, controller)
-}
-
-func getBacklight(output randr.Output, conn *x.Conn) (float64, error) {
-	controller, err := getBacklightController(output, conn)
-	if err != nil {
-		return 0.0, err
-	}
-	return _getBacklight(controller)
+	return nil
 }
 
 func _setBacklight(value float64, controller *displayBl.Controller) error {
@@ -204,40 +171,4 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
 	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
-}
-
-func _getBacklight(controller *displayBl.Controller) (float64, error) {
-	br, err := controller.GetBrightness()
-	if err != nil {
-		return 0.0, err
-	}
-	return float64(br) / float64(controller.MaxBrightness), nil
-}
-
-// there is only one backlight controller
-func getBacklightControllerOnlyOne() (*displayBl.Controller, error) {
-	if len(controllers) > 1 {
-		return nil, errors.New("found more than one backlight controller")
-	}
-	if len(controllers) == 0 {
-		return nil, errNotFoundBacklightController
-	}
-	// len(controllers) is 1
-	return controllers[0], nil
-}
-
-func getBacklightOnlyOne() (float64, error) {
-	controller, err := getBacklightControllerOnlyOne()
-	if err != nil {
-		return 0.0, err
-	}
-	return _getBacklight(controller)
-}
-
-func setBacklightOnlyOne(value float64) error {
-	controller, err := getBacklightControllerOnlyOne()
-	if err != nil {
-		return err
-	}
-	return _setBacklight(value, controller)
 }
