@@ -127,5 +127,8 @@ func (m *Manager) SetPrimary(outputName string) *dbus.Error {
 }
 
 func (m *Manager) CanRotate() (bool, *dbus.Error) {
-	return os.Getenv("DEEPIN_DISPLAY_CAN_ROTATE") == "1", nil
+	if os.Getenv("DEEPIN_DISPLAY_DISABLE_ROTATE") == "1" {
+		return false, nil
+	}
+	return true, nil
 }
