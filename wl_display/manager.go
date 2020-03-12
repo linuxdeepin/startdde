@@ -188,6 +188,8 @@ func (m *Manager) listenDBusSignals() {
 
 		m.updateMonitorsId()
 		m.updateScreenSize()
+		// apply last saved brightness
+		m.initBrightness()
 	})
 	if err != nil {
 		logger.Warning(err)

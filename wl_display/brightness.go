@@ -134,14 +134,28 @@ func (m *Manager) initBrightness() {
 		brightnessTable = make(map[string]float64)
 	}
 
+	var saved = false
 	monitors := m.getConnectedMonitors()
 	for _, monitor := range monitors {
-		if _, ok := brightnessTable[monitor.Name]; ok {
+		v, ok := brightnessTable[monitor.Name]
+		if !ok {
+			v = 1
+			brightnessTable[monitor.Name] = v
+		}
+		// set the saved brightness
+		err = m.doSetBrightness(v, monitor.Name)
+		if err != nil {
+			logger.Warning("Failed to set default brightness:", monitor.Name, err)
 			continue
 		}
-		brightnessTable[monitor.Name] = 1
+		saved = true
 	}
 	m.Brightness = brightnessTable
+
+	if saved {
+		logger.Info("Init default output brightness")
+		m.saveBrightness()
+	}
 }
 
 func (m *Manager) getBrightnessSetter() string {
