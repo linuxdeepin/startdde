@@ -612,33 +612,33 @@ func (m *Manager) apply() error {
 	// TODO: remove in future
 	return m.applyByWLOutput()
 
-	var outputInfos []*KOutputInfo
-	for _, monitor := range m.monitorMap {
-		var outputInfo KOutputInfo
-		outputInfo.Uuid = monitor.uuid
-		if monitor.Enabled {
-			outputInfo.Enabled = 1
-			outputInfo.ModeInfos = []KModeInfo{
-				{
-					Id: int32(monitor.CurrentMode.Id),
-				},
-			}
-			// position
-			outputInfo.X = int32(monitor.X)
-			outputInfo.Y = int32(monitor.Y)
-			outputInfo.Transform = int32(randrRotationToTransform(int(monitor.Rotation)))
-		} else {
-			outputInfo.Enabled = 0
-		}
-		outputInfos = append(outputInfos, &outputInfo)
-	}
-	wrap := &outputInfoWrap{OutputInfo: outputInfos}
-	outputInfosJson := jsonMarshal(wrap)
-	err := m.management.Apply(0, outputInfosJson)
-	if err != nil {
-		return err
-	}
-	return nil
+	//var outputInfos []*KOutputInfo
+	//for _, monitor := range m.monitorMap {
+	//	var outputInfo KOutputInfo
+	//	outputInfo.Uuid = monitor.uuid
+	//	if monitor.Enabled {
+	//		outputInfo.Enabled = 1
+	//		outputInfo.ModeInfos = []KModeInfo{
+	//			{
+	//				Id: int32(monitor.CurrentMode.Id),
+	//			},
+	//		}
+	//		// position
+	//		outputInfo.X = int32(monitor.X)
+	//		outputInfo.Y = int32(monitor.Y)
+	//		outputInfo.Transform = int32(randrRotationToTransform(int(monitor.Rotation)))
+	//	} else {
+	//		outputInfo.Enabled = 0
+	//	}
+	//	outputInfos = append(outputInfos, &outputInfo)
+	//}
+	//wrap := &outputInfoWrap{OutputInfo: outputInfos}
+	//outputInfosJson := jsonMarshal(wrap)
+	//err := m.management.Apply(0, outputInfosJson)
+	//if err != nil {
+	//	return err
+	//}
+	//return nil
 }
 
 //func (m *Manager) apply() error {
