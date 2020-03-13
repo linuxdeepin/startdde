@@ -509,6 +509,9 @@ func (m *Manager) updateScreenSize() {
 
 	m.monitorMapMu.Lock()
 	for _, monitor := range m.monitorMap {
+		if !monitor.Enabled {
+			continue
+		}
 		if screenWidth < uint16(monitor.X)+monitor.Width {
 			screenWidth = uint16(monitor.X) + monitor.Width
 		}

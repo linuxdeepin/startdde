@@ -103,17 +103,27 @@ func newKOutputInfoByUUID(uuid string) (*KOutputInfo, error) {
 }
 
 func (m *Manager) applyByWLOutput() error {
+	var disabledMonitors []*Monitor
 	for _, monitor := range m.monitorMap {
 		trans := int32(randrRotationToTransform(int(monitor.Rotation)))
-		logger.Debug("---------Will apply:", monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
-		enabled := 1
 		if !monitor.Enabled {
-			enabled = 0
+			disabledMonitors = append(disabledMonitors, monitor)
+			continue
 		}
-		data, err := exec.Command("/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprintf("%d", enabled),
+		logger.Debug("---------Will apply:", monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
+		data, err := exec.Command("/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprint("1"),
 			fmt.Sprintf("%d", monitor.X), fmt.Sprintf("%d", monitor.Y), fmt.Sprintf("%d", monitor.CurrentMode.Width),
 			fmt.Sprintf("%d", monitor.CurrentMode.Height), fmt.Sprintf("%d", int32(monitor.CurrentMode.Rate*1000)),
 			fmt.Sprintf("%d", trans)).CombinedOutput()
+		if err != nil {
+			logger.Warningf("%s(%s)", string(data), err)
+			return err
+		}
+	}
+	for _, monitor := range disabledMonitors {
+		logger.Debug("-----------Will disable output:", monitor.Name)
+		data, err := exec.Command("/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0",
+			"0", "0").CombinedOutput()
 		if err != nil {
 			logger.Warningf("%s(%s)", string(data), err)
 			return err
