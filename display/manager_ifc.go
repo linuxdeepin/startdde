@@ -3,15 +3,16 @@ package display
 import (
 	"errors"
 	"fmt"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pkg.deepin.io/lib/dbus1"
+	"strconv"
+
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/xdg/basedir"
-	"strconv"
 )
 
 func (m *Manager) GetInterfaceName() string {
@@ -54,8 +55,8 @@ func (m *Manager) Save() *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
-func (dpy *Manager) AssociateTouch(outputName, touch string) *dbus.Error {
-	err := dpy.associateTouch(outputName, touch)
+func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
+	err := m.associateTouch(outputName, touchSerial)
 	return dbusutil.ToError(err)
 }
 

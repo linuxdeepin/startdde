@@ -15,6 +15,7 @@ Build-Depends: debhelper (>= 9), pkg-config, golang-go,
  libgnome-keyring-dev,
  libxfixes-dev,
  libxcursor-dev,
+ libxi-dev,
  jq
 Standards-Version: 3.9.5
 Homepage: http://github.com/linuxdeepin/startdde
@@ -34,7 +35,8 @@ Depends: ${shlibs:Depends},
  dde-api,
  libgnome-keyring0,
  libxfixes3,
- libxcursor1
+ libxcursor1,
+ xinput,
 Recommends: dde-qt5integration
 Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)
