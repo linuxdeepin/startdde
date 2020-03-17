@@ -1,7 +1,7 @@
 package display
 
 import (
-	"pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -23,6 +23,7 @@ func Start() error {
 	}
 	service := dbusutil.NewService(sessionBus)
 	m := newManager(service)
+	_dpy = m
 	m.init()
 	err = service.Export(dbusPath, m)
 	if err != nil {
@@ -33,7 +34,6 @@ func Start() error {
 	if err != nil {
 		return err
 	}
-	_dpy = m
 	return nil
 }
 

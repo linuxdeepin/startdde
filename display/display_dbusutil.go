@@ -60,6 +60,15 @@ func (v *Manager) emitPropChangedBrightness(value map[string]float64) error {
 	return v.service.EmitPropertyChanged(v, "Brightness", value)
 }
 
+func (v *Manager) setPropTouchscreens(value dxTouchscreens) {
+	v.Touchscreens = value
+	v.emitPropChangedTouchscreens(value)
+}
+
+func (v *Manager) emitPropChangedTouchscreens(value dxTouchscreens) error {
+	return v.service.EmitPropertyChanged(v, "Touchscreens", value)
+}
+
 func (v *Manager) setPropTouchMap(value map[string]string) {
 	v.TouchMap = value
 	v.emitPropChangedTouchMap(value)
