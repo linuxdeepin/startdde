@@ -83,6 +83,10 @@ func newKOutputInfoByUUID(uuid string) (*KOutputInfo, error) {
 		Scale:        info.ScaleF,
 		ModeInfos:    []KModeInfo{},
 	}
+	if needSwapWidthHeight(kinfo.rotation()) {
+		kinfo.Width, kinfo.Height = kinfo.Height, kinfo.Width
+	}
+
 	if info.Enabled {
 		kinfo.Enabled = 1
 	} else {

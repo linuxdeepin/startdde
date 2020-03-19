@@ -481,8 +481,8 @@ func (m *Manager) updateMonitor(monitor *Monitor, outputInfo *KOutputInfo) {
 	monitor.setPropBestMode(outputInfo.getBestMode())
 	monitor.setPropPreferredModes([]ModeInfo{monitor.BestMode})
 	monitor.setPropCurrentMode(outputInfo.getCurrentMode())
-	monitor.setPropWidth(monitor.CurrentMode.Width)
-	monitor.setPropHeight(monitor.CurrentMode.Height)
+	monitor.setPropWidth(uint16(outputInfo.Width))
+	monitor.setPropHeight(uint16(outputInfo.Height))
 	monitor.setPropRefreshRate(monitor.CurrentMode.Rate)
 	monitor.setPropRotation(outputInfo.rotation())
 	//monitor.setPropReflect(0) //TODO
