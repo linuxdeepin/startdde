@@ -46,8 +46,8 @@ func TestMonitor(t *testing.T) {
 			Enabled:   true,
 			Connected: true,
 		}
-		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --primary --mode 1377x768 --pos 0x0 --rotate normal --reflect normal")
-		So(lvds.generateCommandline("eDP-1", false), ShouldEqual, " --output LVDS-1 --mode 1377x768 --pos 0x0 --rotate normal --reflect normal")
+		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --primary --mode 1377x768 --pos 0x0 --panning 0x0 --rotate normal --reflect normal")
+		So(lvds.generateCommandline("eDP-1", false), ShouldEqual, " --output LVDS-1 --mode 1377x768 --pos 0x0 --panning 0x0 --rotate normal --reflect normal")
 		lvds.cfg.Enabled = false
 		So(lvds.generateCommandline("LVDS-1", false), ShouldEqual, " --output LVDS-1 --off")
 		lvds.cfg.Enabled = true
