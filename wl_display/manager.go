@@ -1107,7 +1107,11 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	}
 
 	if hasDisabled {
-		err = m.switchModeExtend(m.Primary)
+		// the default mode is mirror under wayland
+		err = m.switchModeMirror()
+		if err != nil {
+			err = m.switchModeExtend(m.Primary)
+		}
 		if err != nil {
 			return
 		}
