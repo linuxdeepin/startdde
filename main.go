@@ -23,6 +23,7 @@ import "C"
 import (
 	"flag"
 	"os"
+	"os/signal"
 	"syscall"
 
 	x "github.com/linuxdeepin/go-x11-client"
@@ -92,6 +93,7 @@ func main() {
 
 	tryMatchVM()
 	go playLoginSound()
+	go handleSignal()
 
 	err = gsettings.StartMonitor()
 	if err != nil {
@@ -154,8 +156,32 @@ func main() {
 	dbus.Wait()
 }
 
+func handleSignal() {
+	var sigs = make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV)
+
+loop:
+	for {
+		select {
+		case sig := <-sigs:
+			switch sig {
+			case syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV:
+				logger.Error("Received signal: ", sig)
+				break loop
+			}
+		}
+	}
+
+	logger.Info("Received unexcept signal, force logout")
+	doLogout(true)
+}
+
 func doSetLogLevel(level log.Priority) {
 	logger.SetLogLevel(level)
-	display.SetLogLevel(level)
+	if !globalUseWayland {
+		display.SetLogLevel(level)
+	} else {
+		wl_display.SetLogLevel(level)
+	}
 	watchdog.SetLogLevel(level)
 }

@@ -157,11 +157,7 @@ func (m *SessionManager) logout(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareLogout(force)
-	err := objLoginSessionSelf.Terminate(0)
-	if err != nil {
-		logger.Warning("LoginSessionSelf Terminate failed:", err)
-	}
-	os.Exit(0)
+	doLogout(force)
 }
 
 func (shudown *SessionManager) CanShutdown() bool {
@@ -984,4 +980,12 @@ func setDPMSMode(on bool) {
 	if err != nil {
 		logger.Warning("Failed to set dpms mode:", on, err)
 	}
+}
+
+func doLogout(force bool) {
+	err := objLoginSessionSelf.Terminate(0)
+	if err != nil {
+		logger.Warning("LoginSessionSelf Terminate failed:", err)
+	}
+	os.Exit(0)
 }

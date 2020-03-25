@@ -38,7 +38,13 @@ func (err InvalidOutputNameError) Error() string {
 }
 
 func (m *Manager) saveBrightness() {
+	if m.settings == nil || m.settings.C == nil || m.settings.Object.C == nil {
+		logger.Info("[saveBrightness] object invalid, not save...")
+		return
+	}
+
 	jsonStr := jsonMarshal(m.Brightness)
+	logger.Info("[saveBrightness] gsettings set:", m.settings, gsKeyBrightness, jsonStr)
 	m.settings.SetString(gsKeyBrightness, jsonStr)
 }
 
@@ -154,7 +160,8 @@ func (m *Manager) initBrightness() {
 
 	if saved {
 		logger.Info("Init default output brightness")
-		m.saveBrightness()
+		// In huawei KelvinU sometimes crash because of GObject assert failure in GSettings
+		//m.saveBrightness()
 	}
 }
 
