@@ -2,7 +2,8 @@ package display
 
 import (
 	"os"
-	"pkg.deepin.io/lib/dbus1"
+
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -37,6 +38,11 @@ func (m *Manager) ResetChanges() *dbus.Error {
 }
 
 func (m *Manager) SwitchMode(mode byte, name string) *dbus.Error {
+	if !m.canSwitchMode() {
+		logger.Info("Forbidden to switch mode")
+		return dbusutil.MakeError(m, "Forbidden to switch mode")
+	}
+
 	err := m.switchMode(mode, name)
 	return dbusutil.ToError(err)
 }
@@ -131,4 +137,8 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (m *Manager) CanSwitchMode() (bool, *dbus.Error) {
+	return m.canSwitchMode(), nil
 }

@@ -3,12 +3,13 @@ package display
 import (
 	"errors"
 	"fmt"
-	x "github.com/linuxdeepin/go-x11-client"
 	"math"
 	"strconv"
 	"sync"
 
-	"pkg.deepin.io/lib/dbus1"
+	x "github.com/linuxdeepin/go-x11-client"
+
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -51,6 +52,9 @@ type Monitor struct {
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
+
+	model        string
+	manufacturer string
 
 	backup  *MonitorBackup
 	methods *struct {

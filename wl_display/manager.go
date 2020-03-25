@@ -90,6 +90,7 @@ type Manager struct {
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
+		CanSwitchMode          func() `out:"can"`
 	}
 }
 
@@ -443,6 +444,9 @@ func (m *Manager) addMonitor(outputInfo *KOutputInfo) error {
 		randr.RotationReflectX | randr.RotationReflectY}
 	monitor.Reflect = 0 //TODO
 
+	monitor.manufacturer = outputInfo.Manufacturer
+	monitor.model = outputInfo.Model
+
 	err := m.service.Export(monitor.getPath(), monitor)
 	if err != nil {
 		return err
@@ -486,6 +490,9 @@ func (m *Manager) updateMonitor(monitor *Monitor, outputInfo *KOutputInfo) {
 	monitor.setPropRefreshRate(monitor.CurrentMode.Rate)
 	monitor.setPropRotation(outputInfo.rotation())
 	//monitor.setPropReflect(0) //TODO
+
+	monitor.manufacturer = outputInfo.Manufacturer
+	monitor.model = outputInfo.Model
 
 	logger.Debugf("updateMonitor id: %d, x:%d, y: %d, width: %d, height: %d",
 		monitor.ID, monitor.X, monitor.Y, monitor.Width, monitor.Height)
@@ -1524,4 +1531,20 @@ func (m *Manager) saveConfig() error {
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) canSwitchMode() bool {
+	// some wacom tablet switch to extend, the cursor pointer will show in wrong position
+	// so disable switch mode
+	for _, monitor := range m.monitorMap {
+		logger.Debug("[canSwitchMode] check monitor:", monitor.manufacturer, monitor.model)
+		if isInSwitchModeBlacklist(monitor.manufacturer, monitor.model) {
+			return false
+		}
+	}
+	return true
+}
+
+func isInSwitchModeBlacklist(manu, model string) bool {
+	return strings.Contains(manu, "HAT") && strings.Contains(model, "Kamvas")
 }

@@ -198,7 +198,7 @@ func parseWLOutputData(data []byte) (OutputList, error) {
 }
 
 func parseWLOutputFirstLine(info *Output, line string) error {
-	items := strings.Split(line, " ")
+	items := strings.SplitN(line, " ", 9)
 	if len(items) != 9 {
 		return fmt.Errorf("invalid output first line: %s, items: %d", line, len(items))
 	}
