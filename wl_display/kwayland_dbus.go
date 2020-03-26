@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/wl_display/ddewloutput"
@@ -295,9 +296,22 @@ type outputInfoWrap struct {
 }
 
 func (m *Manager) listOutput() ([]*KOutputInfo, error) {
-	outputJ, err := m.management.ListOutput(0)
-	if err != nil {
-		return nil, err
+	var outputJ string
+	var duration = time.Millisecond * 500
+	// sometimes got the output list will return nil, this is the output service not inited yet.
+	// so try got 3 times.
+	for i := 0; i < 3; i++ {
+		data, err := m.management.ListOutput(0)
+		if len(data) != 0 {
+			outputJ = data
+			break
+		}
+
+		if err != nil || len(data) == 0 {
+			logger.Warning("Failed to get output list:", err)
+		}
+		time.Sleep(duration)
+		duration += 100
 	}
 	logger.Debug("outputJ:", outputJ)
 	return unmarshalOutputInfos(outputJ)
