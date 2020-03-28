@@ -1,10 +1,12 @@
 package ddewloutput
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type ModeFlag int32
@@ -115,7 +117,9 @@ type ScreenInfo struct {
 }
 
 func GetScreenInfo() (*ScreenInfo, error) {
-	data, err := exec.Command(ddeWLOutputCmd, "get").CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	data, err := exec.CommandContext(ctx, ddeWLOutputCmd, "get").CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("%s(%s)", string(data), err)
 	}

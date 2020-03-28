@@ -1,6 +1,7 @@
 package display
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -116,23 +117,31 @@ func (m *Manager) applyByWLOutput() error {
 			continue
 		}
 		logger.Debug("---------Will apply:", monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
-		data, err := exec.Command("/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprint("1"),
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprint("1"),
 			fmt.Sprintf("%d", monitor.X), fmt.Sprintf("%d", monitor.Y), fmt.Sprintf("%d", monitor.CurrentMode.Width),
 			fmt.Sprintf("%d", monitor.CurrentMode.Height), fmt.Sprintf("%d", int32(monitor.CurrentMode.Rate*1000)),
 			fmt.Sprintf("%d", trans)).CombinedOutput()
+		cancel()
 		if err != nil {
 			logger.Warningf("%s(%s)", string(data), err)
 			return err
 		}
+		// wait request done
+		time.Sleep(time.Millisecond * 500)
 	}
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
-		data, err := exec.Command("/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0",
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0",
 			"0", "0").CombinedOutput()
+		cancel()
 		if err != nil {
 			logger.Warningf("%s(%s)", string(data), err)
 			return err
 		}
+		// wait request done
+		time.Sleep(time.Millisecond * 500)
 	}
 	return nil
 }

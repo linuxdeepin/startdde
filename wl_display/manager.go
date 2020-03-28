@@ -204,9 +204,9 @@ func (m *Manager) listenDBusSignals() {
 			return
 		}
 
-		// somethimes the wloutput data unready, so sleep 500ms
+		// somethimes the wloutput data unready, so sleep 800ms
 		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 800)
 
 		// Workaround, because sometimes the output changed info not contains all props value.
 		// TODO: Remove in future
@@ -545,8 +545,8 @@ func (m *Manager) updateScreenSize() {
 
 func (m *Manager) switchModeMirror() (err error) {
 	logger.Debug("switch mode mirror")
-	screenCfg := m.getScreenConfig()
-	configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
+	// screenCfg := m.getScreenConfig()
+	// configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
 	monitors := m.getConnectedMonitors()
 	commonSizes := getMonitorsCommonSizes(monitors)
 	if len(commonSizes) == 0 {
@@ -558,14 +558,13 @@ func (m *Manager) switchModeMirror() (err error) {
 	for _, monitor := range m.monitorMap {
 		if monitor.Connected {
 			monitor.enable(true)
-
-			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
 			var mode ModeInfo
-			if cfg != nil {
-				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-			} else {
-				mode, _ = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
-			}
+			// if cfg != nil {
+			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+			// } else {
+			mode, _ = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
+			// }
 			monitor.setMode(mode)
 			monitor.setPosition(0, 0)
 			monitor.setRotation(randr.RotationRotate0)
@@ -633,33 +632,34 @@ func (m *Manager) apply() error {
 	// TODO: remove in future
 	return m.applyByWLOutput()
 
-	//var outputInfos []*KOutputInfo
-	//for _, monitor := range m.monitorMap {
-	//	var outputInfo KOutputInfo
-	//	outputInfo.Uuid = monitor.uuid
-	//	if monitor.Enabled {
-	//		outputInfo.Enabled = 1
-	//		outputInfo.ModeInfos = []KModeInfo{
-	//			{
-	//				Id: int32(monitor.CurrentMode.Id),
-	//			},
-	//		}
-	//		// position
-	//		outputInfo.X = int32(monitor.X)
-	//		outputInfo.Y = int32(monitor.Y)
-	//		outputInfo.Transform = int32(randrRotationToTransform(int(monitor.Rotation)))
-	//	} else {
-	//		outputInfo.Enabled = 0
-	//	}
-	//	outputInfos = append(outputInfos, &outputInfo)
-	//}
-	//wrap := &outputInfoWrap{OutputInfo: outputInfos}
-	//outputInfosJson := jsonMarshal(wrap)
-	//err := m.management.Apply(0, outputInfosJson)
-	//if err != nil {
-	//	return err
-	//}
-	//return nil
+	// var outputInfos []*KOutputInfo
+	// for _, monitor := range m.monitorMap {
+	// 	var outputInfo KOutputInfo
+	// 	outputInfo.Uuid = monitor.uuid
+	// 	if monitor.Enabled {
+	// 		outputInfo.Enabled = 1
+	// 		outputInfo.ModeInfos = []KModeInfo{
+	// 			{
+	// 				Id: int32(monitor.CurrentMode.Id),
+	// 			},
+	// 		}
+	// 		// position
+	// 		outputInfo.X = int32(monitor.X)
+	// 		outputInfo.Y = int32(monitor.Y)
+	// 		outputInfo.Transform = int32(randrRotationToTransform(int(monitor.Rotation)))
+	// 	} else {
+	// 		outputInfo.Enabled = 0
+	// 	}
+	// 	outputInfos = append(outputInfos, &outputInfo)
+	// }
+	// wrap := &outputInfoWrap{OutputInfo: outputInfos}
+	// outputInfosJson := jsonMarshal(wrap)
+	// logger.Debug("Will apply config:", outputInfosJson)
+	// err := m.management.Apply(0, outputInfosJson)
+	// if err != nil {
+	// 	return err
+	// }
+	// return nil
 }
 
 //func (m *Manager) apply() error {
@@ -922,8 +922,8 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		monitors = append(monitors, monitor)
 	}
 	sortMonitorsByID(monitors)
-	screenCfg := m.getScreenConfig()
-	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
+	// screenCfg := m.getScreenConfig()
+	// configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
 
 	var xOffset int
 	var monitor0 *Monitor
@@ -931,17 +931,17 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		if monitor.Connected {
 			monitor.enable(true)
 
-			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
 			var mode ModeInfo
-			if cfg != nil {
-				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-				if monitor0 == nil && cfg.Primary {
-					monitor0 = monitor
-				}
+			// if cfg != nil {
+			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+			// if monitor0 == nil && cfg.Primary {
+			// monitor0 = monitor
+			// }
 
-			} else {
-				mode = monitor.BestMode
-			}
+			// } else {
+			mode = monitor.BestMode
+			// }
 
 			monitor.setMode(mode)
 
