@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
@@ -203,6 +204,10 @@ func (m *Manager) listenDBusSignals() {
 			return
 		}
 
+		// somethimes the wloutput data unready, so sleep 500ms
+		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
+		time.Sleep(time.Millisecond * 500)
+
 		// Workaround, because sometimes the output changed info not contains all props value.
 		// TODO: Remove in future
 		kinfo, err := newKOutputInfoByUUID(outputInfo.Uuid)
@@ -301,6 +306,11 @@ func (m *Manager) applyDisplayMode() {
 		return
 	}
 
+	if !m.canSwitchMode() {
+		err = m.switchModeMirror()
+		goto out
+	}
+
 	switch m.DisplayMode {
 	case DisplayModeCustom:
 		err = m.switchModeCustom(m.CurrentCustomId)
@@ -312,6 +322,7 @@ func (m *Manager) applyDisplayMode() {
 		err = m.switchModeOnlyOne("")
 	}
 
+out:
 	if err != nil {
 		logger.Warning(err)
 	}
