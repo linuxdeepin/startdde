@@ -273,6 +273,10 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 		return nil
 	}
 
+	if m := guassPrimaryMonitor(monitors); m != nil {
+		return m
+	}
+
 	minMonitor := monitors[0]
 	for _, monitor := range monitors[1:] {
 		if minMonitor.ID > monitor.ID {
@@ -280,6 +284,15 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 		}
 	}
 	return minMonitor
+}
+
+func guassPrimaryMonitor(monitors []*Monitor) *Monitor {
+	for _, m := range monitors {
+		if isBuiltinOutput(m.Name) {
+			return m
+		}
+	}
+	return nil
 }
 
 func jsonMarshal(v interface{}) string {

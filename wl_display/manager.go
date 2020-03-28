@@ -786,6 +786,7 @@ func (m *Manager) apply() error {
 //}
 
 func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
+	logger.Debug("[switchModeExtend] will set primary:", monitor.Name)
 	rect := monitor.getRect()
 	m.PropsMu.Lock()
 	m.setPropPrimary(monitor.Name)
