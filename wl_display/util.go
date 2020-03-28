@@ -330,7 +330,7 @@ func isBuiltinOutput(name string) bool {
 	case name == "default":
 		return true
 	}
-	return true
+	return false
 }
 
 func doAction(cmd string) error {

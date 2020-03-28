@@ -136,7 +136,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.settings = gio.NewSettings(gsSchemaDisplay)
 	m.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
 	if m.DisplayMode == DisplayModeUnknow {
-		m.DisplayMode = DisplayModeExtend
+		m.DisplayMode = DisplayModeMirror
 	}
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 
@@ -786,7 +786,7 @@ func (m *Manager) apply() error {
 //}
 
 func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
-	logger.Debug("[switchModeExtend] will set primary:", monitor.Name)
+	logger.Debug("[setMonitorPrimary] will set primary:", monitor.Name)
 	rect := monitor.getRect()
 	m.PropsMu.Lock()
 	m.setPropPrimary(monitor.Name)
