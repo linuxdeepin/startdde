@@ -123,7 +123,8 @@ func (m *Manager) applyByWLOutput() error {
 			fmt.Sprintf("%d", monitor.CurrentMode.Height), fmt.Sprintf("%d", int32(monitor.CurrentMode.Rate*1000)),
 			fmt.Sprintf("%d", trans)).CombinedOutput()
 		cancel()
-		if err != nil {
+		// ignore timeout signal
+		if err != nil && !strings.Contains(err.Error(), "killed") {
 			logger.Warningf("%s(%s)", string(data), err)
 			return err
 		}
@@ -136,7 +137,8 @@ func (m *Manager) applyByWLOutput() error {
 		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0",
 			"0", "0").CombinedOutput()
 		cancel()
-		if err != nil {
+		// ignore timeout signal
+		if err != nil && !strings.Contains(err.Error(), "killed") {
 			logger.Warningf("%s(%s)", string(data), err)
 			return err
 		}
