@@ -20,6 +20,7 @@ import (
 	"pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 )
 
 const (
@@ -333,6 +334,27 @@ func (m *Manager) init() {
 	m.initBrightness()
 	m.applyDisplayMode()
 	m.initTouchMap()
+
+	m.addSleepMonitor()
+}
+
+func (m *Manager) addSleepMonitor() {
+	systemBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Fatal(err)
+	}
+	loginObj := login1.NewManager(systemBus)
+	sigLoop := dbusutil.NewSignalLoop(systemBus, 10)
+	sigLoop.Start()
+	loginObj.InitSignalExt(sigLoop, true)
+	_, err = loginObj.ConnectPrepareForSleep(func(isSleep bool) {
+		if isSleep {
+			logger.Debug("prepare to sleep")
+			return
+		}
+		logger.Debug("Wakeup from sleep, apply display setting")
+		m.applyDisplayMode()
+	})
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
