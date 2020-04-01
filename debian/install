@@ -1,2 +1,3 @@
 usr
 etc/X11/Xsession.d
+etc/profile.d

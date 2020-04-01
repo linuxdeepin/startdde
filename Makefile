@@ -45,6 +45,8 @@ install:
 	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
 	mkdir -p ${DESTDIR}/etc/X11/Xsession.d/
 	cp -f misc/Xsession.d/* ${DESTDIR}/etc/X11/Xsession.d/
+	mkdir -p ${DESTDIR}/etc/profile.d/
+	cp -f misc/profile.d/* ${DESTDIR}/etc/profile.d/
 
 clean:
 	rm -rf ${GOPATH_DIR}
