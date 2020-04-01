@@ -264,6 +264,15 @@ func getOutputUUID(name string, edid []byte) string {
 
 func sortMonitorsByID(monitors []*Monitor) {
 	sort.Slice(monitors, func(i, j int) bool {
+		iname := isBuiltinOutput(monitors[i].Name)
+		jname := isBuiltinOutput(monitors[j].Name)
+		if iname && jname {
+			return monitors[i].ID < monitors[j].ID
+		} else if iname {
+			return true
+		} else if jname {
+			return false
+		}
 		return monitors[i].ID < monitors[j].ID
 	})
 }
