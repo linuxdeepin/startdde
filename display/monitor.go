@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbus1"
@@ -17,11 +18,12 @@ const (
 )
 
 type Monitor struct {
-	m       *Manager
-	service *dbusutil.Service
-	crtc    randr.Crtc
-	uuid    string
-	PropsMu sync.RWMutex
+	m                 *Manager
+	service           *dbusutil.Service
+	crtc              randr.Crtc
+	uuid              string
+	PropsMu           sync.RWMutex
+	lastConnectedTime time.Time
 
 	ID        uint32
 	Name      string

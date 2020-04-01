@@ -284,23 +284,19 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 	return minMonitor
 }
 
-func getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
+// 获取最早连接的显示器
+func getMinLastConnectedTimeMonitor(monitors []*Monitor) *Monitor {
 	if len(monitors) == 0 {
 		return nil
 	}
-	// rest 是排除 HDMI 接口类型的显示器列表
-	var rest []*Monitor
-	for _, monitor := range monitors {
-		if strings.Contains(monitor.Name, "HDMI") {
-			continue
+	minMonitor := monitors[0]
+	for _, monitor := range monitors[1:] {
+		if minMonitor.lastConnectedTime.After(monitor.lastConnectedTime) {
+			// minMonitor > monitor
+			minMonitor = monitor
 		}
-		rest = append(rest, monitor)
 	}
-	if len(rest) == 0 {
-		// 全都排除了，说明排除过程没有效果
-		rest = monitors
-	}
-	return getMinIDMonitor(rest)
+	return minMonitor
 }
 
 func jsonMarshal(v interface{}) string {

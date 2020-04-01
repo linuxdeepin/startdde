@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -209,6 +210,10 @@ func (m *Manager) initBuiltinMonitor() {
 		name := strings.ToLower(monitor.Name)
 		if strings.HasPrefix(name, "hdmi") || strings.HasPrefix(name, "vga") {
 			// ignore HDMI or VGA
+		} else if strings.HasPrefix(name, "edp") {
+			// 如果是 edp 开头，直接成为 builtinMonitor
+			rest = []*Monitor{monitor}
+			break
 		} else {
 			rest = append(rest, monitor)
 		}
@@ -498,7 +503,11 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 		return nil
 	}
 
+	var lastConnectedTime time.Time
 	connected := outputInfo.Connection == randr.ConnectionConnected
+	if connected {
+		lastConnectedTime = time.Now()
+	}
 	enabled := outputInfo.Crtc != 0
 	var err error
 	var crtcInfo *randr.GetCrtcInfoReply
@@ -521,16 +530,17 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	}
 	logger.Debug("addMonitor", output, outputInfo.Name)
 	monitor := &Monitor{
-		service:   m.service,
-		m:         m,
-		ID:        uint32(output),
-		Name:      outputInfo.Name,
-		Connected: connected,
-		MmWidth:   outputInfo.MmWidth,
-		MmHeight:  outputInfo.MmHeight,
-		Enabled:   enabled,
-		crtc:      outputInfo.Crtc,
-		uuid:      getOutputUUID(outputInfo.Name, edid),
+		service:           m.service,
+		m:                 m,
+		ID:                uint32(output),
+		Name:              outputInfo.Name,
+		Connected:         connected,
+		lastConnectedTime: lastConnectedTime,
+		MmWidth:           outputInfo.MmWidth,
+		MmHeight:          outputInfo.MmHeight,
+		Enabled:           enabled,
+		crtc:              outputInfo.Crtc,
+		uuid:              getOutputUUID(outputInfo.Name, edid),
 	}
 
 	monitor.Modes = m.getModeInfos(outputInfo.Modes)
@@ -593,11 +603,13 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	}
 
 	var edid []byte
+	var lastConnectedTime time.Time
 	if connected {
 		edid, err = getOutputEDID(m.xConn, output)
 		if err != nil {
 			logger.Warning(err)
 		}
+		lastConnectedTime = time.Now()
 	} else {
 		m.updateBuiltinMonitorOnDisconnected(monitor.ID)
 	}
@@ -606,6 +618,7 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	monitor.PropsMu.Lock()
 	monitor.uuid = uuid
 	monitor.crtc = outputInfo.Crtc
+	monitor.lastConnectedTime = lastConnectedTime
 	monitor.setPropConnected(connected)
 	monitor.setPropEnabled(enabled)
 	monitor.setPropModes(m.getModeInfos(outputInfo.Modes))
@@ -1037,7 +1050,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	}
 
 	if monitor0 == nil {
-		monitor0 = getDefaultPrimaryMonitor(m.getConnectedMonitors())
+		monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	}
 
 	err = m.apply()
@@ -1339,13 +1352,24 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 		return err
 	}
 	if primaryOutput == 0 {
-		primaryOutput = randr.Output(getDefaultPrimaryMonitor(m.getConnectedMonitors()).ID)
+		primaryOutput = randr.Output(m.getDefaultPrimaryMonitor(m.getConnectedMonitors()).ID)
 	}
 	err = m.setOutputPrimary(primaryOutput)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
+	if len(monitors) == 0 {
+		return nil
+	}
+	builtinMonitor := m.getBuiltinMonitor()
+	if builtinMonitor != nil {
+		return builtinMonitor
+	}
+	return getMinLastConnectedTimeMonitor(monitors)
 }
 
 func (m *Manager) getCustomIdList() []string {
