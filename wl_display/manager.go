@@ -352,6 +352,8 @@ func (m *Manager) addSleepMonitor() {
 			logger.Debug("prepare to sleep")
 			return
 		}
+		//TODO: 因为休眠后窗管也会处理
+		time.Sleep(time.Millisecond * 500);
 		logger.Debug("Wakeup from sleep, apply display setting")
 		m.applyDisplayMode()
 	})
