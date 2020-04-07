@@ -611,6 +611,8 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	monitor.setPropModes(m.getModeInfos(outputInfo.Modes))
 	monitor.setPropBestMode(monitor.getBestMode(m, outputInfo))
 	monitor.setPropPreferredModes([]ModeInfo{monitor.BestMode})
+	monitor.setPropMmWidth(outputInfo.MmWidth)
+	monitor.setPropMmHeight(outputInfo.MmHeight)
 	monitor.PropsMu.Unlock()
 	m.updateMonitorCrtcInfo(monitor, crtcInfo)
 }
