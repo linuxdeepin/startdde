@@ -129,6 +129,15 @@ func copyFile(src, dst string, copyFlag CopyFlag) error {
 	return copyFileAux(src, dst, copyFlag)
 }
 
+func syncFile(filename string) error {
+	fh, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+	return fh.Sync()
+}
+
 func getDelayTime(desktopFile string) (time.Duration, error) {
 	dai, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
 	if err != nil {

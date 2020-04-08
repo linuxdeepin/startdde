@@ -875,27 +875,45 @@ func startSession(conn *x.Conn, useKwin bool,
 	return manager
 }
 
-func isDeepinVersionChanged() (bool, error) {
+func isDeepinVersionChanged() (changed bool, err error) {
 	kfDeepinVersion := keyfile.NewKeyFile()
-	err := kfDeepinVersion.LoadFromFile("/etc/deepin-version")
+	err = kfDeepinVersion.LoadFromFile("/etc/deepin-version")
 	if err != nil {
-		return false, err
+		return
 	}
 
 	v0, err := kfDeepinVersion.GetString("Release", "Version")
 	if err != nil {
-		return false, err
+		return
 	}
 
 	kfDDEWelcome := keyfile.NewKeyFile()
 	ddeWelcomeFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/dde-welcome.conf")
 
-	saveDDEWelcome := func() {
+	saveConfig := func() {
 		kfDDEWelcome.SetString("General", "Version", v0)
-		os.MkdirAll(filepath.Dir(ddeWelcomeFile), 0755)
-		err = kfDDEWelcome.SaveToFile(ddeWelcomeFile)
+		err := os.MkdirAll(filepath.Dir(ddeWelcomeFile), 0755)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		tmpFile := ddeWelcomeFile + ".tmp"
+		err = kfDDEWelcome.SaveToFile(tmpFile)
 		if err != nil {
 			logger.Warning("failed to save dde-welcome.conf:", err)
+			return
+		}
+
+		err = syncFile(tmpFile)
+		if err != nil {
+			logger.Warning("failed to sync temp file:", err)
+			return
+		}
+
+		err = os.Rename(tmpFile, ddeWelcomeFile)
+		if err != nil {
+			logger.Warning(err)
 		}
 	}
 
@@ -903,7 +921,7 @@ func isDeepinVersionChanged() (bool, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// new user first login
-			saveDDEWelcome()
+			saveConfig()
 			return false, nil
 		}
 		return false, err
@@ -912,10 +930,12 @@ func isDeepinVersionChanged() (bool, error) {
 	v1, _ := kfDDEWelcome.GetString("General", "Version")
 
 	if v0 != v1 {
-		saveDDEWelcome()
-		return true, nil
+		if v1 != "" {
+			changed = true
+		}
+		saveConfig()
 	}
-	return false, nil
+	return
 }
 
 func setLeftPtrCursor() {
