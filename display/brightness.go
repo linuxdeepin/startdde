@@ -24,12 +24,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
 
 type InvalidOutputNameError struct {
 	Name string
+}
+
+func round(value float64) float64 {
+	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
+	return value
 }
 
 func (err InvalidOutputNameError) Error() string {
@@ -174,6 +180,7 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 	enabled := monitor0.Enabled
 	monitor0.PropsMu.RUnlock()
 
+	value = round(value)
 	if !fake && enabled {
 		err := m.setMonitorBrightness(monitor0, value)
 		if err != nil {
