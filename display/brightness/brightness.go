@@ -23,18 +23,23 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
-	"github.com/linuxdeepin/go-x11-client"
+	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/dde/startdde/display/utils"
 	displayBl "pkg.deepin.io/lib/backlight/display"
-	"pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/log"
 )
 
 const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
+	SetterDDCCI     = "ddcci"
 )
+
+var logger = log.NewLogger("daemon/display")
 
 var helper *backlight.Backlight
 
@@ -60,6 +65,8 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 		return setBacklight(value, output, conn)
 	case SetterGamma:
 		return setOutputCrtcGamma(value, output, conn)
+	case SetterDDCCI:
+		return setDDCCIBacklight(value, output, conn)
 	}
 	// case SetterAuto
 	if isBuiltin {
@@ -67,6 +74,10 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 			return setBacklight(value, output, conn)
 		}
 	}
+	if supportDDCCIBacklight(output, conn) {
+		return setDDCCIBacklight(value, output, conn)
+	}
+
 	return setOutputCrtcGamma(value, output, conn)
 }
 
@@ -171,4 +182,27 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
 	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
+}
+
+func supportDDCCIBacklight(output randr.Output, conn *x.Conn) bool {
+	edid, err := utils.GetOutputEDID(conn, output)
+	if err != nil {
+		return false
+	}
+
+	edidChecksum := utils.GetEDIDChecksum(edid)
+	return DDCBrightness.SupportBrightness(edidChecksum)
+}
+
+func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
+	edid, err := utils.GetOutputEDID(conn, output)
+	if err != nil {
+		return err
+	}
+
+	edidChecksum := utils.GetEDIDChecksum(edid)
+
+	percent := int(value * 100)
+	logger.Debugf("output %d, ddcci set brightness %d", percent)
+	return DDCBrightness.SetBrightness(edidChecksum, percent)
 }

@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
 	"io/ioutil"
 	"os/exec"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
+	dbus "pkg.deepin.io/lib/dbus1"
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -233,21 +234,6 @@ func getCrtcRect(crtcInfo *randr.GetCrtcInfoReply) x.Rectangle {
 		Height: crtcInfo.Height,
 	}
 	return rect
-}
-
-func getOutputEDID(conn *x.Conn, output randr.Output) ([]byte, error) {
-	atomEDID, err := conn.GetAtom("EDID")
-	if err != nil {
-		return nil, err
-	}
-
-	reply, err := randr.GetOutputProperty(conn, output,
-		atomEDID, x.AtomInteger,
-		0, 32, false, false).Reply(conn)
-	if err != nil {
-		return nil, err
-	}
-	return reply.Value, nil
 }
 
 var numReg = regexp.MustCompile(`-?[0-9]`)
