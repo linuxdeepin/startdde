@@ -150,8 +150,21 @@ func getDelayTime(desktopFile string) (time.Duration, error) {
 }
 
 func showDDEWelcome() error {
+	systemBus,err := dbus.SystemBus()
+        if err != nil{
+	     return err
+        }
+	obj  := systemBus.Object("com.deepin.ABRecovery","/com/deepin/ABRecovery")
+	var canRestore bool 
+	err  = obj.Call("com.deepin.ABRecovery.CanRestore",0).Store(&canRestore)
+        if err != nil{
+	     return err 
+        }
+	if canRestore{
+	    return nil
+	}
 	cmd := exec.Command("/usr/lib/deepin-daemon/dde-welcome")
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		return err
 	}
