@@ -166,7 +166,7 @@ func (d *DDCCI) SetBrightness(edidChecksum string, percent int) error {
 }
 
 func getDisplayInfoByIdx(list *C.DDCA_Display_Info_List, idx int) *C.DDCA_Display_Info {
-	start := uintptr(unsafe.Pointer(list)) + uintptr(C.sizeof_DDCA_Display_Info_List)
+	start := unsafe.Pointer(uintptr(unsafe.Pointer(list)) + uintptr(C.sizeof_DDCA_Display_Info_List))
 	size := uintptr(C.sizeof_DDCA_Display_Info)
 
 	return (*C.DDCA_Display_Info)(unsafe.Pointer(uintptr(start) + size*uintptr(idx)))

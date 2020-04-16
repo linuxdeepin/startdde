@@ -203,6 +203,6 @@ func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
 	edidChecksum := utils.GetEDIDChecksum(edid)
 
 	percent := int(value * 100)
-	logger.Debugf("output %d, ddcci set brightness %d", percent)
+	logger.Debugf("output %d, ddcci set brightness %d", output, percent)
 	return DDCBrightness.SetBrightness(edidChecksum, percent)
 }
