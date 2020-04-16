@@ -1003,7 +1003,7 @@ func setDPMSMode(on bool) {
 }
 
 func (m *SessionManager)setScreenBlack() error {
-	m.RequestLock()
+	logger.Debug("start setScreenBlack : ShowBlack")
 	conn, err := dbus.SessionBus()
 	if err != nil {
 		return err
