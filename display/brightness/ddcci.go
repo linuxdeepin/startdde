@@ -147,6 +147,7 @@ func (d *DDCCI) SetBrightness(edidChecksum string, percent int) error {
 	if !ok {
 		return errors.New("monitor not support DDC/CI")
 	}
+
 	item := getDisplayInfoByIdx(d.listPointer, idx)
 
 	var handle C.DDCA_Display_Handle
@@ -159,10 +160,10 @@ func (d *DDCCI) SetBrightness(edidChecksum string, percent int) error {
 
 	status = C.ddca_set_non_table_vcp_value(handle, brightnessVCP, 0, C.uchar(percent))
 	if status != C.int(0) {
-		return nil
+		return errors.New("failed to set brightness via DDC/CI")
 	}
 
-	return errors.New("failed to set brightness via DDC/CI")
+	return nil
 }
 
 func getDisplayInfoByIdx(list *C.DDCA_Display_Info_List, idx int) *C.DDCA_Display_Info {
