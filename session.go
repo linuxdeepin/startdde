@@ -210,7 +210,7 @@ func (m *SessionManager) shutdown(force bool) {
 	if err != nil {
 		logger.Warning("failed to call login PowerOff:", err)
 	}
-	m.setScreenBlack()
+	setDPMSMode(false)
 	err = objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
@@ -250,7 +250,7 @@ func (m *SessionManager) reboot(force bool) {
 	if err != nil {
 		logger.Warning("failed to call login Reboot:", err)
 	}
-	m.setScreenBlack()
+	setDPMSMode(false)
 	err = objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
@@ -276,12 +276,12 @@ func (m *SessionManager) RequestSuspend() {
 	if err == nil {
 		// no suspend
 		time.Sleep(time.Second)
-		m.setScreenBlack()
+		setDPMSMode(false)
 		return
 	}
 
 	objLogin.Suspend(0, false)
-	m.setScreenBlack()
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
@@ -294,7 +294,7 @@ func (m *SessionManager) CanHibernate() bool {
 
 func (m *SessionManager) RequestHibernate() {
 	objLogin.Hibernate(0, false)
-	m.setScreenBlack()
+	setDPMSMode(false)
 }
 
 func (m *SessionManager) RequestLock() error {
@@ -1000,15 +1000,6 @@ func setDPMSMode(on bool) {
 	if err != nil {
 		logger.Warning("Failed to set dpms mode:", on, err)
 	}
-}
-
-func (m *SessionManager)setScreenBlack() error {
-	logger.Debug("start setScreenBlack : ShowBlack")
-	conn, err := dbus.SessionBus()
-	if err != nil {
-		return err
-	}
-	return conn.Object(lockFrontDest, lockFrontObjPath).Call(lockFrontIfc+".ShowBlack", 0).Store()
 }
 
 func doLogout(force bool) {
