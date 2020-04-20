@@ -39,9 +39,10 @@ const (
 	SetterDDCCI     = "ddcci"
 )
 
-var logger = log.NewLogger("daemon/display")
+var logger = log.NewLogger("daemon/display/brightness")
 
 var helper *backlight.Backlight
+var ddcciHelper *backlight.DDCCI
 
 func InitBacklightHelper() {
 	var err error
@@ -50,6 +51,7 @@ func InitBacklightHelper() {
 		return
 	}
 	helper = backlight.NewBacklight(sysBus)
+	ddcciHelper = backlight.NewDDCCI(sysBus)
 }
 
 func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
@@ -187,11 +189,19 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 func supportDDCCIBacklight(output randr.Output, conn *x.Conn) bool {
 	edid, err := utils.GetOutputEDID(conn, output)
 	if err != nil {
+		logger.Warningf("Get output(%v) EDID failed: %v\n", output, err)
 		return false
 	}
 
 	edidChecksum := utils.GetEDIDChecksum(edid)
-	return DDCBrightness.SupportBrightness(edidChecksum)
+
+	res, err := ddcciHelper.CheckSupport(0, edidChecksum)
+	if err != nil {
+		logger.Warningf("failed to check ddc/ci support: %v", err)
+		return false
+	}
+
+	return res
 }
 
 func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
@@ -202,7 +212,7 @@ func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
 
 	edidChecksum := utils.GetEDIDChecksum(edid)
 
-	percent := int(value * 100)
+	percent := int32(value * 100)
 	logger.Debugf("output %d, ddcci set brightness %d", output, percent)
-	return DDCBrightness.SetBrightness(edidChecksum, percent)
+	return ddcciHelper.SetBrightness(0, edidChecksum, percent)
 }

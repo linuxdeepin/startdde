@@ -182,13 +182,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 
-	if brightness.DDCBrightness != nil {
-		err = brightness.DDCBrightness.RefreshDisplays()
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-
 	return m
 }
 

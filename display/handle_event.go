@@ -3,7 +3,6 @@ package display
 import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/startdde/display/brightness"
 )
 
 func (m *Manager) listenEvent() {
@@ -81,13 +80,6 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 		m.markClean()
 		m.applyDisplayMode()
 		m.monitorsId = newMonitorsId
-	}
-
-	if brightness.DDCBrightness != nil {
-		err = brightness.DDCBrightness.RefreshDisplays()
-		if err != nil {
-			logger.Warning(err)
-		}
 	}
 }
 
