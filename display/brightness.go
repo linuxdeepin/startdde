@@ -180,6 +180,10 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 	enabled := monitor0.Enabled
 	monitor0.PropsMu.RUnlock()
 
+	//亮度调节快捷键与控制中心设置范围不同
+	if value < 0.1 {
+		value = 0.1
+	}
 	value = round(value)
 	if !fake && enabled {
 		err := m.setMonitorBrightness(monitor0, value)
