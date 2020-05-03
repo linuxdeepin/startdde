@@ -102,7 +102,7 @@ func main() {
 	proxy.SetupProxy()
 
 	recommendedScaleFactor := 1.0
-	if os.Getenv("WAYLAND_DISPLAY") != "" {
+	if os.Getenv("XDG_SESSION_TYPE") == "wayland" || os.Getenv("WAYLAND_DISPLAY") != "" {
 		globalUseWayland = true
 		err = wl_display.Start()
 		recommendedScaleFactor = wl_display.GetRecommendedScaleFactor()
