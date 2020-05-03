@@ -64,6 +64,7 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	_manager.AddTimedTask(newDdeDesktopTask())
 	_manager.AddTimedTask(newDdePolkitAgent())
 	_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
+	_manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
 	go _manager.StartLoop()
 
 	if useKwin {
