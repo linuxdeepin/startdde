@@ -79,9 +79,10 @@ type Manager struct {
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
-	PrimaryRect  x.Rectangle
-	ScreenWidth  uint16
-	ScreenHeight uint16
+	PrimaryRect   x.Rectangle
+	ScreenWidth   uint16
+	ScreenHeight  uint16
+	MaxBacklightBrightness uint32
 
 	methods *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
@@ -181,6 +182,7 @@ func newManager(service *dbusutil.Service) *Manager {
 
 	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
+	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 
 	return m
 }

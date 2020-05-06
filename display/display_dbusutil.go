@@ -130,6 +130,19 @@ func (v *Manager) emitPropChangedScreenHeight(value uint16) error {
 	return v.service.EmitPropertyChanged(v, "ScreenHeight", value)
 }
 
+func (v *Manager) setPropMaxBacklightBrightness(value uint32) (changed bool) {
+	if v.MaxBacklightBrightness != value {
+		v.MaxBacklightBrightness = value
+		v.emitPropChangedMaxBacklightBrightness(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedMaxBacklightBrightness(value uint32) error {
+	return v.service.EmitPropertyChanged(v, "MaxBacklightBrightness", value)
+}
+
 func (v *Monitor) setPropID(value uint32) (changed bool) {
 	if v.ID != value {
 		v.ID = value

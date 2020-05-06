@@ -102,6 +102,19 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 //	return 1, nil
 //}
 
+func GetMaxBacklightBrightness() int {
+	if len(controllers) == 0 {
+		return 0
+	}
+	maxBrightness := controllers[0].MaxBrightness
+	for _, controller := range controllers {
+		if maxBrightness > controller.MaxBrightness {
+			maxBrightness = controller.MaxBrightness
+		}
+	}
+	return maxBrightness
+}
+
 func GetBacklightController(outputId uint32, conn *x.Conn) (*displayBl.Controller, error) {
 	// TODO
 	//output := randr.Output(outputId)
