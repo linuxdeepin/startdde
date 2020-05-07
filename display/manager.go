@@ -212,8 +212,8 @@ func (m *Manager) initBuiltinMonitor() {
 	var rest []*Monitor
 	for _, monitor := range monitors {
 		name := strings.ToLower(monitor.Name)
-		if strings.HasPrefix(name, "hdmi") || strings.HasPrefix(name, "vga") {
-			// ignore HDMI or VGA
+		if  strings.HasPrefix(name, "vga") {
+			// ignore  VGA
 		} else if strings.HasPrefix(name, "edp") {
 			// 如果是 edp 开头，直接成为 builtinMonitor
 			rest = []*Monitor{monitor}
