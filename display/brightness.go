@@ -89,8 +89,8 @@ func (m *Manager) changeBrightness(raised bool) error {
 		if br > 1.0 {
 			br = 1.0
 		}
-		if br < 0.0 {
-			br = 0.0
+		if br < 0.1 {
+			br = 0.1
 		}
 		logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
 		err := m.doSetBrightness(br, monitor.Name)
