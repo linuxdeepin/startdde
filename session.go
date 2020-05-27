@@ -136,6 +136,7 @@ func (m *SessionManager) prepareLogout(force bool) {
 	// kill process LangSelector ,because LangSelector will not be kill by common logout
 	killLangSelector()
 	stopBAMFDaemon()
+	sendMsgToUserExperModule(UserLogoutMsg)
 
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
@@ -193,6 +194,7 @@ func (m *SessionManager) Shutdown() {
 func (m *SessionManager) prepareShutdown(force bool) {
 	killSogouImeWatchdog()
 	stopBAMFDaemon()
+	sendMsgToUserExperModule(UserShutdownMsg)
 	if !force {
 		preparePlayShutdownSound()
 	}
@@ -828,6 +830,40 @@ func initQtThemeConfig() error {
 	return nil
 }
 
+const (
+	UserExperServiceName = "com.deepin.userexperience.Daemon"
+	UserExperPath = "/com/deepin/userexperience/Daemon"
+	UserLoginMsg = "login"
+	UserLogoutMsg = "logout"
+	UserShutdownMsg = "shutdown"
+
+	UserExperOpenApp = "openapp"
+	UserExperCloseApp = "closeapp"
+
+	UserExperCLoseAppChanInitLen = 24
+)
+
+type UeMessageItem struct {
+	Path, Name, Id string
+}
+
+func sendMsgToUserExperModule(msg string) {
+	// send message to user experience module
+	// first send will active the services
+	bus, err := dbus.SystemBus()
+	if err == nil {
+		userexp := bus.Object(UserExperServiceName, UserExperPath)
+		err = userexp.Call(UserExperServiceName + ".SendLogonData", 0, msg).Err
+		if err != nil {
+			logger.Warningf("failed to call %s.SendLogonData, %v", UserExperServiceName, err)
+		} else {
+			logger.Infof("send %s message to ue module", msg)
+		}
+	} else {
+		logger.Warning(err)
+	}
+}
+
 func startSession(conn *x.Conn, useKwin bool,
 	sysSignalLoop *dbusutil.SignalLoop) *SessionManager {
 
@@ -871,6 +907,7 @@ func startSession(conn *x.Conn, useKwin bool,
 		}
 	}()
 	go manager.launchAutostart()
+	sendMsgToUserExperModule(UserLoginMsg)
 
 	if manager.loginSession != nil {
 		manager.loginSession.InitSignalExt(sysSignalLoop, true)
