@@ -14,13 +14,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 )
 
 const (
@@ -59,6 +59,7 @@ type Manager struct {
 	settings             *gio.Settings
 	monitorsId           string
 	mig                  *monitorIdGenerator
+	isSleep              bool
 
 	sessionSigLoop *dbusutil.SignalLoop
 
@@ -176,6 +177,10 @@ func (m *Manager) listenDBusSignals() {
 	m.management.InitSignalExt(m.sessionSigLoop, true)
 
 	_, err := m.management.ConnectOutputAdded(func(output string) {
+		if m.isSleep {
+			logger.Info("ignore OutputAdd when sleep")
+			return
+		}
 		outputInfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
@@ -199,6 +204,10 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputChanged(func(output string) {
+		if m.isSleep {
+			logger.Info("ignore OutputChanged when sleep")
+			return
+		}
 		outputInfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
@@ -242,6 +251,10 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputRemoved(func(output string) {
+		if m.isSleep {
+			logger.Info("ignore OutputRemoved when sleep")
+			return
+		}
 		outputInfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
@@ -348,14 +361,16 @@ func (m *Manager) addSleepMonitor() {
 	sigLoop.Start()
 	loginObj.InitSignalExt(sigLoop, true)
 	_, err = loginObj.ConnectPrepareForSleep(func(isSleep bool) {
-		if isSleep {
-			logger.Debug("prepare to sleep")
-			return
-		}
-		//TODO: 因为休眠后窗管也会处理
-		time.Sleep(time.Millisecond * 500);
-		logger.Debug("Wakeup from sleep, apply display setting")
-		m.applyDisplayMode()
+		m.isSleep = isSleep
+		//	if isSleep {
+		//		logger.Debug("prepare to sleep")
+		//		return
+		//	}
+
+		//	//TODO: 因为休眠后窗管也会处理
+		//	time.Sleep(time.Millisecond * 500)
+		//	logger.Debug("Wakeup from sleep, apply display setting")
+		//	m.applyDisplayMode()
 	})
 }
 
