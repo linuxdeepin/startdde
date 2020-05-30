@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"pkg.deepin.io/lib/dbusutil/gsprop"
 	"sort"
 	"strings"
 	"sync"
@@ -31,16 +32,23 @@ const (
 )
 
 const (
+	ColorTemperatureModeNormal int32 = iota
+	ColorTemperatureModeAuto
+	ColorTemperatureModeManual
+)
+
+const (
 	gsSchemaDisplay  = "com.deepin.dde.display"
 	gsKeyDisplayMode = "display-mode"
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
 	//gsKeyPrimary     = "primary"
-	gsKeyCustomMode = "current-custom-mode"
-
-	customModeDelim     = "+"
-	monitorsIdDelimiter = ","
+	gsKeyCustomMode             = "current-custom-mode"
+	gsKeyColorTemperatureMode   = "color-temperature-mode"
+	gsKeyColorTemperatureManual = "color-temperature-manual"
+	customModeDelim             = "+"
+	monitorsIdDelimiter         = ","
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
@@ -79,9 +87,14 @@ type Manager struct {
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
-	PrimaryRect  x.Rectangle
-	ScreenWidth  uint16
-	ScreenHeight uint16
+	PrimaryRect            x.Rectangle
+	ScreenWidth            uint16
+	ScreenHeight           uint16
+	MaxBacklightBrightness uint32
+	// method of adjust color temperature according to time and location
+	ColorTemperatureMode gsprop.Enum `prop:"access:r"`
+	// adjust color temperature by manual adjustment
+	ColorTemperatureManual gsprop.Int `prop:"access:r"`
 
 	methods *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
@@ -97,6 +110,8 @@ type Manager struct {
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
 		GetBuiltinMonitor      func() `out:"name,path"`
+		SetMethodAdjustCCT     func() `in:"adjustMethod"`
+		SetColorTemperature    func() `in:"colorTemperature"`
 	}
 }
 
@@ -140,7 +155,8 @@ func newManager(service *dbusutil.Service) *Manager {
 		m.DisplayMode = DisplayModeExtend
 	}
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
-
+	m.ColorTemperatureManual.Bind(m.settings, gsKeyColorTemperatureManual)
+	m.ColorTemperatureMode.Bind(m.settings, gsKeyColorTemperatureMode)
 	m.xConn, err = getXConn()
 	if err != nil {
 		logger.Fatal(err)
