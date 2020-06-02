@@ -503,8 +503,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	}
 	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	logger.Debugf("open app %s/%s/%s", appInfo.GetFileName(), appInfo.GetId(), appInfo.GetName())
-	item := &UeMessageItem{appInfo.GetFileName(), appInfo.GetId(), appInfo.GetName()}
+	item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
 	sendAppDataMsgToUserExperModule(UserExperOpenApp, item)
 
 	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
@@ -516,8 +515,7 @@ func (m *StartManager) listenAppCloseEvent() error {
 			select {
 			case item := <- m.appClose:
 				if item != nil {
-					logger.Debugf("close app %s/%s/%s", item.Path, item.Id, item.Name)
-					item := &UeMessageItem{item.Path, item.Id, item.Name}
+					item := &UeMessageItem{Path:item.Path, Name:item.Name, Id:item.Id}
 					sendAppDataMsgToUserExperModule(UserExperCloseApp, item)
 				}
 			}
@@ -536,7 +534,7 @@ func sendAppDataMsgToUserExperModule(msg string, item *UeMessageItem) {
 		if err != nil {
 			logger.Warningf("failed to call %s.SendAppStateData, %v", UserExperServiceName, err)
 		} else {
-			logger.Infof("send %s message to ue module", msg)
+			logger.Infof("send %s message, app info %s/%s/%s", msg, item.Path, item.Name, item.Id)
 		}
 	} else {
 		logger.Warning(err)
@@ -616,7 +614,7 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		// send app close info to ue module
 		// we did not care the program exit normal or not
 		if appInfo != nil {
-			item := &UeMessageItem{appInfo.GetFileName(), appInfo.GetId(), appInfo.GetName()}
+			item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
 			m.appClose <- item
 		}
 
