@@ -616,7 +616,7 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		// send app close info to ue module
 		// we did not care the program exit normal or not
 		if appInfo != nil {
-			item := &UeMessageItem{appInfo.GetFileName(), appInfo.GetId(), appInfo.GetName()}
+			item := &UeMessageItem{appInfo.GetFileName(), appInfo.GetName(), appInfo.GetId()}
 			m.appClose <- item
 		}
 
