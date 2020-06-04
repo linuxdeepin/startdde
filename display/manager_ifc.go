@@ -4,10 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/xdg/basedir"
 	"strconv"
 )
 
@@ -167,13 +170,13 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 	m.ColorTemperatureMode.Set(adjustMethod)
 	switch adjustMethod {
 	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
-		controlRedshift("disable") // 关闭开机启动,停止服务
-		resetColorTemp()           // 色温重置
+		controlRedshift("stop") // 停止服务
+		resetColorTemp()        // 色温重置
 	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
 		resetColorTemp()
-		controlRedshift("enable") // 开机启动,开启服务
+		controlRedshift("start") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
-		controlRedshift("disable") // 关闭开机启动,停止服务
+		controlRedshift("stop") // 停止服务
 		lastManualCCT := m.ColorTemperatureManual.Get()
 		err := m.SetColorTemperature(lastManualCCT)
 		return err
@@ -194,7 +197,7 @@ func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
 }
 
 func controlRedshift(action string) {
-	_, err := exec.Command("systemctl", "--user", action, "--now", "redshift.service").Output()
+	_, err := exec.Command("systemctl", "--user", action, "redshift.service").Output()
 	if err != nil {
 		logger.Warning("failed to ", action, " redshift.service:", err)
 	} else {
@@ -218,4 +221,35 @@ func resetColorTemp() {
 	} else {
 		logger.Info("success to reset ColorTemperature")
 	}
+}
+
+func generateRedshiftConfFile() error { // 用来生成redshift的配置文件，路径为“~/.config/redshift/redshift.conf”
+	controlRedshift("disable")
+	configFilePath := basedir.GetUserConfigDir() + "/redshift/redshift.conf"
+	_, err := os.Stat(configFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			dir := filepath.Dir(configFilePath)
+			err := os.MkdirAll(dir, 0755)
+			if err != nil {
+				return err
+			}
+			content := []byte("[redshift]\n" +
+				"temp-day=6500\n" + // 自动模式下，白天的色温
+				"temp-night=3500\n" + // 自动模式下，夜晚的色温
+				"transition=1\n" +
+				"gamma=1\n" +
+				"location-provider=geoclue2\n" +
+				"adjustment-method=vidmode\n" +
+				"[vidmode]\n" +
+				"screen=0")
+			err = ioutil.WriteFile(configFilePath, content, 0644)
+			return err
+		} else {
+			return err
+		}
+	} else {
+		logger.Debug("redshift.conf file exist , don't need create config file")
+	}
+	return nil
 }

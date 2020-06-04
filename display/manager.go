@@ -337,6 +337,19 @@ func (m *Manager) init() {
 	m.listenEvent()
 	m.applyDisplayMode()
 	m.initTouchMap()
+	err := generateRedshiftConfFile()
+	if err != nil {
+		logger.Warning(err)
+	}
+	m.initColorTemperature()
+}
+
+func (m *Manager) initColorTemperature() {
+	method := m.ColorTemperatureMode.Get()
+	err := m.SetMethodAdjustCCT(method)
+	if err != nil {
+		logger.Error(err)
+	}
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
