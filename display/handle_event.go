@@ -118,7 +118,7 @@ func (m *Manager) setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId string)
 func (m *Manager) getHighPriorityMonitorName() (monitorName, monitorType string) {
 	type Priority struct {
 		name     string
-		priority int
+		priority uint32
 	}
 	// the small 'priority' the value,the higher the priority
 	priorities := []Priority{
@@ -138,7 +138,8 @@ func (m *Manager) getHighPriorityMonitorName() (monitorName, monitorType string)
 			}
 		}
 	}
-	var highPriority = math.MaxUint32
+
+	var highPriority uint32 = math.MaxUint32
 	if len(monitorPriority) >= 1 {
 		for i := 0; i < len(monitorPriority); i++ {
 			if monitorPriority[i].priority < highPriority {
