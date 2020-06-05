@@ -519,10 +519,12 @@ func (manager *SessionManager) listenDBusSignals() {
 	}
 }
 
-func (manager *SessionManager) launchWindowManager(useKwin bool) {
+func (manager *SessionManager) launchWindowManager(wait bool) {
 	if globalUseWayland {
 		return
 	}
+	manager.setPropStage(SessionStageInitBegin)
+	var useKwin bool = shouldUseDDEKwin()
 
 	logger.Debug("Will launch wm")
 	if useKwin {
@@ -530,7 +532,7 @@ func (manager *SessionManager) launchWindowManager(useKwin bool) {
 		if err != nil {
 			logger.Warning(err)
 		}
-		manager.launch("kwin_no_scale", true)
+		manager.launch("kwin_no_scale", wait)
 		return
 	}
 
@@ -540,6 +542,7 @@ func (manager *SessionManager) launchWindowManager(useKwin bool) {
 		return
 	}
 	manager.launch("env", wm.ShouldWait(), "GDK_SCALE=1", wm.GetWM())
+	manager.setPropStage(SessionStageInitEnd)
 }
 
 func (m *SessionManager) launchDDE() {
@@ -585,6 +588,12 @@ func (m *SessionManager) launchDDE() {
 		logger.Debugf("[%d] group p%d start", idx, group.Priority)
 		noWaitCount := 0
 		for _, cmd := range group.Group {
+			if cmd.Command == "wm" {
+				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
+				m.launchWindowManager(cmd.Wait)
+				continue
+			}
+
 			if cmd.Wait {
 				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
 				m.launch(cmd.Command, true, cmd.Args...)
@@ -839,12 +848,6 @@ func startSession(conn *x.Conn, useKwin bool,
 	err = initQtThemeConfig()
 	if err != nil {
 		logger.Warning("failed to init qt-theme.ini", err)
-	}
-
-	if !globalUseWayland {
-		manager.setPropStage(SessionStageInitBegin)
-		manager.launchWindowManager(useKwin)
-		manager.setPropStage(SessionStageInitEnd)
 	}
 
 	manager.setPropStage(SessionStageCoreBegin)
