@@ -1,5 +1,15 @@
 [
   {
+    "Priority": 11,
+    "Group": [
+      {
+         "Command": "wm",
+         "Wait": true,
+         "Args": []
+      }
+    ]
+  },
+  {
     "Priority": 10,
     "Group": [
       {
