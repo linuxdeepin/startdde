@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -478,8 +479,16 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		}
 		if m.shouldDisableScaling(appId) {
 			logger.Debug("launch: disable scaling")
-			cmdPrefixes = append(cmdPrefixes, "/usr/bin/env", "GDK_SCALE=1",
-				"QT_SCALE_FACTOR=1")
+			gs := gio.NewSettings("com.deepin.xsettings")
+			defer gs.Unref()
+			scale := gs.GetDouble("scale-factor")
+			if scale > 0 {
+				scale = 1 / scale
+			} else {
+				scale = 1
+			}
+			qt := "QT_SCALE_FACTOR=" + strconv.FormatFloat(scale, 'f', -1, 64)
+			cmdPrefixes = append(cmdPrefixes, "/usr/bin/env", "GDK_DPI_SCALE=1", "GDK_SCALE=1", qt)
 		}
 	}
 
