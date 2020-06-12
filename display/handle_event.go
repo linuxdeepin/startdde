@@ -88,15 +88,14 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 		logger.Debug("new monitors id:", newMonitorsId)
 		m.markClean()
 		m.applyDisplayMode()
-		m.setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId)
 		m.monitorsId = newMonitorsId
+		if m.DisplayMode == DisplayModeExtend {
+			m.setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId)
+		}
 	}
 }
 
 func (m *Manager) setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId string) {
-	if m.DisplayMode != DisplayModeExtend {
-		return
-	}
 	monitors := strings.Split(newMonitorsId, ",")
 	if len(monitors) >= 2 {
 		logger.Info("new monitors is ", monitors)

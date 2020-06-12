@@ -7,18 +7,19 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"pkg.deepin.io/lib/dbusutil/gsprop"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"pkg.deepin.io/lib/dbusutil/gsprop"
 
 	"github.com/davecgh/go-spew/spew"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/dde/startdde/display/utils"
-	"pkg.deepin.io/gir/gio-2.0"
+	gio "pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
@@ -1092,6 +1093,13 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		return
 	}
 
+	primaryMonitor, monitorType := m.getHighPriorityMonitorName()
+	if primaryMonitor != "" && primary == "" && monitor0 != nil &&
+		!strings.Contains(monitor0.Name, monitorType) {
+		logger.Debug("change the primary monitor from ", primary, " to ", primaryMonitor)
+		primary = primaryMonitor
+	}
+
 	if primary != "" {
 		for _, m := range monitors {
 			if m.Enabled && m.Name == primary {
@@ -1283,7 +1291,6 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	default:
 		err = errors.New("invalid mode")
 	}
-
 	if err == nil {
 		m.setDisplayMode(mode)
 	} else {
