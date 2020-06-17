@@ -16,7 +16,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -94,6 +94,7 @@ type Manager struct {
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
+		CanSetBrightness       func() `in:"outputName" out:"can"`
 		GetBuiltinMonitor      func() `out:"name,path"`
 	}
 }

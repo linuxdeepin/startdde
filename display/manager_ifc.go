@@ -2,9 +2,11 @@ package display
 
 import (
 	"fmt"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"os"
-	"pkg.deepin.io/lib/dbus1"
+	"strings"
+
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -119,6 +121,11 @@ func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.E
 }
 
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
+	can, _ := m.CanSetBrightness(outputName)
+	if !can {
+		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
+	}
+
 	err := m.doSetBrightness(value, outputName)
 	return dbusutil.ToError(err)
 }
@@ -130,6 +137,15 @@ func (m *Manager) SetPrimary(outputName string) *dbus.Error {
 
 func (m *Manager) CanRotate() (bool, *dbus.Error) {
 	if os.Getenv("DEEPIN_DISPLAY_DISABLE_ROTATE") == "1" {
+		return false, nil
+	}
+	return true, nil
+}
+
+func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
+	outputName = strings.ToUpper(outputName)
+	if strings.HasPrefix(outputName, "HDMI") &&
+		os.Getenv("HDMI_CAN_BRIGHTNESS") == "N" {
 		return false, nil
 	}
 	return true, nil
