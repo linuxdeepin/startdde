@@ -115,6 +115,7 @@ type Manager struct {
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
+		CanSetBrightness       func() `in:"outputName" out:"can"`
 		GetBuiltinMonitor      func() `out:"name,path"`
 		SetMethodAdjustCCT     func() `in:"adjustMethod"`
 		SetColorTemperature    func() `in:"colorTemperature"`
