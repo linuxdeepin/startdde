@@ -12,6 +12,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
@@ -195,6 +196,37 @@ func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
 	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
 	m.ColorTemperatureManual.Set(value)
 	return nil
+}
+
+func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
+	monitors := m.getConnectedMonitors()
+
+	mode := DisplayModeUnknow
+	var pairs strv.Strv
+	for _, m := range monitors {
+		if !m.Enabled {
+			continue
+		}
+
+		pair := fmt.Sprintf("%d,%d", m.X, m.Y)
+
+		// 左上角座标相同，是复制
+		if pairs.Contains(pair) {
+			mode = DisplayModeMirror
+		}
+
+		pairs = append(pairs, pair)
+	}
+
+	if mode == DisplayModeUnknow && len(pairs) != 0 {
+		if len(pairs) == 1 {
+			mode = DisplayModeOnlyOne
+		} else {
+			mode = DisplayModeExtend
+		}
+	}
+
+	return mode, nil
 }
 
 func controlRedshift(action string) {

@@ -118,6 +118,7 @@ type Manager struct {
 		GetBuiltinMonitor      func() `out:"name,path"`
 		SetMethodAdjustCCT     func() `in:"adjustMethod"`
 		SetColorTemperature    func() `in:"colorTemperature"`
+		GetRealDisplayMode     func() `out:"mode"`
 	}
 }
 
