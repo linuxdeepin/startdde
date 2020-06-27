@@ -409,7 +409,6 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 func initSession() {
 	var err error
 	const login1ObjPath = "/org/freedesktop/login1"
-	const login1SessionSelfObjPath = login1ObjPath + "/session/self"
 
 	sysBus, err := dbus1.SystemBus()
 	if err != nil {
@@ -418,10 +417,26 @@ func initSession() {
 	}
 
 	objLogin = login1.NewManager(sysBus)
-	objLoginSessionSelf, err = login1.NewSession(sysBus, login1SessionSelfObjPath)
+	sessionPath, err := objLogin.GetSessionByPID(0, 0)
 	if err != nil {
-		panic(fmt.Errorf("new Login1 session self Failed: %s", err))
+		panic(fmt.Errorf("get session path failed: %s", err))
 	}
+
+	objLoginSessionSelf, err = login1.NewSession(sysBus, sessionPath)
+	if err != nil {
+		panic(fmt.Errorf("new Login1 session failed: %s", err))
+	}
+
+	sysSigLoop := dbusutil.NewSignalLoop(sysBus, 10)
+	sysSigLoop.Start()
+	objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
+	objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
+		logger.Debug("session status changed:", hasValue, active)
+
+		if hasValue && !active {
+			objLoginSessionSelf.Lock(0)
+		}
+	})
 
 	if globalGSettingsConfig.swapSchedEnabled {
 		initSwapSched()
@@ -841,12 +856,12 @@ func initQtThemeConfig() error {
 
 const (
 	UserExperServiceName = "com.deepin.userexperience.Daemon"
-	UserExperPath = "/com/deepin/userexperience/Daemon"
-	UserLoginMsg = "login"
-	UserLogoutMsg = "logout"
-	UserShutdownMsg = "shutdown"
+	UserExperPath        = "/com/deepin/userexperience/Daemon"
+	UserLoginMsg         = "login"
+	UserLogoutMsg        = "logout"
+	UserShutdownMsg      = "shutdown"
 
-	UserExperOpenApp = "openapp"
+	UserExperOpenApp  = "openapp"
 	UserExperCloseApp = "closeapp"
 
 	UserExperCLoseAppChanInitLen = 24
@@ -862,7 +877,7 @@ func sendMsgToUserExperModule(msg string) {
 	bus, err := dbus.SystemBus()
 	if err == nil {
 		userexp := bus.Object(UserExperServiceName, UserExperPath)
-		err = userexp.Call(UserExperServiceName + ".SendLogonData", 0, msg).Err
+		err = userexp.Call(UserExperServiceName+".SendLogonData", 0, msg).Err
 		if err != nil {
 			logger.Warningf("failed to call %s.SendLogonData, %v", UserExperServiceName, err)
 		} else {
