@@ -76,8 +76,13 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 			return setBacklight(value, output, conn)
 		}
 	}
+
 	if supportDDCCIBacklight(output, conn) {
-		return setDDCCIBacklight(value, output, conn)
+		err := setDDCCIBacklight(value, output, conn)
+		if err == nil {
+			return nil
+		}
+		logger.Warning(err)
 	}
 
 	return setOutputCrtcGamma(value, output, conn)
