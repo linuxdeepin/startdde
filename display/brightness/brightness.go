@@ -216,3 +216,7 @@ func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
 	logger.Debugf("output %d, ddcci set brightness %d", output, percent)
 	return ddcciHelper.SetBrightness(0, edidChecksum, percent)
 }
+
+func RefreshDisplays() error {
+	return ddcciHelper.RefreshDisplays(0)
+}
