@@ -117,6 +117,8 @@ static void*
 listen_device_thread(void *user_data)
 {
     /*int xi_opcode = *(int*)user_data;*/
+    //在某些情况下调用Xi库会导致startdde异常退出，屏蔽掉后续代码执行
+    return NULL;
     XIEventMask mask;
 
     mask.deviceid = XIAllDevices;
