@@ -117,7 +117,8 @@ type ScreenInfo struct {
 }
 
 func GetScreenInfo() (*ScreenInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	//set deadtime to 10s for getting info if ddewloutput in s4
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	data, err := exec.CommandContext(ctx, ddeWLOutputCmd, "get").CombinedOutput()
 	if err != nil {
