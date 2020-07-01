@@ -1253,27 +1253,8 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		return
 	}
 
-	// 自定义配置不存在时，尽可能使用当前的显示配置。
-	// hasDisabled 表示是否有连接了但是未启用的屏幕，如果有，为了开启显示器，
-	// 切换到扩展模式，以扩展模式初始化自定义配置。
-	hasDisabled := false
-	monitors := m.getConnectedMonitors()
-	for _, m := range monitors {
-		if !m.Enabled {
-			hasDisabled = true
-			break
-		}
-	}
-
-	if hasDisabled {
-		err = m.switchModeExtend(m.Primary)
-		if err != nil {
-			return
-		}
-	}
-
-	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
-		toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
+	// 自定义配置不存在时，默认使用复制模式，即自定义模式的合并子模式
+	m.switchModeMirror()
 
 	err = m.saveConfig()
 	if err != nil {
