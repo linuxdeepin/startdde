@@ -24,6 +24,9 @@
 
 #define KEYRING_LOGIN "login"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 static gboolean is_default_keyring(char *name);
 static gboolean is_keyring_exist(char *name);
 
@@ -98,3 +101,4 @@ is_keyring_exist(char *name)
     g_list_free_full(list, g_free);
     return ret;
 }
+#pragma GCC diagnostic pop
