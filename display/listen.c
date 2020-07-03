@@ -29,10 +29,20 @@
 
 static int has_xi2();
 static void *listen_device_thread(void *user_data);
+static int device_listener_error_handler(Display* display, XErrorEvent* event);
 
 static Display *_disp = NULL;
 static pthread_t _thrd;
 static int _thrd_exit_flag = 0;
+
+static int 
+device_listener_error_handler(Display* display, XErrorEvent* event)
+{
+    char message[256];
+    XGetErrorText(display, event->error_code, message, 256);
+    fprintf(stderr, "Ignore Xlib error: %s\n", message);
+    return 0;
+}
 
 int
 start_device_listener()
@@ -44,6 +54,8 @@ start_device_listener()
         _thrd_exit_flag = 1;
         return -1;
     }
+
+    XSetErrorHandler(device_listener_error_handler);
 
     pthread_attr_t attr;
 
@@ -59,8 +71,6 @@ start_device_listener()
         _thrd_exit_flag = 1;
         return -1;
     }
-
-    pthread_join(_thrd, NULL);
 
     return 0;
 }
@@ -117,8 +127,7 @@ static void*
 listen_device_thread(void *user_data)
 {
     /*int xi_opcode = *(int*)user_data;*/
-    //在某些情况下调用Xi库会导致startdde异常退出，屏蔽掉后续代码执行
-    return NULL;
+
     XIEventMask mask;
 
     mask.deviceid = XIAllDevices;
