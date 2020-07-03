@@ -235,6 +235,50 @@ func getCrtcRect(crtcInfo *randr.GetCrtcInfoReply) x.Rectangle {
 	return rect
 }
 
+func parseEDID(edid []byte) (string, string) {
+	if len(edid) < 16 {
+		return "DEFAULT", ""
+	}
+	var brandInf = edid[8:12]
+	var bInf = uint64(brandInf[0])<<8 + uint64(brandInf[1])
+	var maInf []byte
+	var k uint
+	for k = 1; k <= 3; k++ {
+		m := byte(((bInf >> (15 - 5*k)) & 31) + 'A' - 1)
+		if m >= 'A' && m <= 'Z' {
+			maInf = append(maInf, m)
+		} else {
+			return "DEFAULT", ""
+		}
+	}
+
+	// 截取显示器型号信息
+	if len(edid) < 128 {
+		return string(maInf), ""
+	}
+	modelInf := edid[88:112]
+	var moInf []byte
+	var isHaveInf = false
+	for _, m := range modelInf {
+		if m >= '!' && m <= '~' {
+			moInf = append(moInf, m)
+			isHaveInf = true
+		}
+		if isHaveInf && (m < '!' || m > '~') { // 截取型号信息终止
+			break
+		}
+	}
+	if !isHaveInf { // 如果没有型号信息，则解析厂家内部小版本号作为类型信息
+		for i := 2; i <= 3; i++ {
+			strInf := []byte(strconv.Itoa(int(brandInf[i])))
+			for j := 0; j < len(strInf); j++ {
+				moInf = append(moInf, strInf[j])
+			}
+		}
+	}
+	return string(maInf), string(moInf)
+}
+
 func getOutputEDID(conn *x.Conn, output randr.Output) ([]byte, error) {
 	atomEDID, err := conn.GetAtom("EDID")
 	if err != nil {

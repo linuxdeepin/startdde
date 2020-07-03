@@ -520,18 +520,21 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	if err != nil {
 		logger.Warning(err)
 	}
+	manufacturer, model := parseEDID(edid)
 	logger.Debug("addMonitor", output, outputInfo.Name)
 	monitor := &Monitor{
-		service:   m.service,
-		m:         m,
-		ID:        uint32(output),
-		Name:      outputInfo.Name,
-		Connected: connected,
-		MmWidth:   outputInfo.MmWidth,
-		MmHeight:  outputInfo.MmHeight,
-		Enabled:   enabled,
-		crtc:      outputInfo.Crtc,
-		uuid:      getOutputUUID(outputInfo.Name, edid),
+		service:      m.service,
+		m:            m,
+		ID:           uint32(output),
+		Name:         outputInfo.Name,
+		Connected:    connected,
+		MmWidth:      outputInfo.MmWidth,
+		MmHeight:     outputInfo.MmHeight,
+		Enabled:      enabled,
+		crtc:         outputInfo.Crtc,
+		uuid:         getOutputUUID(outputInfo.Name, edid),
+		Manufacturer: manufacturer,
+		Model:        model,
 	}
 
 	monitor.Modes = m.getModeInfos(outputInfo.Modes)
@@ -602,11 +605,13 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	} else {
 		m.updateBuiltinMonitorOnDisconnected(monitor.ID)
 	}
+	manufacturer, model := parseEDID(edid)
 	uuid := getOutputUUID(outputInfo.Name, edid)
-
 	monitor.PropsMu.Lock()
 	monitor.uuid = uuid
 	monitor.crtc = outputInfo.Crtc
+	monitor.setPropManufacturer(manufacturer)
+	monitor.setPropModel(model)
 	monitor.setPropConnected(connected)
 	monitor.setPropEnabled(enabled)
 	monitor.setPropModes(m.getModeInfos(outputInfo.Modes))

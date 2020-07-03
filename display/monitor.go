@@ -23,10 +23,11 @@ type Monitor struct {
 	uuid    string
 	PropsMu sync.RWMutex
 
-	ID        uint32
-	Name      string
-	Connected bool
-
+	ID           uint32
+	Name         string
+	Connected    bool
+	Manufacturer string
+	Model        string
 	// dbusutil-gen: equal=nil
 	Rotations []uint16
 	// dbusutil-gen: equal=nil

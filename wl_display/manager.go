@@ -425,7 +425,8 @@ func (m *Manager) addMonitor(outputInfo *KOutputInfo) error {
 	monitor.MmWidth = uint32(outputInfo.PhysWidth)
 	monitor.MmHeight = uint32(outputInfo.PhysHeight)
 	monitor.Name = outputInfo.getName()
-
+	monitor.Manufacturer = outputInfo.Manufacturer
+	monitor.Model = outputInfo.Model
 	// mode info
 	monitor.Modes = outputInfo.getModes()
 	monitor.BestMode = outputInfo.getBestMode()
