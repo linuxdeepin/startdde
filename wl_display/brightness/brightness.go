@@ -22,12 +22,14 @@ package brightness
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
-	"github.com/linuxdeepin/go-x11-client"
+	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "pkg.deepin.io/lib/backlight/display"
-	"pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 )
 
 const (
@@ -61,11 +63,21 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 	} else if value > 1 {
 		value = 1
 	}
-
+	sessionType := os.Getenv("XDG_SESSION_TYPE")
 	output := randr.Output(outputId)
 	switch setter {
+
 	case SetterBacklight:
-		return setBacklightOnlyOne(value)
+		//avoid to set builtin display twice to causing brightness abnormal when press F1 set brughtness
+		if isBuiltin {
+			return setBacklightOnlyOne(value)
+		}
+		//it will return error when setting out_display in wayland
+		if strings.Contains(sessionType, "wayland") {
+			return nil
+		}
+		return setOutputCrtcGamma(value, output, conn)
+
 	case SetterGamma:
 		return setOutputCrtcGamma(value, output, conn)
 	}
