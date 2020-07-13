@@ -25,7 +25,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
+	"os/exec"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/iowait"
@@ -76,6 +76,20 @@ func shouldUseDDEKwin() bool {
 }
 
 func main() {
+	if os.Getenv("XDG_SESSION_TYPE") == "wayland" || os.Getenv("WAYLAND_DISPLAY") != "" {
+		cmd := exec.Command("/usr/bin/simple-egl")
+		err := cmd.Start()
+		if err != nil {
+			logger.Warning("failed to start /usr/bin/simple-egl:",err)
+		}
+		go func() {
+			err := cmd.Wait()
+			if err != nil {
+				logger.Warning("failed to wait cmd /usr/bin/simple-egl:",err)
+			}
+		}()
+	}
+
 	globalGSettingsConfig = getGSettingsConfig()
 	reapZombies()
 
