@@ -19,6 +19,7 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
+	"pkg.deepin.io/dde/startdde/display/utils"
 	gio "pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
@@ -564,7 +565,7 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 		}
 	}
 
-	edid, err := getOutputEDID(m.xConn, output)
+	edid, err := utils.GetOutputEDID(m.xConn, output)
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -645,7 +646,7 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	var edid []byte
 	var lastConnectedTime time.Time
 	if connected {
-		edid, err = getOutputEDID(m.xConn, output)
+		edid, err = utils.GetOutputEDID(m.xConn, output)
 		if err != nil {
 			logger.Warning(err)
 		}

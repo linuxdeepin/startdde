@@ -236,21 +236,6 @@ func getCrtcRect(crtcInfo *randr.GetCrtcInfoReply) x.Rectangle {
 	return rect
 }
 
-func getOutputEDID(conn *x.Conn, output randr.Output) ([]byte, error) {
-	atomEDID, err := conn.GetAtom("EDID")
-	if err != nil {
-		return nil, err
-	}
-
-	reply, err := randr.GetOutputProperty(conn, output,
-		atomEDID, x.AtomInteger,
-		0, 32, false, false).Reply(conn)
-	if err != nil {
-		return nil, err
-	}
-	return reply.Value, nil
-}
-
 var numReg = regexp.MustCompile(`-?[0-9]`)
 
 func getOutputUUID(name string, edid []byte) string {
