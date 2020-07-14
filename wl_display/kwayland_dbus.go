@@ -129,7 +129,7 @@ func (m *Manager) applyByWLOutput() error {
 			return err
 		}
 		// wait request done
-		time.Sleep(time.Millisecond * 500)
+		//time.Sleep(time.Millisecond * 500)
 	}
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
