@@ -936,7 +936,7 @@ func startSession(conn *x.Conn, useKwin bool,
 
 		_, err = manager.loginSession.ConnectUnlock(manager.handleLoginSessionUnlock)
 		if err != nil {
-			logger.Warning("failled to connect signal Unlock:", err)
+			logger.Warning("failed to connect signal Unlock:", err)
 		}
 	}
 
