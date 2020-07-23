@@ -43,6 +43,9 @@ func (m *Manager) saveBrightness() {
 
 func (m *Manager) changeBrightness(raised bool) error {
 	var step float64 = 0.05
+	if m.MaxBacklightBrightness < 100 {
+		step = 1 / float64(m.MaxBacklightBrightness)
+	}
 	if !raised {
 		step = -step
 	}
