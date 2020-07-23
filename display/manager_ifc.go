@@ -151,8 +151,22 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 
 func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
 	outputName = strings.ToUpper(outputName)
-	if strings.HasPrefix(outputName, "HDMI") &&
-		os.Getenv("HDMI_CAN_BRIGHTNESS") == "N" {
+
+	if outputName == "" {
+		return false, dbusutil.ToError(errors.New("monitor Name is err"))
+	}
+	var monitor *Monitor
+	for _, m := range m.monitorMap {
+		if m.Name == outputName {
+			monitor = m
+			break
+		}
+	}
+	if monitor == nil {
+		return false, dbusutil.ToError(errors.New("monitor Name is err"))
+	}
+	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" && !m.isBuiltinMonitor(monitor) {
 		return false, nil
 	}
 	return true, nil
