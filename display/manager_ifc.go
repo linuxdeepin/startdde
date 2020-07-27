@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "pkg.deepin.io/lib/dbus1"
@@ -150,24 +149,15 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 }
 
 func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
-	outputName = strings.ToUpper(outputName)
-
 	if outputName == "" {
 		return false, dbusutil.ToError(errors.New("monitor Name is err"))
 	}
-	var monitor *Monitor
-	for _, m := range m.monitorMap {
-		if m.Name == outputName {
-			monitor = m
-			break
-		}
-	}
-	if monitor == nil {
-		return false, dbusutil.ToError(errors.New("monitor Name is err"))
-	}
+
 	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
-	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" && !m.isBuiltinMonitor(monitor) {
-		return false, nil
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N"{
+		if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
+			return false, nil
+		}
 	}
 	return true, nil
 }
