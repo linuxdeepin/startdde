@@ -155,15 +155,24 @@ func newXSItemHeader(prop string) *xsItemHeader {
 
 func writeSkip(writer io.Writer, num int) {
 	var buf = make([]byte, num)
-	binary.Write(writer, defaultByteOrder, buf)
+	err := binary.Write(writer, defaultByteOrder, buf)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func writeInteger(writer io.Writer, v interface{}) {
-	binary.Write(writer, defaultByteOrder, v)
+	err := binary.Write(writer, defaultByteOrder, v)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func writeString(writer io.Writer, v string) {
-	binary.Write(writer, defaultByteOrder, []byte(v))
+	err := binary.Write(writer, defaultByteOrder, []byte(v))
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func writeXSItemInfo(writer io.Writer, item *xsItemInfo) {

@@ -45,8 +45,6 @@ const (
 	deepin2DWM = "deepin-metacity"
 	unknownWM  = "unknown"
 
-	osdSwitch2DWM    = "SwitchWM2D"
-	osdSwitch3DWM    = "SwitchWM3D"
 	osdSwitchWMError = "SwitchWMError"
 )
 
@@ -64,7 +62,6 @@ type Switcher struct {
 	workability3dWM int
 
 	wm                *libwm.Wm
-	wmStartupCount    int
 	currentWM         string
 	WMChanged         func(string)
 	wmChooserLaunched bool
@@ -185,7 +182,10 @@ func (*Switcher) GetDBusInfo() dbus.DBusInfo {
 }
 
 func (s *Switcher) emitSignalWMChanged(wm string) {
-	dbus.Emit(s, "WMChanged", wmNameMap[wm])
+	err := dbus.Emit(s, "WMChanged", wmNameMap[wm])
+	if err != nil {
+		s.logger.Warning("failed to emit WMChanged:", err)
+	}
 }
 
 func (s *Switcher) isCardChanged() (change bool) {
@@ -424,7 +424,10 @@ func (s *Switcher) supportRunGoodWM() bool {
 	if err == nil && platform == platformSW {
 		if !isRadeonExists() {
 			support = false
-			setupSWPlatform()
+			err := setupSWPlatform()
+			if err != nil {
+				s.logger.Warning(err)
+			}
 		}
 	}
 
@@ -435,7 +438,10 @@ func (s *Switcher) supportRunGoodWM() bool {
 
 	env, err := getVideoEnv()
 	if err == nil {
-		correctWMByEnv(env, &support)
+		err := correctWMByEnv(env, &support)
+		if err != nil {
+			s.logger.Warning(err)
+		}
 	}
 
 	return support

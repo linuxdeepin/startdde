@@ -77,16 +77,15 @@ func syncWmChooserChoice() {
 
 type Switcher struct {
 	service *dbusutil.Service
-	sigLoop *dbusutil.SignalLoop
 	wm      *wm.Wm
 
-	signals *struct {
+	signals *struct { //nolint
 		WMChanged struct {
 			wmName string
 		}
 	}
 
-	methods *struct {
+	methods *struct { //nolint
 		AllowSwitch func() `out:"allow"`
 		CurrentWM   func() `out:"wmName"`
 	}

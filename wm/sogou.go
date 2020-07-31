@@ -41,8 +41,7 @@ func getSogouConfigPath() string {
 
 func setSogouSkin(skin, filename string) error {
 	kfile := keyfile.NewKeyFile()
-	kfile.LoadFromFile(filename)
-
+	_ = kfile.LoadFromFile(filename)
 	v, err := kfile.GetString(sgGroupBase, sgKeyCurtSkin)
 	if err != nil {
 		return err

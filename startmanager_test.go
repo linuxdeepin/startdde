@@ -25,7 +25,7 @@ import (
 	"testing"
 )
 
-func _TestSetAutostart(t *testing.T) {
+func _TestSetAutostart(t *testing.T) { //nolint
 	m := StartManager{}
 	if err := m.setAutostart("dropbox.desktop", true); err != nil {
 		fmt.Println(err)
@@ -41,7 +41,7 @@ func _TestSetAutostart(t *testing.T) {
 	}
 }
 
-func _TestScanDir(t *testing.T) {
+func _TestScanDir(t *testing.T) { //nolint
 	scanDir("/tmp", func(p string, info os.FileInfo) bool {
 		t.Log(info.Name())
 		return false

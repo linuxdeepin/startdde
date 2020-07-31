@@ -26,10 +26,22 @@ import (
 )
 
 func testCopyFileInit() {
-	os.Remove("/tmp/test")
-	os.Remove("/tmp/test2")
-	os.Remove("/tmp/ls")
-	os.Symlink("/bin/ls", "/tmp/test")
+	err := os.Remove("/tmp/test")
+	if err != nil {
+		logger.Warning(err)
+	}
+	err = os.Remove("/tmp/test2")
+	if err != nil {
+		logger.Warning(err)
+	}
+	err = os.Remove("/tmp/ls")
+	if err != nil {
+		logger.Warning(err)
+	}
+	err = os.Symlink("/bin/ls", "/tmp/test")
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func TestCopyFileNotKeepSymlink(t *testing.T) {
@@ -58,7 +70,10 @@ func TestCopyFileNotKeepSymlink(t *testing.T) {
 }
 func TestCopyFileCopyFileNone(t *testing.T) {
 	testCopyFileInit()
-	os.Symlink("/bin/ls", "/tmp/ls")
+	err := os.Symlink("/bin/ls", "/tmp/ls")
+	if err != nil {
+		logger.Warning(err)
+	}
 	if err := copyFile("/tmp/test", "/tmp/ls", CopyFileNone); err != nil {
 		t.Log("pass CopyFileKeepNone")
 	} else {

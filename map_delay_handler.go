@@ -58,7 +58,7 @@ func (dh *mapDelayHandler) AddTask(name string) {
 			}
 			dh.mutex.Lock()
 
-			for key, _ := range dh.task {
+			for key := range dh.task {
 				dh.do(key)
 			}
 			//clear dh.task

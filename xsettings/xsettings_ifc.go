@@ -25,7 +25,6 @@ import (
 )
 
 var (
-	errPropInvalid      = fmt.Errorf("Invalid xsettings property")
 	errPropNotFound     = fmt.Errorf("This property not found")
 	errPropTypeNotMatch = fmt.Errorf("This property's type not match")
 )

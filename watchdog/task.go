@@ -115,7 +115,7 @@ func (task *taskInfo) CanLaunch() bool {
 		}
 		return false
 	}
-	return isRun == false
+	return !isRun
 }
 
 func (task *taskInfo) getFailed() bool {

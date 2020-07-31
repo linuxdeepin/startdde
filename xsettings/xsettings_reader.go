@@ -87,15 +87,6 @@ func (infos xsItemInfos) listProps() string {
 	return content + "]"
 }
 
-func (info *xsDataInfo) getEnabledProps() []string {
-	var props []string
-	for _, item := range info.items {
-		props = append(props, item.header.name)
-	}
-
-	return props
-}
-
 func (info *xsDataInfo) getPropItem(prop string) *xsItemInfo {
 	for _, item := range info.items {
 		if prop == item.header.name {
@@ -134,16 +125,25 @@ func unmarshalSettingData(data []byte) *xsDataInfo {
 
 func readSkip(reader io.Reader, num int) {
 	var buf = make([]byte, num)
-	binary.Read(reader, defaultByteOrder, &buf)
+	err := binary.Read(reader, defaultByteOrder, &buf)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func readInteger(reader io.Reader, v interface{}) {
-	binary.Read(reader, defaultByteOrder, v)
+	err := binary.Read(reader, defaultByteOrder, v)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func readString(reader io.Reader, v *string, length int) {
 	var buf = make([]byte, length)
-	binary.Read(reader, defaultByteOrder, &buf)
+	err := binary.Read(reader, defaultByteOrder, &buf)
+	if err != nil {
+		logger.Warning(err)
+	}
 	*v = string(buf)
 }
 

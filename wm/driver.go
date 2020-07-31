@@ -67,13 +67,13 @@ func getVideoEnv() (int, error) {
 	return video, nil
 }
 
-func correctWMByEnv(video int, good *bool) {
+func correctWMByEnv(video int, good *bool) error {
 	outs, err := exec.Command("/sbin/lsmod").CombinedOutput()
 	if err != nil {
 		if len(outs) != 0 {
 			err = fmt.Errorf("%s", string(outs))
 		}
-		return
+		return err
 	}
 
 	//FIXME: check dual video cards and detect which is in use
@@ -84,7 +84,7 @@ func correctWMByEnv(video int, good *bool) {
 			os.Setenv("COGL_DRIVER", "gl")
 		}
 	case envNvidia:
-		if strings.Contains(string(outs), "nvidia") {
+		if strings.Contains(string(outs), "nvidia") { //nolint
 			//TODO: still need to test and verify
 		}
 	case envVirtualbox:
@@ -96,6 +96,7 @@ func correctWMByEnv(video int, good *bool) {
 			*good = false
 		}
 	}
+	return nil
 }
 
 func isDriverLoadedCorrectly() bool {
@@ -104,9 +105,8 @@ func isDriverLoadedCorrectly() bool {
 		return true
 	}
 	defer fr.Close()
-
-	aiglxErr := regexp.MustCompile("\\(EE\\)\\s+AIGLX error")
-	driOk := regexp.MustCompile("direct rendering: DRI\\d+ enabled")
+	aiglxErr := regexp.MustCompile(`\(EE\)\s+AIGLX error`)
+	driOk := regexp.MustCompile(`direct rendering: DRI\d+ enabled`)
 	swrast := regexp.MustCompile("GLX: Initialized DRISWRAST")
 
 	scanner := bufio.NewScanner(fr)

@@ -183,7 +183,6 @@ func Stop() {
 
 	_manager.QuitLoop()
 	_manager = nil
-	return
 }
 
 func SetLogLevel(level log.Priority) {

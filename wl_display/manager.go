@@ -14,13 +14,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 )
 
 const (
@@ -79,7 +79,7 @@ type Manager struct {
 	ScreenWidth  uint16
 	ScreenHeight uint16
 
-	methods *struct {
+	methods *struct { //nolint
 		AssociateTouch         func() `in:"outputName,touch"`
 		ChangeBrightness       func() `in:"raised"`
 		DeleteCustomMode       func() `in:"name"`
@@ -353,10 +353,13 @@ func (m *Manager) addSleepMonitor() {
 			return
 		}
 		//TODO: 因为休眠后窗管也会处理
-		time.Sleep(time.Millisecond * 500);
+		time.Sleep(time.Millisecond * 500)
 		logger.Debug("Wakeup from sleep, apply display setting")
 		m.applyDisplayMode()
 	})
+	if err != nil {
+		logger.Warning("failed to connect signal PrepareForSleep:", err)
+	}
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
@@ -612,13 +615,6 @@ func (m *Manager) switchModeMirror() (err error) {
 		}
 	}
 	return
-}
-
-type screenSize struct {
-	width    uint16
-	height   uint16
-	mmWidth  uint32
-	mmHeight uint32
 }
 
 //func (m *Manager) getScreenSize1() screenSize {
@@ -957,7 +953,6 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 			monitor.enable(true)
 
 			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
-			var mode ModeInfo
 			// if cfg != nil {
 			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
 			// if monitor0 == nil && cfg.Primary {
@@ -965,7 +960,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 			// }
 
 			// } else {
-			mode = monitor.BestMode
+			mode := monitor.BestMode
 			// }
 
 			monitor.setMode(mode)
@@ -1458,41 +1453,6 @@ func (m *Manager) isCustomModeBeingUsed(name string) bool {
 		m.CurrentCustomId == name
 }
 
-func (m *Manager) getScreenSize() (sw, sh uint16) {
-	var w, h int
-	for _, monitor := range m.monitorMap {
-		if !monitor.Connected || !monitor.Enabled {
-			continue
-		}
-
-		width := monitor.CurrentMode.Width
-		height := monitor.CurrentMode.Height
-
-		if needSwapWidthHeight(monitor.Rotation) {
-			width, height = height, width
-		}
-
-		w1 := int(monitor.X) + int(width)
-		h1 := int(monitor.Y) + int(height)
-
-		if w < w1 {
-			w = w1
-		}
-		if h < h1 {
-			h = h1
-		}
-	}
-	if w > math.MaxUint16 {
-		w = math.MaxUint16
-	}
-	if h > math.MaxUint16 {
-		h = math.MaxUint16
-	}
-	sw = uint16(w)
-	sh = uint16(h)
-	return
-}
-
 func (m *Manager) initTouchMap() {
 	value := m.settings.GetString(gsKeyMapOutput)
 	if len(value) == 0 {
@@ -1509,7 +1469,10 @@ func (m *Manager) initTouchMap() {
 	}
 
 	for touch, output := range m.TouchMap {
-		m.doSetTouchMap(touch, output)
+		err := m.doSetTouchMap(touch, output)
+		if err != nil {
+			logger.Warning("failed to set touchMap", err)
+		}
 	}
 	m.setPropTouchMap(m.TouchMap)
 }

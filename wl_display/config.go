@@ -81,40 +81,6 @@ func (s *ScreenConfig) getMonitorConfigs(mode uint8, customName string) []*Monit
 	return nil
 }
 
-func (s *ScreenConfig) getMonitorConfig(single bool, mode uint8, name, uuid string) *MonitorConfig {
-	if single {
-		return s.Single
-	}
-
-	switch mode {
-	case DisplayModeCustom:
-		for _, custom := range s.Custom {
-			if custom.Name == name {
-				return getMonitorConfigByUuid(custom.Monitors, uuid)
-			}
-		}
-	case DisplayModeMirror:
-		if s.Mirror == nil {
-			return nil
-		}
-		return getMonitorConfigByUuid(s.Mirror.Monitors, uuid)
-
-	case DisplayModeExtend:
-		if s.Extend == nil {
-			return nil
-		}
-		return getMonitorConfigByUuid(s.Extend.Monitors, uuid)
-
-	case DisplayModeOnlyOne:
-		if s.OnlyOne == nil {
-			return nil
-		}
-		return getMonitorConfigByUuid(s.OnlyOne.Monitors, uuid)
-	}
-
-	return nil
-}
-
 func getMonitorConfigByUuid(configs []*MonitorConfig, uuid string) *MonitorConfig {
 	for _, mc := range configs {
 		if mc.UUID == uuid {

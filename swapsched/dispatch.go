@@ -155,18 +155,11 @@ func (d *Dispatcher) shouldApplyLimit(memInfo ProcMemoryInfo) bool {
 	}
 
 	if d.enabled {
-		if memInfo.MemAvailable > d.cfg.DisableMemAvailMin {
-			// cancel limit
-			return false
-		}
-		return true
+
+		return memInfo.MemAvailable <= d.cfg.DisableMemAvailMin
 
 	} else {
-		if memInfo.MemAvailable < d.cfg.EnableMemAvailMax {
-			return true
-		}
-		// cancel limit
-		return false
+		return memInfo.MemAvailable < d.cfg.EnableMemAvailMax
 	}
 }
 

@@ -86,7 +86,7 @@ const (
 	SessionStageInitBegin int32 = iota
 	SessionStageInitEnd
 	SessionStageCoreBegin
-	SessionStageCoreEnd
+	SessionStageCoreEnd // nolint
 	SessionStageAppsBegin
 	SessionStageAppsEnd
 )
@@ -180,11 +180,7 @@ func (m *SessionManager) logout(force bool) {
 
 func (shudown *SessionManager) CanShutdown() bool {
 	str, _ := objLogin.CanPowerOff(0)
-	if str == "yes" {
-		return true
-	}
-
-	return false
+	return str == "yes"
 }
 
 func (m *SessionManager) Shutdown() {
@@ -239,11 +235,7 @@ func (m *SessionManager) shutdown(force bool) {
 
 func (shudown *SessionManager) CanReboot() bool {
 	str, _ := objLogin.CanReboot(0)
-	if str == "yes" {
-		return true
-	}
-
-	return false
+	return str == "yes"
 }
 
 func (m *SessionManager) Reboot() {
@@ -284,10 +276,7 @@ func (m *SessionManager) CanSuspend() bool {
 	}
 
 	str, _ := objLogin.CanSuspend(0)
-	if str == "yes" {
-		return true
-	}
-	return false
+	return str == "yes"
 }
 
 func (m *SessionManager) RequestSuspend() {
@@ -299,20 +288,23 @@ func (m *SessionManager) RequestSuspend() {
 		return
 	}
 
-	objLogin.Suspend(0, false)
+	err = objLogin.Suspend(0, false)
+	if err != nil {
+		logger.Warning("failed to suspend:", err)
+	}
 	setDPMSMode(false)
 }
 
 func (m *SessionManager) CanHibernate() bool {
 	str, _ := objLogin.CanHibernate(0)
-	if str == "yes" {
-		return true
-	}
-	return false
+	return str == "yes"
 }
 
 func (m *SessionManager) RequestHibernate() {
-	objLogin.Hibernate(0, false)
+	err := objLogin.Hibernate(0, false)
+	if err != nil {
+		logger.Warning("failed to Hibernate:", err)
+	}
 	setDPMSMode(false)
 }
 
@@ -408,7 +400,6 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 
 func initSession() {
 	var err error
-	const login1ObjPath = "/org/freedesktop/login1"
 
 	sysBus, err := dbus1.SystemBus()
 	if err != nil {
@@ -430,13 +421,19 @@ func initSession() {
 	sysSigLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSigLoop.Start()
 	objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
-	objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
+	err = objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
 		logger.Debug("session status changed:", hasValue, active)
 
 		if hasValue && !active {
-			objLoginSessionSelf.Lock(0)
+			err = objLoginSessionSelf.Lock(0)
+			if err != nil {
+				logger.Warning("failed to lock selfSession:", err)
+			}
 		}
 	})
+	if err != nil {
+		logger.Warning("failed to connect Active changed:", err)
+	}
 
 	if globalGSettingsConfig.swapSchedEnabled {
 		initSwapSched()
@@ -497,7 +494,12 @@ func initSwapSched() {
 			logger.Warning("failed to add self to DE cgroup:", err)
 		}
 
-		go swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
+		go func() {
+			err = swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
+			if err != nil {
+				logger.Warning(err)
+			}
+		}()
 		go swapSchedDispatcher.Balance()
 	} else {
 		logger.Warning("failed to new swap sched dispatcher:", err)

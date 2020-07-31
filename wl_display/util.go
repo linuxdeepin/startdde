@@ -11,77 +11,9 @@ import (
 	"strconv"
 	"strings"
 
-	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/strv"
-	"pkg.deepin.io/lib/utils"
 )
-
-func getRotations(origin uint16) []uint16 {
-	var ret []uint16
-
-	if origin&randr.RotationRotate0 == randr.RotationRotate0 {
-		ret = append(ret, randr.RotationRotate0)
-	}
-	if origin&randr.RotationRotate90 == randr.RotationRotate90 {
-		ret = append(ret, randr.RotationRotate90)
-	}
-	if origin&randr.RotationRotate180 == randr.RotationRotate180 {
-		ret = append(ret, randr.RotationRotate180)
-	}
-	if origin&randr.RotationRotate270 == randr.RotationRotate270 {
-		ret = append(ret, randr.RotationRotate270)
-	}
-	return ret
-}
-
-func getReflects(origin uint16) []uint16 {
-	var ret = []uint16{0}
-
-	if origin&randr.RotationReflectX == randr.RotationReflectX {
-		ret = append(ret, randr.RotationReflectX)
-	}
-	if origin&randr.RotationReflectY == randr.RotationReflectY {
-		ret = append(ret, randr.RotationReflectY)
-	}
-	if len(ret) == 3 {
-		ret = append(ret, randr.RotationReflectX|randr.RotationReflectY)
-	}
-	return ret
-}
-
-func parseCrtcRotation(origin uint16) (rotation, reflect uint16) {
-	rotation = origin & 0xf
-	reflect = origin & 0xf0
-
-	switch rotation {
-	case 1, 2, 4, 8:
-		break
-	default:
-		//Invalid rotation value
-		rotation = 1
-	}
-
-	switch reflect {
-	case 0, 16, 32, 48:
-		break
-	default:
-		// Invalid reflect value
-		reflect = 0
-	}
-
-	return
-}
-
-func toModeInfo(info randr.ModeInfo) ModeInfo {
-	return ModeInfo{
-		Id:     info.Id,
-		name:   info.Name,
-		Width:  info.Width,
-		Height: info.Height,
-		Rate:   calcModeRate(info),
-	}
-}
 
 var regMode = regexp.MustCompile(`^(\d+)x(\d+)(\D+)$`)
 
@@ -151,34 +83,6 @@ func findFirstMode(modes []ModeInfo, fn func(mode ModeInfo) bool) *ModeInfo {
 	return nil
 }
 
-func calcModeRate(info randr.ModeInfo) float64 {
-	vTotal := float64(info.VTotal)
-	if (info.ModeFlags & randr.ModeFlagDoubleScan) != 0 {
-		/* doublescan doubles the number of lines */
-		vTotal *= 2
-	}
-	if (info.ModeFlags & randr.ModeFlagInterlace) != 0 {
-		/* interlace splits the frame into two fields */
-		/* the field rate is what is typically reported by monitors */
-		vTotal /= 2
-	}
-
-	if info.HTotal == 0 || vTotal == 0 {
-		return 0
-	} else {
-		return float64(info.DotClock) / (float64(info.HTotal) * vTotal)
-	}
-}
-
-func outputSliceContains(outputs []randr.Output, output randr.Output) bool {
-	for _, o := range outputs {
-		if o == output {
-			return true
-		}
-	}
-	return false
-}
-
 func getMonitorsCommonSizes(monitors []*Monitor) []Size {
 	count := make(map[Size]int)
 	for _, monitor := range monitors {
@@ -221,45 +125,6 @@ func getSizeModeMap(modes []ModeInfo) map[Size][]uint32 {
 			result[Size{modeInfo.Width, modeInfo.Height}], modeInfo.Id)
 	}
 	return result
-}
-
-func getCrtcRect(crtcInfo *randr.GetCrtcInfoReply) x.Rectangle {
-	rect := x.Rectangle{
-		X:      crtcInfo.X,
-		Y:      crtcInfo.Y,
-		Width:  crtcInfo.Width,
-		Height: crtcInfo.Height,
-	}
-	return rect
-}
-
-func getOutputEDID(conn *x.Conn, output randr.Output) ([]byte, error) {
-	atomEDID, err := conn.GetAtom("EDID")
-	if err != nil {
-		return nil, err
-	}
-
-	reply, err := randr.GetOutputProperty(conn, output,
-		atomEDID, x.AtomInteger,
-		0, 32, false, false).Reply(conn)
-	if err != nil {
-		return nil, err
-	}
-	return reply.Value, nil
-}
-
-var numReg = regexp.MustCompile(`-?[0-9]`)
-
-func getOutputUUID(name string, edid []byte) string {
-	if len(edid) < 128 {
-		return name
-	}
-
-	id, _ := utils.SumStrMd5(string(edid[:128]))
-	if id == "" {
-		return name
-	}
-	return numReg.ReplaceAllString(name, "") + id
 }
 
 func sortMonitorsByID(monitors []*Monitor) {

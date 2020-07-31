@@ -136,7 +136,7 @@ func (m *Manager) initBrightness() {
 	if err != nil {
 		logger.Warning(err)
 	}
-	if brightnessTable == nil || len(brightnessTable) == 0 {
+	if brightnessTable == nil {
 		brightnessTable = make(map[string]float64)
 	}
 

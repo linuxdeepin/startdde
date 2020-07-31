@@ -101,7 +101,7 @@ func main() {
 	}
 	proxy.SetupProxy()
 
-	recommendedScaleFactor := 1.0
+	var recommendedScaleFactor float64
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		globalUseWayland = true
 		err = wl_display.Start()
@@ -153,7 +153,7 @@ func main() {
 		logger.Info("iowait disabled")
 	}
 
-	dbus.Wait()
+	_ = dbus.Wait()
 }
 
 func handleSignal() {
@@ -161,14 +161,11 @@ func handleSignal() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV)
 
 loop:
-	for {
-		select {
-		case sig := <-sigs:
-			switch sig {
-			case syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV:
-				logger.Error("Received signal: ", sig)
-				break loop
-			}
+	for sig := range sigs {
+		switch sig {
+		case syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV:
+			logger.Error("Received signal: ", sig)
+			break loop
 		}
 	}
 

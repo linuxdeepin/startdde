@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -23,14 +22,13 @@ const KB = 1024
 const MB = 1024 * KB
 const GB = 1024 * MB
 
-func joinCGPath(args ...string) string {
-	return path.Join(SystemCGroupRoot, path.Join(args...))
-}
-
 func getRSSUsed(memCtl *cgroup.Controller) uint64 {
 	var cache, rss, mappedFile uint64
-	memCtl.GetStats([]string{"cache", "rss", "mapped_file"},
+	_, err := memCtl.GetStats([]string{"cache", "rss", "mapped_file"},
 		&cache, &rss, &mappedFile)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return cache + rss + mappedFile
 }
 

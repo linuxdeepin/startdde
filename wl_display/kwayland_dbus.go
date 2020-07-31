@@ -118,7 +118,7 @@ func (m *Manager) applyByWLOutput() error {
 		}
 		logger.Debug("---------Will apply:", monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprint("1"),
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "1",
 			fmt.Sprintf("%d", monitor.X), fmt.Sprintf("%d", monitor.Y), fmt.Sprintf("%d", monitor.CurrentMode.Width),
 			fmt.Sprintf("%d", monitor.CurrentMode.Height), fmt.Sprintf("%d", int32(monitor.CurrentMode.Rate*1000)),
 			fmt.Sprintf("%d", trans)).CombinedOutput()

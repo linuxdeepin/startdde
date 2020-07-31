@@ -85,7 +85,7 @@ func getCardInfos() (CardInfos, error) {
 
 	var infos CardInfos
 	cardReg := regexp.MustCompile(" (vga|3d).*(display|graphics|controller)")
-	idReg := regexp.MustCompile("\\[(\\w{4}):(\\w{4})\\]")
+	idReg := regexp.MustCompile(`\[(\w{4}):(\w{4})]`)
 	lines := strings.Split(string(outs), "\n")
 	for _, line := range lines {
 		if line == "" {

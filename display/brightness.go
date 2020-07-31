@@ -205,10 +205,6 @@ func (m *Manager) doSetBrightness(value float64, name string) error {
 	return m.doSetBrightnessAux(false, value, name)
 }
 
-func (m *Manager) doSetBrightnessFake(value float64, name string) error {
-	return m.doSetBrightnessAux(true, value, name)
-}
-
 func (m *Manager) refreshDisplays() error {
 	logger.Debug("refreshDisplays")
 	return brightness.RefreshDisplays()

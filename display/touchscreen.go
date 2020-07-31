@@ -31,10 +31,6 @@ func startDeviceListener() {
 	C.start_device_listener()
 }
 
-func endDeviceListener() {
-	C.end_device_listener()
-}
-
 //export handleDeviceChanged
 func handleDeviceChanged() {
 	logger.Debug("Device changed")

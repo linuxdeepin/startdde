@@ -55,7 +55,7 @@ type Monitor struct {
 	CurrentMode ModeInfo
 
 	backup  *MonitorBackup
-	methods *struct {
+	methods *struct { //nolint
 		Enable         func() `in:"enabled"`
 		SetMode        func() `in:"mode"`
 		SetModeBySize  func() `in:"width,height"`
@@ -98,10 +98,6 @@ func (m *Monitor) markChanged() {
 			Rotation: m.Rotation,
 		}
 	}
-}
-
-func (m *Monitor) hasChanged() bool {
-	return m.backup != nil
 }
 
 func (m *Monitor) Enable(enabled bool) *dbus.Error {
@@ -292,7 +288,6 @@ func (m *Monitor) resetChanges() {
 	m.setPropRefreshRate(b.Mode.Rate)
 
 	m.backup = nil
-	return
 }
 
 func getRandrStatusStr(status uint8) string {

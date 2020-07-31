@@ -86,7 +86,7 @@ type StartManager struct {
 	appsDisableScaling strv.Strv
 	mu                 sync.Mutex
 
-	appClose            chan *UeMessageItem
+	appClose chan *UeMessageItem
 
 	launchedHooks []string
 
@@ -114,7 +114,10 @@ func getLaunchedHooks() (ret []string) {
 func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
 	for _, name := range m.launchedHooks {
 		p := filepath.Join(launchedHookDir, name)
-		exec.Command(p, desktopFile, cGroupName).Run()
+		err := exec.Command(p, desktopFile, cGroupName).Run()
+		if err != nil {
+			logger.Warning("run cmd failed:", err)
+		}
 	}
 }
 
@@ -144,7 +147,10 @@ func newStartManager(conn *x.Conn) *StartManager {
 		logger.Debug("update ", key)
 	})
 
-	m.listenAppCloseEvent()
+	err := m.listenAppCloseEvent()
+	if err != nil {
+		logger.Warning(err)
+	}
 
 	m.proxyChainsConfFile = filepath.Join(basedir.GetUserConfigDir(), "deepin", "proxychains.conf")
 	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
@@ -512,7 +518,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	}
 	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
+	item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
 	sendAppDataMsgToUserExperModule(UserExperOpenApp, item)
 
 	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
@@ -520,13 +526,10 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 func (m *StartManager) listenAppCloseEvent() error {
 	go func() {
-		for {
-			select {
-			case item := <- m.appClose:
-				if item != nil {
-					item := &UeMessageItem{Path:item.Path, Name:item.Name, Id:item.Id}
-					sendAppDataMsgToUserExperModule(UserExperCloseApp, item)
-				}
+		for item := range m.appClose {
+			if item != nil {
+				item := &UeMessageItem{Path: item.Path, Name: item.Name, Id: item.Id}
+				sendAppDataMsgToUserExperModule(UserExperCloseApp, item)
 			}
 		}
 	}()
@@ -539,7 +542,7 @@ func sendAppDataMsgToUserExperModule(msg string, item *UeMessageItem) {
 	bus, err := dbus.SystemBus()
 	if err == nil {
 		userexp := bus.Object(UserExperServiceName, UserExperPath)
-		err = userexp.Call(UserExperServiceName + ".SendAppStateData", 0, msg, item.Path, item.Name, item.Id).Err
+		err = userexp.Call(UserExperServiceName+".SendAppStateData", 0, msg, item.Path, item.Name, item.Id).Err
 		if err != nil {
 			logger.Warningf("failed to call %s.SendAppStateData, %v", UserExperServiceName, err)
 		} else {
@@ -623,7 +626,7 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		// send app close info to ue module
 		// we did not care the program exit normal or not
 		if appInfo != nil {
-			item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
+			item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
 			m.appClose <- item
 		}
 
@@ -660,7 +663,12 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		}
 	}()
 	if uiApp != nil {
-		go saveNeededMemory(cmdName, uiApp.GetCGroup())
+		go func() {
+			err := saveNeededMemory(cmdName, uiApp.GetCGroup())
+			if err != nil {
+				logger.Warning(err)
+			}
+		}()
 	}
 
 	return nil
@@ -685,7 +693,10 @@ func (m *StartManager) emitSignalAutostartChanged(name string) {
 		status = AutostartDeleted
 	}
 	logger.Debugf("emit %v %q %q", SignalAutostartChanged, status, name)
-	dbus.Emit(m, SignalAutostartChanged, status, name)
+	err := dbus.Emit(m, SignalAutostartChanged, status, name)
+	if err != nil {
+		logger.Warning("failed to emit signal AutostartChanged:", err)
+	}
 }
 
 func (m *StartManager) listenAutostartFileEvents() {
@@ -785,26 +796,6 @@ func (m *StartManager) isAutostartAux(filename string) bool {
 
 func lowerBaseName(name string) string {
 	return strings.ToLower(filepath.Base(name))
-}
-
-func (m *StartManager) isSystemStart(name string) bool {
-	if filepath.IsAbs(name) {
-		if !Exist(name) {
-			return false
-		}
-		d := filepath.Dir(name)
-		for i, dir := range m.autostartDirs() {
-			if i == 0 {
-				continue
-			}
-			if d == dir {
-				return true
-			}
-		}
-		return false
-	} else {
-		return Exist(m.getSysAutostart(name))
-	}
 }
 
 func (m *StartManager) getSysAutostart(name string) string {

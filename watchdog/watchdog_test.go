@@ -27,7 +27,10 @@ import (
 
 func TestDBusExists(t *testing.T) {
 	Convey("Test dbus whether exists", t, func() {
-		initDBusObject()
+		err := initDBusObject()
+		if err != nil {
+			logger.Warning("failed to init dbusObject:", err)
+		}
 		if busObj == nil {
 			t.Skip("busObj is nil")
 		}

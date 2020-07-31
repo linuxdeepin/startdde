@@ -20,7 +20,6 @@
 package brightness
 
 import (
-	"errors"
 	"fmt"
 
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
@@ -175,7 +174,6 @@ func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {
 	return
 }
 
-var errNotFoundBacklightController = errors.New("not found backlight controller")
 var controllers displayBl.Controllers
 
 func init() {

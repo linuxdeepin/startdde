@@ -111,7 +111,12 @@ func (m *SessionManager) launchWait(bin string, args ...string) bool {
 
 func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 	cmd := exec.Command(bin, args...)
-	go cmd.Run()
+	go func() {
+		err := cmd.Run()
+		if err != nil {
+			logger.Warning(err)
+		}
+	}()
 }
 
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {

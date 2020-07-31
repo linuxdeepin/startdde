@@ -9,13 +9,11 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 
 	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
-	dbus "pkg.deepin.io/lib/dbus1"
-
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
 )
@@ -236,8 +234,6 @@ func getCrtcRect(crtcInfo *randr.GetCrtcInfoReply) x.Rectangle {
 	return rect
 }
 
-var numReg = regexp.MustCompile(`-?[0-9]`)
-
 func getOutputUUID(name string, edid []byte) string {
 	if len(edid) < 128 {
 		return name
@@ -292,35 +288,6 @@ func jsonMarshal(v interface{}) string {
 
 func jsonUnmarshal(data string, ret interface{}) error {
 	return json.Unmarshal([]byte(data), ret)
-}
-
-// see also: gnome-desktop/libgnome-desktop/gnome-rr.c
-//           '_gnome_rr_output_name_is_builtin_display'
-func isBuiltinOutput(name string) bool {
-	name = strings.ToLower(name)
-	switch {
-	case strings.HasPrefix(name, "vga"):
-		return false
-	case strings.HasPrefix(name, "hdmi"):
-		return false
-	case strings.HasPrefix(name, "dvi"):
-		return false
-
-	case strings.HasPrefix(name, "lvds"):
-		// Most drivers use an "LVDS" prefix
-		return true
-	case strings.HasPrefix(name, "lcd"):
-		// fglrx uses "LCD" in some versions
-		return true
-	case strings.HasPrefix(name, "edp"):
-		// eDP is for internal built-in panel connections
-		return true
-	case strings.HasPrefix(name, "dsi"):
-		return true
-	case name == "default":
-		return true
-	}
-	return true
 }
 
 func doAction(cmd string) error {

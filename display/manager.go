@@ -102,7 +102,7 @@ type Manager struct {
 	// adjust color temperature by manual adjustment
 	ColorTemperatureManual gsprop.Int `prop:"access:r"`
 
-	methods *struct {
+	methods *struct { //nolint
 		AssociateTouch         func() `in:"outputName,touchSerial"`
 		ChangeBrightness       func() `in:"raised"`
 		DeleteCustomMode       func() `in:"name"`
@@ -1254,8 +1254,10 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	}
 
 	// 自定义配置不存在时，默认使用复制模式，即自定义模式的合并子模式
-	m.switchModeMirror()
-
+	err = m.switchModeMirror()
+	if err != nil {
+		return
+	}
 	err = m.saveConfig()
 	if err != nil {
 		return
@@ -1679,8 +1681,12 @@ func (m *Manager) associateTouch(outputName, touchSerial string) error {
 	}
 
 	m.TouchMap[touchSerial] = outputName
-	m.emitPropChangedTouchMap(m.TouchMap)
 	m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.TouchMap))
+	err = m.emitPropChangedTouchMap(m.TouchMap)
+	if err != nil {
+		logger.Warning("failed to emit TouchMap PropChanged:", err)
+		return err
+	}
 	return nil
 }
 
@@ -1702,16 +1708,6 @@ func (m *Manager) saveConfig() error {
 		return err
 	}
 	return nil
-}
-
-func (m *Manager) isTouchscreenExists(touch *Touchscreen) bool {
-	for _, v := range m.Touchscreens {
-		if touch.Id == v.Id {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (m *Manager) showTouchscreenDialog(touchscreenSerial string) error {
