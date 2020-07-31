@@ -430,14 +430,21 @@ func initSession() {
 	sysSigLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSigLoop.Start()
 	objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
-	objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
+	err = objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
 		logger.Debug("session status changed:", hasValue, active)
-
 		if hasValue && !active {
-			objLoginSessionSelf.Lock(0)
+			isPreparingForSleep, _ := objLogin.PreparingForSleep().Get(0)
+			if !isPreparingForSleep {
+				err = objLoginSessionSelf.Lock(0)
+				if err != nil {
+					logger.Warning("failed to Lock current session:", err)
+				}
+			}
 		}
 	})
-
+	if err != nil {
+		logger.Warning("failed to connect Active changed:", err)
+	}
 	if globalGSettingsConfig.swapSchedEnabled {
 		initSwapSched()
 	} else {
