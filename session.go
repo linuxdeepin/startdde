@@ -423,18 +423,19 @@ func initSession() {
 	objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
 	err = objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
 		logger.Debug("session status changed:", hasValue, active)
-
 		if hasValue && !active {
-			err = objLoginSessionSelf.Lock(0)
-			if err != nil {
-				logger.Warning("failed to lock selfSession:", err)
+			isPreparingForSleep, _ := objLogin.PreparingForSleep().Get(0)
+			if !isPreparingForSleep {
+				err = objLoginSessionSelf.Lock(0)
+				if err != nil {
+					logger.Warning("failed to Lock current session:", err)
+				}
 			}
 		}
 	})
 	if err != nil {
 		logger.Warning("failed to connect Active changed:", err)
 	}
-
 	if globalGSettingsConfig.swapSchedEnabled {
 		initSwapSched()
 	} else {
