@@ -902,6 +902,7 @@ func (m *Manager) apply() error {
 			if !ok {
 				value = 1
 				m.Brightness[monitor.Name] = value
+				_ = m.emitPropChangedBrightness(m.Brightness)
 			}
 			m.PropsMu.Unlock()
 
