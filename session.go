@@ -135,6 +135,8 @@ func (m *SessionManager) prepareLogout(force bool) {
 	killSogouImeWatchdog()
 	// kill process LangSelector ,because LangSelector will not be kill by common logout
 	killLangSelector()
+	// quit at-spi-dbus-bus.service
+	quitAtSpiService()
 	stopBAMFDaemon()
 	sendMsgToUserExperModule(UserLogoutMsg)
 
@@ -1083,4 +1085,41 @@ func doLogout(force bool) {
 		logger.Warning("LoginSessionSelf Terminate failed:", err)
 	}
 	os.Exit(0)
+}
+
+const (
+	AtSpiService = "at-spi-dbus-bus.service"
+)
+
+func startAtSpiService() {
+	time.Sleep(3 * time.Second)
+	logger.Debugf("starting %s...", AtSpiService)
+	err := exec.Command("systemctl", "--user", "--runtime", "unmask", AtSpiService).Run()
+	if err != nil {
+		logger.Warningf("unmask %s failed, err: %v", AtSpiService, err)
+		return
+	}
+	err = exec.Command("systemctl", "--user", "--runtime", "start", AtSpiService).Run()
+	if err != nil {
+		logger.Warningf("start %s failed, err: %v", AtSpiService, err)
+		return
+	}
+}
+
+func quitAtSpiService() {
+	logger.Debugf("quitting %s...", AtSpiService)
+	// mask at-spi-dbus-bus.service
+	out, err := exec.Command("systemctl", "--user", "--runtime", "--now", "mask",
+		AtSpiService).CombinedOutput()
+	if err != nil {
+		logger.Warningf("temp mask %s failed err: %v, out: %s", AtSpiService, err, out)
+	}
+	// view status
+	err = exec.Command("systemctl", "--quiet", "--user", "is-active",
+		AtSpiService).Run()
+	if err == nil {
+		logger.Warningf("%s is still running", AtSpiService)
+	} else {
+		logger.Debugf("%s is stopped, err: %v", AtSpiService, err)
+	}
 }
