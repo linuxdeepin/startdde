@@ -93,6 +93,9 @@ func main() {
 	globalGSettingsConfig = getGSettingsConfig()
 	reapZombies()
 
+	// start at-spi-dbus-bus.service
+	go startAtSpiService()
+
 	// init x conn
 	conn, err := x.NewConn()
 	if err != nil {
