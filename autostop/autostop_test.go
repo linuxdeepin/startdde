@@ -20,18 +20,19 @@
 package autostop
 
 import (
-	"github.com/smartystreets/goconvey/convey"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestScriptsScan(t *testing.T) {
-	convey.Convey("Test scripts scanner", t, func() {
+	Convey("Test scripts scanner", t, func(c C) {
 		var rets = []string{
 			"testdata/scripts/hello.sh",
 			"testdata/scripts/ls.sh",
 		}
 
 		scripts, _ := doScanScripts("./testdata/scripts")
-		convey.So(rets, convey.ShouldResemble, scripts)
+		c.So(rets, ShouldResemble, scripts)
 	})
 }

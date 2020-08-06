@@ -42,21 +42,21 @@ func TestDBusExists(t *testing.T) {
 }
 
 func TestStrInList(t *testing.T) {
-	Convey("Test item whether in list", t, func() {
+	Convey("Test item whether in list", t, func(c C) {
 		var list = []string{
 			"abc",
 			"xyz",
 			"123",
 		}
-		So(isItemInList("abc", list), ShouldEqual, true)
-		So(isItemInList("abcd", list), ShouldEqual, false)
+		c.So(isItemInList("abc", list), ShouldEqual, true)
+		c.So(isItemInList("abcd", list), ShouldEqual, false)
 	})
 }
 
 func TestTaskInfo(t *testing.T) {
-	Convey("Test task create", t, func() {
-		So(newTaskInfo("test1", nil, nil), ShouldBeNil)
-		So(newTaskInfo("test1",
+	Convey("Test task create", t, func(c C) {
+		c.So(newTaskInfo("test1", nil, nil), ShouldBeNil)
+		c.So(newTaskInfo("test1",
 			func() (bool, error) { return true, nil },
 			func() error { return nil }), ShouldNotBeNil)
 	})
@@ -64,28 +64,28 @@ func TestTaskInfo(t *testing.T) {
 	task1 := newTaskInfo("test1",
 		func() (bool, error) { return false, nil },
 		func() error { return nil })
-	Convey("Test task state", t, func() {
+	Convey("Test task state", t, func(c C) {
 		task1.Enable(false)
-		So(task1.CanLaunch(), ShouldEqual, false)
+		c.So(task1.CanLaunch(), ShouldEqual, false)
 		task1.Enable(true)
-		So(task1.CanLaunch(), ShouldEqual, true)
+		c.So(task1.CanLaunch(), ShouldEqual, true)
 		task1.failed = true
-		So(task1.CanLaunch(), ShouldEqual, false)
+		c.So(task1.CanLaunch(), ShouldEqual, false)
 		task1.failed = false
 		task1.isRunning = func() (bool, error) { return true, nil }
-		So(task1.CanLaunch(), ShouldEqual, false)
+		c.So(task1.CanLaunch(), ShouldEqual, false)
 	})
 
 	task2 := newTaskInfo("test2",
 		func() (bool, error) { return false, nil },
 		func() error { return nil })
-	Convey("Test manager", t, func() {
+	Convey("Test manager", t, func(c C) {
 		var m = &Manager{
 			timedTasks: []*taskInfo{task1},
 		}
 		task1.failed = true
-		So(m.hasAnyRunnableTimedTask(), ShouldEqual, false)
+		c.So(m.hasAnyRunnableTimedTask(), ShouldEqual, false)
 		m.timedTasks = append(m.timedTasks, task2)
-		So(m.hasAnyRunnableTimedTask(), ShouldEqual, true)
+		c.So(m.hasAnyRunnableTimedTask(), ShouldEqual, true)
 	})
 }
