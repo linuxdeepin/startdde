@@ -6,6 +6,8 @@ package display
 import "C"
 
 import (
+	"sync"
+
 	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/api/dxinput/common"
 	dxutils "pkg.deepin.io/dde/api/dxinput/utils"
@@ -22,9 +24,10 @@ type Touchscreen struct {
 type dxTouchscreens []*Touchscreen
 
 var (
-	devInfos         common.DeviceInfos
-	touchscreenInfos dxTouchscreens
-	gudevClient      = gudev.NewClient([]string{"input"})
+	devInfos           common.DeviceInfos
+	touchscreenInfos   dxTouchscreens
+	touchscreenInfosMu sync.Mutex
+	gudevClient        = gudev.NewClient([]string{"input"})
 )
 
 func startDeviceListener() {
@@ -47,12 +50,13 @@ func getDeviceInfos(force bool) common.DeviceInfos {
 }
 
 func getTouchscreenInfos(force bool) dxTouchscreens {
+	touchscreenInfosMu.Lock()
+	defer touchscreenInfosMu.Unlock()
+
 	if !force && len(touchscreenInfos) != 0 {
 		return touchscreenInfos
 	}
-	// touch screen slice should be reset, because func getDeviceInfos get all devices
-	// if not reset, touch screen devices will be add to touch screen slice again
-	touchscreenInfos = []*Touchscreen{}
+	touchscreenInfos = nil
 	for _, v := range getDeviceInfos(force) {
 		if v.Type == common.DevTypeTouchscreen {
 			tmp, _ := dxinput.NewTouchscreenFromDevInfo(v)
