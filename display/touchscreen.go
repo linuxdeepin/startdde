@@ -50,7 +50,9 @@ func getTouchscreenInfos(force bool) dxTouchscreens {
 	if !force && len(touchscreenInfos) != 0 {
 		return touchscreenInfos
 	}
-
+	// touch screen slice should be reset, because func getDeviceInfos get all devices
+	// if not reset, touch screen devices will be add to touch screen slice again
+	touchscreenInfos = []*Touchscreen{}
 	for _, v := range getDeviceInfos(force) {
 		if v.Type == common.DevTypeTouchscreen {
 			tmp, _ := dxinput.NewTouchscreenFromDevInfo(v)
