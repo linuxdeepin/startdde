@@ -60,9 +60,9 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	}
 	logger.Debug("[WATCHDOG] max launch times:", maxLaunchTimes)
 	_manager = newManager()
-	_manager.AddTimedTask(newDdeDockTask())
 	_manager.AddTimedTask(newDdeDesktopTask())
 	_manager.AddTimedTask(newDdePolkitAgent())
+	_manager.AddDBusTask(ddeDockServiceName, newDdeDockTask())
 	_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
 	_manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
 	go _manager.StartLoop()
