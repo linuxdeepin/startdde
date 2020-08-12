@@ -1048,7 +1048,17 @@ func getLoginSession() (*login1.Session, error) {
 
 func (m *SessionManager) handleLoginSessionLock() {
 	logger.Debug("login session lock")
-	err := m.RequestLock()
+
+	preparingForSleep, err := objLogin.PreparingForSleep().Get(0)
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	if preparingForSleep {
+		return
+	}
+
+	err = m.RequestLock()
 	if err != nil {
 		logger.Warning("failed to request lock:", err)
 	}
