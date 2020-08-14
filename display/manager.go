@@ -906,10 +906,12 @@ func (m *Manager) apply() error {
 			}
 			m.PropsMu.Unlock()
 
-			err = m.setMonitorBrightness(monitor, value)
-			if err != nil {
-				logger.Warningf("failed to set brightness for %s: %v", monitor.Name, err)
-			}
+			go func() {
+				err = m.setMonitorBrightness(monitor, value)
+				if err != nil {
+					logger.Warningf("failed to set brightness for %s: %v", monitor.Name, err)
+				}
+			}()
 		}
 	}
 
