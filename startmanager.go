@@ -32,14 +32,13 @@ import (
 	"time"
 
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
-
-	"github.com/linuxdeepin/go-x11-client"
+	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/appinfo"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/fsnotify"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/keyfile"
@@ -70,8 +69,8 @@ const (
 )
 
 type StartManager struct {
+	service             *dbusutil.Service
 	userAutostartPath   string
-	AutostartChanged    func(string, string)
 	delayHandler        *mapDelayHandler
 	daemonApps          *daemonApps.Apps
 	launchContext       *appinfo.AppLaunchContext
@@ -79,18 +78,42 @@ type StartManager struct {
 	restartTimeMapMu    sync.Mutex
 	proxyChainsConfFile string
 	proxyChainsBin      string
-
-	appsDir            []string
-	settings           *gio.Settings
-	appsUseProxy       strv.Strv
-	appsDisableScaling strv.Strv
-	mu                 sync.Mutex
-
-	appClose chan *UeMessageItem
-
-	launchedHooks []string
+	appsDir             []string
+	settings            *gio.Settings
+	appsUseProxy        strv.Strv
+	appsDisableScaling  strv.Strv
+	mu                  sync.Mutex
+	appClose            chan *UeMessageItem
+	launchedHooks       []string
 
 	NeededMemory uint64
+
+	//nolint
+	signals *struct {
+		AutostartChanged struct {
+			status string
+			name   string
+		}
+	}
+
+	//nolint
+	methods *struct {
+		IsMemSufficient       func() `out:"result"`
+		TryAgain              func() `in:"launch"`
+		DumpMemRecord         func() `out:"record"`
+		GetApps               func() `out:"apps"`
+		Launch                func() `in:"desktopFile" out:"ok"`
+		LaunchWithTimestamp   func() `in:"desktopFile,timestamp" out:"ok"`
+		LaunchApp             func() `in:"desktopFile,timestamp,files"`
+		LaunchAppWithOptions  func() `in:"desktopFile,timestamp,files,options"`
+		LaunchAppAction       func() `in:"desktopFile,action,timestamp"`
+		RunCommand            func() `in:"exe,args"`
+		RunCommandWithOptions func() `in:"exe,args,options"`
+		AutostartList         func() `out:"list"`
+		AddAutostart          func() `in:"filename" out:"ok"`
+		RemoveAutostart       func() `in:"filename" out:"ok"`
+		IsAutostart           func() `in:"filename" out:"result"`
+	}
 }
 
 func getLaunchedHooks() (ret []string) {
@@ -121,8 +144,10 @@ func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
 	}
 }
 
-func newStartManager(conn *x.Conn) *StartManager {
-	m := &StartManager{}
+func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
+	m := &StartManager{
+		service: service,
+	}
 
 	m.appsDir = getAppDirs()
 	m.settings = gio.NewSettings(gSchemaLauncher)
@@ -161,7 +186,7 @@ func newStartManager(conn *x.Conn) *StartManager {
 	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
-	sysBus, err := dbus1.SystemBus()
+	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -172,12 +197,8 @@ func newStartManager(conn *x.Conn) *StartManager {
 
 var START_MANAGER *StartManager
 
-func (m *StartManager) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		Dest:       START_DDE_DEST,
-		ObjectPath: startManagerObjPath,
-		Interface:  startManagerInterface,
-	}
+func (m *StartManager) GetInterfaceName() string {
+	return startManagerInterface
 }
 
 func (m *StartManager) getRestartTime(appInfo *desktopappinfo.DesktopAppInfo) (time.Time, bool) {
@@ -195,54 +216,56 @@ func (m *StartManager) setRestartTime(appInfo *desktopappinfo.DesktopAppInfo, t 
 	m.restartTimeMapMu.Unlock()
 }
 
-func (m *StartManager) GetApps() (map[uint32]string, error) {
+func (m *StartManager) GetApps() (map[uint32]string, *dbus.Error) {
 	if swapSchedDispatcher == nil {
-		return nil, errors.New("swap-sched disabled")
+		return nil, dbusutil.ToError(errors.New("swap-sched disabled"))
 	}
 
 	return swapSchedDispatcher.GetAppsSeqDescMap(), nil
 }
 
 // deprecated
-func (m *StartManager) Launch(dMsg dbus.DMessage, desktopFile string) (bool, error) {
-	err := checkDMsgUid(dMsg)
+func (m *StartManager) Launch(sender dbus.Sender, desktopFile string) (bool, *dbus.Error) {
+	err := checkDMsgUid(m.service, sender)
 	if err != nil {
-		return false, err
+		return false, dbusutil.ToError(err)
 	}
 	err = m.launchAppWithOptions(desktopFile, 0, nil, nil)
-	return err == nil, err
+	return err == nil, dbusutil.ToError(err)
 }
 
 // deprecated
-func (m *StartManager) LaunchWithTimestamp(dMsg dbus.DMessage, desktopFile string,
-	timestamp uint32) (bool, error) {
+func (m *StartManager) LaunchWithTimestamp(sender dbus.Sender, desktopFile string,
+	timestamp uint32) (bool, *dbus.Error) {
 
-	err := checkDMsgUid(dMsg)
+	err := checkDMsgUid(m.service, sender)
 	if err != nil {
-		return false, err
+		return false, dbusutil.ToError(err)
 	}
 	err = m.launchAppWithOptions(desktopFile, timestamp, nil, nil)
-	return err == nil, err
+	return err == nil, dbusutil.ToError(err)
 }
 
-func (m *StartManager) LaunchApp(dMsg dbus.DMessage, desktopFile string,
-	timestamp uint32, files []string) error {
+func (m *StartManager) LaunchApp(sender dbus.Sender, desktopFile string,
+	timestamp uint32, files []string) *dbus.Error {
 
-	err := checkDMsgUid(dMsg)
+	err := checkDMsgUid(m.service, sender)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
-	return m.launchAppWithOptions(desktopFile, timestamp, files, nil)
+	err = m.launchAppWithOptions(desktopFile, timestamp, files, nil)
+	return dbusutil.ToError(err)
 }
 
-func (m *StartManager) LaunchAppWithOptions(dMsg dbus.DMessage, desktopFile string,
-	timestamp uint32, files []string, options map[string]dbus.Variant) error {
+func (m *StartManager) LaunchAppWithOptions(sender dbus.Sender, desktopFile string,
+	timestamp uint32, files []string, options map[string]dbus.Variant) *dbus.Error {
 
-	err := checkDMsgUid(dMsg)
+	err := checkDMsgUid(m.service, sender)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
-	return m.launchAppWithOptions(desktopFile, timestamp, files, options)
+	err = m.launchAppWithOptions(desktopFile, timestamp, files, options)
+	return dbusutil.ToError(err)
 }
 
 func (m *StartManager) launchAppWithOptions(desktopFile string, timestamp uint32,
@@ -276,13 +299,16 @@ func (m *StartManager) launchAppWithOptions(desktopFile string, timestamp uint32
 	return err
 }
 
-func (m *StartManager) LaunchAppAction(dMsg dbus.DMessage, desktopFile, action string, timestamp uint32) error {
+func (m *StartManager) LaunchAppAction(sender dbus.Sender, desktopFile, action string,
+	timestamp uint32) *dbus.Error {
 
-	err := checkDMsgUid(dMsg)
+	err := checkDMsgUid(m.service, sender)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
-	return m.launchAppAction(desktopFile, action, timestamp)
+
+	err = m.launchAppAction(desktopFile, action, timestamp)
+	return dbusutil.ToError(err)
 }
 
 func (m *StartManager) launchAppAction(desktopFile, action string, timestamp uint32) error {
@@ -326,26 +352,31 @@ func getCmdDesc(exe string, args []string) string {
 	return prefix + exe
 }
 
-func (m *StartManager) RunCommand(dMsg dbus.DMessage, exe string, args []string) error {
-	err := checkDMsgUid(dMsg)
+func (m *StartManager) RunCommand(sender dbus.Sender, exe string, args []string) *dbus.Error {
+	err := checkDMsgUid(m.service, sender)
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
+	err = m.runCommandWithOptions(exe, args, nil)
+	return dbusutil.ToError(err)
+}
+
+func (m *StartManager) RunCommandWithOptions(sender dbus.Sender, exe string, args []string,
+	options map[string]dbus.Variant) *dbus.Error {
+
+	err := checkDMsgUid(m.service, sender)
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
+	err = m.runCommandWithOptions(exe, args, options)
+	return dbusutil.ToError(err)
+}
+
+func checkDMsgUid(service *dbusutil.Service, sender dbus.Sender) error {
+	uid, err := service.GetConnUID(string(sender))
 	if err != nil {
 		return err
 	}
-	return m.runCommandWithOptions(exe, args, nil)
-}
-
-func (m *StartManager) RunCommandWithOptions(dMsg dbus.DMessage, exe string, args []string,
-	options map[string]dbus.Variant) error {
-
-	err := checkDMsgUid(dMsg)
-	if err != nil {
-		return err
-	}
-	return m.runCommandWithOptions(exe, args, options)
-}
-
-func checkDMsgUid(dMsg dbus.DMessage) error {
-	uid := dMsg.GetSenderUID()
 	if os.Getuid() == int(uid) {
 		return nil
 	}
@@ -693,7 +724,7 @@ func (m *StartManager) emitSignalAutostartChanged(name string) {
 		status = AutostartDeleted
 	}
 	logger.Debugf("emit %v %q %q", SignalAutostartChanged, status, name)
-	err := dbus.Emit(m, SignalAutostartChanged, status, name)
+	err := m.service.Emit(m, SignalAutostartChanged, status, name)
 	if err != nil {
 		logger.Warning("failed to emit signal AutostartChanged:", err)
 	}
@@ -887,7 +918,7 @@ func (m *StartManager) autostartDirs() []string {
 	return dirs
 }
 
-func (m *StartManager) AutostartList() []string {
+func (m *StartManager) AutostartList() ([]string, *dbus.Error) {
 	apps := make([]string, 0)
 	dirs := m.autostartDirs()
 	for _, dir := range dirs {
@@ -906,7 +937,7 @@ func (m *StartManager) AutostartList() []string {
 			}
 		}
 	}
-	return apps
+	return apps, nil
 }
 
 func (m *StartManager) addAutostartFile(name string) (string, error) {
@@ -956,45 +987,47 @@ func (m *StartManager) doSetAutostart(filename, appId string, autostart bool) er
 		return err
 	}
 
-	keyFile.SetString(desktopappinfo.MainSection, KeyXDeepinCreatedBy, START_DDE_DEST)
+	keyFile.SetString(desktopappinfo.MainSection, KeyXDeepinCreatedBy, sessionManagerServiceName)
 	keyFile.SetString(desktopappinfo.MainSection, KeyXDeepinAppID, appId)
 	keyFile.SetBool(desktopappinfo.MainSection, desktopappinfo.KeyHidden, !autostart)
 	logger.Info("set autostart to", autostart)
 	return keyFile.SaveToFile(filename)
 }
 
-func (m *StartManager) AddAutostart(filename string) (bool, error) {
+func (m *StartManager) AddAutostart(filename string) (bool, *dbus.Error) {
 	err := m.setAutostart(filename, true)
 	if err != nil {
 		logger.Warning("AddAutostart failed:", err)
-		return false, err
+		return false, dbusutil.ToError(err)
 	}
 	return true, nil
 }
 
-func (m *StartManager) RemoveAutostart(filename string) (bool, error) {
+func (m *StartManager) RemoveAutostart(filename string) (bool, *dbus.Error) {
 	err := m.setAutostart(filename, false)
 	if err != nil {
 		logger.Warning("RemoveAutostart failed:", err)
-		return false, err
+		return false, dbusutil.ToError(err)
 	}
 	return true, nil
 }
 
-func (m *StartManager) IsAutostart(filename string) bool {
-	return m.isAutostart(filename)
+func (m *StartManager) IsAutostart(filename string) (bool, *dbus.Error) {
+	return m.isAutostart(filename), nil
 }
 
-func startStartManager(conn *x.Conn) {
-	START_MANAGER = newStartManager(conn)
-	if err := dbus.InstallOnSession(START_MANAGER); err != nil {
-		logger.Error("Install StartManager Failed:", err)
+func startStartManager(conn *x.Conn, service *dbusutil.Service) {
+	START_MANAGER = newStartManager(conn, service)
+	err := service.Export(startManagerObjPath, START_MANAGER)
+	if err != nil {
+		logger.Warning("export StartManager failed:", err)
 	}
 }
 
 func startAutostartProgram() {
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
-	for _, desktopFile := range START_MANAGER.AutostartList() {
+	autoStartList, _ := START_MANAGER.AutostartList()
+	for _, desktopFile := range autoStartList {
 		go func(desktopFile string) {
 			delay, err := getDelayTime(desktopFile)
 			if err != nil {

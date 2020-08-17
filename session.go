@@ -48,8 +48,7 @@ import (
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
@@ -58,6 +57,7 @@ import (
 )
 
 type SessionManager struct {
+	service               *dbusutil.Service
 	mu                    sync.Mutex
 	Locked                bool
 	CurrentUid            string
@@ -70,9 +70,29 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop
 	inhibitManager        InhibitManager
 
-	Unlock           func()
-	InhibitorAdded   func(path dbus.ObjectPath)
-	InhibitorRemoved func(path dbus.ObjectPath)
+	//nolint
+	signals *struct {
+		Unlock                           struct{}
+		InhibitorAdded, InhibitorRemoved struct {
+			path dbus.ObjectPath
+		}
+	}
+
+	//nolint
+	methods *struct {
+		CanLogout             func() `out:"can"`
+		CanShutdown           func() `out:"can"`
+		CanReboot             func() `out:"can"`
+		CanSuspend            func() `out:"can"`
+		CanHibernate          func() `out:"can"`
+		SetLocked             func() `in:"value"`
+		AllowSessionDaemonRun func() `out:"allow"`
+		Register              func() `in:"id" out:"ok"`
+		Inhibit               func() `in:"appId,toplevelXid,reason,flags" out:"cookie"`
+		IsInhibited           func() `in:"flags" out:"result"`
+		Uninhibit             func() `in:"cookie"`
+		GetInhibitors         func() `out:"inhibitors"`
+	}
 }
 
 const (
@@ -97,12 +117,13 @@ var (
 	swapSchedDispatcher *swapsched.Dispatcher
 )
 
-func (m *SessionManager) CanLogout() bool {
-	return true
+func (m *SessionManager) CanLogout() (bool, *dbus.Error) {
+	return true, nil
 }
 
-func (m *SessionManager) Logout() {
+func (m *SessionManager) Logout() *dbus.Error {
 	m.launch(cmdShutdown, false)
+	return nil
 }
 
 func stopBAMFDaemon() {
@@ -162,14 +183,16 @@ func killLangSelector() {
 	}
 }
 
-func (m *SessionManager) RequestLogout() {
+func (m *SessionManager) RequestLogout() *dbus.Error {
 	logger.Info("RequestLogout")
 	m.logout(false)
+	return nil
 }
 
-func (m *SessionManager) ForceLogout() {
+func (m *SessionManager) ForceLogout() *dbus.Error {
 	logger.Info("ForceLogout")
 	m.logout(true)
+	return nil
 }
 
 func (m *SessionManager) logout(force bool) {
@@ -180,13 +203,14 @@ func (m *SessionManager) logout(force bool) {
 	doLogout(force)
 }
 
-func (shudown *SessionManager) CanShutdown() bool {
+func (shudown *SessionManager) CanShutdown() (bool, *dbus.Error) {
 	str, _ := objLogin.CanPowerOff(0)
-	return str == "yes"
+	return str == "yes", nil
 }
 
-func (m *SessionManager) Shutdown() {
+func (m *SessionManager) Shutdown() *dbus.Error {
 	m.launch(cmdShutdown, false)
+	return nil
 }
 
 func (m *SessionManager) prepareShutdown(force bool) {
@@ -208,14 +232,16 @@ func killSogouImeWatchdog() {
 	}
 }
 
-func (m *SessionManager) RequestShutdown() {
+func (m *SessionManager) RequestShutdown() *dbus.Error {
 	logger.Info("RequestShutdown")
 	m.shutdown(false)
+	return nil
 }
 
-func (m *SessionManager) ForceShutdown() {
+func (m *SessionManager) ForceShutdown() *dbus.Error {
 	logger.Info("ForceShutdown")
 	m.shutdown(true)
+	return nil
 }
 
 func (m *SessionManager) shutdown(force bool) {
@@ -235,23 +261,26 @@ func (m *SessionManager) shutdown(force bool) {
 	os.Exit(0)
 }
 
-func (shudown *SessionManager) CanReboot() bool {
+func (shudown *SessionManager) CanReboot() (bool, *dbus.Error) {
 	str, _ := objLogin.CanReboot(0)
-	return str == "yes"
+	return str == "yes", nil
 }
 
-func (m *SessionManager) Reboot() {
+func (m *SessionManager) Reboot() *dbus.Error {
 	m.launch(cmdShutdown, false)
+	return nil
 }
 
-func (m *SessionManager) RequestReboot() {
+func (m *SessionManager) RequestReboot() *dbus.Error {
 	logger.Info("RequestReboot")
 	m.reboot(false)
+	return nil
 }
 
-func (m *SessionManager) ForceReboot() {
+func (m *SessionManager) ForceReboot() *dbus.Error {
 	logger.Info("ForceReboot")
 	m.reboot(true)
+	return nil
 }
 
 func (m *SessionManager) reboot(force bool) {
@@ -271,23 +300,23 @@ func (m *SessionManager) reboot(force bool) {
 	os.Exit(0)
 }
 
-func (m *SessionManager) CanSuspend() bool {
+func (m *SessionManager) CanSuspend() (bool, *dbus.Error) {
 	_, err := os.Stat("/sys/power/mem_sleep")
 	if os.IsNotExist(err) {
-		return false
+		return false, nil
 	}
 
 	str, _ := objLogin.CanSuspend(0)
-	return str == "yes"
+	return str == "yes", nil
 }
 
-func (m *SessionManager) RequestSuspend() {
+func (m *SessionManager) RequestSuspend() *dbus.Error {
 	_, err := os.Stat("/etc/deepin/no_suspend")
 	if err == nil {
 		// no suspend
 		time.Sleep(time.Second)
 		setDPMSMode(false)
-		return
+		return nil
 	}
 
 	err = objLogin.Suspend(0, false)
@@ -295,34 +324,38 @@ func (m *SessionManager) RequestSuspend() {
 		logger.Warning("failed to suspend:", err)
 	}
 	setDPMSMode(false)
+	return nil
 }
 
-func (m *SessionManager) CanHibernate() bool {
+func (m *SessionManager) CanHibernate() (bool, *dbus.Error) {
 	str, _ := objLogin.CanHibernate(0)
-	return str == "yes"
+	return str == "yes", nil
 }
 
-func (m *SessionManager) RequestHibernate() {
+func (m *SessionManager) RequestHibernate() *dbus.Error {
 	err := objLogin.Hibernate(0, false)
 	if err != nil {
 		logger.Warning("failed to Hibernate:", err)
 	}
 	setDPMSMode(false)
+	return nil
 }
 
-func (m *SessionManager) RequestLock() error {
+func (m *SessionManager) RequestLock() *dbus.Error {
 	conn, err := dbus.SessionBus()
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
-	return conn.Object(lockFrontDest, lockFrontObjPath).Call(lockFrontIfc+".Show", 0).Store()
+	err = conn.Object(lockFrontDest, lockFrontObjPath).Call(lockFrontIfc+".Show", 0).Err
+	return dbusutil.ToError(err)
 }
 
-func (m *SessionManager) PowerOffChoose() {
+func (m *SessionManager) PowerOffChoose() *dbus.Error {
 	m.launch(cmdShutdown, false)
+	return nil
 }
 
-func (m *SessionManager) ToggleDebug() {
+func (m *SessionManager) ToggleDebug() *dbus.Error {
 	if logger.GetLogLevel() == log.LevelDebug {
 		doSetLogLevel(log.LevelInfo)
 		logger.Debug("Debug mode disabled")
@@ -330,18 +363,22 @@ func (m *SessionManager) ToggleDebug() {
 		doSetLogLevel(log.LevelDebug)
 		logger.Debug("Debug mode enabled")
 	}
+	return nil
 }
 
-func (m *SessionManager) SetLocked(dMsg dbus.DMessage, value bool) error {
-	pid := dMsg.GetSenderPID()
+func (m *SessionManager) SetLocked(sender dbus.Sender, value bool) *dbus.Error {
+	pid, err := m.service.GetConnPID(string(sender))
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
 	process := procfs.Process(pid)
 	exe, err := process.Exe()
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
 
 	if exe != "/usr/bin/dde-lock" {
-		return fmt.Errorf("exe %q is invalid", exe)
+		return dbusutil.ToError(fmt.Errorf("exe %q is invalid", exe))
 	}
 
 	m.setLocked(value)
@@ -352,7 +389,10 @@ func (m *SessionManager) setLocked(value bool) {
 	m.mu.Lock()
 	if m.Locked != value {
 		m.Locked = value
-		dbus.NotifyChange(m, "Locked")
+		err := m.service.EmitPropertyChanged(m, "Locked", value)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 	m.mu.Unlock()
 
@@ -403,7 +443,7 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 func initSession() {
 	var err error
 
-	sysBus, err := dbus1.SystemBus()
+	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
 		return
@@ -509,8 +549,10 @@ func initSwapSched() {
 	}
 }
 
-func newSessionManager() *SessionManager {
-	m := &SessionManager{}
+func newSessionManager(service *dbusutil.Service) *SessionManager {
+	m := &SessionManager{
+		service: service,
+	}
 	m.cookies = make(map[string]chan time.Time)
 	m.setPropName("CurrentUid")
 	var err error
@@ -519,14 +561,10 @@ func newSessionManager() *SessionManager {
 		logger.Warning("failed to get current login session:", err)
 	}
 
-	sessionBus, err := dbus1.SessionBus()
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
-		m.sigLoop.Start()
-		m.dbusDaemon = ofdbus.NewDBus(sessionBus)
-	}
+	sessionBus := service.Conn()
+	m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
+	m.sigLoop.Start()
+	m.dbusDaemon = ofdbus.NewDBus(sessionBus)
 
 	m.initInhibitManager()
 	m.listenDBusSignals()
@@ -541,8 +579,13 @@ func (manager *SessionManager) listenDBusSignals() {
 			// uniq name lost
 			ih := manager.inhibitManager.handleNameLost(name)
 			if ih != nil {
-				dbus.UnInstallObject(ih)
-				err := dbus.Emit(manager, signalInhibitorRemoved, ih.getPath())
+				err := manager.service.StopExport(ih)
+				if err != nil {
+					logger.Warning(err)
+					return
+				}
+
+				err = manager.service.Emit(manager, signalInhibitorRemoved, ih.getPath())
 				if err != nil {
 					logger.Warning(err)
 				}
@@ -571,7 +614,7 @@ func (manager *SessionManager) launchWindowManager(wait bool) {
 		return
 	}
 
-	err := wm.Start(logger, globalWmChooserLaunched)
+	err := wm.Start(logger, globalWmChooserLaunched, manager.service)
 	if err != nil {
 		logger.Error("Failed to start wm module:", err)
 		return
@@ -708,7 +751,7 @@ func setupEnvironments() {
 
 	scaleFactor := 1.0
 	if globalXSManager != nil {
-		scaleFactor = globalXSManager.GetScaleFactor()
+		scaleFactor, _ = globalXSManager.GetScaleFactor()
 	}
 	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
 	envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
@@ -789,23 +832,23 @@ func initQtThemeConfig() error {
 		}
 	}
 
-	xsQtFontName, err := globalXSManager.GetString(xsKeyQtFontName)
+	xsQtFontName, err := globalXSManager.GetStringInternal(xsKeyQtFontName)
 	if err != nil {
 		logger.Warning(err)
 	} else if xsQtFontName == "" {
 		loadDefaultFontCfg()
-		err = globalXSManager.SetString(xsKeyQtFontName, defaultFont)
+		err = globalXSManager.SetStringInternal(xsKeyQtFontName, defaultFont)
 		if err != nil {
 			logger.Warning(err)
 		}
 	}
 
-	xsQtMonoFontName, err := globalXSManager.GetString(xsKeyQtMonoFontName)
+	xsQtMonoFontName, err := globalXSManager.GetStringInternal(xsKeyQtMonoFontName)
 	if err != nil {
 		logger.Warning(err)
 	} else if xsQtMonoFontName == "" {
 		loadDefaultFontCfg()
-		err = globalXSManager.SetString(xsKeyQtMonoFontName, defaultMonoFont)
+		err = globalXSManager.SetStringInternal(xsKeyQtMonoFontName, defaultMonoFont)
 		if err != nil {
 			logger.Warning(err)
 		}
@@ -893,8 +936,7 @@ func sendMsgToUserExperModule(msg string) {
 	}
 }
 
-func startSession(conn *x.Conn, useKwin bool,
-	sysSignalLoop *dbusutil.SignalLoop) *SessionManager {
+func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -905,10 +947,10 @@ func startSession(conn *x.Conn, useKwin bool,
 
 	initSession()
 
-	manager := newSessionManager()
-	err := dbus.InstallOnSession(manager)
+	manager := newSessionManager(service)
+	err := service.Export(sessionManagerPath, manager)
 	if err != nil {
-		logger.Error("Install Session DBus Failed:", err)
+		logger.Warning("export session manager failed:", err)
 		return nil
 	}
 
@@ -920,7 +962,13 @@ func startSession(conn *x.Conn, useKwin bool,
 	}
 
 	manager.setPropStage(SessionStageCoreBegin)
-	startStartManager(conn)
+	startStartManager(conn, service)
+
+	err = service.RequestName(sessionManagerServiceName)
+	if err != nil {
+		logger.Warningf("request name %q failed: %v", sessionManagerServiceName, err)
+	}
+
 	manager.launchDDE()
 	go func() {
 		setLeftPtrCursor()
@@ -1025,7 +1073,7 @@ func setLeftPtrCursor() {
 }
 
 func getLoginSession() (*login1.Session, error) {
-	sysBus, err := dbus1.SystemBus()
+	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		return nil, err
 	}
@@ -1052,7 +1100,7 @@ func (m *SessionManager) handleLoginSessionLock() {
 
 func (m *SessionManager) handleLoginSessionUnlock() {
 	logger.Debug("login session unlock")
-	err := dbus.Emit(m, "Unlock")
+	err := m.service.Emit(m, "Unlock")
 	if err != nil {
 		logger.Warning("failed to emit signal Unlock:", err)
 	}

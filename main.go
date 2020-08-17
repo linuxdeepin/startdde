@@ -32,8 +32,7 @@ import (
 	"pkg.deepin.io/dde/startdde/watchdog"
 	wl_display "pkg.deepin.io/dde/startdde/wl_display"
 	"pkg.deepin.io/dde/startdde/xsettings"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
@@ -79,6 +78,12 @@ func main() {
 	globalGSettingsConfig = getGSettingsConfig()
 	reapZombies()
 
+	service, err := dbusutil.NewSessionService()
+	if err != nil {
+		logger.Warning(err)
+		os.Exit(1)
+	}
+
 	// start at-spi-dbus-bus.service
 	go startAtSpiService()
 
@@ -118,8 +123,7 @@ func main() {
 	}
 	logger.Info("In wayland mode:", globalUseWayland)
 
-	xsManager, err := xsettings.Start(XConn, logger,
-		recommendedScaleFactor)
+	xsManager, err := xsettings.Start(XConn, logger, recommendedScaleFactor, service)
 	if err != nil {
 		logger.Warning(err)
 	} else {
@@ -135,7 +139,7 @@ func main() {
 
 	useKwin := shouldUseDDEKwin()
 
-	sysBus, err := dbus1.SystemBus()
+	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
 		os.Exit(1)
@@ -143,7 +147,7 @@ func main() {
 	sysSignalLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSignalLoop.Start()
 
-	sessionManager := startSession(XConn, useKwin, sysSignalLoop)
+	sessionManager := startSession(XConn, sysSignalLoop, service)
 	var getLockedFn func() bool
 	if sessionManager != nil {
 		getLockedFn = sessionManager.getLocked
@@ -156,7 +160,7 @@ func main() {
 		logger.Info("iowait disabled")
 	}
 
-	_ = dbus.Wait()
+	service.Wait()
 }
 
 func handleSignal() {

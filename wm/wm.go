@@ -20,15 +20,15 @@
 package wm
 
 import (
-	"github.com/linuxdeepin/go-x11-client"
-	"pkg.deepin.io/lib/dbus"
+	x "github.com/linuxdeepin/go-x11-client"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
 
 var _s *Switcher
 
 // Start launch wm
-func Start(logger *log.Logger, wmChooserLaunched bool) error {
+func Start(logger *log.Logger, wmChooserLaunched bool, service *dbusutil.Service) error {
 	if _s != nil {
 		return nil
 	}
@@ -38,6 +38,7 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 		return err
 	}
 	_s = new(Switcher)
+	_s.service = service
 	_s.conn = conn
 	_s.wmChooserLaunched = wmChooserLaunched
 	_s.logger = logger
@@ -46,12 +47,13 @@ func Start(logger *log.Logger, wmChooserLaunched bool) error {
 	_s.listenWMChanged()
 	_s.adjustSogouSkin()
 
-	err = dbus.InstallOnSession(_s)
+	err = service.Export(swDBusPath, _s)
 	if err != nil {
 		return err
 	}
-	dbus.DealWithUnhandledMessage()
-	return nil
+
+	err = service.RequestName(swDBusDest)
+	return err
 }
 
 // GetWM return current window manager

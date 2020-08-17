@@ -29,7 +29,8 @@ import (
 
 	"pkg.deepin.io/dde/startdde/memanalyzer"
 	"pkg.deepin.io/dde/startdde/memchecker"
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
 const (
@@ -60,17 +61,17 @@ func init() {
 }
 
 // IsMemSufficient check the available memory whether sufficient
-func (m *StartManager) IsMemSufficient() bool {
+func (m *StartManager) IsMemSufficient() (bool, *dbus.Error) {
 	if !globalGSettingsConfig.memcheckerEnabled {
 		// memchecker disabled, always return true
-		return true
+		return true, nil
 	}
 
-	return memchecker.IsSufficient()
+	return memchecker.IsSufficient(), nil
 }
 
 // TryAgain launch the action which blocked with the memory insufficient
-func (m *StartManager) TryAgain(launch bool) error {
+func (m *StartManager) TryAgain(launch bool) *dbus.Error {
 	action := getCurAction()
 	logger.Info("Try Action:", action, launch)
 	setCurAction("")
@@ -79,12 +80,13 @@ func (m *StartManager) TryAgain(launch bool) error {
 		return nil
 	}
 
-	return handleCurAction(action)
+	err := handleCurAction(action)
+	return dbusutil.ToError(err)
 }
 
 // DumpMemRecord dump the process needed memory record
-func (m *StartManager) DumpMemRecord() string {
-	return memanalyzer.DumpDB()
+func (m *StartManager) DumpMemRecord() (string, *dbus.Error) {
+	return memanalyzer.DumpDB(), nil
 }
 
 func (m *StartManager) setPropNeededMemory(v uint64) {
@@ -92,7 +94,10 @@ func (m *StartManager) setPropNeededMemory(v uint64) {
 		return
 	}
 	m.NeededMemory = v
-	dbus.NotifyChange(m, "NeededMemory")
+	err := m.service.EmitPropertyChanged(m, "NeededMemory", v)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 func handleMemInsufficient(v string) error {

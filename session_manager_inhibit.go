@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
 const (
@@ -21,20 +22,25 @@ const (
 //    2: Inhibit user switching
 //    4: Inhibit suspending the session or computer
 //    8: Inhibit the session being marked as idle
-func (m *SessionManager) Inhibit(dMsg dbus.DMessage, appId string, toplevelXid uint32, reason string, flags uint32) (inhibitCookie uint32, err error) {
-	sender := dMsg.GetSender()
-	ih, err := m.inhibitManager.add(sender, appId, toplevelXid, reason, flags)
+func (m *SessionManager) Inhibit(sender dbus.Sender, appId string, toplevelXid uint32, reason string,
+	flags uint32) (inhibitCookie uint32, busErr *dbus.Error) {
+
+	ih, err := m.inhibitManager.add(string(sender), appId, toplevelXid, reason, flags)
 	if err != nil {
-		return 0, err
+		return 0, dbusutil.ToError(err)
 	}
 
-	err = dbus.InstallOnSession(ih)
+	ihPath := ih.getPath()
+	err = m.service.Export(ihPath, ih)
 	if err != nil {
-		_, _ = m.inhibitManager.remove(sender, ih.id)
-		return 0, err
+		_, err0 := m.inhibitManager.remove(string(sender), ih.id)
+		if err0 != nil {
+			logger.Warningf("failed to remove inhibitor %v: %v", ih.id, err0)
+		}
+		return 0, dbusutil.ToError(err)
 	}
 
-	err = dbus.Emit(m, signalInhibitorAdded, ih.getPath())
+	err = m.service.Emit(m, signalInhibitorAdded, ihPath)
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -42,26 +48,30 @@ func (m *SessionManager) Inhibit(dMsg dbus.DMessage, appId string, toplevelXid u
 	return ih.id, nil
 }
 
-func (m *SessionManager) IsInhibited(flags uint32) (bool, error) {
+func (m *SessionManager) IsInhibited(flags uint32) (bool, *dbus.Error) {
 	v := m.inhibitManager.isInhibited(flags)
 	return v, nil
 }
 
-func (m *SessionManager) Uninhibit(dMsg dbus.DMessage, inhibitCookie uint32) error {
-	sender := dMsg.GetSender()
-	ih, err := m.inhibitManager.remove(sender, inhibitCookie)
+func (m *SessionManager) Uninhibit(sender dbus.Sender, inhibitCookie uint32) *dbus.Error {
+	ih, err := m.inhibitManager.remove(string(sender), inhibitCookie)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
-	dbus.UnInstallObject(ih)
-	err = dbus.Emit(m, signalInhibitorRemoved, ih.getPath())
+
+	err = m.service.StopExport(ih)
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
+
+	err = m.service.Emit(m, signalInhibitorRemoved, ih.getPath())
 	if err != nil {
 		logger.Warning(err)
 	}
 	return nil
 }
 
-func (m *SessionManager) GetInhibitors() ([]dbus.ObjectPath, error) {
+func (m *SessionManager) GetInhibitors() ([]dbus.ObjectPath, *dbus.Error) {
 	paths := m.inhibitManager.getInhibitorsPaths()
 	return paths, nil
 }
@@ -186,6 +196,19 @@ type Inhibitor struct {
 	reason      string
 	flags       uint32
 	toplevelXid uint32
+
+	//nolint
+	methods *struct {
+		GetAppId       func() `out:"appId"`
+		GetClientId    func() `out:"clientId"`
+		GetReason      func() `out:"reason"`
+		GetFlags       func() `out:"flags"`
+		GetToplevelXid func() `out:"xid"`
+	}
+}
+
+func (i *Inhibitor) GetInterfaceName() string {
+	return "com.deepin.SessionManager.Inhibitor"
 }
 
 func (i *Inhibitor) getPath() dbus.ObjectPath {
@@ -193,33 +216,23 @@ func (i *Inhibitor) getPath() dbus.ObjectPath {
 		strconv.FormatUint(uint64(i.id), 10))
 }
 
-func (i *Inhibitor) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		Dest:       "com.deepin.SessionManager",
-		ObjectPath: string(i.getPath()),
-		Interface:  "com.deepin.SessionManager.Inhibitor",
-	}
-}
-
-// interface com.deepin.SessionManager.Inhibitor
-
-func (i *Inhibitor) GetAppId() (string, error) {
+func (i *Inhibitor) GetAppId() (string, *dbus.Error) {
 	return i.appId, nil
 }
 
-func (i *Inhibitor) GetClientId() (dbus.ObjectPath, error) {
+func (i *Inhibitor) GetClientId() (dbus.ObjectPath, *dbus.Error) {
 	// TODO
-	return "/", errors.New("not implement client")
+	return "/", dbusutil.ToError(errors.New("not implement client"))
 }
 
-func (i *Inhibitor) GetReason() (string, error) {
+func (i *Inhibitor) GetReason() (string, *dbus.Error) {
 	return i.reason, nil
 }
 
-func (i *Inhibitor) GetFlags() (uint32, error) {
+func (i *Inhibitor) GetFlags() (uint32, *dbus.Error) {
 	return i.flags, nil
 }
 
-func (i *Inhibitor) GetToplevelXid() (uint32, error) {
+func (i *Inhibitor) GetToplevelXid() (uint32, *dbus.Error) {
 	return i.toplevelXid, nil
 }

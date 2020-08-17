@@ -30,7 +30,7 @@ import (
 	"time"
 
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -150,18 +150,18 @@ func getDelayTime(desktopFile string) (time.Duration, error) {
 }
 
 func showDDEWelcome() error {
-	systemBus,err := dbus.SystemBus()
-        if err != nil{
-	     return err
-        }
-	obj  := systemBus.Object("com.deepin.ABRecovery","/com/deepin/ABRecovery")
-	var canRestore bool 
-	err  = obj.Call("com.deepin.ABRecovery.CanRestore",0).Store(&canRestore)
-        if err != nil{
-	     return err 
-        }
-	if canRestore{
-	    return nil
+	systemBus, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	obj := systemBus.Object("com.deepin.ABRecovery", "/com/deepin/ABRecovery")
+	var canRestore bool
+	err = obj.Call("com.deepin.ABRecovery.CanRestore", 0).Store(&canRestore)
+	if err != nil {
+		return err
+	}
+	if canRestore {
+		return nil
 	}
 	cmd := exec.Command("/usr/lib/deepin-daemon/dde-welcome")
 	err = cmd.Start()

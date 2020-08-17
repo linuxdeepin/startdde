@@ -26,12 +26,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
+	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	libwm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
-	"github.com/linuxdeepin/go-x11-client"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -55,6 +54,7 @@ var wmNameMap = map[string]string{
 
 //Switcher wm switch manager
 type Switcher struct {
+	service         *dbusutil.Service
 	sigLoop         *dbusutil.SignalLoop // session bus
 	logger          *log.Logger
 	userConfig      *userConfig
@@ -63,10 +63,22 @@ type Switcher struct {
 
 	wm                *libwm.Wm
 	currentWM         string
-	WMChanged         func(string)
 	wmChooserLaunched bool
 
 	conn *x.Conn
+
+	//nolint
+	methods *struct {
+		AllowSwitch func() `out:"allow"`
+		CurrentWM   func() `out:"wmName"`
+	}
+
+	//nolint
+	signals *struct {
+		WMChanged struct {
+			name string
+		}
+	}
 }
 
 const (
@@ -74,6 +86,10 @@ const (
 	workabilityAble    = 1
 	workabilityNotAble = 2
 )
+
+func (s *Switcher) GetInterfaceName() string {
+	return swDBusIFC
+}
 
 func (s *Switcher) allowSwitch() bool {
 	nextWM := s.getNextWM()
@@ -101,32 +117,33 @@ func (s *Switcher) setCurrentWM(name string) {
 	s.mu.Unlock()
 }
 
-func (s *Switcher) AllowSwitch() bool {
-	return s.allowSwitch()
+func (s *Switcher) AllowSwitch() (bool, *dbus.Error) {
+	return s.allowSwitch(), nil
 }
 
 // CurrentWM show the current window manager
-func (s *Switcher) CurrentWM() string {
+func (s *Switcher) CurrentWM() (string, *dbus.Error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	wmName := wmNameMap[s.currentWM]
 	if wmName == "" {
-		return "unknown"
+		return "unknown", nil
 	}
-	return wmName
+	return wmName, nil
 }
 
 // RestartWM restart the last window manager
-func (s *Switcher) RestartWM() error {
-	return s.runWM(s.getWM(), true)
+func (s *Switcher) RestartWM() *dbus.Error {
+	err := s.runWM(s.getWM(), true)
+	return dbusutil.ToError(err)
 }
 
 // Start2DWM called by startdde watchdog, run 2d window manager without --replace option.
-func (s *Switcher) Start2DWM() error {
+func (s *Switcher) Start2DWM() *dbus.Error {
 	err := s.runWM(deepin2DWM, false)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
 
 	// NOTE: Don't save to config file.
@@ -149,7 +166,7 @@ func (s *Switcher) getNextWM() string {
 }
 
 // RequestSwitchWM try to switch window manager
-func (s *Switcher) RequestSwitchWM() error {
+func (s *Switcher) RequestSwitchWM() *dbus.Error {
 	nextWM := s.getNextWM()
 	if nextWM == deepin3DWM {
 		if !s.isSupportRun3dWM() {
@@ -157,13 +174,13 @@ func (s *Switcher) RequestSwitchWM() error {
 			if err != nil {
 				s.logger.Warning(err)
 			}
-			return errors.New("refused to switch wm")
+			return dbusutil.ToError(errors.New("refused to switch wm"))
 		}
 	}
 
 	err := s.runWM(nextWM, true)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
 
 	s.setLastWM(nextWM)
@@ -172,17 +189,8 @@ func (s *Switcher) RequestSwitchWM() error {
 	return nil
 }
 
-//GetDBusInfo return dbus object info
-func (*Switcher) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		Dest:       swDBusDest,
-		ObjectPath: swDBusPath,
-		Interface:  swDBusIFC,
-	}
-}
-
 func (s *Switcher) emitSignalWMChanged(wm string) {
-	err := dbus.Emit(s, "WMChanged", wmNameMap[wm])
+	err := s.service.Emit(s, "WMChanged", wmNameMap[wm])
 	if err != nil {
 		s.logger.Warning("failed to emit WMChanged:", err)
 	}
@@ -222,7 +230,7 @@ func (s *Switcher) isCardChanged() (change bool) {
 }
 
 func (s *Switcher) init() {
-	sessionBus, err := dbus1.SessionBus()
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		s.logger.Warning(err)
 	}
@@ -241,7 +249,7 @@ func (s *Switcher) init() {
 
 func (s *Switcher) listenStartupReady() {
 	var err error
-	sessionBus, err := dbus1.SessionBus()
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		s.logger.Warning(err)
 		return
@@ -448,7 +456,7 @@ func (s *Switcher) supportRunGoodWM() bool {
 }
 
 func showOSD(name string) error {
-	sessionBus, err := dbus1.SessionBus()
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		return err
 	}

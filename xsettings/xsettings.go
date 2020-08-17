@@ -28,8 +28,8 @@ import (
 	greeter "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 )
@@ -37,14 +37,18 @@ import (
 const (
 	xsSchema           = "com.deepin.xsettings"
 	defaultScaleFactor = 1.0
+
+	xsDBusPath = "/com/deepin/XSettings"
+	xsDBusIFC  = "com.deepin.XSettings"
 )
 
 var logger *log.Logger
 
 // XSManager xsettings manager
 type XSManager struct {
-	conn  *x.Conn
-	owner x.Window
+	service *dbusutil.Service
+	conn    *x.Conn
+	owner   x.Window
 
 	gs        *gio.Settings
 	greeter   *greeter.Greeter
@@ -54,12 +58,35 @@ type XSManager struct {
 	plymouthScalingTasks []int
 	plymouthScaling      bool
 
-	SetScaleFactorStarted func()
-	SetScaleFactorDone    func()
-	restartOSD            bool // whether to restart dde-osd
+	restartOSD bool // whether to restart dde-osd
 
 	// locker for xsettings prop read and write
 	settingsLocker sync.RWMutex
+
+	//nolint
+	signals *struct {
+		SetScaleFactorStarted, SetScaleFactorDone struct{}
+	}
+
+	//nolint
+	methods *struct {
+		ListProps func() `out:"props"`
+
+		GetInteger func() `in:"prop" out:"result"`
+		SetInteger func() `in:"prop,v"`
+
+		GetString func() `in:"prop" out:"result"`
+		SetString func() `in:"prop,v"`
+
+		GetColor func() `in:"prop" out:"result"`
+		SetColor func() `in:"prop,v"`
+
+		GetScaleFactor func() `out:"scale"`
+		SetScaleFactor func() `in:"scale"`
+
+		GetScreenScaleFactors func() `out:"factors"`
+		SetScreenScaleFactors func() `in:"factors"`
+	}
 }
 
 type xsSetting struct {
@@ -68,9 +95,10 @@ type xsSetting struct {
 	value interface{} // int32, string, [4]uint16
 }
 
-func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, error) {
+func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusutil.Service) (*XSManager, error) {
 	var m = &XSManager{
-		conn: conn,
+		conn:    conn,
+		service: service,
 	}
 
 	var err error
@@ -85,7 +113,7 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 		return nil, fmt.Errorf("Owned '%s' failed", settingPropSettings)
 	}
 
-	systemBus, err := dbus1.SystemBus()
+	systemBus, err := dbus.SystemBus()
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +127,10 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64) (*XSManager, err
 	}
 
 	return m, nil
+}
+
+func (m *XSManager) GetInterfaceName() string {
+	return xsDBusIFC
 }
 
 func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
@@ -259,9 +291,9 @@ func (m *XSManager) handleGSettingsChanged() {
 }
 
 // Start load xsettings module
-func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64) (*XSManager, error) {
+func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64, service *dbusutil.Service) (*XSManager, error) {
 	logger = l
-	m, err := NewXSManager(conn, recommendedScaleFactor)
+	m, err := NewXSManager(conn, recommendedScaleFactor, service)
 	if err != nil {
 		logger.Error("Start xsettings failed:", err)
 		return nil, err
@@ -270,12 +302,11 @@ func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64) (*XSMana
 	m.updateXResources()
 	go m.updateFirefoxDPI()
 
-	err = dbus.InstallOnSession(m)
+	err = service.Export(xsDBusPath, m)
 	if err != nil {
-		logger.Error("Install dbus session failed:", err)
+		logger.Warning("export XSManager failed:", err)
 		return nil, err
 	}
-	dbus.DealWithUnhandledMessage()
 
 	m.handleGSettingsChanged()
 	return m, nil

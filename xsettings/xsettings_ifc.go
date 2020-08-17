@@ -22,27 +22,30 @@ package xsettings
 import (
 	"errors"
 	"fmt"
+
+	dbus "pkg.deepin.io/lib/dbus1"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
 var (
-	errPropNotFound     = fmt.Errorf("This property not found")
-	errPropTypeNotMatch = fmt.Errorf("This property's type not match")
+	errPropNotFound     = fmt.Errorf("this property not found")
+	errPropTypeNotMatch = fmt.Errorf("this property's type not match")
 )
 
-func (m *XSManager) ListProps() string {
+func (m *XSManager) ListProps() (string, *dbus.Error) {
 	datas, err := getSettingPropValue(m.owner, m.conn)
 	if err != nil {
-		return ""
+		return "", dbusutil.ToError(err)
 	}
 
 	infos := unmarshalSettingData(datas)
 	if infos == nil || len(infos.items) == 0 {
-		return ""
+		return "", nil
 	}
-	return infos.items.listProps()
+	return infos.items.listProps(), nil
 }
 
-func (m *XSManager) SetInteger(prop string, v int32) error {
+func (m *XSManager) SetInteger(prop string, v int32) *dbus.Error {
 	var setting = xsSetting{
 		sType: settingTypeInteger,
 		prop:  prop,
@@ -52,31 +55,36 @@ func (m *XSManager) SetInteger(prop string, v int32) error {
 	err := m.setSettings([]xsSetting{setting})
 	if err != nil {
 		logger.Debugf("Set '%s' to '%v' failed: %v", prop, v, err)
-		return err
+		return dbusutil.ToError(err)
 	}
 	err = m.setGSettingsByXProp(prop, v)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
 
 	return nil
 }
 
-func (m *XSManager) GetInteger(prop string) (int32, error) {
+func (m *XSManager) GetInteger(prop string) (int32, *dbus.Error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
 		logger.Debugf("Get '%s' value failed: %v", prop, err)
-		return -1, err
+		return 0, dbusutil.ToError(err)
 	}
 
 	if sType != settingTypeInteger {
-		return -1, errPropTypeNotMatch
+		return 0, dbusutil.ToError(errPropTypeNotMatch)
 	}
 
 	return v.(*integerValueInfo).value, nil
 }
 
-func (m *XSManager) SetString(prop, v string) error {
+func (m *XSManager) SetString(prop, v string) *dbus.Error {
+	err := m.SetStringInternal(prop, v)
+	return dbusutil.ToError(err)
+}
+
+func (m *XSManager) SetStringInternal(prop, v string) error {
 	var setting = xsSetting{
 		sType: settingTypeString,
 		prop:  prop,
@@ -88,15 +96,15 @@ func (m *XSManager) SetString(prop, v string) error {
 		logger.Debugf("Set '%s' to '%v' failed: %v", prop, v, err)
 		return err
 	}
-	err = m.setGSettingsByXProp(prop, v)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return m.setGSettingsByXProp(prop, v)
 }
 
-func (m *XSManager) GetString(prop string) (string, error) {
+func (m *XSManager) GetString(prop string) (string, *dbus.Error) {
+	str, err := m.GetStringInternal(prop)
+	return str, dbusutil.ToError(err)
+}
+
+func (m *XSManager) GetStringInternal(prop string) (string, error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
 		logger.Debugf("Get '%s' value failed: %v", prop, err)
@@ -110,9 +118,9 @@ func (m *XSManager) GetString(prop string) (string, error) {
 	return v.(*stringValueInfo).value, nil
 }
 
-func (m *XSManager) SetColor(prop string, v []uint16) error {
+func (m *XSManager) SetColor(prop string, v []uint16) *dbus.Error {
 	if len(v) != 4 {
-		return errors.New("length of value is not 4")
+		return dbusutil.ToError(errors.New("length of value is not 4"))
 	}
 
 	var val [4]uint16
@@ -127,25 +135,21 @@ func (m *XSManager) SetColor(prop string, v []uint16) error {
 	err := m.setSettings([]xsSetting{setting})
 	if err != nil {
 		logger.Debugf("Set '%s' to '%v' failed: %v", prop, val, err)
-		return err
+		return dbusutil.ToError(err)
 	}
 	err = m.setGSettingsByXProp(prop, val)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return dbusutil.ToError(err)
 }
 
-func (m *XSManager) GetColor(prop string) ([]uint16, error) {
+func (m *XSManager) GetColor(prop string) ([]uint16, *dbus.Error) {
 	v, sType, err := m.getSettingValue(prop)
 	if err != nil {
 		logger.Debugf("Get '%s' value failed: %v", prop, err)
-		return nil, err
+		return nil, dbusutil.ToError(err)
 	}
 
 	if sType != settingTypeColor {
-		return nil, errPropTypeNotMatch
+		return nil, dbusutil.ToError(errPropTypeNotMatch)
 	}
 
 	tmp := v.(*colorValueInfo)
@@ -179,26 +183,26 @@ func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) error {
 	return info.setValue(m.gs, v)
 }
 
-func (m *XSManager) GetScaleFactor() float64 {
-	return m.getScaleFactor()
+func (m *XSManager) GetScaleFactor() (float64, *dbus.Error) {
+	return m.getScaleFactor(), nil
 }
 
-func (m *XSManager) SetScaleFactor(scale float64) error {
+func (m *XSManager) SetScaleFactor(scale float64) *dbus.Error {
 	primary, err := getPrimaryScreenName(m.conn)
 	if err != nil {
-		return err
+		return dbusutil.ToError(err)
 	}
 
 	err = m.setScreenScaleFactors(map[string]float64{primary: scale}, true)
-	return err
+	return dbusutil.ToError(err)
 }
 
-func (m *XSManager) SetScreenScaleFactors(factors map[string]float64) error {
+func (m *XSManager) SetScreenScaleFactors(factors map[string]float64) *dbus.Error {
 	err := m.setScreenScaleFactors(factors, true)
-	return err
+	return dbusutil.ToError(err)
 }
 
-func (m *XSManager) GetScreenScaleFactors() (map[string]float64, error) {
+func (m *XSManager) GetScreenScaleFactors() (map[string]float64, *dbus.Error) {
 	v := m.getScreenScaleFactors()
 	return v, nil
 }

@@ -22,13 +22,14 @@ package main
 import (
 	"fmt"
 
-	"pkg.deepin.io/lib/dbus"
+	"crypto/rand"
+	"io"
+	"os"
+	"os/exec"
+	"time"
+
+	dbus "pkg.deepin.io/lib/dbus1"
 )
-import "io"
-import "crypto/rand"
-import "os"
-import "os/exec"
-import "time"
 
 var launchTimeout = 30 * time.Second
 
@@ -139,19 +140,19 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	return true
 }
 
-func (m *SessionManager) AllowSessionDaemonRun() bool {
-	return m.allowSessionDaemonRun
+func (m *SessionManager) AllowSessionDaemonRun() (bool, *dbus.Error) {
+	return m.allowSessionDaemonRun, nil
 }
 
-func (m *SessionManager) Register(id string) bool {
+func (m *SessionManager) Register(id string) (bool, *dbus.Error) {
 	m.cookieLocker.Lock()
 	defer m.cookieLocker.Unlock()
 
 	timeCh := m.cookies[id]
 	if timeCh == nil {
-		return false
+		return false, nil
 	}
 	delete(m.cookies, id)
 	timeCh <- time.Now()
-	return true
+	return true, nil
 }

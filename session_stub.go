@@ -21,22 +21,16 @@ package main
 
 import (
 	"os/user"
-
-	"pkg.deepin.io/lib/dbus"
 )
 
 const (
-	START_DDE_DEST = "com.deepin.SessionManager"
-	SHUTDOWN_PATH  = "/com/deepin/SessionManager"
-	SHUTDOWN_IFC   = "com.deepin.SessionManager"
+	sessionManagerServiceName = "com.deepin.SessionManager"
+	sessionManagerPath        = "/com/deepin/SessionManager"
+	sessionManagerIfc         = sessionManagerServiceName
 )
 
-func (m *SessionManager) GetDBusInfo() dbus.DBusInfo {
-	return dbus.DBusInfo{
-		Dest:       START_DDE_DEST,
-		ObjectPath: SHUTDOWN_PATH,
-		Interface:  SHUTDOWN_IFC,
-	}
+func (m *SessionManager) GetInterfaceName() string {
+	return sessionManagerIfc
 }
 
 func (op *SessionManager) setPropName(name string) {
@@ -54,6 +48,9 @@ func (op *SessionManager) setPropName(name string) {
 func (m *SessionManager) setPropStage(v int32) {
 	if m.Stage != v {
 		m.Stage = v
-		dbus.NotifyChange(m, "Stage")
+		err := m.service.EmitPropertyChanged(m, "Stage", v)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 }

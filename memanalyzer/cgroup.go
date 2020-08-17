@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
 )
 
 const (

@@ -34,8 +34,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/userenv"
 	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/dbus"
-	dbus1 "pkg.deepin.io/lib/dbus1"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -207,12 +206,12 @@ func getPrimaryScreenName(xConn *x.Conn) (string, error) {
 }
 
 var (
-	_sessionConn *dbus1.Conn
+	_sessionConn *dbus.Conn
 )
 
 func getPrimaryScreenFromBus() (string, error) {
 	if _sessionConn == nil {
-		conn, err := dbus1.SessionBus()
+		conn, err := dbus.SessionBus()
 		if err != nil {
 			return "", err
 		}
@@ -319,7 +318,7 @@ func (m *XSManager) emitSignalSetScaleFactor(done, emitSignal bool) {
 	if done {
 		signalName = "SetScaleFactorDone"
 	}
-	err := dbus.Emit(m, signalName)
+	err := m.service.Emit(m, signalName)
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -413,6 +412,6 @@ func (m *XSManager) updateGreeterQtTheme(kf *keyfile.KeyFile) error {
 		return err
 	}
 
-	err = m.greeter.UpdateGreeterQtTheme(0, dbus1.UnixFD(tempFile.Fd()))
+	err = m.greeter.UpdateGreeterQtTheme(0, dbus.UnixFD(tempFile.Fd()))
 	return err
 }

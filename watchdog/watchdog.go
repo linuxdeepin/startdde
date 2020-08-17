@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/procfs"
 )
@@ -97,7 +97,8 @@ func (m *Manager) listenDBusSignals() error {
 	if err != nil {
 		return err
 	}
-	signalChan := bus.Signal()
+	signalChan := make(chan *dbus.Signal, 10)
+	bus.Signal(signalChan)
 
 	rule := "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'"
 	err = bus.BusObject().Call(orgFreedesktopDBus+".AddMatch", 0, rule).Err

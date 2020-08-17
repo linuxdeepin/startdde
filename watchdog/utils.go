@@ -20,10 +20,10 @@
 package watchdog
 
 import (
-	"pkg.deepin.io/lib/dbus"
+	dbus "pkg.deepin.io/lib/dbus1"
 )
 
-var busObj *dbus.Object
+var busObj dbus.BusObject
 
 func initDBusObject() error {
 	bus, err := dbus.SessionBus()
