@@ -27,7 +27,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/utils"
 	displayBl "pkg.deepin.io/lib/backlight/display"
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/log"
 )
 

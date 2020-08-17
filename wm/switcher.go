@@ -26,11 +26,11 @@ import (
 	"strings"
 	"sync"
 
+	dbus "github.com/godbus/dbus"
 	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	libwm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )

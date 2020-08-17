@@ -32,6 +32,7 @@ import (
 	"sync"
 	"time"
 
+	dbus "github.com/godbus/dbus"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -48,7 +49,6 @@ import (
 	"pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"

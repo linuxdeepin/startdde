@@ -13,7 +13,7 @@ import (
 	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
 )

@@ -20,7 +20,7 @@
 package watchdog
 
 import (
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 )
 
 var busObj dbus.BusObject

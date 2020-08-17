@@ -24,7 +24,7 @@ import (
 	"strconv"
 	"time"
 
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/procfs"
 )

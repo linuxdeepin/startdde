@@ -28,7 +28,7 @@ import (
 	"os/exec"
 	"time"
 
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 )
 
 var launchTimeout = 30 * time.Second

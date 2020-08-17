@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
-	"pkg.deepin.io/lib/dbus1"
+	"github.com/godbus/dbus"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )

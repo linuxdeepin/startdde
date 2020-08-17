@@ -29,8 +29,8 @@ import (
 	"strings"
 	"time"
 
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"

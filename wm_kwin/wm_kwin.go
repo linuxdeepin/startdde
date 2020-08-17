@@ -10,7 +10,7 @@ import (
 
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
-	"pkg.deepin.io/lib/dbus1"
+	"github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"

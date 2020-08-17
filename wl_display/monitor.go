@@ -9,7 +9,7 @@ import (
 
 	x "github.com/linuxdeepin/go-x11-client"
 
-	dbus "pkg.deepin.io/lib/dbus1"
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
 )
 

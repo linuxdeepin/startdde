@@ -24,11 +24,11 @@ import (
 	"os"
 	"sync"
 
+	dbus "github.com/godbus/dbus"
 	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
 	greeter "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/gir/gio-2.0"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"

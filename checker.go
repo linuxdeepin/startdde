@@ -27,9 +27,9 @@ import (
 	"sync"
 	"time"
 
+	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/dde/startdde/memanalyzer"
 	"pkg.deepin.io/dde/startdde/memchecker"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
 )
 

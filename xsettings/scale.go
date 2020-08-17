@@ -30,11 +30,11 @@ import (
 	"strconv"
 	"strings"
 
+	dbus "github.com/godbus/dbus"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/userenv"
 	"pkg.deepin.io/gir/gio-2.0"
-	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
