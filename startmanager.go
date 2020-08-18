@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
@@ -39,7 +40,6 @@ import (
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/fsnotify"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/strv"
@@ -738,7 +738,7 @@ func (m *StartManager) listenAutostartFileEvents() {
 	}
 	for _, dir := range m.autostartDirs() {
 		logger.Debugf("Watch dir %q", dir)
-		err := watcher.Watch(dir)
+		err := watcher.Add(dir)
 		if err != nil {
 			logger.Warning(err)
 		}
@@ -746,7 +746,7 @@ func (m *StartManager) listenAutostartFileEvents() {
 	go func() {
 		for {
 			select {
-			case ev, ok := <-watcher.Event:
+			case ev, ok := <-watcher.Events:
 				if !ok {
 					logger.Error("Invalid watcher event:", ev)
 					return
@@ -763,7 +763,7 @@ func (m *StartManager) listenAutostartFileEvents() {
 					m.delayHandler.AddTask(name)
 				}
 
-			case err := <-watcher.Error:
+			case err := <-watcher.Errors:
 				logger.Error("fsnotify error:", err)
 				return
 			}
