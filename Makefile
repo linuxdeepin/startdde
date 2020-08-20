@@ -35,6 +35,9 @@ build: prepare startdde auto_launch_json fix-xauthority-perm greeter-display-dae
 test: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
 
+print_gopath: prepare
+	GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}"
+
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
