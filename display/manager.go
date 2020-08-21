@@ -150,16 +150,66 @@ type ModeInfo struct {
 	Rate   float64
 }
 
-func getXConn() (*x.Conn, error) {
-	conn, err := x.NewConn()
-	if err != nil {
-		return nil, err
-	}
-	_, err = randr.QueryVersion(conn, randr.MajorVersion, randr.MinorVersion).Reply(conn)
+var _xConn *x.Conn
+
+func Init(xConn *x.Conn) {
+	_xConn = xConn
+	_, err := randr.QueryVersion(xConn, randr.MajorVersion, randr.MinorVersion).Reply(xConn)
 	if err != nil {
 		logger.Warning(err)
 	}
-	return conn, nil
+}
+
+type monitorSizeInfo struct {
+	width, height     uint16
+	mmWidth, mmHeight uint32
+}
+
+func GetRecommendedScaleFactor() float64 {
+	resources, err := getScreenResources(_xConn)
+	if err != nil {
+		logger.Warning(err)
+		return 0
+	}
+	cfgTs := resources.ConfigTimestamp
+
+	var monitors []*monitorSizeInfo
+	for _, output := range resources.Outputs {
+		outputInfo, err := randr.GetOutputInfo(_xConn, output, cfgTs).Reply(_xConn)
+		if err != nil {
+			logger.Warningf("get output %v info failed: %v", output, err)
+			return 1.0
+		}
+		if outputInfo.Connection != randr.ConnectionConnected {
+			continue
+		}
+
+		crtcInfo, err := randr.GetCrtcInfo(_xConn, outputInfo.Crtc, cfgTs).Reply(_xConn)
+		if err != nil {
+			logger.Warningf("get crtc %v info failed: %v", outputInfo.Crtc, err)
+			return 1.0
+		}
+		monitors = append(monitors, &monitorSizeInfo{
+			mmWidth:  outputInfo.MmWidth,
+			mmHeight: outputInfo.MmHeight,
+			width:    crtcInfo.Width,
+			height:   crtcInfo.Height,
+		})
+	}
+
+	if len(monitors) == 0 {
+		return 1.0
+	}
+
+	minScaleFactor := 3.0
+	for _, monitor := range monitors {
+		scaleFactor := calcRecommendedScaleFactor(float64(monitor.width), float64(monitor.height),
+			float64(monitor.mmWidth), float64(monitor.mmHeight))
+		if minScaleFactor > scaleFactor {
+			minScaleFactor = scaleFactor
+		}
+	}
+	return minScaleFactor
 }
 
 func newManager(service *dbusutil.Service) *Manager {
@@ -184,16 +234,13 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 	m.ColorTemperatureManual.Bind(m.settings, gsKeyColorTemperatureManual)
 	m.ColorTemperatureMode.Bind(m.settings, gsKeyColorTemperatureMode)
-	m.xConn, err = getXConn()
-	if err != nil {
-		logger.Fatal(err)
-	}
+	m.xConn = _xConn
 
 	screen := m.xConn.GetDefaultScreen()
 	m.ScreenWidth = screen.WidthInPixels
 	m.ScreenHeight = screen.HeightInPixels
 
-	resources, err := m.getScreenResources()
+	resources, err := getScreenResources(m.xConn)
 	if err == nil {
 		m.modes = resources.Modes
 		m.configTimestamp = resources.ConfigTimestamp
@@ -219,7 +266,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.initBuiltinMonitor()
 	m.monitorsId = m.getMonitorsId()
 	m.updatePropMonitors()
-	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateOutputPrimary()
 
 	m.config = loadConfig()
@@ -363,13 +409,6 @@ func (m *Manager) init() {
 	m.initBrightness()
 	m.listenEvent()
 	m.applyDisplayMode()
-	m.initTouchscreens()
-	m.initTouchMap()
-	err := generateRedshiftConfFile()
-	if err != nil {
-		logger.Warning(err)
-	}
-	m.initColorTemperature()
 }
 
 func (m *Manager) initColorTemperature() {
@@ -378,23 +417,6 @@ func (m *Manager) initColorTemperature() {
 	if err != nil {
 		logger.Error(err)
 	}
-}
-
-func (m *Manager) calcRecommendedScaleFactor() float64 {
-	minScaleFactor := 3.0
-	monitors := m.getConnectedMonitors()
-	if len(monitors) == 0 {
-		return 1.0
-	}
-	for _, monitor := range monitors {
-		scaleFactor := calcRecommendedScaleFactor(float64(monitor.Width), float64(monitor.Height),
-			float64(monitor.MmWidth), float64(monitor.MmHeight))
-		if minScaleFactor > scaleFactor {
-			minScaleFactor = scaleFactor
-		}
-	}
-
-	return minScaleFactor
 }
 
 func calcRecommendedScaleFactor(widthPx, heightPx, widthMm, heightMm float64) float64 {
@@ -443,9 +465,9 @@ func toListedScaleFactor(s float64) float64 {
 	return max
 }
 
-func (m *Manager) getScreenResources() (*randr.GetScreenResourcesReply, error) {
-	root := m.xConn.GetDefaultScreen().Root
-	resources, err := randr.GetScreenResources(m.xConn, root).Reply(m.xConn)
+func getScreenResources(xConn *x.Conn) (*randr.GetScreenResourcesReply, error) {
+	root := xConn.GetDefaultScreen().Root
+	resources, err := randr.GetScreenResources(xConn, root).Reply(xConn)
 	return resources, err
 }
 

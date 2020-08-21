@@ -27,13 +27,15 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
+type Cmd struct {
+	Command string   `json:"Command"`
+	Wait    bool     `json:"Wait"`
+	Args    []string `json:"Args"`
+}
+
 type launchGroup struct {
 	Priority uint32 `json:"Priority"`
-	Group    []struct {
-		Command string   `json:"Command"`
-		Wait    bool     `json:"Wait"`
-		Args    []string `json:"Args"`
-	} `json:"Group"`
+	Group    []Cmd  `json:"Group"`
 }
 
 type launchGroups []*launchGroup

@@ -67,47 +67,71 @@ func (m *SessionManager) startSessionDaemonPart2() bool {
 	return true
 }
 
-func (m *SessionManager) launchWait(bin string, args ...string) bool {
-	id := genUuid()
-	cmd := exec.Command(bin, args...)
-	cmd.Env = append(os.Environ(), "DDE_SESSION_PROCESS_COOKIE_ID="+id)
+// 如果 endFn 为 nil，则等待命令完成或结束；如果 endFn 不为 nil，则不等待，命令行启动后就返回，命令完成或结束后调用 endFn。
+func (m *SessionManager) launchWaitAux(cookie, program string, args []string, cmdWaitDelay time.Duration, endFn func(bool)) (launchOk bool) {
+
+	cmd := exec.Command(program, args...)
+	cmd.Env = append(os.Environ(), "DDE_SESSION_PROCESS_COOKIE_ID="+cookie)
 
 	ch := make(chan time.Time, 1)
 	m.cookieLocker.Lock()
-	m.cookies[id] = ch
+	m.cookies[cookie] = ch
 	m.cookieLocker.Unlock()
 
-	cmdStr := fmt.Sprintf("%s %v", bin, args)
+	cmdStr := fmt.Sprintf("%s %v", program, args)
 	timeStart := time.Now()
-
 	err := cmd.Start()
 	if err != nil {
-		logger.Warningf("Start command %s failed: %v", cmdStr, err)
+		logger.Warningf("start command %s failed: %v", cmdStr, err)
+		if endFn != nil {
+			endFn(launchOk)
+		}
 		return false
 	}
-	logger.Debug("pid:", cmd.Process.Pid)
-	go func() {
+	logger.Infof("command %s started, pid: %v", cmdStr, cmd.Process.Pid)
+
+	time.AfterFunc(cmdWaitDelay, func() {
 		err := cmd.Wait()
 		if err != nil {
-			logger.Warningf("Wait command %s failed: %v", cmdStr, err)
+			logger.Warningf("command %s exit with error: %v", cmdStr, err)
 		}
 		m.cookieLocker.Lock()
-		timeCh := m.cookies[id]
-		if timeCh != nil {
-			delete(m.cookies, id)
-			timeCh <- time.Now()
+		ch := m.cookies[cookie]
+		if ch != nil {
+			delete(m.cookies, cookie)
+			ch <- time.Now()
 		}
 		m.cookieLocker.Unlock()
-	}()
+	})
 
-	select {
-	case timeEnd := <-ch:
-		logger.Info(cmdStr, "startup duration:", timeEnd.Sub(timeStart))
-		return true
-	case endStamp := <-time.After(launchTimeout):
-		logger.Info(cmdStr, "startup timed out!", endStamp.Sub(timeStart))
-		return false
+	waitCh := func() {
+		select {
+		case timeEnd := <-ch:
+			logger.Info(cmdStr, "startup duration:", timeEnd.Sub(timeStart))
+			launchOk = true
+		case timeEnd := <-time.After(launchTimeout):
+			logger.Info(cmdStr, "startup timed out!", timeEnd.Sub(timeStart))
+		}
 	}
+
+	if endFn != nil {
+		go func() {
+			waitCh()
+			endFn(launchOk)
+		}()
+	} else {
+		waitCh()
+	}
+	return
+}
+
+func (m *SessionManager) launchWaitCore(name string, program string, args []string, cmdWaitDelay time.Duration, endFn func(bool)) {
+	m.launchWaitAux(name, program, args, cmdWaitDelay, endFn)
+}
+
+func (m *SessionManager) launchWait(program string, args ...string) bool {
+	cookie := genUuid()
+	return m.launchWaitAux(cookie, program, args, 0, nil)
 }
 
 func (m *SessionManager) launchWithoutWait(bin string, args ...string) {

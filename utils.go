@@ -30,9 +30,9 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/keyfile"
-	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
@@ -214,25 +214,17 @@ type GSettingsConfig struct {
 	iowaitEnabled     bool
 	memcheckerEnabled bool
 	swapSchedEnabled  bool
+	wmCmd             string
 }
 
 func getGSettingsConfig() *GSettingsConfig {
-	gs, err := utils.CheckAndNewGSettings("com.deepin.dde.startdde")
-	if err != nil {
-		logger.Warning(err)
-		// default values
-		return &GSettingsConfig{
-			autoStartDelay:    0,
-			iowaitEnabled:     false,
-			memcheckerEnabled: false,
-			swapSchedEnabled:  false,
-		}
-	}
+	gs := gio.NewSettings("com.deepin.dde.startdde")
 	cfg := &GSettingsConfig{
 		autoStartDelay:    gs.GetInt("autostart-delay"),
 		iowaitEnabled:     gs.GetBoolean("iowait-enabled"),
 		memcheckerEnabled: gs.GetBoolean("memchecker-enabled"),
 		swapSchedEnabled:  gs.GetBoolean("swap-sched-enabled"),
+		wmCmd:             gs.GetString("wm-cmd"),
 	}
 	gs.Unref()
 	return cfg

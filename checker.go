@@ -62,7 +62,7 @@ func init() {
 
 // IsMemSufficient check the available memory whether sufficient
 func (m *StartManager) IsMemSufficient() (bool, *dbus.Error) {
-	if !globalGSettingsConfig.memcheckerEnabled {
+	if !_gSettingsConfig.memcheckerEnabled {
 		// memchecker disabled, always return true
 		return true, nil
 	}
@@ -101,7 +101,7 @@ func (m *StartManager) setPropNeededMemory(v uint64) {
 }
 
 func handleMemInsufficient(v string) error {
-	if !globalGSettingsConfig.memcheckerEnabled {
+	if !_gSettingsConfig.memcheckerEnabled {
 		return nil
 	}
 	if memchecker.IsSufficient() {
@@ -131,7 +131,7 @@ func startMemTicker() {
 		select {
 		case <-_tickerStopped:
 			logger.Info("Ticker has stopped")
-			START_MANAGER.setPropNeededMemory(0)
+			_startManager.setPropNeededMemory(0)
 			return
 		case <-_memTicker.C:
 			updateNeededMemory()
@@ -161,11 +161,11 @@ func updateNeededMemory() {
 		v += s
 	}
 
-	logger.Debug("Update needed memory:", START_MANAGER.NeededMemory, v)
-	if uint64(v) == START_MANAGER.NeededMemory {
+	logger.Debug("Update needed memory:", _startManager.NeededMemory, v)
+	if uint64(v) == _startManager.NeededMemory {
 		return
 	}
-	START_MANAGER.setPropNeededMemory(uint64(v))
+	_startManager.setPropNeededMemory(uint64(v))
 }
 
 func stopMemTicker() {
@@ -254,13 +254,13 @@ func handleCurAction(action string) error {
 	var err error
 	switch action {
 	case "LaunchApp":
-		err = START_MANAGER.launchAppWithOptions(_app.desktop, _app.timestamp,
+		err = _startManager.launchAppWithOptions(_app.desktop, _app.timestamp,
 			_app.files, _app.options)
 	case "LaunchAppAction":
-		err = START_MANAGER.launchAppAction(_appAction.desktop,
+		err = _startManager.launchAppAction(_appAction.desktop,
 			_appAction.action, _appAction.timestamp)
 	case "RunCommand":
-		err = START_MANAGER.runCommandWithOptions(_cmd.exe, _cmd.args, _cmd.options)
+		err = _startManager.runCommandWithOptions(_cmd.exe, _cmd.args, _cmd.options)
 	}
 	if err != nil {
 		logger.Warning("Failed to launch action:", err)

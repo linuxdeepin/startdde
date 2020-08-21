@@ -1,7 +1,6 @@
 package display
 
 import (
-	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -16,15 +15,21 @@ const (
 
 var _dpy *Manager
 
-func Start() error {
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return err
-	}
-	service := dbusutil.NewService(sessionBus)
+func Start(service *dbusutil.Service) {
 	m := newManager(service)
-	_dpy = m
 	m.init()
+	_dpy = m
+}
+
+func StartPart2(service *dbusutil.Service) error {
+	m := _dpy
+	m.initTouchscreens()
+	m.initTouchMap()
+	err := generateRedshiftConfFile()
+	if err != nil {
+		logger.Warning(err)
+	}
+	m.initColorTemperature()
 	err = service.Export(dbusPath, m)
 	if err != nil {
 		return err
@@ -37,8 +42,11 @@ func Start() error {
 
 	for _, touch := range m.Touchscreens {
 		if _, ok := m.TouchMap[touch.Serial]; !ok {
-			m.associateTouch(m.Primary, touch.Serial)
-			err := m.showTouchscreenDialog(touch.Serial)
+			err := m.associateTouch(m.Primary, touch.Serial)
+			if err != nil {
+				logger.Warningf("associate touch(%v, %v) failed: %v", m.Primary, touch.Serial, err)
+			}
+			err = m.showTouchscreenDialog(touch.Serial)
 			if err != nil {
 				logger.Warning("failed to show touchscreen dialog:", err)
 			}
@@ -50,11 +58,4 @@ func Start() error {
 
 func SetLogLevel(level log.Priority) {
 	logger.SetLogLevel(level)
-}
-
-func GetRecommendedScaleFactor() float64 {
-	if _dpy == nil {
-		return 1.0
-	}
-	return _dpy.recommendScaleFactor
 }

@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"github.com/godbus/dbus"
+	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
+	wm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/log"
@@ -32,7 +32,7 @@ const (
 
 var logger *log.Logger
 
-func Start(l *log.Logger, wmChooserLaunched bool) error {
+func Start(l *log.Logger) error {
 	logger = l
 
 	sessionBus, err := dbus.SessionBus()
@@ -53,13 +53,10 @@ func Start(l *log.Logger, wmChooserLaunched bool) error {
 	}
 
 	s.listenDBusSignal()
-	if wmChooserLaunched {
-		syncWmChooserChoice()
-	}
 	return nil
 }
 
-func syncWmChooserChoice() {
+func SyncWmChooserChoice() {
 	lastWm, err := getWMSwitchLastWm()
 	if err == nil {
 		enabled := false

@@ -184,7 +184,7 @@ func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) error {
 }
 
 func (m *XSManager) GetScaleFactor() (float64, *dbus.Error) {
-	return m.getScaleFactor(), nil
+	return getScaleFactor(), nil
 }
 
 func (m *XSManager) SetScaleFactor(scale float64) *dbus.Error {

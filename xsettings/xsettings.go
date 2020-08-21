@@ -99,6 +99,7 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusuti
 	var m = &XSManager{
 		conn:    conn,
 		service: service,
+		gs:      _gs,
 	}
 
 	var err error
@@ -133,10 +134,20 @@ func (m *XSManager) GetInterfaceName() string {
 	return xsDBusIFC
 }
 
+var _gs *gio.Settings
+
+func GetScaleFactor() float64 {
+	return getScaleFactor()
+}
+
+func getScaleFactor() float64 {
+	scale := _gs.GetDouble(gsKeyScaleFactor)
+	return scale
+}
+
 func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 	logger.Debug("recommended scale factor:", recommendedScaleFactor)
 	var err error
-	m.gs = gio.NewSettings(xsSchema)
 	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
 		recommendedScaleFactor != defaultScaleFactor {
 		err = m.setScaleFactorWithoutNotify(recommendedScaleFactor)
@@ -148,7 +159,7 @@ func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 
 	// migrate old configuration
 	if os.Getenv("STARTDDE_MIGRATE_SCALE_FACTOR") != "" {
-		scaleFactor := m.getScaleFactor()
+		scaleFactor := getScaleFactor()
 		err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
 		if err != nil {
 			logger.Warning("failed to set scale factor for qt:", err)
@@ -165,7 +176,7 @@ func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// lightdm-deepin-greeter does not have the qt-theme.ini file yet.
-			scaleFactor := m.getScaleFactor()
+			scaleFactor := getScaleFactor()
 			if scaleFactor != defaultScaleFactor {
 				err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
 				if err != nil {
@@ -292,6 +303,7 @@ func (m *XSManager) handleGSettingsChanged() {
 
 // Start load xsettings module
 func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64, service *dbusutil.Service) (*XSManager, error) {
+	_gs = gio.NewSettings(xsSchema)
 	logger = l
 	m, err := NewXSManager(conn, recommendedScaleFactor, service)
 	if err != nil {

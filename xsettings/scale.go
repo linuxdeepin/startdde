@@ -39,11 +39,6 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
-func (m *XSManager) getScaleFactor() float64 {
-	scale := m.gs.GetDouble(gsKeyScaleFactor)
-	return scale
-}
-
 const (
 	EnvDeepinWineScale      = "DEEPIN_WINE_SCALE"
 	gsKeyScaleFactor        = "scale-factor"

@@ -28,15 +28,11 @@ import (
 var _s *Switcher
 
 // Start launch wm
-func Start(logger *log.Logger, wmChooserLaunched bool, service *dbusutil.Service) error {
+func Start(conn *x.Conn, logger *log.Logger, wmChooserLaunched bool, service *dbusutil.Service) error {
 	if _s != nil {
 		return nil
 	}
 
-	conn, err := x.NewConn()
-	if err != nil {
-		return err
-	}
 	_s = new(Switcher)
 	_s.service = service
 	_s.conn = conn
@@ -47,7 +43,7 @@ func Start(logger *log.Logger, wmChooserLaunched bool, service *dbusutil.Service
 	_s.listenWMChanged()
 	_s.adjustSogouSkin()
 
-	err = service.Export(swDBusPath, _s)
+	err := service.Export(swDBusPath, _s)
 	if err != nil {
 		return err
 	}

@@ -153,8 +153,8 @@ func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
 	m.settings = gio.NewSettings(gSchemaLauncher)
 	m.appClose = make(chan *UeMessageItem, UserExperCLoseAppChanInitLen)
 
-	m.appsUseProxy = strv.Strv(m.settings.GetStrv(gKeyAppsUseProxy))
-	m.appsDisableScaling = strv.Strv(m.settings.GetStrv(gKeyAppsDisableScaling))
+	m.appsUseProxy = m.settings.GetStrv(gKeyAppsUseProxy)
+	m.appsDisableScaling = m.settings.GetStrv(gKeyAppsDisableScaling)
 
 	gsettings.ConnectChanged(gSchemaLauncher, "*", func(key string) {
 		switch key {
@@ -195,7 +195,7 @@ func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
 	return m
 }
 
-var START_MANAGER *StartManager
+var _startManager *StartManager
 
 func (m *StartManager) GetInterfaceName() string {
 	return startManagerInterface
@@ -1017,8 +1017,8 @@ func (m *StartManager) IsAutostart(filename string) (bool, *dbus.Error) {
 }
 
 func startStartManager(conn *x.Conn, service *dbusutil.Service) {
-	START_MANAGER = newStartManager(conn, service)
-	err := service.Export(startManagerObjPath, START_MANAGER)
+	_startManager = newStartManager(conn, service)
+	err := service.Export(startManagerObjPath, _startManager)
 	if err != nil {
 		logger.Warning("export StartManager failed:", err)
 	}
@@ -1026,7 +1026,7 @@ func startStartManager(conn *x.Conn, service *dbusutil.Service) {
 
 func startAutostartProgram() {
 	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
-	autoStartList, _ := START_MANAGER.AutostartList()
+	autoStartList, _ := _startManager.AutostartList()
 	for _, desktopFile := range autoStartList {
 		go func(desktopFile string) {
 			delay, err := getDelayTime(desktopFile)
@@ -1037,7 +1037,7 @@ func startAutostartProgram() {
 			if delay != 0 {
 				time.Sleep(delay)
 			}
-			err = START_MANAGER.launchAppWithOptions(desktopFile, 0, nil, nil)
+			err = _startManager.launchAppWithOptions(desktopFile, 0, nil, nil)
 			if err != nil {
 				logger.Warning(err)
 			}

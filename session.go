@@ -43,7 +43,6 @@ import (
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/watchdog"
-	"pkg.deepin.io/dde/startdde/wm"
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
@@ -54,6 +53,17 @@ import (
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/procfs"
 	"pkg.deepin.io/lib/xdg/basedir"
+)
+
+const (
+	sectionTheme     = "Theme"
+	keyIconThemeName = "IconThemeName"
+	keyFont          = "Font"
+	keyMonoFont      = "MonFont"
+	keyFontSize      = "FontSize"
+
+	xsKeyQtFontName     = "Qt/FontName"
+	xsKeyQtMonoFontName = "Qt/MonoFontName"
 )
 
 type SessionManager struct {
@@ -480,7 +490,7 @@ func initSession() {
 	if err != nil {
 		logger.Warning("failed to connect Active changed:", err)
 	}
-	if globalGSettingsConfig.swapSchedEnabled {
+	if _gSettingsConfig.swapSchedEnabled {
 		initSwapSched()
 	} else {
 		logger.Info("swap sched disabled")
@@ -554,8 +564,12 @@ func initSwapSched() {
 func newSessionManager(service *dbusutil.Service) *SessionManager {
 	m := &SessionManager{
 		service: service,
+		cookies: make(map[string]chan time.Time),
 	}
-	m.cookies = make(map[string]chan time.Time)
+	return m
+}
+
+func (m *SessionManager) init() {
 	m.setPropName("CurrentUid")
 	var err error
 	m.loginSession, err = getLoginSession()
@@ -563,7 +577,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		logger.Warning("failed to get current login session:", err)
 	}
 
-	sessionBus := service.Conn()
+	sessionBus := m.service.Conn()
 	m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
 	m.sigLoop.Start()
 	m.dbusDaemon = ofdbus.NewDBus(sessionBus)
@@ -574,7 +588,6 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 
 	m.initInhibitManager()
 	m.listenDBusSignals()
-	return m
 }
 
 func (manager *SessionManager) listenDBusSignals() {
@@ -603,30 +616,17 @@ func (manager *SessionManager) listenDBusSignals() {
 	}
 }
 
-func (manager *SessionManager) launchWindowManager(wait bool) {
-	if globalUseWayland {
+func (m *SessionManager) startWMSwitcher() {
+	if _useWayland {
 		return
 	}
-	manager.setPropStage(SessionStageInitBegin)
-	var useKwin bool = shouldUseDDEKwin()
-
-	logger.Debug("Will launch wm")
-	if useKwin {
-		err := wm_kwin.Start(logger, globalWmChooserLaunched)
+	if _useKWin {
+		err := wm_kwin.Start(logger)
 		if err != nil {
 			logger.Warning(err)
 		}
-		manager.launch("kwin_no_scale", wait)
 		return
 	}
-
-	err := wm.Start(logger, globalWmChooserLaunched, manager.service)
-	if err != nil {
-		logger.Error("Failed to start wm module:", err)
-		return
-	}
-	manager.launch("env", wm.ShouldWait(), "GDK_SCALE=1", wm.GetWM())
-	manager.setPropStage(SessionStageInitEnd)
 }
 
 func (m *SessionManager) launchDDE() {
@@ -670,66 +670,71 @@ func (m *SessionManager) launchDDE() {
 
 	for idx, group := range groups {
 		logger.Debugf("[%d] group p%d start", idx, group.Priority)
-		noWaitCount := 0
+
+		var waitGroup sync.WaitGroup
+		waitGroup.Add(len(group.Group))
+
 		for _, cmd := range group.Group {
-			if cmd.Command == "wm" {
-				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
-				m.launchWindowManager(cmd.Wait)
-				continue
-			}
-
-			if cmd.Wait {
-				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
-				m.launch(cmd.Command, true, cmd.Args...)
-				continue
-			}
-
-			// no wait
-			if noWaitCount == 0 {
-				logger.Debug(cmd.Command, cmd.Args, cmd.Wait)
-				m.launch(cmd.Command, false, cmd.Args...)
-
-			} else {
-				// noWaitCount > 0
-				logger.Debug(cmd.Command, cmd.Args, cmd.Wait, "launch after",
-					100*noWaitCount, "ms")
-
-				closureCmd := struct {
-					bin  string
-					args []string
-				}{
-					cmd.Command,
-					cmd.Args,
-				}
-				time.AfterFunc(100*time.Duration(noWaitCount)*time.Millisecond, func() {
-					m.launch(closureCmd.bin, false, closureCmd.args...)
-				})
-			}
-
-			noWaitCount++
+			cmd := cmd
+			go func() {
+				logger.Debug("run cmd:", cmd.Command, cmd.Args, cmd.Wait)
+				m.launch(cmd.Command, cmd.Wait, cmd.Args...)
+				waitGroup.Done()
+			}()
 		}
+
+		waitGroup.Wait()
+
 		logger.Debugf("[%d] group p%d end", idx, group.Priority)
 	}
 }
 
 func (m *SessionManager) launchAutostart() {
 	m.setPropStage(SessionStageAppsBegin)
-	if !*debug {
-		delay := globalGSettingsConfig.autoStartDelay
-		logger.Debug("Autostart delay seconds:", delay)
-		if delay > 0 {
-			time.AfterFunc(time.Second*time.Duration(delay), func() {
-				startAutostartProgram()
-			})
-		} else {
+	delay := _gSettingsConfig.autoStartDelay
+	logger.Debug("autostart delay seconds:", delay)
+	if delay > 0 {
+		time.AfterFunc(time.Second*time.Duration(delay), func() {
 			startAutostartProgram()
-		}
+		})
+	} else {
+		startAutostartProgram()
 	}
 	m.setPropStage(SessionStageAppsEnd)
 }
 
-func setupEnvironments() {
-	envVars := make(map[string]string)
+var _envVars = make(map[string]string, 17)
+
+// 在启动核心组件之前设置一些环境变量
+func setupEnvironments1() {
+	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
+	_envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
+	_envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
+
+	scaleFactor := xsettings.GetScaleFactor()
+	_envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
+	_envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
+
+	// set scale factor for deepin wine apps
+	if scaleFactor != 1.0 {
+		_envVars[xsettings.EnvDeepinWineScale] = strconv.FormatFloat(
+			scaleFactor, 'f', 2, 64)
+	}
+
+	setEnvWithMap(_envVars)
+}
+
+func setEnvWithMap(envVars map[string]string) {
+	for key, value := range envVars {
+		logger.Debugf("set env %s = %q", key, value)
+		err := os.Setenv(key, value)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+}
+
+func setupEnvironments2() {
 	// man gnome-keyring-daemon:
 	// The daemon will print out various environment variables which should be set
 	// in the user's environment, in order to interact with the daemon.
@@ -745,38 +750,16 @@ func setupEnvironments() {
 
 			key := string(keyValuePair[0])
 			value := string(keyValuePair[1])
-			envVars[key] = value
+			_envVars[key] = value
+
+			logger.Debugf("set env %s = %q", key, value)
+			err := os.Setenv(key, value)
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 	} else {
 		logger.Warning("exec gnome-keyring-daemon err:", err)
-	}
-
-	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
-	envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
-	envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
-
-	scaleFactor := 1.0
-	if globalXSManager != nil {
-		scaleFactor, _ = globalXSManager.GetScaleFactor()
-	}
-	envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
-	envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
-
-	// set scale factor for deepin wine apps
-	if scaleFactor != 1.0 {
-		envVars[xsettings.EnvDeepinWineScale] = strconv.FormatFloat(
-			scaleFactor, 'f', 2, 64)
-	}
-
-	systemctlArgs := make([]string, 0, len(envVars)+2)
-	systemctlArgs = append(systemctlArgs, "--user", "set-environment")
-	for key, value := range envVars {
-		logger.Debugf("set env %s = %q", key, value)
-		err = os.Setenv(key, value)
-		if err != nil {
-			logger.Warning(err)
-		}
-		systemctlArgs = append(systemctlArgs, key+"="+value)
 	}
 
 	for _, envName := range []string{
@@ -785,10 +768,15 @@ func setupEnvironments() {
 	} {
 		envValue, ok := os.LookupEnv(envName)
 		if ok {
-			envVars[envName] = envValue
+			_envVars[envName] = envValue
 		}
 	}
 
+	updateDBusEnv()
+	updateSystemdUserEnv()
+}
+
+func updateDBusEnv() {
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		logger.Warning(err)
@@ -796,30 +784,29 @@ func setupEnvironments() {
 	}
 
 	err = sessionBus.BusObject().Call("org.freedesktop.DBus."+
-		"UpdateActivationEnvironment", 0, envVars).Err
+		"UpdateActivationEnvironment", 0, _envVars).Err
 	if err != nil {
-		logger.Warning(err)
+		logger.Warning("update dbus env failed:", err)
+	}
+}
+
+func updateSystemdUserEnv() {
+	systemctlArgs := make([]string, 0, len(_envVars)+2)
+	systemctlArgs = append(systemctlArgs, "--user", "set-environment")
+
+	for key, value := range _envVars {
+		systemctlArgs = append(systemctlArgs, key+"="+value)
 	}
 
-	err = exec.Command("systemctl", systemctlArgs...).Run()
+	err := exec.Command("systemctl", systemctlArgs...).Run()
 	if err != nil {
 		logger.Warning("failed to set env for systemd-user:", err)
 	}
 }
 
-const (
-	sectionTheme     = "Theme"
-	keyIconThemeName = "IconThemeName"
-	keyFont          = "Font"
-	keyMonoFont      = "MonFont"
-	keyFontSize      = "FontSize"
-
-	xsKeyQtFontName     = "Qt/FontName"
-	xsKeyQtMonoFontName = "Qt/MonoFontName"
-)
-
 func initQtThemeConfig() error {
 	appearanceGs := gio.NewSettings("com.deepin.dde.appearance")
+	defer appearanceGs.Unref()
 	var needSave bool
 
 	var defaultFont, defaultMonoFont string
@@ -952,8 +939,7 @@ func sendMsgToUserExperModule(msg string) {
 	close(ch)
 }
 
-func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
-
+func (m *SessionManager) start(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -962,30 +948,32 @@ func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbu
 	}()
 
 	initSession()
-
-	manager := newSessionManager(service)
-	err := service.Export(sessionManagerPath, manager)
-	if err != nil {
-		logger.Warning("export session manager failed:", err)
-		return nil
+	m.init()
+	if _options.noXSessionScripts {
+		runScript01DeepinProfileFaster()
+		runScript30X11CommonXResourcesFaster()
+		runScript90GpgAgentFaster()
 	}
+	setupEnvironments2()
 
-	setupEnvironments()
-
-	err = initQtThemeConfig()
+	err := initQtThemeConfig()
 	if err != nil {
 		logger.Warning("failed to init qt-theme.ini", err)
 	}
-
-	manager.setPropStage(SessionStageCoreBegin)
+	m.setPropStage(SessionStageCoreBegin)
 	startStartManager(conn, service)
 
-	err = service.RequestName(sessionManagerServiceName)
-	if err != nil {
-		logger.Warningf("request name %q failed: %v", sessionManagerServiceName, err)
+	m.startWMSwitcher()
+
+	if _options.noXSessionScripts {
+		startIMFcitx()
 	}
 
-	manager.launchDDE()
+	go startAtSpiService()
+	// start obex.service
+	go startObexService()
+	m.launchDDE()
+
 	go func() {
 		setLeftPtrCursor()
 		err := keyring.CheckLogin()
@@ -993,24 +981,37 @@ func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbu
 			logger.Warning("Failed to init keyring:", err)
 		}
 	}()
-	time.AfterFunc(3*time.Second, START_MANAGER.listenAutostartFileEvents)
-	go manager.launchAutostart()
+	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
+	go m.launchAutostart()
 	sendMsgToUserExperModule(UserLoginMsg)
 
-	if manager.loginSession != nil {
-		manager.loginSession.InitSignalExt(sysSignalLoop, true)
-		_, err = manager.loginSession.ConnectLock(manager.handleLoginSessionLock)
+	if m.loginSession != nil {
+		m.loginSession.InitSignalExt(sysSignalLoop, true)
+		_, err = m.loginSession.ConnectLock(m.handleLoginSessionLock)
 		if err != nil {
 			logger.Warning("failed to connect signal Lock:", err)
 		}
 
-		_, err = manager.loginSession.ConnectUnlock(manager.handleLoginSessionUnlock)
+		_, err = m.loginSession.ConnectUnlock(m.handleLoginSessionUnlock)
 		if err != nil {
 			logger.Warning("failled to connect signal Unlock:", err)
 		}
 	}
 
-	return manager
+	return m
+}
+
+func startIMFcitx() {
+	fcitxPath, err := exec.LookPath("fcitx")
+	if err == nil {
+		cmd := exec.Command(fcitxPath, "-d")
+		go func() {
+			err := cmd.Run()
+			if err != nil {
+				logger.Warning("fcitx exit with error:", err)
+			}
+		}()
+	}
 }
 
 func isDeepinVersionChanged() (changed bool, err error) {
@@ -1125,7 +1126,7 @@ func (m *SessionManager) handleLoginSessionUnlock() {
 
 func setDPMSMode(on bool) {
 	var err error
-	if globalUseWayland {
+	if _useWayland {
 		if !on {
 			_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
 		} else {
@@ -1136,7 +1137,7 @@ func setDPMSMode(on bool) {
 		if !on {
 			mode = uint16(dpms.DPMSModeOff)
 		}
-		err = dpms.ForceLevelChecked(XConn, mode).Check(XConn)
+		err = dpms.ForceLevelChecked(_xConn, mode).Check(_xConn)
 	}
 
 	if err != nil {
@@ -1157,6 +1158,7 @@ const (
 	obexService = "obex.service"
 )
 
+// start at-spi-dbus-bus.service
 func startAtSpiService() {
 	time.Sleep(3 * time.Second)
 	logger.Debugf("starting %s...", atSpiService)

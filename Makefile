@@ -62,3 +62,5 @@ rebuild: clean build
 
 check_code_quality: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go vet ./...
+
+.PHONY: startdde

@@ -36,26 +36,17 @@ const (
 	versionFile = "/etc/os-version"
 )
 
-func tryMatchVM() {
-	inVM, err := isInVM()
-	if err != nil {
-		logger.Warning("launchWindowManager detect VM failed:", err)
-		return
-	}
-
-	if !inVM || isServer() {
-		return
-	}
-
-	logger.Debug("launchWindowManager in VM")
+func maybeLaunchWMChooser() (launched bool) {
+	logger.Debug("launch WMChooser in VM")
 	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin", "deepin-wm-switcher", "config.json")
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
 		err := exec.Command("dde-wm-chooser", "-c", cfgFile).Run()
-		globalWmChooserLaunched = true
+		launched = true
 		if err != nil {
 			logger.Warning(err)
 		}
 	}
+	return
 }
 
 func isServer() bool {

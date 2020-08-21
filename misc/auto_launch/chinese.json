@@ -1,15 +1,5 @@
 [
   {
-    "Priority": 11,
-    "Group": [
-      {
-         "Command": "wm",
-         "Wait": true,
-         "Args": []
-      }
-    ]
-  },
-  {
     "Priority": 10,
     "Group": [
       {
@@ -23,26 +13,6 @@
     "Priority": 9,
     "Group": [
       {
-        "Command": "/usr/lib/deepin-daemon/dde-session-daemon",
-        "Wait": true,
-        "Args": []
-      },
-      {
-        "Command": "/usr/bin/dde-dock",
-        "Wait": true,
-        "Args": []
-      }
-    ]
-  },
-  {
-    "Priority": 8,
-    "Group": [
-      {
-        "Command": "/usr/bin/dde-desktop",
-        "Wait": true,
-        "Args": []
-      },
-      {
         "Command": "/usr/bin/dde-file-manager",
         "Wait": false,
         "Args": [
@@ -52,7 +22,7 @@
     ]
   },
   {
-    "Priority": 7,
+    "Priority": 8,
     "Group": [
       {
         "Command": "/usr/lib/polkit-1-dde/dde-polkit-agent",
@@ -66,7 +36,7 @@
     ]
   },
   {
-    "Priority": 6,
+    "Priority": 7,
     "Group": [
       {
         "Command": "/usr/bin/dde-shutdown",
