@@ -85,3 +85,31 @@ func getTouchscreenInfos(force bool) dxTouchscreens {
 
 	return touchscreenInfos
 }
+
+func (m *Manager) touchScreenSetRotation(direction uint16, output string) {
+	touchSerial := ""
+	for ts, op := range m.TouchMap {
+		if op == output {
+			touchSerial = ts
+			break
+		}
+	}
+	if touchSerial == "" {
+		logger.Errorf("get touchSerial failed")
+		return
+	}
+
+	for _, ts := range m.Touchscreens {
+		if ts.Serial != touchSerial {
+			continue
+		}
+		touchScreen, err := dxinput.NewTouchscreen(ts.Id)
+		if err != nil {
+			logger.Warningf("NewTouchScreen %d failed", ts.Id)
+		}
+		err = touchScreen.SetRotation(uint8(direction))
+		if err != nil {
+			logger.Warningf("touchScreen %d SetRotation failed", ts.Id)
+		}
+	}
+}
