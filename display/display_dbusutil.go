@@ -187,6 +187,18 @@ func (v *Monitor) setPropConnected(value bool) (changed bool) {
 	return false
 }
 
+func (v *Monitor) setPropManufacturer(value string) {
+	if v.Manufacturer != value {
+		v.Manufacturer = value
+	}
+}
+
+func (v *Monitor) setPropModel(value string) {
+	if v.Model != value {
+		v.Model = value
+	}
+}
+
 func (v *Monitor) emitPropChangedConnected(value bool) error {
 	return v.service.EmitPropertyChanged(v, "Connected", value)
 }
