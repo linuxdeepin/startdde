@@ -1617,6 +1617,15 @@ func (m *Manager) initTouchMap() {
 	value := m.settings.GetString(gsKeyMapOutput)
 	if len(value) == 0 {
 		m.TouchMap = make(map[string]string)
+		// 无配置，显示配置 Dialog
+		if len(m.Touchscreens) != 0 {
+			for _, touch := range m.Touchscreens {
+				err := m.showTouchscreenDialog(touch.Serial)
+				if err != nil {
+					logger.Warning("shotTouchscreenOSD", err)
+				}
+			}
+		}
 		return
 	}
 
