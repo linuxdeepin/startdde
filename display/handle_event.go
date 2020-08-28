@@ -121,6 +121,15 @@ func (m *Manager) setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId string)
 }
 
 func (m *Manager) getHighPriorityMonitorName() (monitorName, monitorType string) {
+	if m.builtinMonitor != nil { // 当存在内建屏时，拓展模式下，使用内建屏作为主屏
+		monitorName = m.builtinMonitor.Name
+		mt := strings.Split(monitorName, "-")
+		if len(mt) >= 2 {
+			monitorType = mt[0]
+		}
+		return
+	}
+
 	type Priority struct {
 		name     string
 		priority uint32
