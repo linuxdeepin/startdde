@@ -34,6 +34,16 @@ func Start() error {
 	if err != nil {
 		return err
 	}
+
+	for _, touch := range m.Touchscreens {
+		if _, ok := m.TouchMap[touch.Serial]; !ok {
+			err := m.showTouchscreenDialog(touch.Serial)
+			if err != nil {
+				logger.Warning("failed to show touchscreen dialog:", err)
+			}
+		}
+	}
+
 	return nil
 }
 
