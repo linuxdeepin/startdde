@@ -1765,7 +1765,8 @@ func (m *Manager) handleTouchscreenChanged() {
 			continue
 		}
 
-		// 无配置，显示配置 Dialog
+		// 无配置，关联默认显示器，并显示配置 Dialog
+		m.associateTouch(m.Primary, touch.Serial)
 		err := m.showTouchscreenDialog(touch.Serial)
 		if err != nil {
 			logger.Warning("shotTouchscreenOSD", err)
