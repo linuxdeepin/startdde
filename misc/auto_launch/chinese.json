@@ -46,5 +46,15 @@
         ]
       }
     ]
+  },
+ {
+    "Priority": 5,
+    "Group": [
+      {
+        "Command": "systemctl --user start deepin-turbo-booster-dtkwidget",
+        "Wait": false,
+        "Args": []
+      }
+    ]
   }
 ]
