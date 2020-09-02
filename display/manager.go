@@ -1617,6 +1617,18 @@ func (m *Manager) initTouchMap() {
 	value := m.settings.GetString(gsKeyMapOutput)
 	if len(value) == 0 {
 		m.TouchMap = make(map[string]string)
+		monitors := m.getConnectedMonitors()
+		// 单触摸屏安装系统，不用弹出选项框
+		if len(m.Touchscreens) == 1 && len(monitors) == 1 {
+			m.TouchMap[m.Touchscreens[0].Serial] = monitors[0].Name
+			m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.TouchMap))
+			go func() {
+				err := m.doSetTouchMap(monitors[0].Name, m.Touchscreens[0].Serial)
+				if err != nil {
+					logger.Warningf("failed to map touch: %s", err)
+				}
+			}()
+		}
 		return
 	}
 
