@@ -69,8 +69,12 @@ func getTouchscreenInfos(force bool) dxTouchscreens {
 			deviceFile := string(data[:num])
 			device := gudevClient.QueryByDeviceFile(deviceFile)
 			serial := device.GetProperty("ID_SERIAL")
+			// 在虚拟机中v.Type判断触摸屏不准确
+			// 为了防止虚拟机再次添加非ID_INPUT_TOUCHSCREEN设备到TouchscreenMap中
+			// 通过gudevClient再次判断保证设备为触控屏
+			deviceType := device.GetProperty("ID_INPUT_TOUCHSCREEN")
 
-			if serial == "" {
+			if serial == "" || deviceType == "" {
 				continue
 			}
 
