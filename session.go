@@ -160,7 +160,6 @@ func (m *SessionManager) prepareLogout(force bool) {
 	quitAtSpiService()
 	stopBAMFDaemon()
 	sendMsgToUserExperModule(UserLogoutMsg)
-
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
 		// PulseAudio should have quit
@@ -923,17 +922,27 @@ func sendMsgToUserExperModule(msg string) {
 	// send message to user experience module
 	// first send will active the services
 	bus, err := dbus.SystemBus()
+	ch := make(chan struct{})
 	if err == nil {
-		userexp := bus.Object(UserExperServiceName, UserExperPath)
-		err = userexp.Call(UserExperServiceName+".SendLogonData", 0, msg).Err
-		if err != nil {
-			logger.Warningf("failed to call %s.SendLogonData, %v", UserExperServiceName, err)
-		} else {
-			logger.Infof("send %s message to ue module", msg)
+		go func() {
+			userexp := bus.Object(UserExperServiceName, UserExperPath)
+			err = userexp.Call(UserExperServiceName+".SendLogonData", 0, msg).Err
+			if err != nil {
+				logger.Warningf("failed to call %s.SendLogonData, %v", UserExperServiceName, err)
+			} else {
+				logger.Infof("send %s message to ue module", msg)
+			}
+			ch <- struct{}{}
+		}()
+		select {
+		case <-ch:
+		case <-time.After(1 * time.Second):
+			logger.Debug("sendMsgToUserExperModule timed out!")
 		}
 	} else {
 		logger.Warning(err)
 	}
+	close(ch)
 }
 
 func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
