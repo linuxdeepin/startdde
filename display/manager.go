@@ -124,11 +124,11 @@ type Manager struct {
 	configTimestamp          x.Timestamp
 	settings                 *gio.Settings
 	monitorsId               string
-	isLaptop                 bool
 	modeChanged              bool
 	info                     ConnectInfo
 	rotationFinishChanged    bool
 	rotationScreenTimer      *time.Timer
+	hasBuiltinMonitor        bool
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -256,8 +256,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	if err != nil {
 		logger.Warning(err)
 	}
-	if chassis == "laptop" {
-		m.isLaptop = true
+	if chassis == "laptop" || chassis == "all-in-one" {
+		m.hasBuiltinMonitor = true
 	}
 
 	m.settings = gio.NewSettings(gsSchemaDisplay)
@@ -384,8 +384,7 @@ func newManager(service *dbusutil.Service) *Manager {
 
 // initBuiltinMonitor 初始化内置显示器。
 func (m *Manager) initBuiltinMonitor() {
-	// 只有笔记本 laptop 才有内置显示器
-	if !m.isLaptop {
+	if !m.hasBuiltinMonitor {
 		return
 	}
 	// 从配置文件获取内置显示器名称
