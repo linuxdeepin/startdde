@@ -355,6 +355,7 @@ func getConfigVersion(filename string) (string, error) {
 }
 
 func getComputeChassis() (string, error) {
+	const chassisTypeFilePath = "/sys/class/dmi/id/chassis_type"
 	systemBus, err := dbus.SystemBus()
 	if err != nil {
 		return "", err
@@ -363,6 +364,17 @@ func getComputeChassis() (string, error) {
 	chassis, err := hostnameObj.Chassis().Get(0)
 	if err != nil {
 		return "", err
+	}
+	if chassis == "" || chassis == "desktop" {
+		chassisNum, err := ioutil.ReadFile(chassisTypeFilePath)
+		if err != nil {
+			logger.Warning(err)
+			return "", err
+		}
+		switch string(bytes.TrimSpace(chassisNum)) {
+		case "13":
+			chassis = "all-in-one"
+		}
 	}
 	return chassis, nil
 }
