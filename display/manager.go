@@ -97,6 +97,7 @@ type Manager struct {
 	monitorsId               string
 	isLaptop                 bool
 	modeChanged              bool
+	hasBuiltinMonitor        bool
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -235,8 +236,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	if err != nil {
 		logger.Warning(err)
 	}
-	if chassis == "laptop" {
-		m.isLaptop = true
+	if chassis == "laptop" || chassis == "all-in-one" {
+		m.hasBuiltinMonitor = true
 	}
 
 	m.settings = gio.NewSettings(gsSchemaDisplay)
@@ -312,7 +313,7 @@ func newManager(service *dbusutil.Service) *Manager {
 }
 
 func (m *Manager) initBuiltinMonitor() {
-	if !m.isLaptop {
+	if !m.hasBuiltinMonitor {
 		return
 	}
 	builtinMonitorName, err := loadBuiltinMonitorConfig(builtinMonitorConfigFile)
