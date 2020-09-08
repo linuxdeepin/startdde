@@ -44,6 +44,7 @@ install:
 	install -Dm644 misc/lightdm.conf ${DESTDIR}${PREFIX}/share/lightdm/lightdm.conf.d/60-deepin.conf
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
 	cp -f misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
+	cp misc/filter.conf ${DESTDIR}${PREFIX}/share/startdde/
 	mkdir -p ${DESTDIR}/etc/X11/Xsession.d/
 	cp -f misc/Xsession.d/* ${DESTDIR}/etc/X11/Xsession.d/
 	mkdir -p ${DESTDIR}/etc/profile.d/
