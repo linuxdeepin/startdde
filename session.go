@@ -986,6 +986,7 @@ func startSession(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbu
 			logger.Warning("Failed to init keyring:", err)
 		}
 	}()
+	time.AfterFunc(3*time.Second, START_MANAGER.listenAutostartFileEvents)
 	go manager.launchAutostart()
 	sendMsgToUserExperModule(UserLoginMsg)
 

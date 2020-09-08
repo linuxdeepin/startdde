@@ -1043,7 +1043,6 @@ func startAutostartProgram() {
 			}
 		}(desktopFile)
 	}
-	START_MANAGER.listenAutostartFileEvents()
 }
 
 func isAppInList(app string, apps []string) bool {
