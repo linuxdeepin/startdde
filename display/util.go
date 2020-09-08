@@ -9,13 +9,20 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
+	"strings"
 
 	dbus "github.com/godbus/dbus"
 	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/gir/gudev-1.0"
+	"pkg.deepin.io/lib/keyfile"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/utils"
+)
+
+const (
+	filterFilePath = "/usr/share/startdde/filter.conf"
 )
 
 func getRotations(origin uint16) []uint16 {
@@ -370,4 +377,101 @@ func getComputeChassis() (string, error) {
 		return "", err
 	}
 	return chassis, nil
+}
+
+func getGraphicsCardPciId() string {
+	var pciId string
+	subsystems := []string{"drm"}
+	gudevClient := gudev.NewClient(subsystems)
+	if gudevClient == nil {
+		return ""
+	}
+	defer gudevClient.Unref()
+
+	devices := gudevClient.QueryBySubsystem("drm")
+	defer func() {
+		for _, dev := range devices {
+			dev.Unref()
+		}
+	}()
+
+	for _, dev := range devices {
+		name := dev.GetName()
+		if strings.HasPrefix(name, "card") && strings.Contains(name, "-") {
+			if dev.GetSysfsAttr("status") == "connected" {
+				cardDevice := dev.GetParent()
+				parentDevice := cardDevice.GetParent()
+				pciId = parentDevice.GetProperty("PCI_ID")
+				cardDevice.Unref()
+				parentDevice.Unref()
+				break
+			}
+		}
+	}
+
+	return pciId
+}
+
+func getFilterRefreshRateMap(pciId string) map[string]string {
+	var filterRefreshRateMap map[string]string
+	kf := keyfile.NewKeyFile()
+	err := kf.LoadFromFile(filterFilePath)
+	if err != nil {
+		logger.Warning("failed to load filter.conf, error:", err)
+		return nil
+	}
+
+	filterRefreshRateMap, err = kf.GetSection(strings.ToLower(pciId))
+	if err != nil {
+		logger.Warning("failed to get filter refresh rate map, err:", err)
+		return nil
+	}
+
+	return filterRefreshRateMap
+}
+
+func containsRate(src, target string) bool {
+	// delete space character in src
+	src = strings.Replace(src, " ", "", -1)
+
+	arr := strings.Split(src, ",")
+	for _, s := range arr {
+		if target == s {
+			return true
+		}
+	}
+	return false
+}
+
+func filterModeInfosByRefreshRate(modes []ModeInfo) []ModeInfo {
+	var reservedModes []ModeInfo
+
+	pciId := getGraphicsCardPciId()
+	if pciId == "" {
+		logger.Warning("failed to get current using graphics card pci id")
+		return modes
+	}
+
+	// no refresh rate need to be filtered, directly return
+	filterRefreshRateMap := getFilterRefreshRateMap(pciId)
+	if len(filterRefreshRateMap) == 0 {
+		return modes
+	}
+
+	for _, modeInfo := range modes {
+		resolution := strconv.FormatUint(uint64(modeInfo.Width), 10) + "*" + strconv.FormatUint(uint64(modeInfo.Height), 10)
+
+		// refresh rates need to be filtered at this resolution
+		if value, ok := filterRefreshRateMap[resolution]; ok {
+			rate := fmt.Sprintf("%.2f", modeInfo.Rate)
+			if containsRate(value, rate) {
+				continue
+			} else {
+				reservedModes = append(reservedModes, modeInfo)
+			}
+		} else {
+			reservedModes = append(reservedModes, modeInfo)
+		}
+	}
+	return reservedModes
 }

@@ -612,7 +612,7 @@ func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
 			result = append(result, modeInfo)
 		}
 	}
-	result = filterModeInfos(result)
+	result = filterModeInfosByRefreshRate(filterModeInfos(result))
 	return result
 }
 
