@@ -911,12 +911,12 @@ func (m *Manager) apply() error {
 			}
 			m.PropsMu.Unlock()
 
-			go func() {
-				err = m.setMonitorBrightness(monitor, value)
+			go func(mon *Monitor) {
+				err = m.setMonitorBrightness(mon, value)
 				if err != nil {
-					logger.Warningf("failed to set brightness for %s: %v", monitor.Name, err)
+					logger.Warningf("failed to set brightness for %s: %v", mon.Name, err)
 				}
-			}()
+			}(monitor) // 用局部变量作闭包上值
 		}
 	}
 
