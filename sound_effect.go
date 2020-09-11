@@ -28,7 +28,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
+	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"pkg.deepin.io/dde/api/soundutils"
 	dbus1 "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/pulse"
@@ -104,6 +104,23 @@ func getDefaultSinkAlsaDevice() (device string, mute bool, err error) {
 	device, err = getSinkAlsaDevice(defaultSink)
 	return
 }
+
+func getDefaultSinkVolume() (volume float32, err error) {
+		ctx := pulse.GetContext()
+		if ctx == nil {
+			err = errors.New("failed to get pulse.Context")
+			return
+		}
+	
+		defaultSink := getPulseDefaultSink(ctx)
+		if defaultSink == nil {
+			err = errors.New("failed to get default sink")
+			return
+		}
+	
+		volume = float32(defaultSink.Volume.Avg())
+		return
+	}
 
 func playLogoutSound() {
 	device, mute, err := getDefaultSinkAlsaDevice()
@@ -203,7 +220,12 @@ func preparePlayShutdownSound() {
 			canPlay = false
 		}
 	}
-
+		volume, err := getDefaultSinkVolume()
+		if err != nil {
+			volume = 0
+		}
+		logger.Debug("volume:", volume)
+	
 	var cfg soundutils.ShutdownSoundConfig
 	if canPlay {
 		cfg = soundutils.ShutdownSoundConfig{
@@ -211,11 +233,12 @@ func preparePlayShutdownSound() {
 			Theme:   soundutils.GetSoundTheme(),
 			Event:   soundutils.EventSystemShutdown,
 			Device:  device,
+			Volume:  volume * 100.0,
 		}
 	}
 
 	logger.Debugf("set shutdown sound config: %+v", cfg)
-	err := soundutils.SetShutdownSoundConfig(&cfg)
+	err = soundutils.SetShutdownSoundConfig(&cfg)
 	if err != nil {
 		logger.Warning("failed to set shutdown sound config:", err)
 	}
