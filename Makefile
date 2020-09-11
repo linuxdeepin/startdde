@@ -1,7 +1,7 @@
 PREFIX = /usr
 GOPATH_DIR = gopath
 GOPKG_PREFIX = pkg.deepin.io/dde/startdde
-GOBUILD = go build -v
+GOBUILD = go build -v $(flags)
 export GO111MODULE=off
 
 all: build
