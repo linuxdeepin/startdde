@@ -43,7 +43,7 @@ custom applications which compliant with xdg autostart specification.
 
 %build
 export GOPATH="%{gopath}"
-make flags=-trimpath
+make GO_BUILD_FLAGS=-trimpath
 
 %install
 %make_install
