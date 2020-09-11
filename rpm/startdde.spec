@@ -18,7 +18,7 @@ BuildRequires:  golang jq
 #BuildRequires:  golang-github-linuxdeepin-go-dbus-factory-devel
 #BuildRequires:  go-lib-devel
 #BuildRequires:  golang-github-linuxdeepin-go-x11-client-devel
-BuildRequires:  golang(github.com/davecgh/go-spew)
+BuildRequires:  golang-github-davecgh-go-spew-devel
 BuildRequires:  gocode >= 0.0.0.1
 #BuildRequires:  golang-golang-org-net-devel
 BuildRequires:  golang-github-cryptix-wav-devel
