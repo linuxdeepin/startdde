@@ -1,6 +1,7 @@
 package display
 
 import (
+	"math"
 	"os"
 
 	dbus "pkg.deepin.io/lib/dbus1"
@@ -115,11 +116,48 @@ func (m *Manager) Reset() *dbus.Error {
 }
 
 func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.Error {
-	err := m.doSetBrightness(value, outputName)
-	if err == nil {
-		m.saveBrightness()
+	var step float64 = 0.004
+	var times float64
+	var br float64
+	var err error
+	//规避klu上rt背光芯片在低亮度下设置出现频闪问题,将调节步长设置为0.004,并在0.1 -0.3亮度区间采用多次调节
+	v, ok := m.Brightness[outputName]
+	if !ok {
+		v = 1.0
 	}
-	return dbusutil.ToError(err)
+
+	if v > value {
+		step = -step
+	}
+
+	times = math.Abs((v - value) / step)
+	if times == 0 {
+		return nil
+	}
+	if v <= 0.3 && value <= 0.3 {
+		for i := 1; i <= int(times); i++ {
+			br = v + step*float64(i)
+			if br > 1.0 {
+				br = 1.0
+			}
+			if br < 0.1 {
+				br = 0.1
+			}
+			logger.Info("[changeBrightness] will set to:", outputName, br)
+			err = m.doSetBrightness(br, outputName)
+			if err == nil {
+				m.saveBrightness()
+			} else {
+				return dbusutil.ToError(err)
+			}
+		}
+	} else {
+		err = m.doSetBrightness(value, outputName)
+		if err == nil {
+			m.saveBrightness()
+		}
+	}
+	return nil
 }
 
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {

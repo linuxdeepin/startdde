@@ -56,7 +56,7 @@ func (m *Manager) changeBrightness(raised bool) error {
 		return nil
 	}
 
-	var step float64 = 0.05
+	var step float64 = 0.001
 	if !raised {
 		step = -step
 	}
@@ -93,17 +93,21 @@ func (m *Manager) changeBrightness(raised bool) error {
 		}
 
 		if setBr {
-			br = v + step
-			if br > 1.0 {
-				br = 1.0
-			}
-			if br < 0.1 {
-				br = 0.1
-			}
-			logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
-			err := m.doSetBrightness(br, monitor.Name)
-			if err != nil {
-				return err
+			//set brightness 5 times by one step of 0.01
+			for i := 1; i <= 50; i++ {
+				br = v + step*float64(i)
+				if br > 1.0 {
+					br = 1.0
+				}
+				if br < 0.1 {
+					br = 0.1
+				}
+				logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
+				err := m.doSetBrightness(br, monitor.Name)
+				if err != nil {
+					return err
+				}
+				//time.Sleep(time.Millisecond * 35)
 			}
 		} else {
 			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
