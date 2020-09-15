@@ -86,6 +86,8 @@ func main() {
 
 	// start at-spi-dbus-bus.service
 	go startAtSpiService()
+	// start obex.service
+	go startObexService()
 
 	// init x conn
 	conn, err := x.NewConn()

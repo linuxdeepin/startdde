@@ -160,6 +160,7 @@ func (m *SessionManager) prepareLogout(force bool) {
 	quitAtSpiService()
 	stopBAMFDaemon()
 	sendMsgToUserExperModule(UserLogoutMsg)
+	quitObexSevice()
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
 		// PulseAudio should have quit
@@ -1146,38 +1147,73 @@ func doLogout(force bool) {
 }
 
 const (
-	AtSpiService = "at-spi-dbus-bus.service"
+	atSpiService = "at-spi-dbus-bus.service"
+	obexService = "obex.service"
 )
 
 func startAtSpiService() {
 	time.Sleep(3 * time.Second)
-	logger.Debugf("starting %s...", AtSpiService)
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", AtSpiService).Run()
+	logger.Debugf("starting %s...", atSpiService)
+	err := exec.Command("systemctl", "--user", "--runtime", "unmask", atSpiService).Run()
 	if err != nil {
-		logger.Warningf("unmask %s failed, err: %v", AtSpiService, err)
+		logger.Warningf("unmask %s failed, err: %v", atSpiService, err)
 		return
 	}
-	err = exec.Command("systemctl", "--user", "--runtime", "start", AtSpiService).Run()
+	err = exec.Command("systemctl", "--user", "--runtime", "start", atSpiService).Run()
 	if err != nil {
-		logger.Warningf("start %s failed, err: %v", AtSpiService, err)
+		logger.Warningf("start %s failed, err: %v", atSpiService, err)
+		return
+	}
+}
+
+func startObexService() {
+	time.Sleep(3 * time.Second)
+	logger.Debugf("starting %s...", obexService)
+	err := exec.Command("systemctl", "--user", "--runtime", "unmask", obexService).Run()
+	if err != nil {
+		logger.Warningf("unmask %s failed, err: %v", obexService, err)
+		return
+	}
+	err = exec.Command("systemctl", "--user", "--runtime", "start", obexService).Run()
+	if err != nil {
+		logger.Warningf("start %s failed, err: %v", obexService, err)
 		return
 	}
 }
 
 func quitAtSpiService() {
-	logger.Debugf("quitting %s...", AtSpiService)
+	logger.Debugf("quitting %s...", atSpiService)
 	// mask at-spi-dbus-bus.service
 	out, err := exec.Command("systemctl", "--user", "--runtime", "--now", "mask",
-		AtSpiService).CombinedOutput()
+		atSpiService).CombinedOutput()
 	if err != nil {
-		logger.Warningf("temp mask %s failed err: %v, out: %s", AtSpiService, err, out)
+		logger.Warningf("temp mask %s failed err: %v, out: %s", atSpiService, err, out)
 	}
 	// view status
 	err = exec.Command("systemctl", "--quiet", "--user", "is-active",
-		AtSpiService).Run()
+		atSpiService).Run()
 	if err == nil {
-		logger.Warningf("%s is still running", AtSpiService)
+		logger.Warningf("%s is still running", atSpiService)
 	} else {
-		logger.Debugf("%s is stopped, err: %v", AtSpiService, err)
+		logger.Debugf("%s is stopped, err: %v", atSpiService, err)
 	}
 }
+
+func quitObexSevice() {
+	logger.Debugf("quitting %s...", obexService)
+	// mask obex.service
+	out, err := exec.Command("systemctl", "--user", "--runtime", "--now", "mask",
+		obexService).CombinedOutput()
+	if err != nil {
+		logger.Warningf("temp mask %s failed err: %v, out: %s", obexService, err, out)
+	}
+	// view status
+	err = exec.Command("systemctl", "--quiet", "--user", "is-active",
+		obexService).Run()
+	if err == nil {
+		logger.Warningf("%s is still running", obexService)
+	} else {
+		logger.Debugf("%s is stopped, err: %v", obexService, err)
+	}
+}
+
