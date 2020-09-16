@@ -70,6 +70,8 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop
 	inhibitManager        InhibitManager
 
+	CurrentSessionPath      dbus.ObjectPath
+
 	//nolint
 	signals *struct {
 		Unlock                           struct{}
@@ -565,6 +567,10 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
 	m.sigLoop.Start()
 	m.dbusDaemon = ofdbus.NewDBus(sessionBus)
+	m.CurrentSessionPath, err = getCurSessionPath()
+	if err != nil {
+		logger.Warning("failed to get current session path:", err)
+	}
 
 	m.initInhibitManager()
 	m.listenDBusSignals()
@@ -1217,3 +1223,20 @@ func quitObexSevice() {
 	}
 }
 
+func getCurSessionPath() (dbus.ObjectPath, error) {
+	var err error
+
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return "", err
+	}
+
+	loginManager := login1.NewManager(sysBus)
+	sessionPath, err := loginManager.GetSessionByPID(0, 0)
+	if err != nil {
+		logger.Warning(err)
+		return "", err
+	}
+	return sessionPath, nil
+}
