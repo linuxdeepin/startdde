@@ -26,7 +26,7 @@ import (
 )
 
 func TestDBusExists(t *testing.T) {
-	Convey("Test dbus whether exists", t, func() {
+	Convey("Test dbus whether exists", t, func(c C) {
 		err := initDBusObject()
 		if err != nil {
 			logger.Warning("failed to init dbusObject:", err)
@@ -35,9 +35,9 @@ func TestDBusExists(t *testing.T) {
 			t.Skip("busObj is nil")
 		}
 		exist, _ := isDBusServiceExist(orgFreedesktopDBus)
-		So(exist, ShouldBeTrue)
+		c.So(exist, ShouldBeTrue)
 		exist, _ = isDBusServiceExist(orgFreedesktopDBus + "111")
-		So(exist, ShouldBeFalse)
+		c.So(exist, ShouldBeFalse)
 	})
 }
 
