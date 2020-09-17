@@ -86,7 +86,7 @@ type StartManager struct {
 	appsDisableScaling strv.Strv
 	mu                 sync.Mutex
 
-	appClose            chan *UeMessageItem
+	appClose chan *UeMessageItem
 
 	launchedHooks []string
 
@@ -407,13 +407,19 @@ func (m *StartManager) shouldUseProxy(id string) bool {
 	m.mu.Unlock()
 
 	if _, err := os.Stat(m.proxyChainsConfFile); err != nil {
+		logger.Warning("proxy chains config file is not exist")
 		return false
 	}
 
+	return true
+}
+
+func (m *StartManager) shouldUseProxyChains() bool {
 	if m.proxyChainsBin == "" {
 		// try get proxyChainsBin again
 		m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
 		if m.proxyChainsBin == "" {
+			logger.Warning("proxy chains binary is not exist")
 			return false
 		}
 	}
@@ -472,6 +478,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		if m.shouldUseProxy(appId) {
 			logger.Debug("launch: use proxy")
 			if supportProxyServerOption(appId) {
+				logger.Debug("support proxy server option")
 				proxyServerUrl, err := getProxyServerUrl()
 				if err == nil {
 					cmdSuffixes = append(cmdSuffixes, "--proxy-server="+proxyServerUrl)
@@ -479,7 +486,12 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 					logger.Warning("failed to get google chrome proxy server url:", err)
 				}
 			} else {
-				cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+				logger.Debug("support proxy chain option")
+				if m.shouldUseProxyChains() {
+					cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+				} else {
+					logger.Warning("failed to get proxy chains binary")
+				}
 			}
 		}
 		if m.shouldDisableScaling(appId) {
@@ -512,7 +524,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	}
 	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
+	item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
 	sendAppDataMsgToUserExperModule(UserExperOpenApp, item)
 
 	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
@@ -522,9 +534,9 @@ func (m *StartManager) listenAppCloseEvent() error {
 	go func() {
 		for {
 			select {
-			case item := <- m.appClose:
+			case item := <-m.appClose:
 				if item != nil {
-					item := &UeMessageItem{Path:item.Path, Name:item.Name, Id:item.Id}
+					item := &UeMessageItem{Path: item.Path, Name: item.Name, Id: item.Id}
 					sendAppDataMsgToUserExperModule(UserExperCloseApp, item)
 				}
 			}
@@ -539,7 +551,7 @@ func sendAppDataMsgToUserExperModule(msg string, item *UeMessageItem) {
 	bus, err := dbus.SystemBus()
 	if err == nil {
 		userexp := bus.Object(UserExperServiceName, UserExperPath)
-		err = userexp.Call(UserExperServiceName + ".SendAppStateData", 0, msg, item.Path, item.Name, item.Id).Err
+		err = userexp.Call(UserExperServiceName+".SendAppStateData", 0, msg, item.Path, item.Name, item.Id).Err
 		if err != nil {
 			logger.Warningf("failed to call %s.SendAppStateData, %v", UserExperServiceName, err)
 		} else {
@@ -623,7 +635,7 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		// send app close info to ue module
 		// we did not care the program exit normal or not
 		if appInfo != nil {
-			item := &UeMessageItem{Path:appInfo.GetFileName(), Name:appInfo.GetName(), Id:appInfo.GetId()}
+			item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
 			m.appClose <- item
 		}
 
