@@ -26,10 +26,14 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
 	"github.com/godbus/dbus"
+	display "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
 	"pkg.deepin.io/lib/utils"
 	"pkg.deepin.io/lib/xdg/basedir"
+)
+
+const (
+	versionFile = "/etc/os-version"
 )
 
 func tryMatchVM() {
@@ -39,7 +43,7 @@ func tryMatchVM() {
 		return
 	}
 
-	if !inVM {
+	if !inVM || isServer() {
 		return
 	}
 
@@ -52,6 +56,21 @@ func tryMatchVM() {
 			logger.Warning(err)
 		}
 	}
+}
+
+func isServer() bool {
+	t := strings.ToLower(getProductType())
+	return strings.Contains(t, "server")
+}
+
+func getProductType() string {
+	keyFile, err := utils.NewKeyFileFromFile(versionFile)
+	if err != nil {
+		return ""
+	}
+	defer keyFile.Free()
+	releaseType, _ := keyFile.GetString("Version", "ProductType")
+	return releaseType
 }
 
 func correctVMResolution() {
