@@ -40,6 +40,7 @@ custom applications which compliant with xdg autostart specification.
 
 %prep
 %autosetup
+patch Makefile < rpm/Makefile.patch
 
 %build
 export GOPATH="%{gopath}"
@@ -60,8 +61,8 @@ make GO_BUILD_FLAGS=-trimpath
 %files
 %doc README.md
 %license LICENSE
-%{_sysconfdir}/X11/Xsession.d/00deepin-dde-env
-%{_sysconfdir}/X11/Xsession.d/01deepin-profile
+%{_sysconfdir}/X11/xinit/xinitrc.d/00deepin-dde-env
+%{_sysconfdir}/X11/xinit/xinitrc.d/01deepin-profile
 %{_bindir}/%{name}
 #%{_sbindir}/deepin-session
 %{_sbindir}/deepin-fix-xauthority-perm
