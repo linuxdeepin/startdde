@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -80,7 +81,7 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop
 	inhibitManager        InhibitManager
 
-	CurrentSessionPath      dbus.ObjectPath
+	CurrentSessionPath dbus.ObjectPath
 
 	//nolint
 	signals *struct {
@@ -313,13 +314,61 @@ func (m *SessionManager) reboot(force bool) {
 }
 
 func (m *SessionManager) CanSuspend() (bool, *dbus.Error) {
-	_, err := os.Stat("/sys/power/mem_sleep")
-	if os.IsNotExist(err) {
+	if !canSuspendEx() {
 		return false, nil
 	}
 
 	str, _ := objLogin.CanSuspend(0)
 	return str == "yes", nil
+}
+
+func canSuspendEx() bool {
+	data, err := ioutil.ReadFile("/sys/power/mem_sleep")
+	if err != nil {
+		logger.Warning("read /sys/power/mem_sleep failed:", err)
+		return false
+	}
+	if !strings.Contains(string(data), "[deep]") {
+		logger.Debug("cant find '[deep]' in /sys/power/mem_sleep")
+		return false
+	}
+
+	data, err = ioutil.ReadFile("/sys/power/image_size")
+	if err != nil {
+		logger.Warning("read /sys/power/image_size failed:", err)
+		return false
+	}
+
+	imageSize, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		logger.Debug("read image size err:", err)
+		return false
+	}
+
+	data, err = ioutil.ReadFile("/proc/swaps")
+	if err != nil {
+		logger.Warning("read /proc/swaps failed:", err)
+		return false
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 5 || fields[1] != "partition" {
+			continue
+		}
+
+		swapSize, err := strconv.Atoi(fields[2])
+		if err != nil {
+			continue
+		}
+		if swapSize*1024 >= imageSize {
+			return true
+		}
+		logger.Debugf("swap-partition(%s) smaller then image size", fields[0])
+	}
+
+	logger.Debug("dont support suspend")
+	return false
 }
 
 func (m *SessionManager) RequestSuspend() *dbus.Error {
@@ -1155,7 +1204,7 @@ func doLogout(force bool) {
 
 const (
 	atSpiService = "at-spi-dbus-bus.service"
-	obexService = "obex.service"
+	obexService  = "obex.service"
 )
 
 // start at-spi-dbus-bus.service
