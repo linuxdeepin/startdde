@@ -25,6 +25,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
 
@@ -203,9 +204,4 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 
 func (m *Manager) doSetBrightness(value float64, name string) error {
 	return m.doSetBrightnessAux(false, value, name)
-}
-
-func (m *Manager) refreshDisplays() error {
-	logger.Debug("refreshDisplays")
-	return brightness.RefreshDisplays()
 }

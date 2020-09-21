@@ -22,12 +22,11 @@ package brightness
 import (
 	"fmt"
 
+	dbus "github.com/godbus/dbus"
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/startdde/display/utils"
 	displayBl "pkg.deepin.io/lib/backlight/display"
-	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/log"
 )
 
@@ -35,13 +34,11 @@ const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
-	SetterDDCCI     = "ddcci"
 )
 
 var logger = log.NewLogger("daemon/display/brightness")
 
 var helper *backlight.Backlight
-var ddcciHelper *backlight.DDCCI
 
 func InitBacklightHelper() {
 	var err error
@@ -50,7 +47,6 @@ func InitBacklightHelper() {
 		return
 	}
 	helper = backlight.NewBacklight(sysBus)
-	ddcciHelper = backlight.NewDDCCI(sysBus)
 }
 
 func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
@@ -66,22 +62,13 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 		return setBacklight(value, output, conn)
 	case SetterGamma:
 		return setOutputCrtcGamma(value, output, conn)
-	case SetterDDCCI:
-		return setDDCCIBacklight(value, output, conn)
 	}
+
 	// case SetterAuto
 	if isBuiltin {
 		if supportBacklight(output, conn) {
 			return setBacklight(value, output, conn)
 		}
-	}
-
-	if supportDDCCIBacklight(output, conn) {
-		err := setDDCCIBacklight(value, output, conn)
-		if err == nil {
-			return nil
-		}
-		logger.Warning(err)
 	}
 
 	return setOutputCrtcGamma(value, output, conn)
@@ -200,39 +187,4 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
 	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
-}
-
-func supportDDCCIBacklight(output randr.Output, conn *x.Conn) bool {
-	edid, err := utils.GetOutputEDID(conn, output)
-	if err != nil {
-		logger.Warningf("Get output(%v) EDID failed: %v\n", output, err)
-		return false
-	}
-
-	edidChecksum := utils.GetEDIDChecksum(edid)
-
-	res, err := ddcciHelper.CheckSupport(0, edidChecksum)
-	if err != nil {
-		logger.Warningf("failed to check ddc/ci support: %v", err)
-		return false
-	}
-
-	return res
-}
-
-func setDDCCIBacklight(value float64, output randr.Output, conn *x.Conn) error {
-	edid, err := utils.GetOutputEDID(conn, output)
-	if err != nil {
-		return err
-	}
-
-	edidChecksum := utils.GetEDIDChecksum(edid)
-
-	percent := int32(value * 100)
-	logger.Debugf("output %d, ddcci set brightness %d", output, percent)
-	return ddcciHelper.SetBrightness(0, edidChecksum, percent)
-}
-
-func RefreshDisplays() error {
-	return ddcciHelper.RefreshDisplays(0)
 }

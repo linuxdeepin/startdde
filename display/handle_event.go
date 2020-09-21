@@ -92,12 +92,6 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 		if m.DisplayMode == DisplayModeExtend {
 			m.setHighPriorityMonitorAsPrimaryForExtend(newMonitorsId)
 		}
-		go func() {
-			err := m.refreshDisplays()
-			if err != nil {
-				logger.Warning(err)
-			}
-		}()
 	}
 }
 
