@@ -55,6 +55,25 @@ const (
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 )
 
+const (
+	priorityEDP = iota
+	priorityDP
+	priorityHDMI
+	priorityDVI
+	priorityVGA
+	priorityOther
+)
+
+var (
+	monitorPriority = map[string]int{
+		"edp":  priorityEDP,
+		"dp":   priorityDP,
+		"hdmi": priorityHDMI,
+		"dvi":  priorityDVI,
+		"vga":  priorityVGA,
+	}
+)
+
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 
 type Manager struct {
@@ -1109,24 +1128,19 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		return
 	}
 
-	primaryMonitor, monitorType := m.getHighPriorityMonitorName()
-	if primaryMonitor != "" && primary == "" && monitor0 != nil &&
-		!strings.Contains(monitor0.Name, monitorType) {
-		logger.Debug("change the primary monitor from ", primary, " to ", primaryMonitor)
-		primary = primaryMonitor
-	}
-
-	if primary != "" {
-		for _, m := range monitors {
-			if m.Enabled && m.Name == primary {
-				monitor0 = m
-			}
-		}
-	}
-
 	if monitor0 != nil {
 		err = m.setOutputPrimary(randr.Output(monitor0.ID))
 		if err != nil {
+			logger.Warning("failed to set primary output:", err)
+			return
+		}
+
+		screenCfg.setMonitorConfigs(DisplayModeExtend, "",
+			toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
+
+		err = m.saveConfig()
+		if err != nil {
+			logger.Warning("failed to save config:", err)
 			return
 		}
 	}
@@ -1409,7 +1423,49 @@ func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
 	if builtinMonitor != nil {
 		return builtinMonitor
 	}
+
+	monitor := m.getPriorMonitor(monitors)
+	if monitor != nil {
+		return monitor
+	}
+
 	return getMinLastConnectedTimeMonitor(monitors)
+}
+
+func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
+	var monitor *Monitor
+	priority := priorityOther
+	for _, v := range monitors {
+		name := m.getPortType(v.Name)
+		p, ok := monitorPriority[name]
+
+		// 不在列表中的话，留空，以便最后通过连接时间来设置主屏幕
+		if !ok {
+			continue
+		}
+
+		if p < priority {
+			monitor = v
+			priority = p
+			continue
+		}
+
+		// 当接口类型相同，若一个是默认显示器，继续让它作为默认显示器
+		if p == priority && m.Primary == v.Name {
+			monitor = v
+			priority = p
+		}
+	}
+
+	return monitor
+}
+
+func (m *Manager) getPortType(name string) string {
+	i := strings.IndexRune(name, '-')
+	if i != -1 {
+		name = name[0 : i+1]
+	}
+	return strings.ToLower(name)
 }
 
 func (m *Manager) getCustomIdList() []string {

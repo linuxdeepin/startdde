@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
