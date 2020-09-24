@@ -41,6 +41,8 @@ custom applications which compliant with xdg autostart specification.
 %prep
 %autosetup
 patch Makefile < rpm/Makefile.patch
+patch misc/auto_launch/chinese.json < rpm/chinese.json.patch
+patch misc/auto_launch/default.json < rpm/default.json.patch
 
 %build
 export GOPATH="%{gopath}"
