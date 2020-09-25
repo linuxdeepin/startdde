@@ -152,8 +152,9 @@ func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
 		resources, err := m.getScreenResourcesCurrent()
 		if err != nil {
 			logger.Warning("failed to get screen resources:", err)
+		} else {
+			m.modes = resources.Modes
 		}
-		m.modes = resources.Modes
 	}
 
 	m.updateOutputPrimary()
