@@ -13,6 +13,7 @@ import (
 )
 
 var logger *log.Logger
+var _hasRandr1d2 bool // 是否 randr 版本大于等于 1.2
 
 func init() {
 	logger = log.NewLogger("deepin-greeter-display")
@@ -40,23 +41,34 @@ func newManager() (*Manager, error) {
 		return nil, xerrors.Errorf("failed to connect X: %w", err)
 	}
 
-	resources, err := m.getScreenResources()
+	randrVersion, err := randr.QueryVersion(m.xConn, randr.MajorVersion, randr.MinorVersion).Reply(m.xConn)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to get screen resources: %w", err)
+		return nil, err
+	}
+	if randrVersion.ServerMajorVersion > 1 ||
+		(randrVersion.ServerMajorVersion == 1 && randrVersion.ServerMinorVersion >= 2) {
+		_hasRandr1d2 = true
 	}
 
-	m.configTimestamp = resources.ConfigTimestamp
-
-	for _, output := range resources.Outputs {
-		outputInfo, err := m.getOutputInfo(output)
+	if _hasRandr1d2 {
+		resources, err := m.getScreenResources()
 		if err != nil {
-			return nil, xerrors.Errorf("failed to get output %d info: %w", output, err)
+			return nil, xerrors.Errorf("failed to get screen resources: %w", err)
 		}
 
-		m.outputs[output] = &Output{
-			id:        output,
-			name:      outputInfo.Name,
-			connected: outputInfo.Connection == randr.ConnectionConnected,
+		m.configTimestamp = resources.ConfigTimestamp
+
+		for _, output := range resources.Outputs {
+			outputInfo, err := m.getOutputInfo(output)
+			if err != nil {
+				return nil, xerrors.Errorf("failed to get output %d info: %w", output, err)
+			}
+
+			m.outputs[output] = &Output{
+				id:        output,
+				name:      outputInfo.Name,
+				connected: outputInfo.Connection == randr.ConnectionConnected,
+			}
 		}
 	}
 
@@ -195,5 +207,7 @@ func main() {
 		logger.Fatal("failed to new manager:", err)
 	}
 
-	m.listenEvent()
+	if _hasRandr1d2 {
+		m.listenEvent()
+	} // else 直接退出
 }
