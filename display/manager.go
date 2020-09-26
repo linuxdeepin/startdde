@@ -152,11 +152,20 @@ type ModeInfo struct {
 
 var _xConn *x.Conn
 
+var _hasRandr1d2 bool // 是否 randr 版本大于等于 1.2
+
 func Init(xConn *x.Conn) {
 	_xConn = xConn
-	_, err := randr.QueryVersion(xConn, randr.MajorVersion, randr.MinorVersion).Reply(xConn)
+	randrVersion, err := randr.QueryVersion(xConn, randr.MajorVersion, randr.MinorVersion).Reply(xConn)
 	if err != nil {
 		logger.Warning(err)
+	} else {
+		logger.Debugf("randr version %d.%d", randrVersion.ServerMajorVersion, randrVersion.ServerMinorVersion)
+		if randrVersion.ServerMajorVersion > 1 ||
+			(randrVersion.ServerMajorVersion == 1 && randrVersion.ServerMinorVersion >= 2) {
+			_hasRandr1d2 = true
+		}
+		logger.Debug("has randr1.2:", _hasRandr1d2)
 	}
 }
 
@@ -166,10 +175,13 @@ type monitorSizeInfo struct {
 }
 
 func GetRecommendedScaleFactor() float64 {
+	if !_hasRandr1d2 {
+		return 1
+	}
 	resources, err := getScreenResources(_xConn)
 	if err != nil {
 		logger.Warning(err)
-		return 0
+		return 1
 	}
 	cfgTs := resources.ConfigTimestamp
 
@@ -240,35 +252,58 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.ScreenWidth = screen.WidthInPixels
 	m.ScreenHeight = screen.HeightInPixels
 
-	resources, err := getScreenResources(m.xConn)
-	if err == nil {
-		m.modes = resources.Modes
-		m.configTimestamp = resources.ConfigTimestamp
-		err = m.initCrtcMap(resources.Crtcs)
-		if err != nil {
+	if _hasRandr1d2 {
+		resources, err := getScreenResources(m.xConn)
+		if err == nil {
+			m.modes = resources.Modes
+			m.configTimestamp = resources.ConfigTimestamp
+			err = m.initCrtcMap(resources.Crtcs)
+			if err != nil {
+				logger.Warning(err)
+			}
+			err = m.initOutputMap(resources.Outputs)
+			if err != nil {
+				logger.Warning(err)
+			}
+		} else {
 			logger.Warning(err)
 		}
-		err = m.initOutputMap(resources.Outputs)
-		if err != nil {
-			logger.Warning(err)
+
+		for output, outputInfo := range m.outputMap {
+			err = m.addMonitor(output, outputInfo)
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
+
+		m.initBuiltinMonitor()
+		m.monitorsId = m.getMonitorsId()
+		m.updatePropMonitors()
+		m.updateOutputPrimary()
+
+		m.config = loadConfig()
 	} else {
-		logger.Warning(err)
-	}
-
-	for output, outputInfo := range m.outputMap {
-		err = m.addMonitor(output, outputInfo)
-		if err != nil {
+		// randr 版本低于 1.2
+		screenInfo, err := randr.GetScreenInfo(m.xConn, screen.Root).Reply(m.xConn)
+		if err == nil {
+			monitor, err := m.addMonitorFallback(screenInfo)
+			if err == nil {
+				m.updatePropMonitors()
+				m.setPropPrimary("Default")
+				m.setPropPrimaryRect(x.Rectangle{
+					X:      monitor.X,
+					Y:      monitor.Y,
+					Width:  monitor.Width,
+					Height: monitor.Height,
+				})
+			} else {
+				logger.Warning(err)
+			}
+		} else {
 			logger.Warning(err)
 		}
 	}
 
-	m.initBuiltinMonitor()
-	m.monitorsId = m.getMonitorsId()
-	m.updatePropMonitors()
-	m.updateOutputPrimary()
-
-	m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 
@@ -359,6 +394,10 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 }
 
 func (m *Manager) applyDisplayMode() {
+	// TODO 实现功能
+	if !_hasRandr1d2 {
+		return
+	}
 	logger.Debug("applyDisplayMode")
 	monitors := m.getConnectedMonitors()
 	var err error
@@ -575,6 +614,69 @@ func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
 	}
 	result = filterModeInfos(result)
 	return result
+}
+
+func getScreenInfoSize(screenInfo *randr.GetScreenInfoReply) (size randr.ScreenSize, err error) {
+	sizeId := screenInfo.SizeID
+	if int(sizeId) < len(screenInfo.Sizes) {
+		size = screenInfo.Sizes[sizeId]
+	} else {
+		err = fmt.Errorf("size id out of range: %d %d", sizeId, len(screenInfo.Sizes))
+	}
+	return
+}
+
+func (m *Manager) addMonitorFallback(screenInfo *randr.GetScreenInfoReply) (*Monitor, error) {
+	output := randr.Output(1)
+
+	size, err := getScreenInfoSize(screenInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	monitor := &Monitor{
+		service:   m.service,
+		m:         m,
+		ID:        uint32(output),
+		Name:      "Default",
+		Connected: true,
+		MmWidth:   uint32(size.MWidth),
+		MmHeight:  uint32(size.MHeight),
+		Enabled:   true,
+		Width:     size.Width,
+		Height:    size.Height,
+	}
+
+	err = m.service.Export(monitor.getPath(), monitor)
+	if err != nil {
+		return nil, err
+	}
+	m.monitorMapMu.Lock()
+	m.monitorMap[output] = monitor
+	m.monitorMapMu.Unlock()
+	return monitor, nil
+}
+
+func (m *Manager) updateMonitorFallback(screenInfo *randr.GetScreenInfoReply) *Monitor {
+	output := randr.Output(1)
+	m.monitorMapMu.Lock()
+	monitor, ok := m.monitorMap[output]
+	m.monitorMapMu.Unlock()
+	if !ok {
+		return nil
+	}
+
+	size, err := getScreenInfoSize(screenInfo)
+	if err != nil {
+		logger.Warning(err)
+		return nil
+	}
+
+	monitor.setPropWidth(size.Width)
+	monitor.setPropHeight(size.Height)
+	monitor.setPropMmWidth(uint32(size.MWidth))
+	monitor.setPropMmHeight(uint32(size.MHeight))
+	return monitor
 }
 
 func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInfoReply) error {

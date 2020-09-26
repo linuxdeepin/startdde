@@ -149,15 +149,34 @@ func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
 
 	if cfgTsChanged {
 		logger.Debug("config timestamp changed")
-		resources, err := m.getScreenResourcesCurrent()
-		if err != nil {
-			logger.Warning("failed to get screen resources:", err)
+		if _hasRandr1d2 {
+			resources, err := m.getScreenResourcesCurrent()
+			if err != nil {
+				logger.Warning("failed to get screen resources:", err)
+			} else {
+				m.modes = resources.Modes
+			}
 		} else {
-			m.modes = resources.Modes
+			// randr 版本低于 1.2
+			root := m.xConn.GetDefaultScreen().Root
+			screenInfo, err := randr.GetScreenInfo(m.xConn, root).Reply(m.xConn)
+			if err == nil {
+				monitor := m.updateMonitorFallback(screenInfo)
+				m.setPropPrimaryRect(x.Rectangle{
+					X:      monitor.X,
+					Y:      monitor.Y,
+					Width:  monitor.Width,
+					Height: monitor.Height,
+				})
+			} else {
+				logger.Warning(err)
+			}
 		}
 	}
 
-	m.updateOutputPrimary()
+	if _hasRandr1d2 {
+		m.updateOutputPrimary()
+	}
 
 	logger.Info("redo map touch screen")
 	m.doMapTouches()
