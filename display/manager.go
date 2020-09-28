@@ -867,7 +867,7 @@ func (m *Manager) findFreeCrtc(output randr.Output) randr.Crtc {
 	return 0
 }
 
-func (m *Manager) switchModeMirror() (err error) {
+func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 	logger.Debug("switch mode mirror")
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
@@ -905,7 +905,7 @@ func (m *Manager) switchModeMirror() (err error) {
 		return
 	}
 
-	monitor0 := getMinIDMonitor(m.getConnectedMonitors())
+	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	if monitor0 != nil {
 		err = m.setOutputPrimary(randr.Output(monitor0.ID))
 		if err != nil {
@@ -913,6 +913,18 @@ func (m *Manager) switchModeMirror() (err error) {
 		}
 	}
 	return
+}
+
+func (m *Manager) switchModeMirror() (err error) {
+	err, monitor0 := m.switchModeMirrorAux()
+	if err != nil {
+		return
+	}
+
+	screenCfg := m.getScreenConfig()
+	screenCfg.setMonitorConfigs(DisplayModeMirror, "",
+		toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
+	return m.saveConfig()
 }
 
 type screenSize struct {
@@ -1400,10 +1412,13 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	}
 
 	// 自定义配置不存在时，默认使用复制模式，即自定义模式的合并子模式
-	err = m.switchModeMirror()
+	err, monitor0 := m.switchModeMirrorAux()
 	if err != nil {
 		return
 	}
+
+	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
+		toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
 	err = m.saveConfig()
 	if err != nil {
 		return
