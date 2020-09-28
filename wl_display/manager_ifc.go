@@ -1,11 +1,13 @@
 package display
 
 import (
+	"fmt"
 	"math"
 	"os"
 
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/strv"
 )
 
 func (m *Manager) GetInterfaceName() string {
@@ -179,4 +181,35 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 
 func (m *Manager) CanSwitchMode() (bool, *dbus.Error) {
 	return m.canSwitchMode(), nil
+}
+
+func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
+	monitors := m.getConnectedMonitors()
+
+	mode := DisplayModeUnknow
+	var pairs strv.Strv
+	for _, m := range monitors {
+		if !m.Enabled {
+			continue
+		}
+
+		pair := fmt.Sprintf("%d,%d", m.X, m.Y)
+
+		// 左上角座标相同，是复制
+		if pairs.Contains(pair) {
+			mode = DisplayModeMirror
+		}
+
+		pairs = append(pairs, pair)
+	}
+
+	if mode == DisplayModeUnknow && len(pairs) != 0 {
+		if len(pairs) == 1 {
+			mode = DisplayModeOnlyOne
+		} else {
+			mode = DisplayModeExtend
+		}
+	}
+
+	return mode, nil
 }
