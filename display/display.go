@@ -1,6 +1,8 @@
 package display
 
 import (
+	"errors"
+
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -15,22 +17,10 @@ const (
 
 var _dpy *Manager
 
-func Start(service *dbusutil.Service) {
+func Start(service *dbusutil.Service) error {
 	m := newManager(service)
 	m.init()
-	_dpy = m
-}
-
-func StartPart2(service *dbusutil.Service) error {
-	m := _dpy
-	m.initTouchscreens()
-	m.initTouchMap()
-	err := generateRedshiftConfFile()
-	if err != nil {
-		logger.Warning(err)
-	}
-	m.initColorTemperature()
-	err = service.Export(dbusPath, m)
+	err := service.Export(dbusPath, m)
 	if err != nil {
 		return err
 	}
@@ -39,6 +29,22 @@ func StartPart2(service *dbusutil.Service) error {
 	if err != nil {
 		return err
 	}
+	_dpy = m
+	return nil
+}
+
+func StartPart2() error {
+	if _dpy == nil {
+		return errors.New("_dpy is nil")
+	}
+	m := _dpy
+	m.initTouchscreens()
+	m.initTouchMap()
+	err := generateRedshiftConfFile()
+	if err != nil {
+		logger.Warning(err)
+	}
+	m.initColorTemperature()
 
 	for _, touch := range m.Touchscreens {
 		if _, ok := m.TouchMap[touch.Serial]; !ok {

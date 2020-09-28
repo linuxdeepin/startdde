@@ -211,23 +211,21 @@ func main() {
 	}
 	logDebugAfter("before launchCoreComponents")
 
-	var displayStartedCh chan struct{}
 	if !_useWayland {
-		displayStartedCh = make(chan struct{})
-		// 使用 X11 环境时, 把 display 模块的启动分成两个部分，前一部分和 core components 一起启动，
+		// 使用 X11 环境时, 把 display 模块的启动分成两个部分，前一部分在 core components 启动之前启动，
 		// 后一部分在 core components 启动之后启动。
-		go func() {
-			display.Start(service)
-			displayStartedCh <- struct{}{}
-		}()
+		err := display.Start(service)
+		if err != nil {
+			logger.Warning("start display part1 failed:", err)
+		}
 	}
 
 	launchCoreComponents(sessionManager)
 
 	if !_useWayland {
+		// 启动 display 模块的后一部分
 		go func() {
-			<-displayStartedCh
-			err := display.StartPart2(service)
+			err := display.StartPart2()
 			if err != nil {
 				logger.Warning("start display part2 failed:", err)
 			}
