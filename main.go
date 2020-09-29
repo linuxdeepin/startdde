@@ -128,7 +128,12 @@ func launchCoreComponents(sm *SessionManager) {
 			if wmChooserLaunched {
 				wm_kwin.SyncWmChooserChoice()
 			}
-			launch(cmdKWin, nil, "kwin", true, nil)
+			launch(cmdKWin, nil, "kwin", true, func() {
+				// 先启动 dde-session-daemon，再启动 dde-dock
+				launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
+					launch(cmdDdeDock, nil, "dde-dock", true, nil)
+				})
+			})
 		} else {
 			wmCmd := _gSettingsConfig.wmCmd
 			if wmCmd != "" {
@@ -138,10 +143,6 @@ func launchCoreComponents(sm *SessionManager) {
 	}
 
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
-	// 先启动 dde-session-daemon，再启动 dde-dock
-	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-		launch(cmdDdeDock, nil, "dde-dock", true, nil)
-	})
 
 	wg.Wait()
 	logger.Info("core components cost:", time.Since(coreStartTime))
