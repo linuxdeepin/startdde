@@ -92,6 +92,7 @@ type Manager struct {
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
 		CanSwitchMode          func() `out:"can"`
+		GetRealDisplayMode     func() `out:"mode"`
 	}
 }
 
