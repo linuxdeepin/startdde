@@ -37,6 +37,8 @@ Depends: ${shlibs:Depends},
  libxfixes3,
  libxcursor1,
  xinput,
+ deepin-turbo,
+ deepin-turbo-booster,
 Recommends: dde-qt5integration
 Conflicts: deepin-session, deepin-wm-switcher
 Breaks: startdde(<= 2.91.1)
