@@ -20,8 +20,10 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -34,6 +36,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	dbus "github.com/godbus/dbus"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
+	systemPower "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/gir/gio-2.0"
@@ -65,6 +68,9 @@ const (
 	uiAppSchedHooksDir = "/usr/lib/UIAppSched.hooks"
 	launchedHookDir    = uiAppSchedHooksDir + "/launched"
 
+	cpuFreqAdjustFile   = "/usr/share/startdde/app_startup.conf"
+	performanceGovernor = "performance"
+
 	restartRateLimitSeconds = 60
 )
 
@@ -86,7 +92,9 @@ type StartManager struct {
 	appClose            chan *UeMessageItem
 	launchedHooks       []string
 
-	NeededMemory uint64
+	NeededMemory     uint64
+	systemPower      *systemPower.Power
+	cpuFreqAdjustMap map[string]int32
 
 	//nolint
 	signals *struct {
@@ -132,6 +140,52 @@ func getLaunchedHooks() (ret []string) {
 		ret = append(ret, fileInfo.Name())
 	}
 	return
+}
+
+func (m *StartManager) getCpuFreqAdjustMap() map[string]int32 {
+	cpuFreqAdjustMap := make(map[string]int32)
+
+	//the content format of each line is fixed: events timeout
+	fi, err := os.Open(cpuFreqAdjustFile)
+	if err != nil {
+		logger.Warning("open dde_startup.conf failed:", err)
+		return nil
+	}
+	defer fi.Close()
+
+	br := bufio.NewReader(fi)
+	for {
+		data, _, c := br.ReadLine()
+		if c == io.EOF {
+			break
+		}
+		//retrieve data: arr[0] --> events
+		//retrieve data: arr[1] --> timeout
+		arr := strings.Split(string(data), " ")
+		if len(arr) == 2 {
+			//get the name of the binary file
+			event := arr[0]
+			locktime, _ := strconv.ParseInt(arr[1], 10, 32)
+			cpuFreqAdjustMap[event] = int32(locktime)
+		}
+	}
+	return cpuFreqAdjustMap
+}
+
+func (m *StartManager) enableCpuFreqLock(desktopFile string) error {
+	fileName := filepath.Base(desktopFile)
+	event := strings.TrimSuffix(fileName, ".desktop")
+	value, ok := m.cpuFreqAdjustMap[event]
+
+	if ok {
+		err := m.systemPower.LockCpuFreq(0, performanceGovernor, value)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("application is not in app_startup.conf")
+	}
+	return nil
 }
 
 func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
@@ -192,6 +246,8 @@ func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
 	}
 
 	m.daemonApps = daemonApps.NewApps(sysBus)
+	m.systemPower = systemPower.NewPower(sysBus)
+	m.cpuFreqAdjustMap = m.getCpuFreqAdjustMap()
 	return m
 }
 
@@ -483,6 +539,12 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	var cmdPrefixes []string
 	var cmdSuffixes []string
 	var uiApp *swapsched.UIApp
+
+	err = m.enableCpuFreqLock(desktopFile)
+	if err != nil {
+		logger.Warning("cpu freq lock failed:", err)
+	}
+
 	if swapSchedDispatcher != nil {
 		if isDEComponent(appInfo) {
 			cmdPrefixes = []string{globalCgExecBin, "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
