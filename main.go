@@ -21,6 +21,7 @@ package main
 
 import "C"
 import (
+	"context"
 	"flag"
 	"os"
 	"os/signal"
@@ -120,6 +121,7 @@ func launchCoreComponents(sm *SessionManager) {
 		sm.launchWithoutWait(program, args...)
 	}
 
+	var dockCh chan struct{}
 	coreStartTime := time.Now()
 	// launch window manager
 	if !_useWayland {
@@ -128,11 +130,19 @@ func launchCoreComponents(sm *SessionManager) {
 			if wmChooserLaunched {
 				wm_kwin.SyncWmChooserChoice()
 			}
+			dockCh = make(chan struct{}, 1)
 			launch(cmdKWin, nil, "kwin", true, func() {
-				// 先启动 dde-session-daemon，再启动 dde-dock
-				launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-					launch(cmdDdeDock, nil, "dde-dock", true, nil)
-				})
+				// 等待 kwin 就绪，然后让 dock 显示
+				<-dockCh
+				logInfoAfter("call com.deepin.dde.Dock callShow")
+				sessionBus := sm.service.Conn()
+				dockObj := sessionBus.Object("com.deepin.dde.Dock", "/com/deepin/dde/Dock")
+				ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancelFn()
+				err := dockObj.CallWithContext(ctx, "com.deepin.dde.Dock.callShow", 0).Err
+				if err != nil {
+					logger.Warning("call dde-dock callShow failed:", err)
+				}
 			})
 		} else {
 			wmCmd := _gSettingsConfig.wmCmd
@@ -142,6 +152,18 @@ func launchCoreComponents(sm *SessionManager) {
 		}
 	}
 
+	// 先启动 dde-session-daemon，再启动 dde-dock
+	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
+		var dockArgs []string
+		if _useKWin {
+			dockArgs = []string{"-r"}
+		}
+		launch(cmdDdeDock, dockArgs, "dde-dock", true, func() {
+			if _useKWin {
+				dockCh <- struct{}{}
+			}
+		})
+	})
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
 	wg.Wait()
@@ -153,6 +175,11 @@ var _mainBeginTime time.Time
 func logDebugAfter(msg string) {
 	elapsed := time.Since(_mainBeginTime)
 	logger.Debugf("after %s, %s", elapsed, msg)
+}
+
+func logInfoAfter(msg string) {
+	elapsed := time.Since(_mainBeginTime)
+	logger.Infof("after %s, %s", elapsed, msg)
 }
 
 func main() {
