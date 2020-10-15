@@ -266,7 +266,9 @@ func (m *SessionManager) shutdown(force bool) {
 	if err != nil {
 		logger.Warning("failed to call login PowerOff:", err)
 	}
-	setDPMSMode(false)
+	if _gSettingsConfig.needQuickBlackScreen {
+		setDPMSMode(false)
+	}
 	err = objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
@@ -305,7 +307,9 @@ func (m *SessionManager) reboot(force bool) {
 	if err != nil {
 		logger.Warning("failed to call login Reboot:", err)
 	}
-	setDPMSMode(false)
+	if _gSettingsConfig.needQuickBlackScreen {
+		setDPMSMode(false)
+	}
 	err = objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
@@ -384,7 +388,9 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 	if err != nil {
 		logger.Warning("failed to suspend:", err)
 	}
-	setDPMSMode(false)
+	if _gSettingsConfig.needQuickBlackScreen {
+		setDPMSMode(false)
+	}
 	return nil
 }
 
@@ -398,7 +404,9 @@ func (m *SessionManager) RequestHibernate() *dbus.Error {
 	if err != nil {
 		logger.Warning("failed to Hibernate:", err)
 	}
-	setDPMSMode(false)
+	if _gSettingsConfig.needQuickBlackScreen {
+		setDPMSMode(false)
+	}
 	return nil
 }
 
