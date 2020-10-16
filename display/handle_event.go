@@ -114,14 +114,6 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 	}
 	m.outputMapMu.Unlock()
 
-	if rOutputInfo != nil {
-		m.PropsMu.Lock()
-		if m.Primary == rOutputInfo.Name {
-			m.setPropPrimaryRect(getCrtcRect(crtcInfo))
-		}
-		m.PropsMu.Unlock()
-	}
-
 	if rOutput != 0 {
 		m.outputMapMu.Lock()
 		monitor := m.monitorMap[rOutput]
@@ -130,6 +122,14 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 			logger.Debug("update monitor crtc", monitor.ID, monitor.Name)
 			m.updateMonitorCrtcInfo(monitor, crtcInfo)
 		}
+	}
+
+	if rOutputInfo != nil {
+		m.PropsMu.Lock()
+		if m.Primary == rOutputInfo.Name {
+			m.setPropPrimaryRect(getCrtcRect(crtcInfo))
+		}
+		m.PropsMu.Unlock()
 	}
 
 	// 如果实际的屏幕排列与设置的不同，设置为自定义（比如用户自己用 xrandr 命令设置屏幕排列后）
