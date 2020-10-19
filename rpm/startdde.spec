@@ -42,8 +42,10 @@ Recommends:     dde-qt5integration
 
 %prep
 %autosetup -n %{name}-%{version}
-sed -i 's|/usr/lib/deepin-daemon|/usr/libexec/deepin-daemon|g' \
-misc/auto_launch/chinese.json misc/auto_launch/default.json
+patch Makefile < rpm/Makefile.patch
+patch misc/auto_launch/chinese.json < rpm/chinese.json.patch
+patch misc/auto_launch/default.json < rpm/default.json.patch
+patch main.go < rpm/main.go.patch
 
 %build
 export GOPATH=/usr/share/gocode

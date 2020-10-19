@@ -1,0 +1,11 @@
+--- main.go.orig	2020-10-19 18:29:22.000000000 +0800
++++ main.go	2020-10-19 18:30:17.741904550 +0800
+@@ -89,7 +89,7 @@
+ 
+ const (
+ 	cmdKWin             = "/usr/bin/kwin_no_scale"
+-	cmdDdeSessionDaemon = "/usr/lib/deepin-daemon/dde-session-daemon"
++	cmdDdeSessionDaemon = "/usr/libexec/deepin-daemon/dde-session-daemon"
+ 	cmdDdeDock          = "/usr/bin/dde-dock"
+ 	cmdDdeDesktop       = "/usr/bin/dde-desktop"
+ )
