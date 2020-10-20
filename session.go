@@ -48,7 +48,7 @@ import (
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
-	"pkg.deepin.io/gir/gio-2.0"
+	gio "pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
@@ -86,6 +86,7 @@ type SessionManager struct {
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            *login1.Manager
 	objLoginSessionSelf *login1.Session
+
 	//nolint
 	signals *struct {
 		Unlock                           struct{}
@@ -963,7 +964,7 @@ func sendMsgToUserExperModule(msg string) {
 			} else {
 				logger.Infof("send %s message to ue module", msg)
 			}
-			ch <- struct{}{}
+			close(ch)
 		}()
 		select {
 		case <-ch:
@@ -973,7 +974,6 @@ func sendMsgToUserExperModule(msg string) {
 	} else {
 		logger.Warning(err)
 	}
-	close(ch)
 }
 
 func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
