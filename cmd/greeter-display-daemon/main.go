@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"github.com/linuxdeepin/go-x11-client/ext/input"
+	"github.com/linuxdeepin/go-x11-client/ext/xfixes"
 	"os/exec"
 	"sort"
 	"strings"
@@ -15,6 +17,8 @@ import (
 var logger *log.Logger
 var _hasRandr1d2 bool // 是否 randr 版本大于等于 1.2
 
+const evMaskForHideCursor uint32 = input.XIEventMaskRawMotion | input.XIEventMaskRawTouchBegin
+
 func init() {
 	logger = log.NewLogger("deepin-greeter-display")
 }
@@ -23,6 +27,7 @@ type Manager struct {
 	xConn           *x.Conn
 	configTimestamp x.Timestamp
 	outputs         map[randr.Output]*Output
+	cursorShowed        bool
 }
 
 type Output struct {
@@ -71,6 +76,8 @@ func newManager() (*Manager, error) {
 			}
 		}
 	}
+	m.cursorShowed = true
+	m.initXExtensions()
 
 	return m, nil
 }
@@ -86,6 +93,7 @@ func (m *Manager) listenEvent() {
 	}
 
 	rrExtData := m.xConn.GetExtensionData(randr.Ext())
+	inputExtData := m.xConn.GetExtensionData(input.Ext())
 
 	for ev := range eventChan {
 		switch ev.GetEventCode() {
@@ -100,6 +108,26 @@ func (m *Manager) listenEvent() {
 		case randr.ScreenChangeNotifyEventCode + rrExtData.FirstEvent:
 			event, _ := randr.NewScreenChangeNotifyEvent(ev)
 			m.handleScreenChanged(event)
+
+		case x.GeGenericEventCode:
+			geEvent, _ := x.NewGeGenericEvent(ev)
+			if geEvent.Extension == inputExtData.MajorOpcode {
+				switch geEvent.EventType {
+				case input.RawMotionEventCode:
+					m.beginMoveMouse()
+					_, err := m.queryPointer()
+					if err != nil {
+						logger.Warning(err)
+					}
+
+				case input.RawTouchBeginEventCode:
+					m.beginTouch()
+					_, err := m.queryPointer()
+					if err != nil {
+						logger.Warning(err)
+					}
+				}
+			}
 		}
 	}
 }
@@ -199,6 +227,78 @@ func (m *Manager) configure() {
 	if err != nil {
 		logger.Warningf("xrandr exit err: %v, stderr: %s", err, errBuf.Bytes())
 	}
+}
+
+func (m *Manager) initXExtensions() {
+	_, err := xfixes.QueryVersion(m.xConn, xfixes.MajorVersion, xfixes.MinorVersion).Reply(m.xConn)
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = input.XIQueryVersion(m.xConn, input.MajorVersion, input.MinorVersion).Reply(m.xConn)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+
+	err = m.doXISelectEvents(evMaskForHideCursor)
+	if err != nil {
+		logger.Warning(err)
+	}
+
+}
+
+func (m *Manager) doXISelectEvents(evMask uint32) error {
+	root := m.xConn.GetDefaultScreen().Root
+	err := input.XISelectEventsChecked(m.xConn, root, []input.EventMask{
+		{
+			DeviceId: input.DeviceAllMaster,
+			Mask:     []uint32{evMask},
+		},
+	}).Check(m.xConn)
+	return err
+}
+
+func (m *Manager) queryPointer() (*x.QueryPointerReply, error) {
+	root := m.xConn.GetDefaultScreen().Root
+	reply, err := x.QueryPointer(m.xConn, root).Reply(m.xConn)
+	return reply, err
+}
+
+func (m *Manager) beginMoveMouse() {
+	if m.cursorShowed {
+		return
+	}
+	err := m.doShowCursor(true)
+	if err != nil {
+		logger.Warning(err)
+	}
+	m.cursorShowed = true
+}
+
+func (m *Manager) beginTouch() {
+	if !m.cursorShowed {
+		return
+	}
+	err := m.doShowCursor(false)
+	if err != nil {
+		logger.Warning(err)
+	}
+	m.cursorShowed = false
+}
+func (m *Manager) doShowCursor(show bool) error {
+	rootWin := m.xConn.GetDefaultScreen().Root
+	var cookie x.VoidCookie
+	if show {
+		logger.Debug("xfixes show cursor")
+		cookie = xfixes.ShowCursorChecked(m.xConn, rootWin)
+	} else {
+		logger.Debug("xfixes hide cursor")
+		cookie = xfixes.HideCursorChecked(m.xConn, rootWin)
+	}
+	err := cookie.Check(m.xConn)
+	return err
 }
 
 func main() {
