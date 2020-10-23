@@ -140,6 +140,13 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 			m.setPropDisplayMode(DisplayModeCustom)
 			m.PropsMu.Unlock()
 		}
+	} else {
+		displayMode, _ := m.GetRealDisplayMode()
+		if displayMode != m.DisplayMode && displayMode == DisplayModeMirror {
+			m.PropsMu.Lock()
+			m.setPropDisplayMode(DisplayModeMirror)
+			m.PropsMu.Unlock()
+		}
 	}
 }
 
