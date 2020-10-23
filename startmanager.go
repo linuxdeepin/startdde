@@ -542,7 +542,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	err = m.enableCpuFreqLock(desktopFile)
 	if err != nil {
-		logger.Warning("cpu freq lock failed:", err)
+		logger.Debug("cpu freq lock failed:", err)
 	}
 
 	if swapSchedDispatcher != nil {
