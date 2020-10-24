@@ -44,6 +44,7 @@ func (mig *monitorIdGenerator) getId(uuid string) uint32 {
 
 type KOutputInfo struct {
 	Uuid         string      `json:"uuid"`
+	Edid         string      `json:"edid_base64"`
 	Enabled      int32       `json:"enabled"`
 	X            int32       `json:"x"`
 	Y            int32       `json:"y"`

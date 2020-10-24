@@ -117,6 +117,14 @@ func (m *Manager) Reset() *dbus.Error {
 }
 
 func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.Error {
+	if m.getBrightnessSetter() != "backlight" {
+		err := m.doSetBrightness(value, outputName)
+		if err == nil {
+			m.saveBrightness()
+		}
+		return dbusutil.ToError(err)
+	}
+
 	var step float64 = 0.004
 	var times float64
 	var br float64

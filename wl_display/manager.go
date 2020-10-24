@@ -16,7 +16,7 @@ import (
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/startdde/display/brightness"
+	"pkg.deepin.io/dde/startdde/wl_display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
@@ -196,7 +196,8 @@ func (m *Manager) listenDBusSignals() {
 			logger.Warning(err)
 			return
 		}
-		logger.Debugf("OutputAdded %#v", outputInfo)
+		logger.Infof("display: wloutput OutputAdded %#v", outputInfo)
+		brightness.RefreshDDCCI()
 		err = m.addMonitor(outputInfo)
 		if err != nil {
 			logger.Warning(err)
@@ -219,6 +220,8 @@ func (m *Manager) listenDBusSignals() {
 			logger.Warning(err)
 			return
 		}
+		logger.Infof("display: wloutput OutputChanged@1 %#v", outputInfo)
+		brightness.RefreshDDCCI()
 
 		// somethimes the wloutput data unready, so sleep 800ms
 		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
@@ -231,7 +234,8 @@ func (m *Manager) listenDBusSignals() {
 			logger.Info("Failed to make KOutputInfo:", outputInfo.Uuid)
 			return
 		}
-		logger.Debugf("OutputChanged %#v", kinfo)
+		logger.Infof("display: OutputChanged@2 %#v", kinfo)
+		kinfo.Edid =  outputInfo.Edid
 
 		monitorId := m.mig.getId(kinfo.Uuid)
 
@@ -465,6 +469,7 @@ func (m *Manager) addMonitor(outputInfo *KOutputInfo) error {
 	}
 	monitor.ID = m.mig.getId(outputInfo.Uuid)
 	monitor.uuid = outputInfo.Uuid
+	monitor.edid = outputInfo.Edid
 	monitor.Enabled = outputInfo.getEnabled()
 	monitor.X = int16(outputInfo.X)
 	monitor.Y = int16(outputInfo.Y)

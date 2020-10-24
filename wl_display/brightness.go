@@ -160,13 +160,13 @@ func (m *Manager) initBrightness() {
 		// set the saved brightness
 		err = m.doSetBrightness(v, name)
 		if err != nil {
-			logger.Warning("Failed to set default brightness:", name, err)
+			logger.Warning("brightness: Failed to set default brightness:", name, err)
 			continue
 		}
 	}
 
 	if saved {
-		logger.Info("Init default output brightness")
+		logger.Info("brightness: Init default output brightness")
 		// In huawei KelvinU sometimes crash because of GObject assert failure in GSettings
 		//m.saveBrightness()
 	}
@@ -188,8 +188,8 @@ func (m *Manager) getBrightnessSetter() string {
 
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
 	isBuiltin := isBuiltinOutput(monitor.Name)
-	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
-		monitor.ID, m.xConn)
+	logger.Debugf("brightness: setMonitorBrightness for %s, setter=%s, value=%.2f, edidBase64=%s", monitor.Name, m.getBrightnessSetter(), value, monitor.edid)
+	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin, monitor.edid)
 	return err
 	// TODO
 	//return errors.New("TODO")
@@ -209,7 +209,7 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 	if !fake && enabled {
 		err := m.setMonitorBrightness(monitor0, value)
 		if err != nil {
-			logger.Warningf("failed to set brightness for %s: %v", name, err)
+			logger.Warningf("brightness: failed to set brightness for %s: %v", name, err)
 			return err
 		}
 	}

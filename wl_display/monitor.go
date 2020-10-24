@@ -22,6 +22,7 @@ type Monitor struct {
 	service *dbusutil.Service
 	//crtc    randr.Crtc
 	uuid    string
+	edid 	string       //base64编码
 	PropsMu sync.RWMutex
 
 	ID        uint32
