@@ -81,8 +81,9 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop
 	inhibitManager        InhibitManager
 
-	CurrentSessionPath dbus.ObjectPath
-
+	CurrentSessionPath  dbus.ObjectPath
+	objLogin            *login1.Manager
+	objLoginSessionSelf *login1.Session
 	//nolint
 	signals *struct {
 		Unlock                           struct{}
@@ -125,8 +126,6 @@ const (
 )
 
 var (
-	objLogin            *login1.Manager
-	objLoginSessionSelf *login1.Session
 	swapSchedDispatcher *swapsched.Dispatcher
 )
 
@@ -213,11 +212,11 @@ func (m *SessionManager) logout(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareLogout(force)
-	doLogout(force)
+	m.doLogout(force)
 }
 
 func (shudown *SessionManager) CanShutdown() (bool, *dbus.Error) {
-	str, _ := objLogin.CanPowerOff(0)
+	str, _ := shudown.objLogin.CanPowerOff(0)
 	return str == "yes", nil
 }
 
@@ -262,14 +261,16 @@ func (m *SessionManager) shutdown(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareShutdown(force)
-	err := objLogin.PowerOff(0, false)
+
+	err := m.objLogin.PowerOff(0, false)
 	if err != nil {
 		logger.Warning("failed to call login PowerOff:", err)
 	}
+
 	if _gSettingsConfig.needQuickBlackScreen {
 		setDPMSMode(false)
 	}
-	err = objLoginSessionSelf.Terminate(0)
+	err = m.objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
 	}
@@ -277,7 +278,7 @@ func (m *SessionManager) shutdown(force bool) {
 }
 
 func (shudown *SessionManager) CanReboot() (bool, *dbus.Error) {
-	str, _ := objLogin.CanReboot(0)
+	str, _ := shudown.objLogin.CanReboot(0)
 	return str == "yes", nil
 }
 
@@ -303,14 +304,16 @@ func (m *SessionManager) reboot(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareShutdown(force)
-	err := objLogin.Reboot(0, false)
+
+	err := m.objLogin.Reboot(0, false)
 	if err != nil {
 		logger.Warning("failed to call login Reboot:", err)
 	}
+
 	if _gSettingsConfig.needQuickBlackScreen {
 		setDPMSMode(false)
 	}
-	err = objLoginSessionSelf.Terminate(0)
+	err = m.objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("failed to terminate session self:", err)
 	}
@@ -322,7 +325,7 @@ func (m *SessionManager) CanSuspend() (bool, *dbus.Error) {
 		return false, nil
 	}
 
-	str, _ := objLogin.CanSuspend(0)
+	str, _ := m.objLogin.CanSuspend(0)
 	return str == "yes", nil
 }
 
@@ -384,10 +387,11 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 		return nil
 	}
 
-	err = objLogin.Suspend(0, false)
+	err = m.objLogin.Suspend(0, false)
 	if err != nil {
 		logger.Warning("failed to suspend:", err)
 	}
+
 	if _gSettingsConfig.needQuickBlackScreen {
 		setDPMSMode(false)
 	}
@@ -395,12 +399,13 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 }
 
 func (m *SessionManager) CanHibernate() (bool, *dbus.Error) {
-	str, _ := objLogin.CanHibernate(0)
+	str, _ := m.objLogin.CanHibernate(0)
 	return str == "yes", nil
 }
 
 func (m *SessionManager) RequestHibernate() *dbus.Error {
-	err := objLogin.Hibernate(0, false)
+
+	err := m.objLogin.Hibernate(0, false)
 	if err != nil {
 		logger.Warning("failed to Hibernate:", err)
 	}
@@ -509,7 +514,7 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 	return obj.Call(dest+".Prepare", 0, sessionID).Store()
 }
 
-func initSession() {
+func (m *SessionManager) initSession() {
 	var err error
 
 	sysBus, err := dbus.SystemBus()
@@ -518,26 +523,15 @@ func initSession() {
 		return
 	}
 
-	objLogin = login1.NewManager(sysBus)
-	sessionPath, err := objLogin.GetSessionByPID(0, 0)
-	if err != nil {
-		panic(fmt.Errorf("get session path failed: %s", err))
-	}
-
-	objLoginSessionSelf, err = login1.NewSession(sysBus, sessionPath)
-	if err != nil {
-		panic(fmt.Errorf("new Login1 session failed: %s", err))
-	}
-
 	sysSigLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSigLoop.Start()
-	objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
-	err = objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
+	m.objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
+	err = m.objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
 		logger.Debug("session status changed:", hasValue, active)
 		if hasValue && !active {
-			isPreparingForSleep, _ := objLogin.PreparingForSleep().Get(0)
+			isPreparingForSleep, _ := m.objLogin.PreparingForSleep().Get(0)
 			if !isPreparingForSleep {
-				err = objLoginSessionSelf.Lock(0)
+				err = m.objLoginSessionSelf.Lock(0)
 				if err != nil {
 					logger.Warning("failed to Lock current session:", err)
 				}
@@ -548,13 +542,13 @@ func initSession() {
 		logger.Warning("failed to connect Active changed:", err)
 	}
 	if _gSettingsConfig.swapSchedEnabled {
-		initSwapSched()
+		m.initSwapSched()
 	} else {
 		logger.Info("swap sched disabled")
 	}
 }
 
-func initSwapSched() {
+func (m *SessionManager) initSwapSched() {
 	err := cgroup.Init()
 	if err != nil {
 		logger.Warning(err)
@@ -567,7 +561,7 @@ func initSwapSched() {
 		return
 	}
 
-	sessionID, err := objLoginSessionSelf.Id().Get(0)
+	sessionID, err := m.objLoginSessionSelf.Id().Get(0)
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -619,9 +613,28 @@ func initSwapSched() {
 }
 
 func newSessionManager(service *dbusutil.Service) *SessionManager {
+	var err error
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return nil
+	}
+
+	objLogin := login1.NewManager(sysBus)
+	sessionPath, err := objLogin.GetSessionByPID(0, 0)
+	if err != nil {
+		panic(fmt.Errorf("get session path failed: %s", err))
+	}
+	objLoginSessionSelf, err := login1.NewSession(sysBus, sessionPath)
+	if err != nil {
+		panic(fmt.Errorf("new Login1 session failed: %s", err))
+	}
+
 	m := &SessionManager{
-		service: service,
-		cookies: make(map[string]chan time.Time),
+		service:             service,
+		cookies:             make(map[string]chan time.Time),
+		objLogin:            objLogin,
+		objLoginSessionSelf: objLoginSessionSelf,
 	}
 	return m
 }
@@ -1003,8 +1016,7 @@ func (m *SessionManager) start(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop,
 			return
 		}
 	}()
-
-	initSession()
+	m.initSession()
 	m.init()
 	if _options.noXSessionScripts {
 		runScript01DeepinProfileFaster()
@@ -1202,8 +1214,8 @@ func setDPMSMode(on bool) {
 	}
 }
 
-func doLogout(force bool) {
-	err := objLoginSessionSelf.Terminate(0)
+func (m *SessionManager) doLogout(force bool) {
+	err := m.objLoginSessionSelf.Terminate(0)
 	if err != nil {
 		logger.Warning("LoginSessionSelf Terminate failed:", err)
 	}

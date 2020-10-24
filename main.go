@@ -297,11 +297,11 @@ func main() {
 		logger.Info("iowait disabled")
 	}
 
-	go handleOSSignal()
+	go handleOSSignal(sessionManager)
 	service.Wait()
 }
 
-func handleOSSignal() {
+func handleOSSignal(m *SessionManager) {
 	var sigChan = make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV)
 
@@ -315,7 +315,7 @@ loop:
 	}
 
 	logger.Info("received unexpected signal, force logout")
-	doLogout(true)
+	m.doLogout(true)
 }
 
 func doSetLogLevel(level log.Priority) {
