@@ -45,7 +45,6 @@ Recommends:     dde-qt5integration
 patch Makefile < rpm/Makefile.patch
 patch misc/auto_launch/chinese.json < rpm/chinese.json.patch
 patch misc/auto_launch/default.json < rpm/default.json.patch
-patch main.go < rpm/main.go.patch
 
 %build
 export GOPATH=/usr/share/gocode
