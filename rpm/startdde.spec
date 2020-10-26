@@ -61,7 +61,7 @@ sed -i 's|X11/Xsession.d|X11/xinit/xinitrc.d|g' Makefile
 %post
 xsOptsFile=/etc/X11/Xsession.options
 update-alternatives --install /usr/bin/x-session-manager x-session-manager \
-    /usr/bin/staratdde 90 || true
+    /usr/bin/startdde 90 || true
 if [ -f $xsOptsFile ];then
 	sed -i '/^use-ssh-agent/d' $xsOptsFile
 	if ! grep '^no-use-ssh-agent' $xsOptsFile >/dev/null; then
