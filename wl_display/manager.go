@@ -42,6 +42,9 @@ const (
 	customModeDelim     = "+"
 	monitorsIdDelimiter = ","
 )
+const (
+	gsSchemaxsettings = "com.deepin.xsettings" //"com.deepin.xsettings"
+)
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 
@@ -74,9 +77,10 @@ type Manager struct {
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
-	PrimaryRect  x.Rectangle
-	ScreenWidth  uint16
-	ScreenHeight uint16
+	PrimaryRect     x.Rectangle
+	ScreenWidth     uint16
+	ScreenHeight    uint16
+	primarysettings *gio.Settings
 
 	methods *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
@@ -135,6 +139,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 
 	m.settings = gio.NewSettings(gsSchemaDisplay)
+	m.primarysettings = gio.NewSettings(gsSchemaxsettings)
 	m.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
 	if m.DisplayMode == DisplayModeUnknow {
 		m.DisplayMode = DisplayModeMirror
@@ -588,6 +593,9 @@ func (m *Manager) switchModeMirror() (err error) {
 			return
 		}
 	}
+
+	//save config
+	m.setPrimarySettings(monitor0.Name)
 	return
 }
 
@@ -793,6 +801,7 @@ func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
 	m.setPropPrimary(monitor.Name)
 	m.setPropPrimaryRect(rect)
 	m.PropsMu.Unlock()
+	m.setPrimarySettings(monitor.Name)
 	return nil
 }
 
@@ -910,6 +919,7 @@ func (m *Manager) setPrimary(name string) error {
 		if err != nil {
 			return err
 		}
+		m.setPrimarySettings(monitor0.Name)
 
 	default:
 		return fmt.Errorf("invalid display mode %v", m.DisplayMode)
@@ -982,6 +992,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		if err != nil {
 			return
 		}
+		m.setPrimarySettings(monitor0.Name)
 	}
 
 	return
@@ -1144,6 +1155,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	if err != nil {
 		return
 	}
+	m.setPrimarySettings(m.Primary)
 	m.setPropCustomIdList(m.getCustomIdList())
 	return
 }
@@ -1273,6 +1285,8 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 	if err != nil {
 		return err
 	}
+	//save primary to config
+	m.setPrimarySettings(primaryMonitor.Name)
 	return nil
 }
 
@@ -1560,4 +1574,14 @@ func (m *Manager) canSwitchMode() bool {
 
 func isInSwitchModeBlacklist(manu, model string) bool {
 	return strings.Contains(manu, "HAT") && strings.Contains(model, "Kamvas")
+}
+
+func (m *Manager) setPrimarySettings(name string) error {
+	if name == m.primarysettings.GetString("primary-monitor-name") {
+		logger.Debug("primary-monitor-name:", name)
+		return nil
+	}
+
+	m.primarysettings.SetString("primary-monitor-name", name)
+	return nil
 }

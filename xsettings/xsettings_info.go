@@ -289,6 +289,11 @@ var gsInfos = typeGSKeyInfos{
 		convertGsToXs: convertDoubleToStr,
 		convertXsToGs: convertStrToDouble,
 	},
+	{
+		gsKey:  "primary-monitor-name",
+		gsType: gsKeyTypeString,
+		xsKey:  "Gdk/PrimaryMonitorName",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
