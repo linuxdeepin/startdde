@@ -96,6 +96,7 @@ type Manager struct {
 	settings                 *gio.Settings
 	monitorsId               string
 	isLaptop                 bool
+	modeChanged              bool
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -1019,7 +1020,7 @@ func (m *Manager) apply() error {
 			monitors := m.getConnectedMonitors()
 			for _, monitor := range monitors {
 				if  monitor.crtc == crtc {
-					if monitor.oldRotation != monitor.Rotation {
+					if monitor.oldRotation != monitor.Rotation || m.modeChanged {
 						monitor.oldRotation = monitor.Rotation
 						logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
 						err := m.disableCrtc(crtc, cfgTs)
@@ -1042,6 +1043,7 @@ func (m *Manager) apply() error {
 			}
 		}
 	}
+	m.modeChanged = false
 	m.crtcMapMu.Unlock()
 
 	err := m.setScreenSize(screenSize)
@@ -1460,6 +1462,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	}
 	if err == nil {
 		m.setDisplayMode(mode)
+		m.modeChanged = true
 	} else {
 		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
 	}
