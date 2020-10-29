@@ -85,6 +85,8 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 	if isBuiltin {
 		if supportBacklight(output, conn) {
 			return setBacklight(value, output, conn)
+		}else{
+			return setBacklightOnlyOne(value)
 		}
 	}
 	return setOutputCrtcGamma(value, output, conn)
