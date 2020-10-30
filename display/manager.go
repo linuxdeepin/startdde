@@ -447,8 +447,8 @@ func (m *Manager) applyDisplayMode() {
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
-	m.listenEvent()
 	m.applyDisplayMode()
+	m.listenEvent()		//等待applyDisplayMode执行完成再开启监听X事件
 }
 
 func (m *Manager) initColorTemperature() {
