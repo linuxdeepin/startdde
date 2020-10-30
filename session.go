@@ -22,7 +22,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -32,6 +31,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 
 	dbus "github.com/godbus/dbus"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
@@ -80,6 +81,7 @@ type SessionManager struct {
 	dbusDaemon            *ofdbus.DBus // session dbus daemon
 	sigLoop               *dbusutil.SignalLoop
 	inhibitManager        InhibitManager
+	powerManager          *powermanager.PowerManager
 
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            *login1.Manager
@@ -215,9 +217,9 @@ func (m *SessionManager) logout(force bool) {
 	m.doLogout(force)
 }
 
-func (shudown *SessionManager) CanShutdown() (bool, *dbus.Error) {
-	str, _ := shudown.objLogin.CanPowerOff(0)
-	return str == "yes", nil
+func (m *SessionManager) CanShutdown() (bool, *dbus.Error) {
+	can, err := m.powerManager.CanShutdown(0)
+	return can, dbusutil.ToError(err)
 }
 
 func (m *SessionManager) Shutdown() *dbus.Error {
@@ -277,9 +279,9 @@ func (m *SessionManager) shutdown(force bool) {
 	os.Exit(0)
 }
 
-func (shudown *SessionManager) CanReboot() (bool, *dbus.Error) {
-	str, _ := shudown.objLogin.CanReboot(0)
-	return str == "yes", nil
+func (m *SessionManager) CanReboot() (bool, *dbus.Error) {
+	can, err := m.powerManager.CanReboot(0)
+	return can, dbusutil.ToError(err)
 }
 
 func (m *SessionManager) Reboot() *dbus.Error {
@@ -321,61 +323,8 @@ func (m *SessionManager) reboot(force bool) {
 }
 
 func (m *SessionManager) CanSuspend() (bool, *dbus.Error) {
-	if !canSuspendEx() {
-		return false, nil
-	}
-
-	str, _ := m.objLogin.CanSuspend(0)
-	return str == "yes", nil
-}
-
-func canSuspendEx() bool {
-	data, err := ioutil.ReadFile("/sys/power/mem_sleep")
-	if err != nil {
-		logger.Warning("read /sys/power/mem_sleep failed:", err)
-		return false
-	}
-	if !strings.Contains(string(data), "[deep]") {
-		logger.Debug("cant find '[deep]' in /sys/power/mem_sleep")
-		return false
-	}
-
-	data, err = ioutil.ReadFile("/sys/power/image_size")
-	if err != nil {
-		logger.Warning("read /sys/power/image_size failed:", err)
-		return false
-	}
-
-	imageSize, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		logger.Debug("read image size err:", err)
-		return false
-	}
-
-	data, err = ioutil.ReadFile("/proc/swaps")
-	if err != nil {
-		logger.Warning("read /proc/swaps failed:", err)
-		return false
-	}
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		if len(fields) < 5 || fields[1] != "partition" {
-			continue
-		}
-
-		swapSize, err := strconv.Atoi(fields[2])
-		if err != nil {
-			continue
-		}
-		if swapSize*1024 >= imageSize {
-			return true
-		}
-		logger.Debugf("swap-partition(%s) smaller then image size", fields[0])
-	}
-
-	logger.Debug("dont support suspend")
-	return false
+	can, err := m.powerManager.CanSuspend(0)
+	return can, dbusutil.ToError(err)
 }
 
 func (m *SessionManager) RequestSuspend() *dbus.Error {
@@ -399,8 +348,8 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 }
 
 func (m *SessionManager) CanHibernate() (bool, *dbus.Error) {
-	str, _ := m.objLogin.CanHibernate(0)
-	return str == "yes", nil
+	can, err := m.powerManager.CanHibernate(0)
+	return can, dbusutil.ToError(err)
 }
 
 func (m *SessionManager) RequestHibernate() *dbus.Error {
@@ -621,6 +570,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	}
 
 	objLogin := login1.NewManager(sysBus)
+	powerManager := powermanager.NewPowerManager(sysBus)
 	sessionPath, err := objLogin.GetSessionByPID(0, 0)
 	if err != nil {
 		panic(fmt.Errorf("get session path failed: %s", err))
@@ -635,6 +585,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		cookies:             make(map[string]chan time.Time),
 		objLogin:            objLogin,
 		objLoginSessionSelf: objLoginSessionSelf,
+		powerManager:        powerManager,
 	}
 	return m
 }
