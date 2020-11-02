@@ -42,10 +42,10 @@ func (m *Manager) ResetChanges() *dbus.Error {
 
 func (m *Manager) SwitchMode(mode byte, name string) *dbus.Error {
 	if !m.canSwitchMode() {
-		logger.Info("Forbidden to switch mode")
 		return dbusutil.MakeError(m, "Forbidden to switch mode")
 	}
 
+	logger.Info("[test]----------to switch mode")
 	err := m.switchMode(mode, name)
 	return dbusutil.ToError(err)
 }

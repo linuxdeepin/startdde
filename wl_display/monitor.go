@@ -136,8 +136,26 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 	}
 
 	m.markChanged()
-	m.setMode(newMode)
+	m.setModeNoProp(newMode)
+	//m.setMode(newMode)
 	return nil
+}
+
+func (m *Monitor) setModeNoProp(mode ModeInfo) {
+	m.PropsMu.Lock()
+	m.setCurrentMode(mode)
+
+	width := mode.Width
+	height := mode.Height
+
+	if needSwapWidthHeight(m.Rotation) {
+		width, height = height, width
+	}
+
+	m.setWidth(width)
+	m.setHeight(height)
+	m.setRefreshRate(mode.Rate)
+	m.PropsMu.Unlock()
 }
 
 func (m *Monitor) setMode(mode ModeInfo) {
@@ -223,7 +241,9 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	}
 
 	m.markChanged()
-	m.setPosition(X, y)
+	m.setX(X)
+	m.setY(y)
+	//m.setPosition(X, y)
 	return nil
 }
 
@@ -254,8 +274,24 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 		return nil
 	}
 	m.markChanged()
-	m.setRotation(value)
+	m.setRotationNoProp(value)
+	//m.setRotation(value)
 	return nil
+}
+
+func (m *Monitor) setRotationNoProp(value uint16) {
+	m.PropsMu.Lock()
+	width := m.CurrentMode.Width
+	height := m.CurrentMode.Height
+
+	if needSwapWidthHeight(value) {
+		width, height = height, width
+	}
+
+	m.setRotationOnly(value)
+	m.setWidth(width)
+	m.setHeight(height)
+	m.PropsMu.Unlock()
 }
 
 func (m *Monitor) setRotation(value uint16) {
