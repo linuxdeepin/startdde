@@ -134,8 +134,7 @@ func (m *Manager) applyByWLOutput() error {
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0",
-			"0", "0").CombinedOutput()
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {
@@ -143,7 +142,7 @@ func (m *Manager) applyByWLOutput() error {
 			return err
 		}
 		// wait request done
-		time.Sleep(time.Millisecond * 500)
+		//time.Sleep(time.Millisecond * 500)
 	}
 	return nil
 }
