@@ -35,7 +35,6 @@ func (v *Manager) emitPropChangedCustomIdList(value []string) error {
 
 func (v *Manager) setPropHasChanged(value bool) (changed bool) {
 	if v.HasChanged != value {
-		logger.Info("setPropHasChanged")
 		v.HasChanged = value
 		v.emitPropChangedHasChanged(value)
 		return true
@@ -44,7 +43,6 @@ func (v *Manager) setPropHasChanged(value bool) (changed bool) {
 }
 func (v *Manager) setHasChanged(value bool) (changed bool) {
 	if v.HasChanged != value {
-		logger.Info("setHasChanged no prop")
 		v.HasChanged = value
 		return true
 	}
@@ -56,18 +54,13 @@ func (v *Manager) emitPropChangedHasChanged(value bool) error {
 }
 
 func (v *Manager) setPropDisplayMode(value byte) (changed bool) {
-	//if v.DisplayMode != value {
-	logger.Info("setPropDisplayMode")
 	v.DisplayMode = value
 	v.emitPropChangedDisplayMode(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Manager) setDisplayModeNoProp(value byte) (changed bool) {
 	if v.DisplayMode != value {
-		logger.Info("setDisplayMode no prop")
 		v.DisplayMode = value
 		return true
 	}
@@ -79,13 +72,11 @@ func (v *Manager) emitPropChangedDisplayMode(value byte) error {
 }
 
 func (v *Manager) setPropBrightness(value map[string]float64) {
-	logger.Info("setPropBrightness")
 	v.Brightness = value
 	v.emitPropChangedBrightness(value)
 }
 
 func (v *Manager) setBrightness(value map[string]float64) {
-	logger.Info("setBrightness no prop")
 	v.Brightness = value
 }
 
@@ -116,32 +107,18 @@ func (v *Manager) setPropCurrentCustomId(value string) (changed bool) {
 	return false
 }
 
-/*
-func (v *Manager) setCurrentCustomId(value string) (changed bool) {
-	if v.CurrentCustomId != value {
-		v.CurrentCustomId = value
-		return true
-	}
-	return false
-}*/
-
 func (v *Manager) emitPropChangedCurrentCustomId(value string) error {
 	return v.service.EmitPropertyChanged(v, "CurrentCustomId", value)
 }
 
 func (v *Manager) setPropPrimary(value string) (changed bool) {
-	//if v.Primary != value {
-	logger.Info("setPropPrimary")
 	v.Primary = value
 	v.emitPropChangedPrimary(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Manager) setPrimaryNoProp(value string) (changed bool) {
 	if v.Primary != value {
-		logger.Info("setPrimary no prop")
 		v.Primary = value
 		return true
 	}
@@ -153,13 +130,11 @@ func (v *Manager) emitPropChangedPrimary(value string) error {
 }
 
 func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
-	logger.Info("setPropPrimaryRect")
 	v.PrimaryRect = value
 	v.emitPropChangedPrimaryRect(value)
 }
 
 func (v *Manager) setPrimaryRectNoProp(value x.Rectangle) {
-	logger.Info("setPrimaryRect no prop")
 	v.PrimaryRect = value
 }
 
@@ -168,18 +143,13 @@ func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
 }
 
 func (v *Manager) setPropScreenWidth(value uint16) (changed bool) {
-	//if v.ScreenWidth != value {
-	logger.Info("setPropScreenWidth")
 	v.ScreenWidth = value
 	v.emitPropChangedScreenWidth(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Manager) setScreenWidth(value uint16) (changed bool) {
 	if v.ScreenWidth != value {
-		logger.Info("setScreenWidth no prop")
 		v.ScreenWidth = value
 		return true
 	}
@@ -191,18 +161,13 @@ func (v *Manager) emitPropChangedScreenWidth(value uint16) error {
 }
 
 func (v *Manager) setPropScreenHeight(value uint16) (changed bool) {
-	//if v.ScreenHeight != value {
-	logger.Info("setPropScreenHeight")
 	v.ScreenHeight = value
 	v.emitPropChangedScreenHeight(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Manager) setScreenHeight(value uint16) (changed bool) {
 	if v.ScreenHeight != value {
-		logger.Info("setScreenHeight no prop")
 		v.ScreenHeight = value
 		return true
 	}
@@ -225,7 +190,6 @@ func (v *Monitor) setPropID(value uint32) (changed bool) {
 func (v *Monitor) setID(value uint32) (changed bool) {
 	if v.ID != value {
 		v.ID = value
-		logger.Info("setID no Prop")
 		return true
 	}
 	return false
@@ -237,7 +201,6 @@ func (v *Monitor) emitPropChangedID(value uint32) error {
 
 func (v *Monitor) setPropName(value string) (changed bool) {
 	if v.Name != value {
-		logger.Info("setPropName")
 		v.Name = value
 		v.emitPropChangedName(value)
 		return true
@@ -247,7 +210,6 @@ func (v *Monitor) setPropName(value string) (changed bool) {
 
 func (v *Monitor) setName(value string) (changed bool) {
 	if v.Name != value {
-		logger.Info("setName no prop")
 		v.Name = value
 		return true
 	}
@@ -282,12 +244,10 @@ func (v *Monitor) emitPropChangedConnected(value bool) error {
 func (v *Monitor) setPropRotations(value []uint16) {
 	v.Rotations = value
 	v.emitPropChangedRotations(value)
-	logger.Info("setPropRotations")
 }
 
 func (v *Monitor) setRotations(value []uint16) {
 	v.Rotations = value
-	logger.Info("setRotations no prop")
 }
 
 func (v *Monitor) emitPropChangedRotations(value []uint16) error {
@@ -295,29 +255,20 @@ func (v *Monitor) emitPropChangedRotations(value []uint16) error {
 }
 
 func (v *Monitor) setPropReflects(value []uint16) {
-	logger.Info("setPropReflects")
 	v.Reflects = value
 	v.emitPropChangedReflects(value)
 }
 
-/*
-func (v *Monitor) setReflects(value []uint16) {
-	logger.Info("setReflects no prop")
-	v.Reflects = value
-}
-*/
 func (v *Monitor) emitPropChangedReflects(value []uint16) error {
 	return v.service.EmitPropertyChanged(v, "Reflects", value)
 }
 
 func (v *Monitor) setPropBestMode(value ModeInfo) {
-	logger.Info("setPropBestMode")
 	v.BestMode = value
 	v.emitPropChangedBestMode(value)
 }
 
 func (v *Monitor) setBestMode(value ModeInfo) {
-	logger.Info("setBestMode no prop")
 	v.BestMode = value
 }
 
@@ -326,13 +277,11 @@ func (v *Monitor) emitPropChangedBestMode(value ModeInfo) error {
 }
 
 func (v *Monitor) setPropModes(value []ModeInfo) {
-	logger.Info("setPropModes")
 	v.Modes = value
 	v.emitPropChangedModes(value)
 }
 
 func (v *Monitor) setModes(value []ModeInfo) {
-	logger.Info("setModes no prop")
 	v.Modes = value
 }
 
@@ -341,13 +290,11 @@ func (v *Monitor) emitPropChangedModes(value []ModeInfo) error {
 }
 
 func (v *Monitor) setPropPreferredModes(value []ModeInfo) {
-	logger.Info("setPropPreferredModes")
 	v.PreferredModes = value
 	v.emitPropChangedPreferredModes(value)
 }
 
 func (v *Monitor) setPreferredModes(value []ModeInfo) {
-	logger.Info("setPropPreferredModes no prop")
 	v.PreferredModes = value
 }
 
@@ -356,19 +303,14 @@ func (v *Monitor) emitPropChangedPreferredModes(value []ModeInfo) error {
 }
 
 func (v *Monitor) setPropMmWidth(value uint32) (changed bool) {
-	//if v.MmWidth != value {
 	v.MmWidth = value
-	logger.Info("setPropMmWidth")
 	v.emitPropChangedMmWidth(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) setMmWidth(value uint32) (changed bool) {
 	if v.MmWidth != value {
 		v.MmWidth = value
-		logger.Info("setPropMmWidth no prop")
 		return true
 	}
 	return false
@@ -379,19 +321,14 @@ func (v *Monitor) emitPropChangedMmWidth(value uint32) error {
 }
 
 func (v *Monitor) setPropMmHeight(value uint32) (changed bool) {
-	//if v.MmHeight != value {
 	v.MmHeight = value
-	logger.Info("setPropMmHeight")
 	v.emitPropChangedMmHeight(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) setMmHeight(value uint32) (changed bool) {
 	if v.MmHeight != value {
 		v.MmHeight = value
-		logger.Info("setPropMmHeight no prop")
 		return true
 	}
 	return false
@@ -403,7 +340,6 @@ func (v *Monitor) emitPropChangedMmHeight(value uint32) error {
 
 func (v *Monitor) setPropEnabled(value bool) (changed bool) {
 	if v.Enabled != value {
-		logger.Info("setPropEnabled")
 		v.Enabled = value
 		v.emitPropChangedEnabled(value)
 		return true
@@ -413,7 +349,6 @@ func (v *Monitor) setPropEnabled(value bool) (changed bool) {
 
 func (v *Monitor) setEnabled(value bool) (changed bool) {
 	if v.Enabled != value {
-		logger.Info("setEnabled no prop")
 		v.Enabled = value
 		return true
 	}
@@ -425,18 +360,13 @@ func (v *Monitor) emitPropChangedEnabled(value bool) error {
 }
 
 func (v *Monitor) setPropX(value int16) (changed bool) {
-	//if v.X != value {
-	logger.Info("setPropX")
 	v.X = value
 	v.emitPropChangedX(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) setX(value int16) (changed bool) {
 	if v.X != value {
-		logger.Info("setX No Prop")
 		v.X = value
 		return true
 	}
@@ -449,7 +379,6 @@ func (v *Monitor) emitPropChangedX(value int16) error {
 
 func (v *Monitor) setY(value int16) (changed bool) {
 	if v.Y != value {
-		logger.Info("setY no Prop")
 		v.Y = value
 		return true
 	}
@@ -457,13 +386,9 @@ func (v *Monitor) setY(value int16) (changed bool) {
 }
 
 func (v *Monitor) setPropY(value int16) (changed bool) {
-	//if v.Y != value {
-	logger.Info("setPropY")
 	v.Y = value
 	v.emitPropChangedY(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) emitPropChangedY(value int16) error {
@@ -472,7 +397,6 @@ func (v *Monitor) emitPropChangedY(value int16) error {
 
 func (v *Monitor) setWidth(value uint16) (changed bool) {
 	if v.Width != value {
-		logger.Info("setWidth  no Prop")
 		v.Width = value
 		return true
 	}
@@ -480,13 +404,9 @@ func (v *Monitor) setWidth(value uint16) (changed bool) {
 }
 
 func (v *Monitor) setPropWidth(value uint16) (changed bool) {
-	//if v.Width != value {
-	logger.Info("setPropWidth")
 	v.Width = value
 	v.emitPropChangedWidth(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) emitPropChangedWidth(value uint16) error {
@@ -495,7 +415,6 @@ func (v *Monitor) emitPropChangedWidth(value uint16) error {
 
 func (v *Monitor) setHeight(value uint16) (changed bool) {
 	if v.Height != value {
-		logger.Info("setHeight no Prop")
 		v.Height = value
 		return true
 	}
@@ -503,13 +422,9 @@ func (v *Monitor) setHeight(value uint16) (changed bool) {
 }
 
 func (v *Monitor) setPropHeight(value uint16) (changed bool) {
-	//if v.Height != value {
-	logger.Info("setPropHeight")
 	v.Height = value
 	v.emitPropChangedHeight(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) emitPropChangedHeight(value uint16) error {
@@ -517,18 +432,13 @@ func (v *Monitor) emitPropChangedHeight(value uint16) error {
 }
 
 func (v *Monitor) setPropRotation(value uint16) (changed bool) {
-	//if v.Rotation != value {
-	logger.Info("setPropRotation")
 	v.Rotation = value
 	v.emitPropChangedRotation(value)
 	return true
-	//}
-	//return false
 }
 
 func (v *Monitor) setRotationOnly(value uint16) (changed bool) {
 	if v.Rotation != value {
-		logger.Info("setRotationOnly")
 		v.Rotation = value
 		return true
 	}
@@ -541,7 +451,6 @@ func (v *Monitor) emitPropChangedRotation(value uint16) error {
 
 func (v *Monitor) setPropReflect(value uint16) (changed bool) {
 	if v.Reflect != value {
-		logger.Info("setPropReflect")
 		v.Reflect = value
 		v.emitPropChangedReflect(value)
 		return true
@@ -549,16 +458,6 @@ func (v *Monitor) setPropReflect(value uint16) (changed bool) {
 	return false
 }
 
-/*
-func (v *Monitor) setReflect(value uint16) (changed bool) {
-	if v.Reflect != value {
-		logger.Info("setPropReflect no Prop")
-		v.Reflect = value
-		return true
-	}
-	return false
-}
-*/
 func (v *Monitor) emitPropChangedReflect(value uint16) error {
 	return v.service.EmitPropertyChanged(v, "Reflect", value)
 }
@@ -585,13 +484,11 @@ func (v *Monitor) emitPropChangedRefreshRate(value float64) error {
 }
 
 func (v *Monitor) setPropCurrentMode(value ModeInfo) {
-	logger.Info("setPropCurrentMode")
 	v.CurrentMode = value
 	v.emitPropChangedCurrentMode(value)
 }
 
 func (v *Monitor) setCurrentMode(value ModeInfo) {
-	logger.Info("setCurrentMode No Prop")
 	v.CurrentMode = value
 }
 

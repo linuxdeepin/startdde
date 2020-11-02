@@ -239,7 +239,6 @@ func (m *Manager) listenDBusSignals() {
 			m.updateScreenSize()
 			return
 		}
-		logger.Debug("OutputChanged start------", time.Now())
 		m.updateMonitor(monitor, kinfo)
 	})
 	if err != nil {
@@ -490,7 +489,6 @@ func (m *Manager) removeMonitor(id uint32) {
 func (m *Manager) updateMonitor(monitor *Monitor, outputInfo *KOutputInfo) {
 	logger.Debug("updateMonitor", monitor.ID)
 	monitor.PropsMu.Lock()
-	logger.Debug("OutputChanged end------", time.Now())
 	monitor.setPropEnabled(outputInfo.getEnabled())
 	monitor.setPropX(int16(outputInfo.X))
 	monitor.setPropY(int16(outputInfo.Y))
@@ -795,7 +793,6 @@ func (m *Manager) apply() error {
 //}
 
 func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
-	logger.Debug("[setMonitorPrimary] will set primary:", monitor.Name)
 	rect := monitor.getRect()
 	m.PropsMu.Lock()
 	m.setPropPrimary(monitor.Name)
@@ -806,7 +803,6 @@ func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
 }
 
 func (m *Manager) setMonitorPrimaryNoProp(monitor *Monitor) error {
-	logger.Debug("[setMonitorPrimary] will set primary no Prop:", monitor.Name)
 	rect := monitor.getRect()
 	m.PropsMu.Lock()
 	m.setPrimaryNoProp(monitor.Name)
@@ -920,7 +916,6 @@ func (m *Manager) setPrimary(name string) error {
 		}
 
 		err := m.setMonitorPrimary(monitor0)
-		//err := m.setMonitorPrimaryNoProp(monitor0)
 		if err != nil {
 			return err
 		}
@@ -1192,8 +1187,6 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	if err == nil {
 		logger.Info("switchMode for setDisplayMode")
 		m.setDisplayMode(mode)
-		//m.setDisplayModeNoProp(mode)
-		//m.settings.SetEnum(gsKeyDisplayMode, int32(mode))
 	} else {
 		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
 	}
