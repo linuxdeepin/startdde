@@ -78,8 +78,8 @@ type SessionManager struct {
 	Stage                 int32
 	allowSessionDaemonRun bool
 	loginSession          *login1.Session
-	dbusDaemon            *ofdbus.DBus // session dbus daemon
-	sigLoop               *dbusutil.SignalLoop
+	dbusDaemon            *ofdbus.DBus         // session bus daemon
+	sigLoop               *dbusutil.SignalLoop // session bus signal loop
 	inhibitManager        InhibitManager
 	powerManager          *powermanager.PowerManager
 
@@ -569,6 +569,11 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		return nil
 	}
 
+	sessionBus := service.Conn()
+	sigLoop := dbusutil.NewSignalLoop(sessionBus, 10)
+	sigLoop.Start()
+	dbusDaemon := ofdbus.NewDBus(sessionBus)
+	dbusDaemon.InitSignalExt(sigLoop, true)
 	objLogin := login1.NewManager(sysBus)
 	powerManager := powermanager.NewPowerManager(sysBus)
 	sessionPath, err := objLogin.GetSessionByPID(0, 0)
@@ -583,9 +588,11 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	m := &SessionManager{
 		service:             service,
 		cookies:             make(map[string]chan time.Time),
+		sigLoop:             sigLoop,
 		objLogin:            objLogin,
 		objLoginSessionSelf: objLoginSessionSelf,
 		powerManager:        powerManager,
+		dbusDaemon:          dbusDaemon,
 	}
 	return m
 }
@@ -598,10 +605,6 @@ func (m *SessionManager) init() {
 		logger.Warning("failed to get current login session:", err)
 	}
 
-	sessionBus := m.service.Conn()
-	m.sigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
-	m.sigLoop.Start()
-	m.dbusDaemon = ofdbus.NewDBus(sessionBus)
 	m.CurrentSessionPath, err = getCurSessionPath()
 	if err != nil {
 		logger.Warning("failed to get current session path:", err)
@@ -612,7 +615,6 @@ func (m *SessionManager) init() {
 }
 
 func (manager *SessionManager) listenDBusSignals() {
-	manager.dbusDaemon.InitSignalExt(manager.sigLoop, true)
 	_, err := manager.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
 		if newOwner == "" && oldOwner != "" && name == oldOwner &&
 			strings.HasPrefix(name, ":") {

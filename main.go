@@ -121,7 +121,6 @@ func launchCoreComponents(sm *SessionManager) {
 		sm.launchWithoutWait(program, args...)
 	}
 
-	var dockCh chan struct{}
 	coreStartTime := time.Now()
 	// launch window manager
 	if !_useWayland {
@@ -130,19 +129,9 @@ func launchCoreComponents(sm *SessionManager) {
 			if wmChooserLaunched {
 				wm_kwin.SyncWmChooserChoice()
 			}
-			dockCh = make(chan struct{}, 1)
 			launch(cmdKWin, nil, "kwin", true, func() {
 				// 等待 kwin 就绪，然后让 dock 显示
-				<-dockCh
-				logInfoAfter("call com.deepin.dde.Dock callShow")
-				sessionBus := sm.service.Conn()
-				dockObj := sessionBus.Object("com.deepin.dde.Dock", "/com/deepin/dde/Dock")
-				ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancelFn()
-				err := dockObj.CallWithContext(ctx, "com.deepin.dde.Dock.callShow", 0).Err
-				if err != nil {
-					logger.Warning("call dde-dock callShow failed:", err)
-				}
+				handleKWinReady(sm)
 			})
 		} else {
 			wmCmd := _gSettingsConfig.wmCmd
@@ -158,16 +147,43 @@ func launchCoreComponents(sm *SessionManager) {
 		if _useKWin {
 			dockArgs = []string{"-r"}
 		}
-		launch(cmdDdeDock, dockArgs, "dde-dock", true, func() {
-			if _useKWin {
-				dockCh <- struct{}{}
-			}
-		})
+		launch(cmdDdeDock, dockArgs, "dde-dock", true, nil)
 	})
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
 	wg.Wait()
 	logger.Info("core components cost:", time.Since(coreStartTime))
+}
+
+func handleKWinReady(sm *SessionManager) {
+	sessionBus := sm.service.Conn()
+
+	const dockServiceName = "com.deepin.dde.Dock"
+	callDockShow := func() {
+		logInfoAfter("call com.deepin.dde.Dock callShow")
+		dockObj := sessionBus.Object(dockServiceName, "/com/deepin/dde/Dock")
+		ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelFn()
+		err := dockObj.CallWithContext(ctx, dockServiceName+".callShow", dbus.FlagNoAutoStart).Err
+		if err != nil {
+			logger.Warning("call dde-dock callShow failed:", err)
+		}
+	}
+
+	var sigHandleId dbusutil.SignalHandlerId
+	sigHandleId, err := sm.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
+		if name == dockServiceName && oldOwner == "" && newOwner != "" {
+			callDockShow()
+			sm.dbusDaemon.RemoveHandler(sigHandleId)
+		}
+	})
+	has, err := sm.dbusDaemon.NameHasOwner(0, dockServiceName)
+	if err != nil {
+		logger.Warning(err)
+	} else if has {
+		callDockShow()
+		sm.dbusDaemon.RemoveHandler(sigHandleId)
+	}
 }
 
 var _mainBeginTime time.Time
