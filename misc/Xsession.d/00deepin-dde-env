@@ -14,4 +14,6 @@ if [ "$1" = "/usr/bin/startdde" ]; then
         unset QT_SCALE_FACTOR
         export STARTDDE_MIGRATE_SCALE_FACTOR=1
     fi
+    # control qt program infos level
+    export QT_LOGGING_RULES="*.debug=false"
 fi
