@@ -22,6 +22,7 @@ package watchdog
 const (
 	ddeDockTaskName    = "dde-dock"
 	ddeDockServiceName = "com.deepin.dde.Dock"
+	ddeDockCommand     = "dde-dock"
 )
 
 func isDdeDockRunning() (bool, error) {
@@ -29,7 +30,7 @@ func isDdeDockRunning() (bool, error) {
 }
 
 func launchDdeDock() error {
-	return startService(ddeDockServiceName)
+	return launchCommand(ddeDockCommand, nil, ddeDockTaskName)
 }
 
 func newDdeDockTask() *taskInfo {
