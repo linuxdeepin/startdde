@@ -289,6 +289,11 @@ var gsInfos = typeGSKeyInfos{
 		convertGsToXs: convertDoubleToStr,
 		convertXsToGs: convertStrToDouble,
 	},
+	{
+		gsKey:  "dtk-window-radius",
+		gsType: gsKeyTypeInt,
+		xsKey:  "DTK/WindowRadius",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
