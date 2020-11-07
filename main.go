@@ -134,10 +134,12 @@ func launchCoreComponents(sm *SessionManager) {
 				handleKWinReady(sm)
 			})
 		} else {
+			initGSettingsConfig()
 			wmCmd := _gSettingsConfig.wmCmd
-			if wmCmd != "" {
-				launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", false, nil)
+			if wmCmd == "" {
+				wmCmd = "x-window-manager"
 			}
+			launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", false, nil)
 		}
 	}
 
@@ -276,8 +278,7 @@ func main() {
 		}()
 	}
 
-	_gSettingsConfig = getGSettingsConfig()
-
+	initGSettingsConfig()
 	go func() {
 		initSoundThemePlayer()
 		playLoginSound()

@@ -139,7 +139,7 @@ func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 	go func() {
 		err := cmd.Run()
 		if err != nil {
-			logger.Warning(err)
+			logger.Warningf("launchWithoutWait %v %v exit with error: %v", bin, args, err)
 		}
 	}()
 }

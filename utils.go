@@ -232,6 +232,12 @@ func getGSettingsConfig() *GSettingsConfig {
 	return cfg
 }
 
+func initGSettingsConfig() {
+	if _gSettingsConfig == nil {
+		_gSettingsConfig = getGSettingsConfig()
+	}
+}
+
 func isOSDRunning() (bool, error) {
 	sessionBus, err := dbus.SessionBus()
 	if err != nil {
