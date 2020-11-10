@@ -597,7 +597,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		}
 	}
 
-	logger.Debug("cmd prefiexs:", cmdPrefixes)
+	logger.Debug("cmd prefixes:", cmdPrefixes)
 	ctx.Lock()
 	ctx.SetTimestamp(timestamp)
 	ctx.SetCmdPrefixes(cmdPrefixes)
