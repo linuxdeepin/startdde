@@ -423,7 +423,7 @@ func getFilterRefreshRateMap(pciId string) map[string]string {
 
 	filterRefreshRateMap, err = kf.GetSection(strings.ToLower(pciId))
 	if err != nil {
-		logger.Warning("failed to get filter refresh rate map, err:", err)
+		logger.Debug("failed to get filter refresh rate map:", err)
 		return nil
 	}
 
