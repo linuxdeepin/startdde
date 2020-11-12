@@ -493,6 +493,10 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
+	// check if need ignore use proxy
+	if ignoreUseProxy(id) {
+		return false
+	}
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
@@ -1115,6 +1119,14 @@ func isAppInList(app string, apps []string) bool {
 		if filepath.Base(app) == filepath.Base(v) {
 			return true
 		}
+	}
+	return false
+}
+
+func ignoreUseProxy(id string) bool {
+	// deepin-app-store and deepin-manual implement proxy themselves, should be ignored
+	if id == "deepin-app-store" || id == "deepin-manual" {
+		return true
 	}
 	return false
 }
