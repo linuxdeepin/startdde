@@ -76,11 +76,11 @@ const (
 )
 
 type StartManager struct {
+	xConn               *x.Conn
 	service             *dbusutil.Service
 	userAutostartPath   string
 	delayHandler        *mapDelayHandler
 	daemonApps          *daemonApps.Apps
-	launchContext       *appinfo.AppLaunchContext
 	restartTimeMap      map[string]time.Time
 	restartTimeMapMu    sync.Mutex
 	proxyChainsConfFile string
@@ -199,9 +199,10 @@ func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
 	}
 }
 
-func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
+func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	m := &StartManager{
 		service: service,
+		xConn:   xConn,
 	}
 
 	m.appsDir = getAppDirs()
@@ -236,7 +237,6 @@ func newStartManager(conn *x.Conn, service *dbusutil.Service) *StartManager {
 	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
-	m.launchContext = appinfo.NewAppLaunchContext(conn)
 	m.restartTimeMap = make(map[string]time.Time)
 	m.launchedHooks = getLaunchedHooks()
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
@@ -341,7 +341,7 @@ func (m *StartManager) launchAppWithOptions(desktopFile string, timestamp uint32
 		return nil
 	}
 
-	err = m.launchApp(desktopFile, timestamp, files, m.launchContext, options)
+	err = m.launchApp(desktopFile, timestamp, files, options)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -381,7 +381,7 @@ func (m *StartManager) launchAppAction(desktopFile, action string, timestamp uin
 		return nil
 	}
 
-	err = m.launchAppActionAux(desktopFile, action, timestamp, m.launchContext)
+	err = m.launchAppActionAux(desktopFile, action, timestamp)
 	if err != nil {
 		logger.Warning("launch failed:", err)
 	}
@@ -530,7 +530,7 @@ type IStartCommand interface {
 }
 
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
-	files []string, ctx *appinfo.AppLaunchContext, iStartCmd IStartCommand, cmdName string) error {
+	files []string, iStartCmd IStartCommand, cmdName string) error {
 
 	// maximum RAM unit is MB
 	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
@@ -601,13 +601,17 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		}
 	}
 
-	logger.Debug("cmd prefixes:", cmdPrefixes)
-	ctx.Lock()
+	ctx := appinfo.NewAppLaunchContext(m.xConn)
 	ctx.SetTimestamp(timestamp)
-	ctx.SetCmdPrefixes(cmdPrefixes)
-	ctx.SetCmdSuffixes(cmdSuffixes)
+	if len(cmdPrefixes) > 0 {
+		logger.Debug("cmd prefixes:", cmdPrefixes)
+		ctx.SetCmdPrefixes(cmdPrefixes)
+	}
+	if len(cmdSuffixes) > 0 {
+		logger.Debug("cmd suffixes:", cmdSuffixes)
+		ctx.SetCmdSuffixes(cmdSuffixes)
+	}
 	cmd, err := iStartCmd.StartCommand(files, ctx)
-	ctx.Unlock()
 
 	// exec launched hooks
 	cGroupName := ""
@@ -672,7 +676,7 @@ func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo,
 	return dai, nil
 }
 
-func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, ctx *appinfo.AppLaunchContext, options map[string]dbus.Variant) error {
+func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []string, options map[string]dbus.Variant) error {
 	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
@@ -686,10 +690,10 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 		appInfo.SetString(desktopappinfo.MainSection, desktopappinfo.KeyPath, pathStr)
 	}
 
-	return m.launch(appInfo, timestamp, files, ctx, appInfo, desktopFile)
+	return m.launch(appInfo, timestamp, files, appInfo, desktopFile)
 }
 
-func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, timestamp uint32, ctx *appinfo.AppLaunchContext) error {
+func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, timestamp uint32) error {
 	appInfo, err := newDesktopAppInfoFromFile(desktopFile)
 	if err != nil {
 		return err
@@ -707,7 +711,7 @@ func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, tim
 		return fmt.Errorf("not found section %q in %q", actionSection, desktopFile)
 	}
 
-	return m.launch(appInfo, timestamp, nil, ctx, &targetAction, desktopFile+actionSection)
+	return m.launch(appInfo, timestamp, nil, &targetAction, desktopFile+actionSection)
 }
 
 func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec.Cmd, err error,
@@ -748,8 +752,7 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 					}
 
 					if canLaunch {
-						err = m.launch(appInfo, 0, nil, m.launchContext, appInfo,
-							appInfo.GetFileName())
+						err = m.launch(appInfo, 0, nil, appInfo, appInfo.GetFileName())
 						if err != nil {
 							logger.Warningf("failed to restart app %q", appInfo.GetFileName())
 						}
@@ -1085,8 +1088,8 @@ func (m *StartManager) IsAutostart(filename string) (bool, *dbus.Error) {
 	return m.isAutostart(filename), nil
 }
 
-func startStartManager(conn *x.Conn, service *dbusutil.Service) {
-	_startManager = newStartManager(conn, service)
+func startStartManager(xConn *x.Conn, service *dbusutil.Service) {
+	_startManager = newStartManager(xConn, service)
 	err := service.Export(startManagerObjPath, _startManager)
 	if err != nil {
 		logger.Warning("export StartManager failed:", err)

@@ -962,7 +962,7 @@ func sendMsgToUserExperModule(msg string) {
 	close(ch)
 }
 
-func (m *SessionManager) start(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
+func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -983,7 +983,7 @@ func (m *SessionManager) start(conn *x.Conn, sysSignalLoop *dbusutil.SignalLoop,
 		logger.Warning("failed to init qt-theme.ini", err)
 	}
 	m.setPropStage(SessionStageCoreBegin)
-	startStartManager(conn, service)
+	startStartManager(xConn, service)
 
 	m.startWMSwitcher()
 
