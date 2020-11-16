@@ -212,3 +212,53 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 
 	return mode, nil
 }
+
+func (m *Manager) GetCustomDisplayMode() (uint8, *dbus.Error) {
+	monitors := m.getConnectedMonitors()
+
+	mode := DisplayModeUnknow
+	var pairs strv.Strv
+	var customMode uint8 = 0
+	for _, m := range monitors {
+		if !m.Enabled {
+			if m.modeSetFlag == DisplayModeMirrorOnlyOne {
+				customMode = DisplayModeMirror
+			}
+			if m.modeSetFlag == DisplayModeExtendOnlyOne {
+				customMode = DisplayModeExtend
+			}
+			logger.Info("[GetCustomDisplayMode] m.Enabled:", m.Enabled)
+
+			continue
+		}
+
+		pair := fmt.Sprintf("%d,%d", m.X, m.Y)
+
+		// 左上角座标相同，是复制
+		logger.Info("[GetCustomDisplayMode] -- DisplayModeMirror:", len(pairs))
+		if len(pairs) == 1 && pairs.Contains(pair) {
+			mode = DisplayModeMirror
+		}
+
+		pairs = append(pairs, pair)
+
+	}
+	logger.Info("[GetCustomDisplayMode] :", mode, len(pairs))
+	logger.Info("[GetCustomDisplayMode] pairs :", pairs)
+	if mode == DisplayModeUnknow && len(pairs) != 0 {
+		if len(pairs) == 1 {
+			if m.DisplayMode == DisplayModeCustom && customMode != 0 {
+				mode = customMode
+				logger.Info("[GetCustomDisplayMode] mode:", customMode)
+
+			} else {
+				mode = DisplayModeOnlyOne
+			}
+		} else {
+			mode = DisplayModeExtend
+		}
+	}
+	logger.Info("[GetCustomDisplayMode]", mode)
+
+	return mode, nil
+}

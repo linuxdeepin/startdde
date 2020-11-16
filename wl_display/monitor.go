@@ -51,8 +51,8 @@ type Monitor struct {
 	RefreshRate float64
 
 	// dbusutil-gen: equal=nil
-	CurrentMode ModeInfo
-
+	CurrentMode  ModeInfo
+	modeSetFlag  uint8 // 自定义单屏模式保存
 	model        string
 	manufacturer string
 
@@ -108,6 +108,32 @@ func (m *Monitor) Enable(enabled bool) *dbus.Error {
 	}
 
 	m.markChanged()
+	if enabled == true {
+		if m.modeSetFlag == DisplayModeExtendOnlyOne {
+			m.modeSetFlag = DisplayModeCustom
+			logger.Debug("Enable DisplayModeExtendOnlyOne->DisplayModeCustom ", m.modeSetFlag)
+
+		}
+		if m.modeSetFlag == DisplayModeMirrorOnlyOne {
+			m.modeSetFlag = DisplayModeCustom
+			logger.Debug("Enable DisplayModeMirrorOnlyOne->DisplayModeCustom ", m.modeSetFlag)
+		}
+
+	}
+	if enabled == false {
+
+		if m.m.DisplayMode == DisplayModeCustom {
+			a, _ := m.m.GetRealDisplayMode()
+			if a == DisplayModeExtend {
+				m.modeSetFlag = DisplayModeExtendOnlyOne
+				logger.Debug("Disable DisplayModeCustom->DisplayModeExtendOnlyOne ", m.modeSetFlag)
+			}
+			if a == DisplayModeMirror {
+				m.modeSetFlag = DisplayModeMirrorOnlyOne
+				logger.Debug("Disable DisplayModeCustom->DisplayModeMirrorOnlyOne ", m.modeSetFlag)
+			}
+		}
+	}
 	m.enable(enabled)
 	return nil
 }

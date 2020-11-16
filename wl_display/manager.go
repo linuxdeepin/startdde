@@ -27,6 +27,8 @@ const (
 	DisplayModeMirror
 	DisplayModeExtend
 	DisplayModeOnlyOne
+	DisplayModeMirrorOnlyOne
+	DisplayModeExtendOnlyOne
 	DisplayModeUnknow
 )
 
@@ -97,6 +99,7 @@ type Manager struct {
 		CanRotate              func() `out:"can"`
 		CanSwitchMode          func() `out:"can"`
 		GetRealDisplayMode     func() `out:"mode"`
+                GetCustomDisplayMode   func() `out:"mode"`
 	}
 }
 
