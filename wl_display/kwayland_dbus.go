@@ -110,6 +110,8 @@ func newKOutputInfoByUUID(uuid string) (*KOutputInfo, error) {
 
 func (m *Manager) applyByWLOutput() error {
 	var disabledMonitors []*Monitor
+	args := make([]string, 0)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	for _, monitor := range m.monitorMap {
 		trans := int32(randrRotationToTransform(int(monitor.Rotation)))
 		if !monitor.Enabled {
@@ -117,11 +119,19 @@ func (m *Manager) applyByWLOutput() error {
 			continue
 		}
 		logger.Debug("---------Will apply:", monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, fmt.Sprint("1"),
+
+		args = append(args, monitor.uuid, fmt.Sprint("1"),
 			fmt.Sprintf("%d", monitor.X), fmt.Sprintf("%d", monitor.Y), fmt.Sprintf("%d", monitor.CurrentMode.Width),
 			fmt.Sprintf("%d", monitor.CurrentMode.Height), fmt.Sprintf("%d", int32(monitor.CurrentMode.Rate*1000)),
-			fmt.Sprintf("%d", trans)).CombinedOutput()
+			fmt.Sprintf("%d", trans))
+	}
+
+	if len(args) > 0 {
+		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
+		cmdline.Args = append(cmdline.Args, args...)
+		logger.Info("cmd line args:", cmdline.Args)
+
+		data, err := cmdline.CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {
@@ -131,6 +141,7 @@ func (m *Manager) applyByWLOutput() error {
 		// wait request done
 		//time.Sleep(time.Millisecond * 500)
 	}
+
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)

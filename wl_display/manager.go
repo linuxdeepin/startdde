@@ -645,6 +645,7 @@ type screenSize struct {
 
 func (m *Manager) apply() error {
 	// TODO: remove in future
+	m.AdjustPositonAfterSetMode()
 	return m.applyByWLOutput()
 
 	// var outputInfos []*KOutputInfo
@@ -1600,4 +1601,89 @@ func (m *Manager) setPrimarySettings(name string) error {
 
 	m.primarysettings.SetString("primary-monitor-name", name)
 	return nil
+}
+
+//update Monitors and monitorMap
+func (m *Manager) AdjustPositonAfterSetMode() Monitors {
+	monitors := m.getConnectedMonitors()
+	var SecondRect x.Rectangle
+	var PrimaryRect x.Rectangle = m.PrimaryRect
+	//two screen enable
+	if m.DisplayMode != DisplayModeCustom && m.DisplayMode != DisplayModeExtend {
+		logger.Debug("it's no Extend mode.")
+		return nil
+	}
+	//one screen enable
+	if m.DisplayMode == DisplayModeCustom {
+		mode, _ := m.GetRealDisplayMode()
+		if mode != DisplayModeExtend {
+			return nil
+		}
+	}
+	// set two monitor's x,y,width,heigth then to adjust
+	for _, t := range monitors {
+		logger.Debug("monitor name:", t.Name)
+		if t.Name == m.Primary {
+			PrimaryRect.Width = t.CurrentMode.Width
+			PrimaryRect.Height = t.CurrentMode.Height
+			logger.Debug("[AdjustPositonAfterSetMode before] PrimaryRect:", PrimaryRect.X, PrimaryRect.Y, PrimaryRect.Width, PrimaryRect.Height)
+		} else {
+			SecondRect.X = t.X
+			SecondRect.Y = t.Y
+			SecondRect.Width = t.CurrentMode.Width
+			SecondRect.Height = t.CurrentMode.Height
+			logger.Debug("[AdjustPositonAfterSetMode before] SecondRect:", SecondRect.X, SecondRect.Y, SecondRect.Width, SecondRect.Height)
+
+		}
+	}
+
+	rectP, rectS, err := m.bestMovePosition(PrimaryRect, SecondRect)
+	if err != nil {
+		logger.Debug("[bestMovePosition] error!")
+	}
+
+	//save to monitormap
+	for _, t := range monitors {
+		if t.Name == m.Primary {
+			t.PropsMu.Lock()
+			t.X = int16(rectP.X)
+			t.Y = int16(rectP.Y)
+			t.Width = uint16(rectP.Width)
+			t.Height = uint16(rectP.Height)
+			logger.Debug("PrimaryScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		} else {
+			t.PropsMu.Lock()
+			t.X = int16(rectS.X)
+			t.Y = int16(rectS.Y)
+			t.Width = uint16(rectS.Width)
+			t.Height = uint16(rectS.Height)
+			logger.Debug("SecondScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		}
+		logger.Debug("monitor:", t)
+	}
+
+	for _, t := range m.monitorMap {
+		if t.Name == m.Primary {
+			t.PropsMu.Lock()
+			t.X = int16(rectP.X)
+			t.Y = int16(rectP.Y)
+			t.Width = uint16(rectP.Width)
+			t.Height = uint16(rectP.Height)
+			logger.Debug("PrimaryScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		} else {
+			t.PropsMu.Lock()
+			t.X = int16(rectS.X)
+			t.Y = int16(rectS.Y)
+			t.Width = uint16(rectS.Width)
+			t.Height = uint16(rectS.Height)
+			logger.Debug("SecondScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		}
+		logger.Debug("monitorMap:", t)
+	}
+	return monitors
+
 }
