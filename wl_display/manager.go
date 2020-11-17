@@ -69,9 +69,10 @@ type Manager struct {
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
 	// dbusutil-gen: equal=nil
-	CustomIdList []string
-	HasChanged   bool
-	DisplayMode  byte
+	CustomIdList      []string
+	HasChanged        bool
+	DisplayMode       byte
+	customDisplayMode uint8
 	// dbusutil-gen: equal=nil
 	Brightness map[string]float64
 	// dbusutil-gen: equal=nil
@@ -99,7 +100,8 @@ type Manager struct {
 		CanRotate              func() `out:"can"`
 		CanSwitchMode          func() `out:"can"`
 		GetRealDisplayMode     func() `out:"mode"`
-                GetCustomDisplayMode   func() `out:"mode"`
+		GetCustomDisplayMode   func() `out:"mode"`
+		SetCustomDisplayMode   func() `in:"mode"`
 	}
 }
 
@@ -147,6 +149,9 @@ func newManager(service *dbusutil.Service) *Manager {
 	if m.DisplayMode == DisplayModeUnknow {
 		m.DisplayMode = DisplayModeMirror
 	}
+
+	m.customDisplayMode = uint8(m.settings.GetInt("custom-display-mode"))
+
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 
 	sessionBus := service.Conn()
