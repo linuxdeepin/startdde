@@ -247,7 +247,9 @@ func (m *Manager) listenDBusSignals() {
 			m.updateScreenSize()
 			return
 		}
-		m.updateMonitor(monitor, kinfo)
+		if m.checkKwinMonitorData(monitor, kinfo) == true {
+			m.updateMonitor(monitor, kinfo)
+		}
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -276,6 +278,18 @@ func (m *Manager) listenDBusSignals() {
 	if err != nil {
 		logger.Warning(err)
 	}
+}
+
+func (m *Manager) checkKwinMonitorData(monitor *Monitor, outputInfo *KOutputInfo) bool {
+	if monitor.X == int16(outputInfo.X) && monitor.Y == int16(outputInfo.Y) &&
+		monitor.Width == uint16(outputInfo.Width) && monitor.Height == uint16(outputInfo.Height) {
+		return true
+	} else {
+		logger.Warning("kwin data error [monitor uuid]: ", outputInfo.Uuid)
+		m.apply()
+	}
+
+	return false
 }
 
 func (m *Manager) updateMonitorsId() {
@@ -1609,7 +1623,7 @@ func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 	var SecondRect x.Rectangle
 	var PrimaryRect x.Rectangle = m.PrimaryRect
 	//two screen enable
-	if m.DisplayMode != DisplayModeCustom && m.DisplayMode != DisplayModeExtend {
+	if m.DisplayMode != DisplayModeCustom {
 		logger.Debug("it's no Extend mode.")
 		return nil
 	}
