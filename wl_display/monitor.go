@@ -267,8 +267,10 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	}
 
 	m.markChanged()
+	m.PropsMu.Lock()
 	m.setX(X)
 	m.setY(y)
+	m.PropsMu.Unlock()
 	//m.setPosition(X, y)
 	return nil
 }

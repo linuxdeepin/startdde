@@ -1638,6 +1638,8 @@ func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 	for _, t := range monitors {
 		logger.Debug("monitor name:", t.Name)
 		if t.Name == m.Primary {
+			PrimaryRect.X = t.X
+			PrimaryRect.Y = t.Y
 			PrimaryRect.Width = t.CurrentMode.Width
 			PrimaryRect.Height = t.CurrentMode.Height
 			logger.Debug("[AdjustPositonAfterSetMode before] PrimaryRect:", PrimaryRect.X, PrimaryRect.Y, PrimaryRect.Width, PrimaryRect.Height)
