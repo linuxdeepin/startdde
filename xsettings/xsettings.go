@@ -257,7 +257,7 @@ func (m *XSManager) handleGSettingsChanged() {
 		case "xft-dpi":
 			return
 		case gsKeyScaleFactor:
-			m.updateDPI()
+			// 删除m.updateDPI()，保证设置屏幕缩放比例不会立刻生效
 			return
 		case "gtk-cursor-theme-name":
 			updateXResources(xresourceInfos{
@@ -274,7 +274,7 @@ func (m *XSManager) handleGSettingsChanged() {
 				},
 			})
 		case gsKeyWindowScale:
-			m.updateDPI()
+			// 删除m.updateDPI()，保证设置屏幕缩放比例不会立刻生效
 			return
 		}
 

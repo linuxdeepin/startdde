@@ -371,9 +371,9 @@ func getPlymouthTheme(file string) (string, error) {
 
 func getPlymouthThemeScaleFactor(theme string) int {
 	switch theme {
-	case "deepin-logo", "deepin-ssd-logo":
+	case "deepin-logo", "deepin-ssd-logo", "uos-ssd-logo":
 		return 1
-	case "deepin-hidpi-logo", "deepin-hidpi-ssd-logo":
+	case "deepin-hidpi-logo", "deepin-hidpi-ssd-logo", "uos-hidpi-ssd-logo":
 		return 2
 	default:
 		return 0
