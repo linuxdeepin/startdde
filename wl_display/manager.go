@@ -153,6 +153,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.customDisplayMode = uint8(m.settings.GetInt("custom-display-mode"))
 
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
+	//m.Primary = m.primarysettings.GetString("primary-monitor-name")
 
 	sessionBus := service.Conn()
 	m.management = kwayland.NewOutputManagement(sessionBus)
@@ -1176,6 +1177,12 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		if err != nil {
 			return
 		}
+	}
+
+	realMode, _ := m.GetRealDisplayMode()
+	if realMode == DisplayModeExtend {
+		logger.Info("GetRealDisplayMode DisplayModeExtend")
+		m.SetCustomDisplayMode(DisplayModeExtend)
 	}
 
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
