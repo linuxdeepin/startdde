@@ -209,11 +209,25 @@ func (m *SessionManager) ForceLogout() *dbus.Error {
 	return nil
 }
 
+func clearTtys() {
+	bus, err := dbus.SystemBus()
+	if err == nil {
+		systemDaemon := bus.Object("com.deepin.daemon.Daemon", "/com/deepin/daemon/Daemon")
+		err = systemDaemon.Call("com.deepin.daemon.Daemon.ClearTtys", 0).Err
+		if err != nil {
+			logger.Warning("failed to call com.deepin.daemon.Daemon.ClearTtys :", err)
+		}
+	} else {
+		logger.Warning(err)
+	}
+}
+
 func (m *SessionManager) logout(force bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.prepareLogout(force)
+	clearTtys()
 	m.doLogout(force)
 }
 
