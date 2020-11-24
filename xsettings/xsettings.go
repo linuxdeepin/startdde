@@ -267,17 +267,12 @@ func (m *XSManager) handleGSettingsChanged() {
 				},
 			})
 		case gsKeyGtkCursorThemeSize:
-			updateXResources(xresourceInfos{
-				&xresourceInfo{
-					key:   "Xcursor.size",
-					value: fmt.Sprintf("%d", m.gs.GetInt(gsKeyGtkCursorThemeSize)),
-				},
-			})
+			// 删除updateXResources,阻止设置屏幕缩放后,修改光标大小
+			return
 		case gsKeyWindowScale:
 			// 删除m.updateDPI()，保证设置屏幕缩放比例不会立刻生效
 			return
 		}
-
 		info := gsInfos.getByGSKey(key)
 		if info == nil {
 			return
