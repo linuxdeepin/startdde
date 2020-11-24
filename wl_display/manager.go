@@ -171,7 +171,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		}
 		m.updatePropMonitors()
 	}
-
+        m.initPrimary()
 	m.sessionSigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
 	m.sessionSigLoop.Start()
 	m.listenDBusSignals()
@@ -1710,3 +1710,46 @@ func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 	return monitors
 
 }
+
+func (m *Manager) initPrimary() {
+	logger.Info("initPrimary-get mode", m.DisplayMode)
+	var find bool = false
+	var defaultName string = ""
+	var builtInName string = ""
+	var vgaName string = ""
+	var hdmiName string = ""
+	m.Primary = m.primarysettings.GetString("primary-monitor-name")
+	logger.Debug("primary==>", m.Primary)
+	monitors := m.getConnectedMonitors()
+	for _, monitor := range monitors {
+		if monitor.Name == m.Primary {
+			find = true
+			logger.Debug("primary==>same", m.Primary)
+			break
+		}
+		name := strings.ToLower(monitor.Name)
+		if strings.HasPrefix(name, "hdmi") {
+			hdmiName = monitor.Name
+		} else if strings.HasPrefix(name, "vga") {
+			vgaName = monitor.Name
+		} else if strings.HasPrefix(name, "edp") {
+			builtInName = monitor.Name
+		} else {
+			defaultName = monitor.Name
+		}
+	}
+	if find == false {
+	    if builtInName != "" {
+		m.Primary = defaultName
+	    } else if vgaName != "" {
+	        m.Primary = vgaName
+	    } else if hdmiName != "" {
+	        m.Primary = hdmiName
+	    } else {
+	        m.Primary = defaultName
+	    }
+	    logger.Debug("PrimaryName==>", m.Primary)
+	}
+	return
+}
+
