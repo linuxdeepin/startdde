@@ -282,8 +282,8 @@ func (m *Manager) listenDBusSignals() {
 }
 
 func (m *Manager) checkKwinMonitorData(monitor *Monitor, outputInfo *KOutputInfo) bool {
-	if monitor.X == int16(outputInfo.X) && monitor.Y == int16(outputInfo.Y) &&
-		monitor.Width == uint16(outputInfo.Width) && monitor.Height == uint16(outputInfo.Height) {
+	if monitor.Enabled == false || (monitor.X == int16(outputInfo.X) && monitor.Y == int16(outputInfo.Y) &&
+		monitor.Width == uint16(outputInfo.Width) && monitor.Height == uint16(outputInfo.Height)) {
 		return true
 	} else {
 		logger.Warning("kwin data error [monitor uuid]: ", outputInfo.Uuid)
