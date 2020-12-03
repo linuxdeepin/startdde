@@ -22,11 +22,11 @@ package watchdog
 import (
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDBusExists(t *testing.T) {
-	Convey("Test dbus whether exists", t, func(c C) {
+	t.Run("Test dbus whether exists", func(t *testing.T) {
 		err := initDBusObject()
 		if err != nil {
 			logger.Warning("failed to init dbusObject:", err)
@@ -35,57 +35,57 @@ func TestDBusExists(t *testing.T) {
 			t.Skip("busObj is nil")
 		}
 		exist, _ := isDBusServiceExist(orgFreedesktopDBus)
-		c.So(exist, ShouldBeTrue)
+		assert.True(t, exist)
 		exist, _ = isDBusServiceExist(orgFreedesktopDBus + "111")
-		c.So(exist, ShouldBeFalse)
+		assert.False(t, exist)
 	})
 }
 
 func TestStrInList(t *testing.T) {
-	Convey("Test item whether in list", t, func(c C) {
+	t.Run("Test item whether in list", func(t *testing.T) {
 		var list = []string{
 			"abc",
 			"xyz",
 			"123",
 		}
-		c.So(isItemInList("abc", list), ShouldEqual, true)
-		c.So(isItemInList("abcd", list), ShouldEqual, false)
+		assert.True(t, isItemInList("abc", list))
+		assert.False(t, isItemInList("abcd", list))
 	})
 }
 
 func TestTaskInfo(t *testing.T) {
-	Convey("Test task create", t, func(c C) {
-		c.So(newTaskInfo("test1", nil, nil), ShouldBeNil)
-		c.So(newTaskInfo("test1",
+	t.Run("Test task create", func(t *testing.T) {
+		assert.Nil(t, newTaskInfo("test1", nil, nil))
+		assert.NotNil(t, newTaskInfo("test1",
 			func() (bool, error) { return true, nil },
-			func() error { return nil }), ShouldNotBeNil)
+			func() error { return nil }))
 	})
 
 	task1 := newTaskInfo("test1",
 		func() (bool, error) { return false, nil },
 		func() error { return nil })
-	Convey("Test task state", t, func(c C) {
+	t.Run("Test task state", func(t *testing.T) {
 		task1.Enable(false)
-		c.So(task1.CanLaunch(), ShouldEqual, false)
+		assert.False(t, task1.CanLaunch())
 		task1.Enable(true)
-		c.So(task1.CanLaunch(), ShouldEqual, true)
+		assert.True(t, task1.CanLaunch())
 		task1.failed = true
-		c.So(task1.CanLaunch(), ShouldEqual, false)
+		assert.False(t, task1.CanLaunch())
 		task1.failed = false
 		task1.isRunning = func() (bool, error) { return true, nil }
-		c.So(task1.CanLaunch(), ShouldEqual, false)
+		assert.False(t, task1.CanLaunch())
 	})
 
 	task2 := newTaskInfo("test2",
 		func() (bool, error) { return false, nil },
 		func() error { return nil })
-	Convey("Test manager", t, func(c C) {
+	t.Run("Test manager", func(t *testing.T) {
 		var m = &Manager{
 			timedTasks: []*taskInfo{task1},
 		}
 		task1.failed = true
-		c.So(m.hasAnyRunnableTimedTask(), ShouldEqual, false)
+		assert.False(t, m.hasAnyRunnableTimedTask())
 		m.timedTasks = append(m.timedTasks, task2)
-		c.So(m.hasAnyRunnableTimedTask(), ShouldEqual, true)
+		assert.True(t, m.hasAnyRunnableTimedTask())
 	})
 }

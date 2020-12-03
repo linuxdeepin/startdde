@@ -125,8 +125,7 @@ type StartManager struct {
 	}
 }
 
-func getLaunchedHooks() (ret []string) {
-	dir := filepath.Join(launchedHookDir)
+func getLaunchedHooks(dir string) (ret []string) {
 	fileInfoList, err := ioutil.ReadDir(dir)
 	if err != nil {
 		logger.Warning(err)
@@ -143,11 +142,11 @@ func getLaunchedHooks() (ret []string) {
 	return
 }
 
-func (m *StartManager) getCpuFreqAdjustMap() map[string]int32 {
+func (m *StartManager) getCpuFreqAdjustMap(path string) map[string]int32 {
 	cpuFreqAdjustMap := make(map[string]int32)
 
 	//the content format of each line is fixed: events timeout
-	fi, err := os.Open(cpuFreqAdjustFile)
+	fi, err := os.Open(path)
 	if err != nil {
 		logger.Warning("open dde_startup.conf failed:", err)
 		return nil
@@ -238,7 +237,7 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
 	m.restartTimeMap = make(map[string]time.Time)
-	m.launchedHooks = getLaunchedHooks()
+	m.launchedHooks = getLaunchedHooks(launchedHookDir)
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
 	sysBus, err := dbus.SystemBus()
@@ -248,7 +247,7 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 
 	m.daemonApps = daemonApps.NewApps(sysBus)
 	m.systemPower = systemPower.NewPower(sysBus)
-	m.cpuFreqAdjustMap = m.getCpuFreqAdjustMap()
+	m.cpuFreqAdjustMap = m.getCpuFreqAdjustMap(cpuFreqAdjustFile)
 	return m
 }
 

@@ -448,7 +448,7 @@ func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
 	m.applyDisplayMode()
-	m.listenEvent()		//等待applyDisplayMode执行完成再开启监听X事件
+	m.listenEvent() //等待applyDisplayMode执行完成再开启监听X事件
 }
 
 func (m *Manager) initColorTemperature() {
@@ -1019,7 +1019,7 @@ func (m *Manager) apply() error {
 			// 适合
 			monitors := m.getConnectedMonitors()
 			for _, monitor := range monitors {
-				if  monitor.crtc == crtc {
+				if monitor.crtc == crtc {
 					if monitor.oldRotation != monitor.Rotation || m.modeChanged {
 						monitor.oldRotation = monitor.Rotation
 						logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)

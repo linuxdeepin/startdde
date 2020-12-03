@@ -22,17 +22,39 @@ package autostop
 import (
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestScriptsScan(t *testing.T) {
-	Convey("Test scripts scanner", t, func(c C) {
-		var rets = []string{
-			"testdata/scripts/hello.sh",
-			"testdata/scripts/ls.sh",
-		}
+func Test_doScanScripts(t *testing.T) {
+	type args struct {
+		dir string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "doScanScripts",
+			args: args{
+				dir: "testdata/scripts",
+			},
+			want: []string{
+				"testdata/scripts/hello.sh",
+				"testdata/scripts/ls.sh",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := doScanScripts(tt.args.dir)
+			if tt.wantErr {
+				assert.NotNil(t, err)
+			}
 
-		scripts, _ := doScanScripts("./testdata/scripts")
-		c.So(rets, ShouldResemble, scripts)
-	})
+			assert.ElementsMatch(t, tt.want, got)
+		})
+	}
 }
