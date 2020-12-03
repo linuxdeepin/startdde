@@ -221,7 +221,7 @@ func (m *Manager) listenDBusSignals() {
 
 		// somethimes the wloutput data unready, so sleep 800ms
 		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
-		time.Sleep(time.Millisecond * 1000)
+		time.Sleep(time.Millisecond * 100)
 
 		// Workaround, because sometimes the output changed info not contains all props value.
 		// TODO: Remove in future
