@@ -131,16 +131,6 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 		}
 		m.PropsMu.Unlock()
 	}
-
-	// 如果实际的屏幕排列与设置的不同，设置为自定义（比如用户自己用 xrandr 命令设置屏幕排列后）
-	if m.DisplayMode != DisplayModeCustom {
-		displayMode, _ := m.GetRealDisplayMode()
-		if displayMode != m.DisplayMode {
-			m.PropsMu.Lock()
-			m.setPropDisplayMode(DisplayModeCustom)
-			m.PropsMu.Unlock()
-		}
-	}
 }
 
 func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
