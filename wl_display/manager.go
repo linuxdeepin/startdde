@@ -1673,12 +1673,21 @@ func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 			PrimaryRect.Y = t.Y
 			PrimaryRect.Width = t.CurrentMode.Width
 			PrimaryRect.Height = t.CurrentMode.Height
+
+			if needSwapWidthHeight(t.Rotation) {
+				PrimaryRect.Width, PrimaryRect.Height = PrimaryRect.Height, PrimaryRect.Width
+				logger.Debug("setRotationNoProp 90/270", PrimaryRect.Width, PrimaryRect.Height)
+			}
 			logger.Debug("[AdjustPositonAfterSetMode before] PrimaryRect:", PrimaryRect.X, PrimaryRect.Y, PrimaryRect.Width, PrimaryRect.Height)
 		} else {
 			SecondRect.X = t.X
 			SecondRect.Y = t.Y
 			SecondRect.Width = t.CurrentMode.Width
 			SecondRect.Height = t.CurrentMode.Height
+			if needSwapWidthHeight(t.Rotation) {
+				SecondRect.Width, SecondRect.Height = SecondRect.Height, SecondRect.Width
+				logger.Debug("setRotationNoProp 90/270", SecondRect.Width, SecondRect.Height)
+			}
 			logger.Debug("[AdjustPositonAfterSetMode before] SecondRect:", SecondRect.X, SecondRect.Y, SecondRect.Width, SecondRect.Height)
 
 		}

@@ -314,6 +314,14 @@ func (m *Monitor) setRotationNoProp(value uint16) {
 
 	if needSwapWidthHeight(value) {
 		width, height = height, width
+		for _, t := range m.m.monitorMap {
+			if t.Name == m.Name {
+				t.Width = uint16(width)
+				t.Height = uint16(height)
+				logger.Debug("setRotationNoProp 90/270", t.Width, t.Height)
+
+			}
+		}
 	}
 
 	m.setRotationOnly(value)
