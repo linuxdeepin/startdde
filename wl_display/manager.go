@@ -155,6 +155,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 	//m.Primary = m.primarysettings.GetString("primary-monitor-name")
 
+	m.config = loadConfig()
 	sessionBus := service.Conn()
 	m.management = kwayland.NewOutputManagement(sessionBus)
 	m.mig = newMonitorIdGenerator()
@@ -181,7 +182,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateScreenSize()
 
-	m.config = loadConfig()
+	//m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
 }
@@ -965,37 +966,43 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		monitors = append(monitors, monitor)
 	}
 	sortMonitorsByID(monitors)
-	// screenCfg := m.getScreenConfig()
-	// configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
 
-	var xOffset int
+	var xOffset int = 0
 	var monitor0 *Monitor
 	for _, monitor := range monitors {
 		if monitor.Connected {
 			monitor.enable(true)
 
-			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
 			var mode ModeInfo
-			// if cfg != nil {
-			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-			// if monitor0 == nil && cfg.Primary {
-			// monitor0 = monitor
-			// }
+			if cfg != nil {
+				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+				if monitor0 == nil && cfg.Primary {
+					monitor0 = monitor
+				}
 
-			// } else {
-			mode = monitor.BestMode
-			// }
+			} else {
+				mode = monitor.BestMode
+			}
 
 			monitor.setMode(mode)
 
-			if xOffset > math.MaxInt16 {
-				xOffset = math.MaxInt16
+			if cfg != nil {
+				monitor.setPosition(cfg.X, 0)
+				logger.Debug("setPosition from config ", cfg.X)
+			} else {
+				if xOffset > math.MaxInt16 {
+					xOffset = math.MaxInt16
+				}
+				logger.Debug("setPosition ---- sxOffset", xOffset)
+				monitor.setPosition(int16(xOffset), 0)
+				xOffset += int(monitor.Width)
 			}
-			monitor.setPosition(int16(xOffset), 0)
 			monitor.setRotation(randr.RotationRotate0)
 			monitor.setReflect(0)
 
-			xOffset += int(monitor.Width)
 		} else {
 			monitor.enable(false)
 		}
@@ -1739,16 +1746,16 @@ func (m *Manager) initPrimary() {
 		}
 	}
 	if find == false {
-	    if builtInName != "" {
-		m.Primary = defaultName
-	    } else if vgaName != "" {
-	        m.Primary = vgaName
-	    } else if hdmiName != "" {
-	        m.Primary = hdmiName
-	    } else {
-	        m.Primary = defaultName
-	    }
-	    logger.Debug("PrimaryName==>", m.Primary)
+		if builtInName != "" {
+			m.Primary = defaultName
+		} else if hdmiName != "" {
+			m.Primary = hdmiName
+		} else if vgaName != "" {
+			m.Primary = vgaName
+		} else {
+			m.Primary = defaultName
+		}
+		logger.Debug("PrimaryName==>", m.Primary)
 	}
 	return
 }
