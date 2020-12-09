@@ -18,7 +18,7 @@ type ProxyChainsConfig struct {
 	Password string
 }
 
-func loadProxyChansConfig(file string) (*ProxyChainsConfig, error) {
+func loadProxyChainsConfig(file string) (*ProxyChainsConfig, error) {
 	data, err := ioutil.ReadFile(file)
 	if err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func loadProxyChansConfig(file string) (*ProxyChainsConfig, error) {
 
 func getProxyServerUrl() (string, error) {
 	file := filepath.Join(basedir.GetUserConfigDir(), "deepin/proxychains.json")
-	cfg, err := loadProxyChansConfig(file)
+	cfg, err := loadProxyChainsConfig(file)
 	if err != nil {
 		return "", err
 	}

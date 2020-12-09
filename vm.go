@@ -98,7 +98,7 @@ func correctVMResolution() {
 		return
 	}
 
-	height, err := output.Width().Get(0)
+	height, err := output.Height().Get(0)
 	if err != nil {
 		logger.Warning(err)
 		return
