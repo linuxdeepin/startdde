@@ -350,6 +350,11 @@ func (m *Manager) applyDisplayMode() {
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne("")
 	}
+	if err == nil {
+		m.setDisplayMode(m.DisplayMode )
+	} else {
+		logger.Warningf("failed to switch mode %v %v", m.DisplayMode, err)
+	}
 
 out:
 	if err != nil {
@@ -1159,7 +1164,16 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
 	if len(configs) > 0 {
+        // switch monitor should reset displaymode for centercontrl
 		err = m.applyConfigs(configs)
+		realMode, _ := m.GetRealDisplayMode()
+		if realMode == DisplayModeExtend {
+			logger.Info("applyConfigs GetRealDisplayMode DisplayModeExtend")
+			m.SetCustomDisplayMode(DisplayModeExtend)
+		} else {
+			logger.Info("applyConfigs GetRealDisplayMode DisplayModeMirror")
+			m.SetCustomDisplayMode(DisplayModeMirror)
+		}
 		return
 	}
 
@@ -1188,8 +1202,11 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 
 	realMode, _ := m.GetRealDisplayMode()
 	if realMode == DisplayModeExtend {
-		logger.Info("GetRealDisplayMode DisplayModeExtend")
+		logger.Info("GetRealDisplayMode custormDisplayModeExtend")
 		m.SetCustomDisplayMode(DisplayModeExtend)
+	} else {
+		logger.Info("GetRealDisplayMode customDisplayModeMirror")
+		m.SetCustomDisplayMode(DisplayModeMirror)
 	}
 
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
@@ -1638,7 +1655,7 @@ func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 	var PrimaryRect x.Rectangle = m.PrimaryRect
 	//two screen enable
 	if m.DisplayMode != DisplayModeCustom {
-		logger.Debug("it's no Extend mode.")
+		logger.Debug("it's no DisplayModeCustom mode.")
 		return nil
 	}
 	//one screen enable

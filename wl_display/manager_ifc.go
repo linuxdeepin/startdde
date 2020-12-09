@@ -214,7 +214,13 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 }
 
 func (m *Manager) GetCustomDisplayMode() (uint8, *dbus.Error) {
+	realMode ,_ :=  m.GetRealDisplayMode()
 	mode := m.customDisplayMode
+	if realMode != DisplayModeOnlyOne {
+		if realMode != mode {
+			mode = realMode
+		}
+	}
 	return mode, nil
 }
 func (m *Manager) SetCustomDisplayMode(mode uint8) *dbus.Error {
