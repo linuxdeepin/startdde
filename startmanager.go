@@ -50,6 +50,8 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
+//go:generate dbusutil-gen em -type StartManager,SessionManager,Inhibitor
+
 const (
 	startManagerObjPath   = "/com/deepin/StartManager"
 	startManagerInterface = "com.deepin.StartManager"
@@ -103,25 +105,6 @@ type StartManager struct {
 			status string
 			name   string
 		}
-	}
-
-	//nolint
-	methods *struct {
-		IsMemSufficient       func() `out:"result"`
-		TryAgain              func() `in:"launch"`
-		DumpMemRecord         func() `out:"record"`
-		GetApps               func() `out:"apps"`
-		Launch                func() `in:"desktopFile" out:"ok"`
-		LaunchWithTimestamp   func() `in:"desktopFile,timestamp" out:"ok"`
-		LaunchApp             func() `in:"desktopFile,timestamp,files"`
-		LaunchAppWithOptions  func() `in:"desktopFile,timestamp,files,options"`
-		LaunchAppAction       func() `in:"desktopFile,action,timestamp"`
-		RunCommand            func() `in:"exe,args"`
-		RunCommandWithOptions func() `in:"exe,args,options"`
-		AutostartList         func() `out:"list"`
-		AddAutostart          func() `in:"filename" out:"ok"`
-		RemoveAutostart       func() `in:"filename" out:"ok"`
-		IsAutostart           func() `in:"filename" out:"result"`
 	}
 }
 

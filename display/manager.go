@@ -75,6 +75,7 @@ var (
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
+//go:generate dbusutil-gen em -type Manager,Monitor
 
 type Manager struct {
 	service                  *dbusutil.Service
@@ -117,30 +118,14 @@ type Manager struct {
 	ScreenWidth            uint16
 	ScreenHeight           uint16
 	MaxBacklightBrightness uint32
+
+	// dbusutil-gen: ignore
 	// method of adjust color temperature according to time and location
 	ColorTemperatureMode gsprop.Enum `prop:"access:r"`
+
+	// dbusutil-gen: ignore
 	// adjust color temperature by manual adjustment
 	ColorTemperatureManual gsprop.Int `prop:"access:r"`
-
-	methods *struct { //nolint
-		AssociateTouch         func() `in:"outputName,touchSerial"`
-		ChangeBrightness       func() `in:"raised"`
-		DeleteCustomMode       func() `in:"name"`
-		GetBrightness          func() `out:"values"`
-		ListOutputNames        func() `out:"names"`
-		ListOutputsCommonModes func() `out:"modes"`
-		ModifyConfigName       func() `in:"name,newName"`
-		SetAndSaveBrightness   func() `in:"outputName,value"`
-		SetBrightness          func() `in:"outputName,value"`
-		SetPrimary             func() `in:"outputName"`
-		SwitchMode             func() `in:"mode,name"`
-		CanRotate              func() `out:"can"`
-		CanSetBrightness       func() `in:"outputName" out:"can"`
-		GetBuiltinMonitor      func() `out:"name,path"`
-		SetMethodAdjustCCT     func() `in:"adjustMethod"`
-		SetColorTemperature    func() `in:"colorTemperature"`
-		GetRealDisplayMode     func() `out:"mode"`
-	}
 }
 
 type ModeInfo struct {

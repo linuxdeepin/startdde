@@ -68,12 +68,6 @@ type Switcher struct {
 	conn *x.Conn
 
 	//nolint
-	methods *struct {
-		AllowSwitch func() `out:"allow"`
-		CurrentWM   func() `out:"wmName"`
-	}
-
-	//nolint
 	signals *struct {
 		WMChanged struct {
 			name string

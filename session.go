@@ -95,22 +95,6 @@ type SessionManager struct {
 			path dbus.ObjectPath
 		}
 	}
-
-	//nolint
-	methods *struct {
-		CanLogout             func() `out:"can"`
-		CanShutdown           func() `out:"can"`
-		CanReboot             func() `out:"can"`
-		CanSuspend            func() `out:"can"`
-		CanHibernate          func() `out:"can"`
-		SetLocked             func() `in:"value"`
-		AllowSessionDaemonRun func() `out:"allow"`
-		Register              func() `in:"id" out:"ok"`
-		Inhibit               func() `in:"appId,toplevelXid,reason,flags" out:"cookie"`
-		IsInhibited           func() `in:"flags" out:"result"`
-		Uninhibit             func() `in:"cookie"`
-		GetInhibitors         func() `out:"inhibitors"`
-	}
 }
 
 const (

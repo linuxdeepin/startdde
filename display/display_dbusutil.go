@@ -3,8 +3,8 @@
 package display
 
 import (
-	"github.com/linuxdeepin/go-x11-client"
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client"
 )
 
 func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
@@ -187,20 +187,34 @@ func (v *Monitor) setPropConnected(value bool) (changed bool) {
 	return false
 }
 
-func (v *Monitor) setPropManufacturer(value string) {
-	if v.Manufacturer != value {
-		v.Manufacturer = value
-	}
-}
-
-func (v *Monitor) setPropModel(value string) {
-	if v.Model != value {
-		v.Model = value
-	}
-}
-
 func (v *Monitor) emitPropChangedConnected(value bool) error {
 	return v.service.EmitPropertyChanged(v, "Connected", value)
+}
+
+func (v *Monitor) setPropManufacturer(value string) (changed bool) {
+	if v.Manufacturer != value {
+		v.Manufacturer = value
+		v.emitPropChangedManufacturer(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedManufacturer(value string) error {
+	return v.service.EmitPropertyChanged(v, "Manufacturer", value)
+}
+
+func (v *Monitor) setPropModel(value string) (changed bool) {
+	if v.Model != value {
+		v.Model = value
+		v.emitPropChangedModel(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedModel(value string) error {
+	return v.service.EmitPropertyChanged(v, "Model", value)
 }
 
 func (v *Monitor) setPropRotations(value []uint16) {

@@ -3,132 +3,9 @@
 package display
 
 import (
-	"github.com/linuxdeepin/go-x11-client"
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client"
 )
-
-func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
-	v.Monitors = value
-	v.emitPropChangedMonitors(value)
-}
-
-func (v *Manager) emitPropChangedMonitors(value []dbus.ObjectPath) error {
-	return v.service.EmitPropertyChanged(v, "Monitors", value)
-}
-
-func (v *Manager) setPropCustomIdList(value []string) {
-	v.CustomIdList = value
-	v.emitPropChangedCustomIdList(value)
-}
-
-func (v *Manager) emitPropChangedCustomIdList(value []string) error {
-	return v.service.EmitPropertyChanged(v, "CustomIdList", value)
-}
-
-func (v *Manager) setPropHasChanged(value bool) (changed bool) {
-	if v.HasChanged != value {
-		v.HasChanged = value
-		v.emitPropChangedHasChanged(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedHasChanged(value bool) error {
-	return v.service.EmitPropertyChanged(v, "HasChanged", value)
-}
-
-func (v *Manager) setPropDisplayMode(value byte) (changed bool) {
-	if v.DisplayMode != value {
-		v.DisplayMode = value
-		v.emitPropChangedDisplayMode(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedDisplayMode(value byte) error {
-	return v.service.EmitPropertyChanged(v, "DisplayMode", value)
-}
-
-func (v *Manager) setPropBrightness(value map[string]float64) {
-	v.Brightness = value
-	v.emitPropChangedBrightness(value)
-}
-
-func (v *Manager) emitPropChangedBrightness(value map[string]float64) error {
-	return v.service.EmitPropertyChanged(v, "Brightness", value)
-}
-
-func (v *Manager) setPropTouchMap(value map[string]string) {
-	v.TouchMap = value
-	v.emitPropChangedTouchMap(value)
-}
-
-func (v *Manager) emitPropChangedTouchMap(value map[string]string) error {
-	return v.service.EmitPropertyChanged(v, "TouchMap", value)
-}
-
-func (v *Manager) setPropCurrentCustomId(value string) (changed bool) {
-	if v.CurrentCustomId != value {
-		v.CurrentCustomId = value
-		v.emitPropChangedCurrentCustomId(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedCurrentCustomId(value string) error {
-	return v.service.EmitPropertyChanged(v, "CurrentCustomId", value)
-}
-
-func (v *Manager) setPropPrimary(value string) (changed bool) {
-	if v.Primary != value {
-		v.Primary = value
-		v.emitPropChangedPrimary(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedPrimary(value string) error {
-	return v.service.EmitPropertyChanged(v, "Primary", value)
-}
-
-func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
-	v.PrimaryRect = value
-	v.emitPropChangedPrimaryRect(value)
-}
-
-func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
-	return v.service.EmitPropertyChanged(v, "PrimaryRect", value)
-}
-
-func (v *Manager) setPropScreenWidth(value uint16) (changed bool) {
-	if v.ScreenWidth != value {
-		v.ScreenWidth = value
-		v.emitPropChangedScreenWidth(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedScreenWidth(value uint16) error {
-	return v.service.EmitPropertyChanged(v, "ScreenWidth", value)
-}
-
-func (v *Manager) setPropScreenHeight(value uint16) (changed bool) {
-	if v.ScreenHeight != value {
-		v.ScreenHeight = value
-		v.emitPropChangedScreenHeight(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedScreenHeight(value uint16) error {
-	return v.service.EmitPropertyChanged(v, "ScreenHeight", value)
-}
 
 func (v *Monitor) setPropID(value uint32) (changed bool) {
 	if v.ID != value {
@@ -154,6 +31,32 @@ func (v *Monitor) setPropName(value string) (changed bool) {
 
 func (v *Monitor) emitPropChangedName(value string) error {
 	return v.service.EmitPropertyChanged(v, "Name", value)
+}
+
+func (v *Monitor) setPropManufacturer(value string) (changed bool) {
+	if v.Manufacturer != value {
+		v.Manufacturer = value
+		v.emitPropChangedManufacturer(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedManufacturer(value string) error {
+	return v.service.EmitPropertyChanged(v, "Manufacturer", value)
+}
+
+func (v *Monitor) setPropModel(value string) (changed bool) {
+	if v.Model != value {
+		v.Model = value
+		v.emitPropChangedModel(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedModel(value string) error {
+	return v.service.EmitPropertyChanged(v, "Model", value)
 }
 
 func (v *Monitor) setPropConnected(value bool) (changed bool) {
@@ -351,4 +254,127 @@ func (v *Monitor) setPropCurrentMode(value ModeInfo) {
 
 func (v *Monitor) emitPropChangedCurrentMode(value ModeInfo) error {
 	return v.service.EmitPropertyChanged(v, "CurrentMode", value)
+}
+
+func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
+	v.Monitors = value
+	v.emitPropChangedMonitors(value)
+}
+
+func (v *Manager) emitPropChangedMonitors(value []dbus.ObjectPath) error {
+	return v.service.EmitPropertyChanged(v, "Monitors", value)
+}
+
+func (v *Manager) setPropCustomIdList(value []string) {
+	v.CustomIdList = value
+	v.emitPropChangedCustomIdList(value)
+}
+
+func (v *Manager) emitPropChangedCustomIdList(value []string) error {
+	return v.service.EmitPropertyChanged(v, "CustomIdList", value)
+}
+
+func (v *Manager) setPropHasChanged(value bool) (changed bool) {
+	if v.HasChanged != value {
+		v.HasChanged = value
+		v.emitPropChangedHasChanged(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedHasChanged(value bool) error {
+	return v.service.EmitPropertyChanged(v, "HasChanged", value)
+}
+
+func (v *Manager) setPropDisplayMode(value byte) (changed bool) {
+	if v.DisplayMode != value {
+		v.DisplayMode = value
+		v.emitPropChangedDisplayMode(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedDisplayMode(value byte) error {
+	return v.service.EmitPropertyChanged(v, "DisplayMode", value)
+}
+
+func (v *Manager) setPropBrightness(value map[string]float64) {
+	v.Brightness = value
+	v.emitPropChangedBrightness(value)
+}
+
+func (v *Manager) emitPropChangedBrightness(value map[string]float64) error {
+	return v.service.EmitPropertyChanged(v, "Brightness", value)
+}
+
+func (v *Manager) setPropTouchMap(value map[string]string) {
+	v.TouchMap = value
+	v.emitPropChangedTouchMap(value)
+}
+
+func (v *Manager) emitPropChangedTouchMap(value map[string]string) error {
+	return v.service.EmitPropertyChanged(v, "TouchMap", value)
+}
+
+func (v *Manager) setPropCurrentCustomId(value string) (changed bool) {
+	if v.CurrentCustomId != value {
+		v.CurrentCustomId = value
+		v.emitPropChangedCurrentCustomId(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedCurrentCustomId(value string) error {
+	return v.service.EmitPropertyChanged(v, "CurrentCustomId", value)
+}
+
+func (v *Manager) setPropPrimary(value string) (changed bool) {
+	if v.Primary != value {
+		v.Primary = value
+		v.emitPropChangedPrimary(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedPrimary(value string) error {
+	return v.service.EmitPropertyChanged(v, "Primary", value)
+}
+
+func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
+	v.PrimaryRect = value
+	v.emitPropChangedPrimaryRect(value)
+}
+
+func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
+	return v.service.EmitPropertyChanged(v, "PrimaryRect", value)
+}
+
+func (v *Manager) setPropScreenWidth(value uint16) (changed bool) {
+	if v.ScreenWidth != value {
+		v.ScreenWidth = value
+		v.emitPropChangedScreenWidth(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedScreenWidth(value uint16) error {
+	return v.service.EmitPropertyChanged(v, "ScreenWidth", value)
+}
+
+func (v *Manager) setPropScreenHeight(value uint16) (changed bool) {
+	if v.ScreenHeight != value {
+		v.ScreenHeight = value
+		v.emitPropChangedScreenHeight(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedScreenHeight(value uint16) error {
+	return v.service.EmitPropertyChanged(v, "ScreenHeight", value)
 }

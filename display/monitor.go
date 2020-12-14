@@ -57,16 +57,7 @@ type Monitor struct {
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
 
-	backup  *MonitorBackup
-	methods *struct { //nolint
-		Enable         func() `in:"enabled"`
-		SetMode        func() `in:"mode"`
-		SetModeBySize  func() `in:"width,height"`
-		SetPosition    func() `in:"x,y"`
-		SetReflect     func() `in:"value"`
-		SetRotation    func() `in:"value"`
-		SetRefreshRate func() `in:"value"`
-	}
+	backup *MonitorBackup
 }
 
 func (m *Monitor) String() string {

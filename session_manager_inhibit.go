@@ -196,15 +196,6 @@ type Inhibitor struct {
 	reason      string
 	flags       uint32
 	toplevelXid uint32
-
-	//nolint
-	methods *struct {
-		GetAppId       func() `out:"appId"`
-		GetClientId    func() `out:"clientId"`
-		GetReason      func() `out:"reason"`
-		GetFlags       func() `out:"flags"`
-		GetToplevelXid func() `out:"xid"`
-	}
 }
 
 func (i *Inhibitor) GetInterfaceName() string {

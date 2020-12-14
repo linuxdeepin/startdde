@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	dbus "github.com/godbus/dbus"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
-	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
 )
 
@@ -45,6 +45,7 @@ const (
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
+//go:generate dbusutil-gen em -type Manager,Monitor
 
 type Manager struct {
 	service    *dbusutil.Service
@@ -78,22 +79,6 @@ type Manager struct {
 	PrimaryRect  x.Rectangle
 	ScreenWidth  uint16
 	ScreenHeight uint16
-
-	methods *struct { //nolint
-		AssociateTouch         func() `in:"outputName,touch"`
-		ChangeBrightness       func() `in:"raised"`
-		DeleteCustomMode       func() `in:"name"`
-		GetBrightness          func() `out:"values"`
-		ListOutputNames        func() `out:"names"`
-		ListOutputsCommonModes func() `out:"modes"`
-		ModifyConfigName       func() `in:"name,newName"`
-		SetAndSaveBrightness   func() `in:"outputName,value"`
-		SetBrightness          func() `in:"outputName,value"`
-		SetPrimary             func() `in:"outputName"`
-		SwitchMode             func() `in:"mode,name"`
-		CanRotate              func() `out:"can"`
-		CanSwitchMode          func() `out:"can"`
-	}
 }
 
 type ModeInfo struct {

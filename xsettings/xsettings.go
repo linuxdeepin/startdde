@@ -34,6 +34,8 @@ import (
 	"pkg.deepin.io/lib/log"
 )
 
+//go:generate dbusutil-gen em -type XSManager
+
 const (
 	xsSchema           = "com.deepin.xsettings"
 	defaultScaleFactor = 1.0
@@ -66,26 +68,6 @@ type XSManager struct {
 	//nolint
 	signals *struct {
 		SetScaleFactorStarted, SetScaleFactorDone struct{}
-	}
-
-	//nolint
-	methods *struct {
-		ListProps func() `out:"props"`
-
-		GetInteger func() `in:"prop" out:"result"`
-		SetInteger func() `in:"prop,v"`
-
-		GetString func() `in:"prop" out:"result"`
-		SetString func() `in:"prop,v"`
-
-		GetColor func() `in:"prop" out:"result"`
-		SetColor func() `in:"prop,v"`
-
-		GetScaleFactor func() `out:"scale"`
-		SetScaleFactor func() `in:"scale"`
-
-		GetScreenScaleFactors func() `out:"factors"`
-		SetScreenScaleFactors func() `in:"factors"`
 	}
 }
 

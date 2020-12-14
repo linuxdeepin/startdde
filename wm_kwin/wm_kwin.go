@@ -17,6 +17,8 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
+//go:generate dbusutil-gen em -type Switcher
+
 const (
 	swDBusDest = "com.deepin.WMSwitcher"
 	swDBusPath = "/com/deepin/WMSwitcher"
@@ -80,11 +82,6 @@ type Switcher struct {
 		WMChanged struct {
 			wmName string
 		}
-	}
-
-	methods *struct { //nolint
-		AllowSwitch func() `out:"allow"`
-		CurrentWM   func() `out:"wmName"`
 	}
 }
 
