@@ -77,8 +77,8 @@ var (
 				},
 				value: &colorValueInfo{
 					red:   0,
-					blue:  128,
-					green: 255,
+					green: 128,
+					blue:  255,
 					alpha: 100,
 				},
 			},
@@ -121,8 +121,8 @@ func (*testWrapper) TestXSReader(c *C.C) {
 			v1 := info.items[i].value.(*colorValueInfo)
 			v2 := xsTestInfo.items[i].value.(*colorValueInfo)
 			c.Check(v1.red, C.Equals, v2.red)
-			c.Check(v1.blue, C.Equals, v2.blue)
 			c.Check(v1.green, C.Equals, v2.green)
+			c.Check(v1.blue, C.Equals, v2.blue)
 			c.Check(v1.alpha, C.Equals, v2.alpha)
 		}
 	}
@@ -170,8 +170,8 @@ func (*testWrapper) TestNewXSItemColor(c *C.C) {
 	c.Check(header.name, C.Equals, prop)
 	v1 := info.value.(*colorValueInfo)
 	c.Check(v1.red, C.Equals, value[0])
-	c.Check(v1.blue, C.Equals, value[1])
-	c.Check(v1.green, C.Equals, value[2])
+	c.Check(v1.green, C.Equals, value[1])
+	c.Check(v1.blue, C.Equals, value[2])
 	c.Check(v1.alpha, C.Equals, value[3])
 }
 

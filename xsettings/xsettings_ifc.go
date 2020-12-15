@@ -154,7 +154,7 @@ func (m *XSManager) GetColor(prop string) ([]uint16, *dbus.Error) {
 
 	tmp := v.(*colorValueInfo)
 
-	return []uint16{tmp.red, tmp.blue, tmp.green, tmp.alpha}, nil
+	return []uint16{tmp.red, tmp.green, tmp.blue, tmp.alpha}, nil
 }
 
 func (m *XSManager) getSettingValue(prop string) (interface{}, uint8, error) {
