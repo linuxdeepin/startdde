@@ -348,6 +348,11 @@ func convertColorToStr(in interface{}) (interface{}, error) {
 		return nil, errors.New("type is not [4]uint16")
 	}
 
+	// 把值从 0~255 范围内修正为 0~65535 范围内
+	for idx, value := range array {
+		array[idx] = uint16((float64(value) / float64(math.MaxUint8) * float64(math.MaxUint16)))
+	}
+
 	return fmt.Sprintf("%d,%d,%d,%d", array[0], array[1],
 		array[2], array[3]), nil
 }
