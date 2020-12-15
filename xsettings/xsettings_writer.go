@@ -75,14 +75,14 @@ func (item *xsItemInfo) changeValueString(value string) {
 
 func (item *xsItemInfo) changeValueColor(value [4]uint16) {
 	v, ok := item.value.(*colorValueInfo)
-	if !ok || (v.red == value[0] && v.blue == value[1] &&
-		v.green == value[2] && v.alpha == value[3]) {
+	if !ok || (v.red == value[0] && v.green == value[1] &&
+		v.blue == value[2] && v.alpha == value[3]) {
 		return
 	}
 
 	v.red = value[0]
-	v.blue = value[1]
-	v.green = value[2]
+	v.green = value[1]
+	v.blue = value[2]
 	v.alpha = value[3]
 }
 
@@ -135,8 +135,8 @@ func newXSItemColor(prop string, v [4]uint16) *xsItemInfo {
 
 	var value = colorValueInfo{
 		red:   v[0],
-		blue:  v[1],
-		green: v[2],
+		green: v[1],
+		blue:  v[2],
 		alpha: v[3],
 	}
 
@@ -209,7 +209,7 @@ func writeXSValueString(writer io.Writer, v *stringValueInfo) {
 
 func writeXSValueColor(writer io.Writer, v *colorValueInfo) {
 	writeInteger(writer, &v.red)
-	writeInteger(writer, &v.blue)
 	writeInteger(writer, &v.green)
+	writeInteger(writer, &v.blue)
 	writeInteger(writer, &v.alpha)
 }

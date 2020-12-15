@@ -47,8 +47,8 @@ type integerValueInfo struct {
 
 type colorValueInfo struct {
 	red   uint16
-	blue  uint16
 	green uint16
+	blue  uint16
 	//If the setting does not need the alpha field,
 	//it should be set to 65535.
 	alpha uint16
@@ -187,7 +187,7 @@ func readXSValueString(reader io.Reader, v *stringValueInfo) {
 
 func readXSValueColor(reader io.Reader, v *colorValueInfo) {
 	readInteger(reader, &v.red)
-	readInteger(reader, &v.blue)
 	readInteger(reader, &v.green)
+	readInteger(reader, &v.blue)
 	readInteger(reader, &v.alpha)
 }
