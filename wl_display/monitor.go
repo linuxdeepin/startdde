@@ -271,6 +271,15 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	m.setX(X)
 	m.setY(y)
 	m.PropsMu.Unlock()
+        mode,_:= m.m.GetRealDisplayMode()
+        if mode == DisplayModeOnlyOne {
+		if X == 0 && y == 0 {
+			m.modeSetFlag = DisplayModeMirrorOnlyOne
+		} else {
+			m.modeSetFlag = DisplayModeExtendOnlyOne
+		}
+	
+        }
 	//m.setPosition(X, y)
 	return nil
 }

@@ -1170,6 +1170,8 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		if realMode == DisplayModeExtend {
 			logger.Info("applyConfigs GetRealDisplayMode DisplayModeExtend")
 			m.SetCustomDisplayMode(DisplayModeExtend)
+		} else if realMode == DisplayModeOnlyOne {
+			logger.Info("GetRealDisplayMode DisplayModeOnlyOne")
 		} else {
 			logger.Info("applyConfigs GetRealDisplayMode DisplayModeMirror")
 			m.SetCustomDisplayMode(DisplayModeMirror)
@@ -1204,6 +1206,8 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	if realMode == DisplayModeExtend {
 		logger.Info("GetRealDisplayMode custormDisplayModeExtend")
 		m.SetCustomDisplayMode(DisplayModeExtend)
+	} else if realMode == DisplayModeOnlyOne {
+		logger.Info("GetRealDisplayMode DisplayModeOnlyOne")
 	} else {
 		logger.Info("GetRealDisplayMode customDisplayModeMirror")
 		m.SetCustomDisplayMode(DisplayModeMirror)
