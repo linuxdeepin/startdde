@@ -44,8 +44,14 @@ const (
 	customModeDelim     = "+"
 	monitorsIdDelimiter = ","
 )
+
 const (
 	gsSchemaxsettings = "com.deepin.xsettings" //"com.deepin.xsettings"
+)
+
+const (
+	gsSchemaClCenter  = "com.deepin.dde.control-center"
+	gsKeyClCenter     = "effect-load"
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
@@ -61,6 +67,7 @@ type Manager struct {
 	monitorMap           map[uint32]*Monitor
 	monitorMapMu         sync.Mutex
 	settings             *gio.Settings
+	cSettings            *gio.Settings
 	monitorsId           string
 	mig                  *monitorIdGenerator
 
@@ -142,6 +149,8 @@ func newManager(service *dbusutil.Service) *Manager {
 		service:    service,
 		monitorMap: make(map[uint32]*Monitor),
 	}
+
+	m.cSettings = gio.NewSettings(gsSchemaClCenter)
 
 	m.settings = gio.NewSettings(gsSchemaDisplay)
 	m.primarysettings = gio.NewSettings(gsSchemaxsettings)
@@ -371,6 +380,26 @@ func (m *Manager) init() {
 	m.initBrightness()
 	m.applyDisplayMode()
 	m.initTouchMap()
+	m.initMiniEffect()
+}
+
+func (m *Manager) initMiniEffect() {
+	isMagic := m.cSettings.GetBoolean(gsKeyClCenter)
+	logger.Debug("+++++ initMiniEffect Get Key effect-load:", isMagic)
+	if isMagic {
+		effbus,err := dbus.SessionBus()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		effObj := effbus.Object("org.kde.KWin","/Effects")
+		var effectReturn bool
+		err = effObj.Call("org.kde.kwin.Effects.loadEffect",0,"magiclamp").Store(&effectReturn)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+	}
 }
 
 func (m *Manager) calcRecommendedScaleFactor() float64 {
