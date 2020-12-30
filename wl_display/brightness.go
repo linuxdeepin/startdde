@@ -56,11 +56,6 @@ func (m *Manager) changeBrightness(raised bool) error {
 		return nil
 	}
 
-	var step float64 = 0.001
-	if !raised {
-		step = -step
-	}
-
 	monitors := m.getConnectedMonitors()
 
 	for _, monitor := range monitors {
@@ -94,20 +89,10 @@ func (m *Manager) changeBrightness(raised bool) error {
 
 		if setBr {
 			//set brightness 5 times by one step of 0.01
-			for i := 1; i <= 50; i++ {
-				br = v + step*float64(i)
-				if br > 1.0 {
-					br = 1.0
-				}
-				if br < 0.1 {
-					br = 0.1
-				}
-				logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
-				err := m.doSetBrightness(br, monitor.Name)
-				if err != nil {
-					return err
-				}
-				//time.Sleep(time.Millisecond * 35)
+			logger.Debug("[changeBrightness] will set to:", monitor.Name, v)
+			err := m.doSetBrightnessAuxForBacklight(false, v, monitor.Name, raised)
+			if err != nil {
+				return err
 			}
 		} else {
 			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
@@ -119,6 +104,76 @@ func (m *Manager) changeBrightness(raised bool) error {
 	}
 
 	m.saveBrightness()
+	return nil
+}
+
+// doSetBrightnessAuxForBacklight单独处理使用F1,F2调节亮度逻辑,避免发送多次dbus信号
+func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name string, isRaised bool) error {
+	monitors := m.getConnectedMonitors()
+	monitor0 := monitors.GetByName(name)
+	if monitor0 == nil {
+		return InvalidOutputNameError{Name: name}
+	}
+
+	monitor0.PropsMu.RLock()
+	enabled := monitor0.Enabled
+	monitor0.PropsMu.RUnlock()
+
+	var br float64
+	if !fake && enabled {
+		var step float64
+		var times int
+		if value < 0.4 {
+			step = 0.001
+			times = 50
+		} else if value < 0.7 {
+			step = 0.002
+			times = 25
+		} else if value < 0.9 {
+			step = 0.005
+			times = 10
+		} else {
+			step = 0.05
+			times = 1
+		}
+		if !isRaised {
+			step = -step
+		}
+
+		for i := 1; i <= times; i++ {
+			br = value + step*float64(i)
+			if br > 1.0 {
+				br = 1.0
+			}
+			if br < 0.1 {
+				br = 0.1
+			}
+			err := m.setMonitorBrightness(monitor0, br)
+			if err != nil {
+				logger.Warningf("brightness: failed to set brightness for %s: %v", name, err)
+				return err
+			}
+
+                  	// 防止出现多次调节亮度值不变的情况
+			if math.Abs(br - 0.1) < 1e-5 || math.Abs(br - 1.0) < 1e-5 {
+				break
+			}
+		}
+	}
+
+	value = br
+	oldValue := m.Brightness[name]
+	if oldValue == value {
+		return nil
+	}
+
+	// update brightness of the output
+	m.Brightness[name] = value
+	err := m.emitPropChangedBrightness(m.Brightness)
+	if err != nil {
+		logger.Warning(err)
+	}
+
 	return nil
 }
 
