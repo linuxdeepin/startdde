@@ -22,7 +22,7 @@ type Monitor struct {
 	service *dbusutil.Service
 	//crtc    randr.Crtc
 	uuid    string
-	edid 	string       //base64编码
+	edid    string //base64编码
 	PropsMu sync.RWMutex
 
 	ID        uint32
@@ -161,10 +161,9 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 	if !modeFound {
 		return dbusutil.ToError(fmt.Errorf("invalid mode id %d", mode))
 	}
-
+	m.m.mutiMonitorsPos = m.m.getMonitorsPosition()
 	m.markChanged()
 	m.setModeNoProp(newMode)
-	//m.setMode(newMode)
 	return nil
 }
 
@@ -272,15 +271,17 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	m.setX(X)
 	m.setY(y)
 	m.PropsMu.Unlock()
-        mode,_:= m.m.GetRealDisplayMode()
-        if mode == DisplayModeOnlyOne {
+	mode, _ := m.m.GetRealDisplayMode()
+	if mode == DisplayModeOnlyOne {
 		if X == 0 && y == 0 {
 			m.modeSetFlag = DisplayModeMirrorOnlyOne
 		} else {
 			m.modeSetFlag = DisplayModeExtendOnlyOne
 		}
-	
-        }
+
+	}
+	m.m.mutiMonitorsPos = MonitorsUnknow
+
 	//m.setPosition(X, y)
 	return nil
 }

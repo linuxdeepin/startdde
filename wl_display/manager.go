@@ -33,6 +33,13 @@ const (
 )
 
 const (
+	MonitorsLeftRight uint8 = iota
+	MonitorsUpDown
+	MonitorsDiagonal
+	MonitorsUnknow
+)
+
+const (
 	gsSchemaDisplay  = "com.deepin.dde.display"
 	gsKeyDisplayMode = "display-mode"
 	gsKeyBrightness  = "brightness"
@@ -50,8 +57,8 @@ const (
 )
 
 const (
-	gsSchemaClCenter  = "com.deepin.dde.control-center"
-	gsKeyClCenter     = "effect-load"
+	gsSchemaClCenter = "com.deepin.dde.control-center"
+	gsKeyClCenter    = "effect-load"
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import pkg.deepin.io/lib/dbus1,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
@@ -91,6 +98,7 @@ type Manager struct {
 	ScreenWidth     uint16
 	ScreenHeight    uint16
 	primarysettings *gio.Settings
+	mutiMonitorsPos uint8
 
 	methods *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
@@ -168,6 +176,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	sessionBus := service.Conn()
 	m.management = kwayland.NewOutputManagement(sessionBus)
 	m.mig = newMonitorIdGenerator()
+	m.mutiMonitorsPos = MonitorsUnknow
 
 	outputInfos, err := m.listOutput()
 	if err != nil {
@@ -181,7 +190,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		}
 		m.updatePropMonitors()
 	}
-        m.initPrimary()
+	m.initPrimary()
 	m.sessionSigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
 	m.sessionSigLoop.Start()
 	m.listenDBusSignals()
@@ -244,7 +253,7 @@ func (m *Manager) listenDBusSignals() {
 			return
 		}
 		logger.Infof("display: OutputChanged@2 %#v", kinfo)
-		kinfo.Edid =  outputInfo.Edid
+		kinfo.Edid = outputInfo.Edid
 
 		monitorId := m.mig.getId(kinfo.Uuid)
 
@@ -364,7 +373,7 @@ func (m *Manager) applyDisplayMode() {
 		err = m.switchModeOnlyOne("")
 	}
 	if err == nil {
-		m.setDisplayMode(m.DisplayMode )
+		m.setDisplayMode(m.DisplayMode)
 	} else {
 		logger.Warningf("failed to switch mode %v %v", m.DisplayMode, err)
 	}
@@ -387,14 +396,14 @@ func (m *Manager) initMiniEffect() {
 	isMagic := m.cSettings.GetBoolean(gsKeyClCenter)
 	logger.Debug("+++++ initMiniEffect Get Key effect-load:", isMagic)
 	if isMagic {
-		effbus,err := dbus.SessionBus()
+		effbus, err := dbus.SessionBus()
 		if err != nil {
 			logger.Warning(err)
 			return
 		}
-		effObj := effbus.Object("org.kde.KWin","/Effects")
+		effObj := effbus.Object("org.kde.KWin", "/Effects")
 		var effectReturn bool
-		err = effObj.Call("org.kde.kwin.Effects.loadEffect",0,"magiclamp").Store(&effectReturn)
+		err = effObj.Call("org.kde.kwin.Effects.loadEffect", 0, "magiclamp").Store(&effectReturn)
 		if err != nil {
 			logger.Warning(err)
 			return
@@ -1198,7 +1207,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
 	if len(configs) > 0 {
-        // switch monitor should reset displaymode for centercontrl
+		// switch monitor should reset displaymode for centercontrl
 		err = m.applyConfigs(configs)
 		realMode, _ := m.GetRealDisplayMode()
 		if realMode == DisplayModeExtend {
@@ -1824,3 +1833,32 @@ func (m *Manager) initPrimary() {
 	return
 }
 
+func (m *Manager) getMonitorsPosition() uint8 {
+	monitors := m.getConnectedMonitors()
+	pos := MonitorsLeftRight
+	var secondRec, firstRec x.Rectangle
+	//暂不考虑仅单屏的形式
+	for i, t := range monitors {
+		if i == 0 {
+			firstRec.X = t.X
+			firstRec.Y = t.Y
+			firstRec.Width = t.Width
+			firstRec.Height = t.Height
+
+		} else {
+			secondRec.X = t.X
+			secondRec.Y = t.Y
+			secondRec.Width = t.Width
+			secondRec.Height = t.Height
+		}
+	}
+	if firstRec.Y == secondRec.Y || firstRec.Y+int16(firstRec.Height) == secondRec.Y+int16(secondRec.Height) { //上对齐和下对齐
+		pos = MonitorsLeftRight
+	} else if firstRec.X == secondRec.X || firstRec.X+int16(firstRec.Width) == secondRec.X+int16(secondRec.Width) { //左对齐和右对齐
+		pos = MonitorsUpDown
+	} else {
+		pos = MonitorsDiagonal
+	}
+	logger.Debug("========position is======= :", pos)
+	return pos
+}

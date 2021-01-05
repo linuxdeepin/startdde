@@ -9,6 +9,13 @@ import (
 
 const INT_MAX = int(^uint(0) >> 1)
 
+const (
+	rectPoint0 int = iota
+	rectPoint1
+	rectPoint2
+	rectPoint3
+)
+
 type Point struct {
 	X int
 	Y int
@@ -42,14 +49,36 @@ func (m *Manager) bestMoveOffset(r0, r1 x.Rectangle) (int, int, error) {
 	otherPoints := make([]Point, 0)
 	otherPoints = append(otherPoints, otherTopLeft, Point{int(r1.X) + int(r1.Width), int(r1.Y)}, Point{int(r1.X), int(r1.Y) + int(r1.Height)}, Point{int(r1.X) + int(r1.Width), int(r1.Y) + int(r1.Height)})
 
+	cb := func(x, y, target1, target2 int) bool {
+		if (x == target1 && y == target2) || (x == target2 && y == target1) {
+			return true
+		}
+		return false
+	}
+
 	var bestOffset Point
 	needOffset := false
 	min := INT_MAX
-	for _, p1 := range selfPoints {
-		for _, p2 := range otherPoints {
+	for i, p1 := range selfPoints {
+		for j, p2 := range otherPoints {
 			offset := Point{
 				X: p1.X - p2.X,
 				Y: p1.Y - p2.Y,
+			}
+			if m.mutiMonitorsPos == MonitorsLeftRight {
+				if !cb(i, j, rectPoint0, rectPoint1) && !cb(i, j, rectPoint2, rectPoint3) {
+					continue
+				}
+			} else if m.mutiMonitorsPos == MonitorsUpDown {
+				if !cb(i, j, rectPoint0, rectPoint2) && !cb(i, j, rectPoint1, rectPoint3) {
+					continue
+				}
+			} else if m.mutiMonitorsPos == MonitorsDiagonal {
+				if !cb(i, j, rectPoint1, rectPoint2) && !cb(i, j, rectPoint0, rectPoint3) {
+					continue
+				}
+			} else {
+
 			}
 
 			mt := int(math.Pow(float64(offset.X), 2) + math.Pow(float64(offset.Y), 2))
