@@ -22,9 +22,10 @@ package memchecker
 import (
 	"bufio"
 	"os"
-	"pkg.deepin.io/lib/strv"
 	"strconv"
 	"strings"
+
+	"pkg.deepin.io/lib/strv"
 )
 
 // MemoryInfo show the current memory stat, sum by kb
@@ -74,21 +75,21 @@ func doGetMemInfo(filename string) (*MemoryInfo, error) {
 
 		v := stou(list[1])
 		switch {
-		case strings.Contains(line, "MemTotal"):
+		case list[0] == "MemTotal:":
 			info.MemTotal = v
-		case strings.Contains(line, "MemFree"):
+		case list[0] == "MemFree:":
 			info.MemFree = v
-		case strings.Contains(line, "MemAvailable"):
+		case list[0] == "MemAvailable:":
 			info.MemAvailable = v
-		case strings.Contains(line, "Buffers"):
+		case list[0] == "Buffers:":
 			info.Buffers = v
-		case strings.Contains(line, "Cached"):
+		case list[0] == "Cached:":
 			info.Cached = v
-		case strings.Contains(line, "SwapTotal"):
+		case list[0] == "SwapTotal:":
 			info.SwapTotal = v
-		case strings.Contains(line, "SwapFree"):
+		case list[0] == "SwapFree:":
 			info.SwapFree = v
-		case strings.Contains(line, "SwapCached"):
+		case list[0] == "SwapCached:":
 			info.SwapCached = v
 		}
 	}
