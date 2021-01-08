@@ -25,12 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClearTtys(t *testing.T) {
-	t.Run("Test clear TTYs", func(t *testing.T) {
-		assert.NotPanics(t, clearTtys)
-	})
-}
-
 func TestSetupEnvironments1(t *testing.T) {
 	t.Run("Test setup environments", func(t *testing.T) {
 		setupEnvironments1()
