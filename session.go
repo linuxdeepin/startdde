@@ -35,6 +35,7 @@ import (
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -86,6 +87,7 @@ type SessionManager struct {
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            *login1.Manager
 	objLoginSessionSelf *login1.Session
+	daemon              *daemon.Daemon
 
 	//nolint
 	signals *struct {
@@ -210,17 +212,17 @@ func (m *SessionManager) ForceLogout() *dbus.Error {
 	return nil
 }
 
-func clearTtys() {
-	bus, err := dbus.SystemBus()
-	if err == nil {
-		systemDaemon := bus.Object("com.deepin.daemon.Daemon", "/com/deepin/daemon/Daemon")
-		err = systemDaemon.Call("com.deepin.daemon.Daemon.ClearTtys", 0).Err
-		if err != nil {
-			logger.Warning("failed to call com.deepin.daemon.Daemon.ClearTtys :", err)
-		}
-	} else {
-		logger.Warning(err)
+func (m *SessionManager) clearCurrentTty() {
+	vTNr, err := m.loginSession.VTNr().Get(0)
+	if err != nil {
+		logger.Warning("clearCurrentTty:", err)
+		return
 	}
+	err = m.daemon.ClearTty(0, vTNr)
+	if err != nil {
+		logger.Warning("clearCurrentTty:", err)
+	}
+	return
 }
 
 func (m *SessionManager) logout(force bool) {
@@ -228,7 +230,7 @@ func (m *SessionManager) logout(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareLogout(force)
-	clearTtys()
+	m.clearCurrentTty()
 	m.doLogout(force)
 }
 
@@ -608,6 +610,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		objLoginSessionSelf: objLoginSessionSelf,
 		powerManager:        powerManager,
 		dbusDaemon:          dbusDaemon,
+		daemon:              daemon.NewDaemon(sysBus),
 	}
 	return m
 }
