@@ -280,6 +280,7 @@ func (m *SessionManager) shutdown(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareShutdown(force)
+	m.clearCurrentTty()
 
 	err := m.objLogin.PowerOff(0, false)
 	if err != nil {
@@ -323,6 +324,7 @@ func (m *SessionManager) reboot(force bool) {
 	defer m.mu.Unlock()
 
 	m.prepareShutdown(force)
+	m.clearCurrentTty()
 
 	err := m.objLogin.Reboot(0, false)
 	if err != nil {
@@ -370,7 +372,6 @@ func (m *SessionManager) CanHibernate() (bool, *dbus.Error) {
 }
 
 func (m *SessionManager) RequestHibernate() *dbus.Error {
-
 	err := m.objLogin.Hibernate(0, false)
 	if err != nil {
 		logger.Warning("failed to Hibernate:", err)
