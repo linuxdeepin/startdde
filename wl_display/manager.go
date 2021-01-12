@@ -77,8 +77,10 @@ type Manager struct {
 	cSettings            *gio.Settings
 	monitorsId           string
 	mig                  *monitorIdGenerator
+	systemName           string
 
 	sessionSigLoop *dbusutil.SignalLoop
+	systemSigLoop  *dbusutil.SignalLoop
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -195,6 +197,14 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.sessionSigLoop.Start()
 	m.listenDBusSignals()
 
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		return nil
+	}
+	m.systemSigLoop = dbusutil.NewSignalLoop(sysBus, 10)
+	m.systemSigLoop.Start()
+	m.systemName = m.getSystemInfo(sysBus)
+
 	m.monitorsId = m.getMonitorsId()
 	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
@@ -203,6 +213,18 @@ func newManager(service *dbusutil.Service) *Manager {
 	//m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
+}
+
+func (m *Manager) getSystemInfo(systemBus *dbus.Conn) string {
+	var productName string
+	obj := systemBus.Object("com.deepin.system.SystemInfo", "/com/deepin/system/SystemInfo")
+	err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.deepin.system.SystemInfo", 
+				   "ProductName").Store(&productName)
+	if err != nil {
+		logger.Warning(err)
+		return ""
+	}
+	return productName
 }
 
 func (m *Manager) listenDBusSignals() {

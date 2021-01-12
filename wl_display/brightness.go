@@ -20,6 +20,7 @@
 package display
 
 import (
+	"strings"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -136,6 +137,12 @@ func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name 
 			step = 0.05
 			times = 1
 		}
+
+		if strings.Contains(m.systemName, "PGUV-") {
+			step = 0.05
+			times = 1
+		}
+
 		if !isRaised {
 			step = -step
 		}
