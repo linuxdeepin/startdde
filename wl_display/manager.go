@@ -237,7 +237,7 @@ func (m *Manager) listenDBusSignals() {
 			return
 		}
 		logger.Infof("display: wloutput OutputAdded %#v", outputInfo)
-		brightness.RefreshDDCCI()
+
 		err = m.addMonitor(outputInfo)
 		if err != nil {
 			logger.Warning(err)
@@ -248,7 +248,10 @@ func (m *Manager) listenDBusSignals() {
 		m.updateMonitorsId()
 		m.updateScreenSize()
 		// apply last saved brightness
-		m.initBrightness()
+		go func() {
+			brightness.RefreshDDCCI()
+			m.initBrightness()
+		}()
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -261,7 +264,7 @@ func (m *Manager) listenDBusSignals() {
 			return
 		}
 		logger.Infof("display: wloutput OutputChanged@1 %#v", outputInfo)
-		brightness.RefreshDDCCI()
+		//brightness.RefreshDDCCI()
 
 		// somethimes the wloutput data unready, so sleep 800ms
 		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
@@ -291,6 +294,11 @@ func (m *Manager) listenDBusSignals() {
 
 			m.updateMonitorsId()
 			m.updateScreenSize()
+
+			go func() {
+				brightness.RefreshDDCCI()
+				m.initBrightness()
+			}()
 			return
 		}
 		if m.checkKwinMonitorData(monitor, kinfo) == true {
@@ -302,6 +310,7 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputRemoved(func(output string) {
+		//brightness.RefreshDDCCI()
 		outputInfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
@@ -320,6 +329,10 @@ func (m *Manager) listenDBusSignals() {
 		m.updatePropMonitors()
 		m.updateMonitorsId()
 		m.updateScreenSize()
+
+		go func() {
+			brightness.RefreshDDCCI()
+		}()
 	})
 	if err != nil {
 		logger.Warning(err)
