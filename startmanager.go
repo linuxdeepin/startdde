@@ -610,6 +610,11 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 		logger.Debug("cmd suffixes:", cmdSuffixes)
 		ctx.SetCmdSuffixes(cmdSuffixes)
 	}
+
+	if appInfo.IsDesktopOverrideExecSet() {
+		logger.Debug("cmd override exec:", appInfo.GetDesktopOverrideExec())
+	}
+
 	cmd, err := iStartCmd.StartCommand(files, ctx)
 
 	// exec launched hooks
@@ -687,6 +692,14 @@ func (m *StartManager) launchApp(desktopFile string, timestamp uint32, files []s
 			return errors.New("type of option path is not string")
 		}
 		appInfo.SetString(desktopappinfo.MainSection, desktopappinfo.KeyPath, pathStr)
+	}
+
+	if execVar, ok := options["desktop-override-exec"]; ok {
+		execStr, isStr := execVar.Value().(string)
+		if !isStr {
+			return errors.New("type of option desktop-override-exec is not string")
+		}
+		appInfo.SetDesktopOverrideExec(execStr)
 	}
 
 	return m.launch(appInfo, timestamp, files, appInfo, desktopFile)
