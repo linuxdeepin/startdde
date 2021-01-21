@@ -50,6 +50,6 @@ Conflicts:
  deepin-session,
  deepin-wm-switcher,
 Breaks:
- startdde(<= 2.91.1),
+ deepin-desktop-schemas(<= 5.8.44),
 Description: start deepin desktop environment
  starter of deepin desktop environment.
