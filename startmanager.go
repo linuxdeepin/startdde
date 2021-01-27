@@ -644,6 +644,10 @@ func (m *StartManager) listenAppCloseEvent() error {
 }
 
 func sendAppDataMsgToUserExperModule(msg string, item *UeMessageItem) {
+	// 社区版不收集数据
+	if isCommunity() {
+		return
+	}
 	// send open app and close app message to user experience module
 	bus, err := dbus.SystemBus()
 	if err == nil {

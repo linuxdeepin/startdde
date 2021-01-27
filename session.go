@@ -954,6 +954,9 @@ type UeMessageItem struct {
 }
 
 func sendMsgToUserExperModule(msg string) {
+	if isCommunity() {
+		return
+	}
 	// send message to user experience module
 	// first send will active the services
 	bus, err := dbus.SystemBus()
