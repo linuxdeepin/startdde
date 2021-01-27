@@ -278,3 +278,21 @@ func getLightDMAutoLoginUser() (string, error) {
 	v, err := kf.GetString("Seat:*", "autologin-user")
 	return v, err
 }
+
+// dont collect experience message if edition is community
+func isCommunity() bool {
+	kf := keyfile.NewKeyFile()
+	err := kf.LoadFromFile("/etc/os-version")
+	// 为避免收集数据的风险，读不到此文件，或者Edition文件不存在也不收集数据
+	if err != nil {
+		return true
+	}
+	edition, err := kf.GetString("Version", "EditionName")
+	if err != nil {
+		return true
+	}
+	if edition == "Community" {
+		return true
+	}
+	return false
+}
