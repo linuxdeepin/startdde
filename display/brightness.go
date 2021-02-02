@@ -37,9 +37,23 @@ func (err InvalidOutputNameError) Error() string {
 	return fmt.Sprintf("invalid output name %q", err.Name)
 }
 
-func (m *Manager) saveBrightness() {
-	jsonStr := jsonMarshal(m.Brightness)
-	m.settings.SetString(gsKeyBrightness, jsonStr)
+func (m *Manager) saveBrightness(outputName string, value float64) {
+	monitors := m.getConnectedMonitors()
+	screenCfg := m.getScreenConfig()
+	if len(monitors) == 1 {
+		screenCfg.Single.Monitors = monitors[0].toConfig()
+		if screenCfg.Single.Monitors.Name == outputName {
+			screenCfg.Single.Monitors.Brightness = value
+		}
+	} else {
+		configs := screenCfg.getMonitorConfigs(m.DisplayMode)
+		for _, mc := range configs {
+			if mc.Name == outputName {
+				mc.Brightness = value
+				break
+			}
+		}
+	}
 }
 
 func (m *Manager) changeBrightness(raised bool) error {
@@ -102,9 +116,10 @@ func (m *Manager) changeBrightness(raised bool) error {
 		//		return err
 		//	}
 		//}
+		m.saveBrightness(monitor.Name, br)
+
 	}
 
-	m.saveBrightness()
 	return nil
 }
 

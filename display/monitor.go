@@ -344,16 +344,17 @@ func toMonitorConfigs(monitors []*Monitor, primary string) []*MonitorConfig {
 
 func (m *Monitor) toConfig() *MonitorConfig {
 	return &MonitorConfig{
-		UUID:        m.uuid,
-		Name:        m.Name,
-		Enabled:     m.Enabled,
-		X:           m.X,
-		Y:           m.Y,
-		Width:       m.Width,
-		Height:      m.Height,
-		Rotation:    m.Rotation,
-		Reflect:     m.Reflect,
-		RefreshRate: m.RefreshRate,
+		UUID:                   m.uuid,
+		Name:                   m.Name,
+		Enabled:                m.Enabled,
+		X:                      m.X,
+		Y:                      m.Y,
+		Width:                  m.Width,
+		Height:                 m.Height,
+		Rotation:               m.Rotation,
+		Reflect:                m.Reflect,
+		RefreshRate:            m.RefreshRate,
+		Brightness:             m.m.Brightness[m.Name],
 	}
 }
 

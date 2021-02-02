@@ -20,11 +20,11 @@
         <value value="2" nick="manual" />
     </enum>
     <schema path="/com/deepin/dde/display/" id="com.deepin.dde.display">
-	<key name="brightness-setter" enum="com.deepin.dde.display.BrightnessSetter">
-	    <default>'auto'</default>
-	    <summary>the method for setting brightness</summary>
-	    <description>the method for setting brightness.</description>
-	</key>
+        <key name="brightness-setter" enum="com.deepin.dde.display.BrightnessSetter">
+            <default>'auto'</default>
+            <summary>the method for setting brightness</summary>
+            <description>the method for setting brightness.</description>
+        </key>
         <key name="display-mode" enum="com.deepin.dde.display.DisplayMode">
             <default>'mirrors'</default>
             <summary>the multi monitors display mode</summary>

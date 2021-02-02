@@ -13,9 +13,15 @@ type ScreenConfigV3_3 struct {
 	BaseInfos []*MonitorConfiV3_3
 }
 
-func (sc *ScreenConfigV3_3) toMonitorConfigs() []*MonitorConfig {
+func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 	result := make([]*MonitorConfig, len(sc.BaseInfos))
+	var brightnes float64
 	for idx, bi := range sc.BaseInfos {
+		for brighnessName, value := range m.Brightness {
+			if brighnessName == bi.Name {
+				brightnes = value
+			}
+		}
 		primary := bi.Name == sc.Primary
 		result[idx] = &MonitorConfig{
 			UUID:        bi.UUID,
@@ -28,6 +34,35 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs() []*MonitorConfig {
 			Rotation:    bi.Rotation,
 			Reflect:     bi.Reflect,
 			RefreshRate: bi.RefreshRate,
+			Brightness:  brightnes,
+			Primary:     primary,
+		}
+	}
+	return result
+}
+
+func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfig {
+	result := make([]*MonitorConfig, len(sc.BaseInfos))
+	var brightnes float64
+	for idx, bi := range sc.BaseInfos {
+		for brighnessName, value := range m.Brightness {
+			if brighnessName == bi.Name {
+				brightnes = value
+			}
+		}
+		primary := bi.Name == sc.Primary
+		result[idx] = &MonitorConfig{
+			UUID:        bi.UUID,
+			Name:        bi.Name,
+			Enabled:     bi.Enabled,
+			X:           bi.X,
+			Y:           bi.Y,
+			Width:       bi.Width,
+			Height:      bi.Height,
+			Rotation:    bi.Rotation,
+			Reflect:     bi.Reflect,
+			RefreshRate: bi.RefreshRate,
+			Brightness:  brightnes,
 			Primary:     primary,
 		}
 	}
@@ -64,9 +99,9 @@ func loadConfigV3_3(filename string) (ConfigV3_3, error) {
 	return c, nil
 }
 
-func (c ConfigV3_3) toConfig() Config {
+func (c ConfigV3_3) toConfig(m *Manager) Config {
 	newConfig := make(Config)
-
+	var brightnes float64
 	for id, sc := range c {
 		cfgKey := parseConfigKey(id)
 		jId := cfgKey.getJoinedId()
@@ -76,36 +111,53 @@ func (c ConfigV3_3) toConfig() Config {
 				len(sc.BaseInfos) == 1 {
 
 				bi := sc.BaseInfos[0]
+				if bi != nil {
+					for brightnessName, value := range m.Brightness {
+						if brightnessName == bi.Name {
+							brightnes = value
+						}
+					}
+				}
+
 				newConfig[jId] = &ScreenConfig{
-					Custom:  nil,
 					Mirror:  nil,
 					Extend:  nil,
 					OnlyOne: nil,
-					Single: &MonitorConfig{
-						UUID:        bi.UUID,
-						Name:        bi.Name,
-						Enabled:     bi.Enabled,
-						X:           bi.X,
-						Y:           bi.Y,
-						Width:       bi.Width,
-						Height:      bi.Height,
-						Rotation:    bi.Rotation,
-						Reflect:     bi.Reflect,
-						RefreshRate: bi.RefreshRate,
-						Primary:     true,
+					Single: &SingleModeConfig{
+						Monitors: &MonitorConfig{
+							UUID:        bi.UUID,
+							Name:        bi.Name,
+							Enabled:     bi.Enabled,
+							X:           bi.X,
+							Y:           bi.Y,
+							Width:       bi.Width,
+							Height:      bi.Height,
+							Rotation:    bi.Rotation,
+							Reflect:     bi.Reflect,
+							RefreshRate: bi.RefreshRate,
+							Brightness:  brightnes,
+							Primary:     true,
+						},
+						ColorTemperatureMode:   m.gsColorTemperatureMode,
+						ColorTemperatureManual: m.gsColorTemperatureManual,
 					},
 				}
 			}
 		} else {
-			// custom mode
 			screenCfg := newConfig[jId]
 			if screenCfg == nil {
 				screenCfg = &ScreenConfig{}
 				newConfig[jId] = screenCfg
 			}
 
-			configs := sc.toMonitorConfigs()
-			screenCfg.setMonitorConfigs(DisplayModeCustom, cfgKey.name, configs)
+			configs := sc.toMonitorConfigs(m)
+			//只有合并和拆分模式 只判断两个屏
+			if configs[0].X == configs[1].X {
+				screenCfg.setModeConfigs(DisplayModeMirror, m.gsColorTemperatureMode, m.gsColorTemperatureManual, configs)
+			} else {
+				screenCfg.setModeConfigs(DisplayModeExtend, m.gsColorTemperatureMode, m.gsColorTemperatureManual, configs)
+
+			}
 		}
 	}
 	return newConfig

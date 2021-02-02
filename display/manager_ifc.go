@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -99,8 +99,7 @@ func (m *Manager) ModifyConfigName(name, newName string) *dbus.Error {
 }
 
 func (m *Manager) DeleteCustomMode(name string) *dbus.Error {
-	err := m.deleteCustomMode(name)
-	return dbusutil.ToError(err)
+	return dbusutil.ToError(errors.New("obsoleted interface"))
 }
 
 func (m *Manager) RefreshBrightness() *dbus.Error {
@@ -119,9 +118,15 @@ func (m *Manager) Reset() *dbus.Error {
 }
 
 func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.Error {
+	can, _ := m.CanSetBrightness(outputName)
+	if !can {
+		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
+	}
 	err := m.doSetBrightness(value, outputName)
 	if err == nil {
-		m.saveBrightness()
+		m.saveBrightness(outputName, value)
+		//保存到配置文件
+		err = m.saveConfig()
 	}
 	return dbusutil.ToError(err)
 }
@@ -154,7 +159,7 @@ func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
 	}
 
 	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
-	if os.Getenv("CAN_SET_BRIGHTNESS") == "N"{
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
 		if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
 			return false, nil
 		}
@@ -188,7 +193,8 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
 		return dbusutil.ToError(errors.New("adjustMethod type out of range, not 0 or 1 or 2"))
 	}
-	m.ColorTemperatureMode.Set(adjustMethod)
+	m.setPropColorTemperatureMode(adjustMethod)
+	m.saveColorTemperaturModeToConfigs(adjustMethod)
 	switch adjustMethod {
 	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
 		controlRedshift("stop") // 停止服务
@@ -198,22 +204,35 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 		controlRedshift("start") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
-		lastManualCCT := m.ColorTemperatureManual.Get()
+		lastManualCCT := m.tempColorTemperatureManual
 		err := m.SetColorTemperature(lastManualCCT)
-		return err
+		if err != nil {
+			return err
+		}
+	}
+
+	err := m.saveConfig()
+	if err != nil {
+		return dbusutil.ToError(err)
 	}
 	return nil
 }
 
 func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
-	if m.ColorTemperatureMode.Get() != ColorTemperatureModeManual {
+	if m.tempColorTemperatureManual != ColorTemperatureModeManual {
 		return dbusutil.ToError(errors.New("current not manual mode, can not adjust CCT by manual"))
 	}
 	if value < 1000 || value > 25000 {
 		return dbusutil.ToError(errors.New("value out of range"))
 	}
 	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
-	m.ColorTemperatureManual.Set(value)
+	m.setPropColorTemperatureManual(value)
+	m.saveColorTemperatureToConfigs(value)
+
+	err := m.saveConfig()
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
 	return nil
 }
 
@@ -246,6 +265,32 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 	}
 
 	return mode, nil
+}
+
+//保存色温到配置文件
+func (m *Manager) saveColorTemperatureToConfigs(ColorTemperatureManual int32) {
+	monitors := m.getConnectedMonitors()
+	screenCfg := m.getScreenConfig()
+	if len(monitors) == 1 {
+		screenCfg.Single.Monitors = monitors[0].toConfig()
+		screenCfg.Single.ColorTemperatureManual = ColorTemperatureManual
+	} else {
+		configs := screenCfg.getModeConfigs(m.DisplayMode)
+		configs.ColorTemperatureManual = m.tempColorTemperatureManual
+	}
+}
+
+//保存色温模式到配置文件
+func (m *Manager) saveColorTemperaturModeToConfigs(ColorTemperatureMode int32) {
+	monitors := m.getConnectedMonitors()
+	screenCfg := m.getScreenConfig()
+	if len(monitors) == 1 {
+		screenCfg.Single.Monitors = monitors[0].toConfig()
+		screenCfg.Single.ColorTemperatureMode = ColorTemperatureMode
+	} else {
+		configs := screenCfg.getModeConfigs(m.DisplayMode)
+		configs.ColorTemperatureMode = ColorTemperatureMode
+	}
 }
 
 func controlRedshift(action string) {

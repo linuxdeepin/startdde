@@ -152,6 +152,32 @@ func (v *Manager) emitPropChangedMaxBacklightBrightness(value uint32) error {
 	return v.service.EmitPropertyChanged(v, "MaxBacklightBrightness", value)
 }
 
+func (v *Manager) setPropColorTemperatureMode(value int32) (changed bool) {
+	if v.ColorTemperatureMode != value {
+		v.ColorTemperatureMode = value
+		v.emitPropChangedColorTemperatureMode(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedColorTemperatureMode(value int32) error {
+	return v.service.EmitPropertyChanged(v, "ColorTemperatureMode", value)
+}
+
+func (v *Manager) setPropColorTemperatureManual(value int32) (changed bool) {
+	if v.ColorTemperatureManual != value {
+		v.ColorTemperatureManual = value
+		v.emitPropChangedColorTemperatureManual(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedColorTemperatureManual(value int32) error {
+	return v.service.EmitPropertyChanged(v, "ColorTemperatureManual", value)
+}
+
 func (v *Monitor) setPropID(value uint32) (changed bool) {
 	if v.ID != value {
 		v.ID = value

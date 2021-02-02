@@ -13,7 +13,7 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
-const configVersion = "4.0"
+const configVersion = "5.0"
 
 var (
 	configFile               string
@@ -31,38 +31,26 @@ func init() {
 type Config map[string]*ScreenConfig
 
 type ScreenConfig struct {
-	Custom  []*CustomModeConfig `json:",omitempty"`
-	Mirror  *MirrorModeConfig   `json:",omitempty"`
-	Extend  *ExtendModeConfig   `json:",omitempty"`
-	OnlyOne *OnlyOneModeConfig  `json:",omitempty"`
-	Single  *MonitorConfig      `json:",omitempty"`
+	Mirror  *ModeConfigs      `json:",omitempty"`
+	Extend  *ModeConfigs      `json:",omitempty"`
+	OnlyOne *ModeConfigs      `json:",omitempty"`
+	Single  *SingleModeConfig `json:",omitempty"`
 }
 
-type CustomModeConfig struct {
-	Name     string
-	Monitors []*MonitorConfig
+type ModeConfigs struct {
+	Monitors               []*MonitorConfig
+	ColorTemperatureMode   int32
+	ColorTemperatureManual int32
 }
 
-type MirrorModeConfig struct {
-	Monitors []*MonitorConfig
+type SingleModeConfig struct {
+	Monitors               *MonitorConfig
+	ColorTemperatureMode   int32
+	ColorTemperatureManual int32
 }
 
-type ExtendModeConfig struct {
-	Monitors []*MonitorConfig
-}
-
-type OnlyOneModeConfig struct {
-	Monitors []*MonitorConfig
-}
-
-func (s *ScreenConfig) getMonitorConfigs(mode uint8, customName string) []*MonitorConfig {
+func (s *ScreenConfig) getMonitorConfigs(mode uint8) []*MonitorConfig {
 	switch mode {
-	case DisplayModeCustom:
-		for _, custom := range s.Custom {
-			if custom.Name == customName {
-				return custom.Monitors
-			}
-		}
 	case DisplayModeMirror:
 		if s.Mirror == nil {
 			return nil
@@ -80,6 +68,30 @@ func (s *ScreenConfig) getMonitorConfigs(mode uint8, customName string) []*Monit
 			return nil
 		}
 		return s.OnlyOne.Monitors
+	}
+
+	return nil
+}
+
+func (s *ScreenConfig) getModeConfigs(mode uint8) *ModeConfigs {
+	switch mode {
+	case DisplayModeMirror:
+		if s.Mirror == nil {
+			s.Mirror = &ModeConfigs{}
+		}
+		return s.Mirror
+
+	case DisplayModeExtend:
+		if s.Extend == nil {
+			s.Extend = &ModeConfigs{}
+		}
+		return s.Extend
+
+	case DisplayModeOnlyOne:
+		if s.OnlyOne == nil {
+			s.OnlyOne = &ModeConfigs{}
+		}
+		return s.OnlyOne
 	}
 
 	return nil
@@ -115,34 +127,17 @@ func updateMonitorConfigsName(configs []*MonitorConfig, monitorMap map[randr.Out
 	}
 }
 
-func (s *ScreenConfig) setMonitorConfigs(mode uint8, customName string, configs []*MonitorConfig) {
+func (s *ScreenConfig) setMonitorConfigs(mode uint8, configs []*MonitorConfig) {
 	switch mode {
-	case DisplayModeCustom:
-		foundName := false
-		for _, custom := range s.Custom {
-			if custom.Name == customName {
-				foundName = true
-				custom.Monitors = configs
-			}
-		}
-
-		// new custom
-		if !foundName {
-			s.Custom = append(s.Custom, &CustomModeConfig{
-				Name:     customName,
-				Monitors: configs,
-			})
-		}
-
 	case DisplayModeMirror:
 		if s.Mirror == nil {
-			s.Mirror = &MirrorModeConfig{}
+			s.Mirror = &ModeConfigs{}
 		}
 		s.Mirror.Monitors = configs
 
 	case DisplayModeExtend:
 		if s.Extend == nil {
-			s.Extend = &ExtendModeConfig{}
+			s.Extend = &ModeConfigs{}
 		}
 		s.Extend.Monitors = configs
 
@@ -151,9 +146,16 @@ func (s *ScreenConfig) setMonitorConfigs(mode uint8, customName string, configs 
 	}
 }
 
+func (s *ScreenConfig) setModeConfigs(mode uint8, ColorTemperatureMode int32, ColorTemperatureManual int32, monitorConfig []*MonitorConfig) {
+	cfg := s.getModeConfigs(mode)
+	cfg.ColorTemperatureMode = ColorTemperatureMode
+	cfg.ColorTemperatureManual = ColorTemperatureManual
+	s.setMonitorConfigs(mode, monitorConfig)
+}
+
 func (s *ScreenConfig) setMonitorConfigsOnlyOne(configs []*MonitorConfig) {
 	if s.OnlyOne == nil {
-		s.OnlyOne = &OnlyOneModeConfig{}
+		s.OnlyOne = &ModeConfigs{}
 	}
 	oldConfigs := s.OnlyOne.Monitors
 	var newConfigs []*MonitorConfig
@@ -187,10 +189,11 @@ type MonitorConfig struct {
 	Rotation    uint16
 	Reflect     uint16
 	RefreshRate float64
+	Brightness  float64
 	Primary     bool
 }
 
-func loadConfigV4(filename string) (Config, error) {
+func loadConfigV5(filename string) (Config, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -205,24 +208,31 @@ func loadConfigV4(filename string) (Config, error) {
 	return c, nil
 }
 
-func loadConfig() (config Config) {
+func loadConfig(m *Manager) (config Config) {
 	cfgVer, err := getConfigVersion(configVersionFile)
 	if err == nil {
+		//3.3配置文件转换
 		if cfgVer == "3.3" {
 			cfg0, err := loadConfigV3_3(configFile)
 			if err == nil {
-				config = cfg0.toConfig()
+				config = cfg0.toConfig(m)
+			} else if !os.IsNotExist(err) {
+				logger.Warning(err)
+			}
+		} else if cfgVer == "4.0" { //4.0配置文件转换
+			cfg0, err := loadConfigV4(configFile)
+			if err == nil {
+				config = cfg0.toConfig(m)
 			} else if !os.IsNotExist(err) {
 				logger.Warning(err)
 			}
 		}
-
 	} else if !os.IsNotExist(err) {
 		logger.Warning(err)
 	}
 
 	if len(config) == 0 {
-		config, err = loadConfigV4(configFile)
+		config, err = loadConfigV5(configFile)
 		if err != nil {
 			config = make(Config)
 			if !os.IsNotExist(err) {

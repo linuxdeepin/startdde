@@ -84,6 +84,7 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	if newMonitorsID != oldMonitorsID {
 		logger.Debug("new monitors id:", newMonitorsID)
 		m.markClean()
+		//接入新屏幕点亮屏幕
 		m.applyDisplayMode()
 		m.monitorsId = newMonitorsID
 	}
@@ -130,6 +131,13 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 			m.setPropPrimaryRect(getCrtcRect(crtcInfo))
 		}
 		m.PropsMu.Unlock()
+	}
+
+	DisplayMode, err := m.GetRealDisplayMode()
+	if err != nil {
+		logger.Warning("GetRealDisplayMode failed")
+	} else {
+		m.DisplayMode = DisplayMode
 	}
 }
 
