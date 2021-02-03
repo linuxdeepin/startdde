@@ -35,7 +35,7 @@ import (
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 
 	dbus "github.com/godbus/dbus"
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
+	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -50,6 +50,7 @@ import (
 	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
 	gio "pkg.deepin.io/gir/gio-2.0"
+	"pkg.deepin.io/lib/appinfo/desktopappinfo"
 	"pkg.deepin.io/lib/cgroup"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/keyfile"
@@ -67,6 +68,8 @@ const (
 
 	xsKeyQtFontName     = "Qt/FontName"
 	xsKeyQtMonoFontName = "Qt/MonoFontName"
+
+	ddeLockDesktopFile = "/usr/share/applications/dde-lock.desktop"
 )
 
 type SessionManager struct {
@@ -418,8 +421,28 @@ func (m *SessionManager) SetLocked(sender dbus.Sender, value bool) *dbus.Error {
 		return dbusutil.ToError(err)
 	}
 
-	if exe != "/usr/bin/dde-lock" {
+	if exe == "/usr/bin/dde-lock" {
+		m.setLocked(value)
+		return nil
+	}
+
+	cmd, err := process.Cmdline()
+	if err != nil {
+		return dbusutil.ToError(err)
+	}
+
+	desktopFile := cmd[0]
+	if desktopFile != ddeLockDesktopFile {
 		return dbusutil.ToError(fmt.Errorf("exe %q is invalid", exe))
+	}
+
+	info, err := desktopappinfo.NewDesktopAppInfoFromFile(desktopFile)
+	if err != nil {
+		return dbusutil.ToError(fmt.Errorf("desktop file %q is invalid", desktopFile))
+	}
+	exe = info.GetExecutable()
+	if exe != "/usr/bin/dde-lock" {
+		return dbusutil.ToError(fmt.Errorf("exe %q of desktop file %q is invalid", exe, desktopFile))
 	}
 
 	m.setLocked(value)
