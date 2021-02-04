@@ -1675,7 +1675,7 @@ func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
 func (m *Manager) getPortType(name string) string {
 	i := strings.IndexRune(name, '-')
 	if i != -1 {
-		name = name[0 : i+1]
+		name = name[0:i]
 	}
 	return strings.ToLower(name)
 }
