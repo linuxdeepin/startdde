@@ -3,6 +3,8 @@
 package display
 
 import (
+	"time"
+
 	x "github.com/linuxdeepin/go-x11-client"
 	dbus "pkg.deepin.io/lib/dbus1"
 )
@@ -342,6 +344,12 @@ func (v *Monitor) setPropEnabled(value bool) (changed bool) {
 	if v.Enabled != value {
 		v.Enabled = value
 		v.emitPropChangedEnabled(value)
+		if value {
+			go func() {
+				time.Sleep(2 * time.Second)
+				v.m.setMonitorBrightness(v, v.m.Brightness[v.Name])
+			}()
+		}
 		return true
 	}
 	return false
