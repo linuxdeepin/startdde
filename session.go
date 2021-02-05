@@ -563,6 +563,12 @@ func (m *SessionManager) initSwapSched() {
 }
 
 func newSessionManager(service *dbusutil.Service) *SessionManager {
+	defer func() {
+		if err := recover(); err != nil {
+			logger.Error("newSessionManager recover:", err)
+			return
+		}
+	}()
 	var err error
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
