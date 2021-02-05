@@ -218,8 +218,8 @@ func newManager(service *dbusutil.Service) *Manager {
 func (m *Manager) getSystemInfo(systemBus *dbus.Conn) string {
 	var productName string
 	obj := systemBus.Object("com.deepin.system.SystemInfo", "/com/deepin/system/SystemInfo")
-	err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.deepin.system.SystemInfo", 
-				   "ProductName").Store(&productName)
+	err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.deepin.system.SystemInfo",
+		"ProductName").Store(&productName)
 	if err != nil {
 		logger.Warning(err)
 		return ""
@@ -1304,6 +1304,10 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 }
 
 func (m *Manager) switchMode(mode byte, name string) (err error) {
+	if mode == m.DisplayMode {
+		return
+	}
+
 	switch mode {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
