@@ -44,6 +44,9 @@ func (m *Manager) SwitchMode(mode byte, name string) *dbus.Error {
 	if !m.canSwitchMode() {
 		return dbusutil.MakeError(m, "Forbidden to switch mode")
 	}
+	if len(m.getConnectedMonitors()) < 2 {
+		return dbusutil.MakeError(m, "no enough connected monitors for switch mode")
+	}
 
 	err := m.switchMode(mode, name)
 	return dbusutil.ToError(err)
@@ -222,7 +225,7 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 }
 
 func (m *Manager) GetCustomDisplayMode() (uint8, *dbus.Error) {
-	realMode ,_ :=  m.GetRealDisplayMode()
+	realMode, _ := m.GetRealDisplayMode()
 	mode := m.customDisplayMode
 	if realMode != DisplayModeOnlyOne {
 		if realMode != mode {

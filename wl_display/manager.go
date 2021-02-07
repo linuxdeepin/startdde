@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
@@ -258,27 +257,14 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputChanged(func(output string) {
-		outputInfo, err := unmarshalOutputInfo(output)
+		kinfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
 			return
 		}
-		logger.Infof("display: wloutput OutputChanged@1 %#v", outputInfo)
-		//brightness.RefreshDDCCI()
 
-		// somethimes the wloutput data unready, so sleep 800ms
-		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
-		time.Sleep(time.Millisecond * 100)
-
-		// Workaround, because sometimes the output changed info not contains all props value.
-		// TODO: Remove in future
-		kinfo, err := newKOutputInfoByUUID(outputInfo.Uuid)
-		if err != nil {
-			logger.Info("Failed to make KOutputInfo:", outputInfo.Uuid)
-			return
-		}
-		logger.Infof("display: OutputChanged@2 %#v", kinfo)
-		kinfo.Edid = outputInfo.Edid
+		logger.Infof("display: OutputChanged %#v", kinfo)
+		kinfo.Edid = kinfo.Edid
 
 		monitorId := m.mig.getId(kinfo.Uuid)
 
@@ -310,7 +296,6 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputRemoved(func(output string) {
-		//brightness.RefreshDDCCI()
 		outputInfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
@@ -365,6 +350,10 @@ func (m *Manager) updateMonitorsId() {
 func (m *Manager) applyDisplayMode() {
 	logger.Debug("applyDisplayMode")
 	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		logger.Warning("no monitors apply")
+		return
+	}
 	var err error
 	if len(monitors) == 1 {
 		// 单屏
@@ -1308,6 +1297,10 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 		return
 	}
 
+	if len(m.getConnectedMonitors()) < 2 {
+		return errors.New("no enough connected monitors for switch mode")
+	}
+
 	switch mode {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
@@ -1330,7 +1323,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	} else {
 		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
 	}
-	return
+	return err
 }
 
 func (m *Manager) setDisplayMode(mode byte) {
