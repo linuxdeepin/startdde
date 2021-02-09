@@ -146,10 +146,10 @@ func (s *ScreenConfig) setMonitorConfigs(mode uint8, configs []*MonitorConfig) {
 	}
 }
 
-func (s *ScreenConfig) setModeConfigs(mode uint8, ColorTemperatureMode int32, ColorTemperatureManual int32, monitorConfig []*MonitorConfig) {
+func (s *ScreenConfig) setModeConfigs(mode uint8, colorTemperatureMode int32, colorTemperatureManual int32, monitorConfig []*MonitorConfig) {
 	cfg := s.getModeConfigs(mode)
-	cfg.ColorTemperatureMode = ColorTemperatureMode
-	cfg.ColorTemperatureManual = ColorTemperatureManual
+	cfg.ColorTemperatureMode = colorTemperatureMode
+	cfg.ColorTemperatureManual = colorTemperatureManual
 	s.setMonitorConfigs(mode, monitorConfig)
 }
 

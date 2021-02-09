@@ -127,6 +127,7 @@ func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.E
 		m.saveBrightness(outputName, value)
 		//保存到配置文件
 		err = m.saveConfig()
+		m.syncBrightness()
 	}
 	return dbusutil.ToError(err)
 }
@@ -138,6 +139,7 @@ func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
 	}
 
 	err := m.doSetBrightness(value, outputName)
+	m.syncBrightness()
 	return dbusutil.ToError(err)
 }
 
@@ -194,7 +196,7 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 		return dbusutil.ToError(errors.New("adjustMethod type out of range, not 0 or 1 or 2"))
 	}
 	m.setPropColorTemperatureMode(adjustMethod)
-	m.saveColorTemperaturModeToConfigs(adjustMethod)
+	m.saveColorTemperatureModeToConfigs(adjustMethod)
 	switch adjustMethod {
 	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
 		controlRedshift("stop") // 停止服务
@@ -204,7 +206,7 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 		controlRedshift("start") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
-		lastManualCCT := m.tempColorTemperatureManual
+		lastManualCCT := m.ColorTemperatureManual
 		err := m.SetColorTemperature(lastManualCCT)
 		if err != nil {
 			return err
@@ -219,17 +221,22 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 }
 
 func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
-	if m.tempColorTemperatureManual != ColorTemperatureModeManual {
+	if m.ColorTemperatureMode != ColorTemperatureModeManual {
 		return dbusutil.ToError(errors.New("current not manual mode, can not adjust CCT by manual"))
 	}
 	if value < 1000 || value > 25000 {
 		return dbusutil.ToError(errors.New("value out of range"))
 	}
 	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
-	m.setPropColorTemperatureManual(value)
+	m.ColorTemperatureManual = value
+	err := m.emitPropChangedColorTemperatureManual(value)
+	if err != nil {
+		return dbusutil.ToError(errors.New("emitPropChangedColorTemperatureManual failed"))
+	}
+
 	m.saveColorTemperatureToConfigs(value)
 
-	err := m.saveConfig()
+	err = m.saveConfig()
 	if err != nil {
 		return dbusutil.ToError(err)
 	}
@@ -268,28 +275,28 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 }
 
 //保存色温到配置文件
-func (m *Manager) saveColorTemperatureToConfigs(ColorTemperatureManual int32) {
+func (m *Manager) saveColorTemperatureToConfigs(colorTemperatureManual int32) {
 	monitors := m.getConnectedMonitors()
 	screenCfg := m.getScreenConfig()
 	if len(monitors) == 1 {
 		screenCfg.Single.Monitors = monitors[0].toConfig()
-		screenCfg.Single.ColorTemperatureManual = ColorTemperatureManual
+		screenCfg.Single.ColorTemperatureManual = colorTemperatureManual
 	} else {
 		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		configs.ColorTemperatureManual = m.tempColorTemperatureManual
+		configs.ColorTemperatureManual = colorTemperatureManual
 	}
 }
 
 //保存色温模式到配置文件
-func (m *Manager) saveColorTemperaturModeToConfigs(ColorTemperatureMode int32) {
+func (m *Manager) saveColorTemperatureModeToConfigs(colorTemperatureMode int32) {
 	monitors := m.getConnectedMonitors()
 	screenCfg := m.getScreenConfig()
 	if len(monitors) == 1 {
 		screenCfg.Single.Monitors = monitors[0].toConfig()
-		screenCfg.Single.ColorTemperatureMode = ColorTemperatureMode
+		screenCfg.Single.ColorTemperatureMode = colorTemperatureMode
 	} else {
 		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		configs.ColorTemperatureMode = ColorTemperatureMode
+		configs.ColorTemperatureMode = colorTemperatureMode
 	}
 }
 

@@ -15,11 +15,11 @@ type ScreenConfigV3_3 struct {
 
 func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 	result := make([]*MonitorConfig, len(sc.BaseInfos))
-	var brightnes float64
+	var brightness float64
 	for idx, bi := range sc.BaseInfos {
-		for brighnessName, value := range m.Brightness {
-			if brighnessName == bi.Name {
-				brightnes = value
+		for brightnessName, value := range m.Brightness {
+			if brightnessName == bi.Name {
+				brightness = value
 			}
 		}
 		primary := bi.Name == sc.Primary
@@ -34,7 +34,7 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 			Rotation:    bi.Rotation,
 			Reflect:     bi.Reflect,
 			RefreshRate: bi.RefreshRate,
-			Brightness:  brightnes,
+			Brightness:  brightness,
 			Primary:     primary,
 		}
 	}
@@ -43,11 +43,11 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 
 func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfig {
 	result := make([]*MonitorConfig, len(sc.BaseInfos))
-	var brightnes float64
+	var brightness float64
 	for idx, bi := range sc.BaseInfos {
-		for brighnessName, value := range m.Brightness {
-			if brighnessName == bi.Name {
-				brightnes = value
+		for brightnessName, value := range m.Brightness {
+			if brightnessName == bi.Name {
+				brightness = value
 			}
 		}
 		primary := bi.Name == sc.Primary
@@ -62,7 +62,7 @@ func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfig {
 			Rotation:    bi.Rotation,
 			Reflect:     bi.Reflect,
 			RefreshRate: bi.RefreshRate,
-			Brightness:  brightnes,
+			Brightness:  brightness,
 			Primary:     primary,
 		}
 	}
@@ -101,7 +101,7 @@ func loadConfigV3_3(filename string) (ConfigV3_3, error) {
 
 func (c ConfigV3_3) toConfig(m *Manager) Config {
 	newConfig := make(Config)
-	var brightnes float64
+	var brightness float64
 	for id, sc := range c {
 		cfgKey := parseConfigKey(id)
 		jId := cfgKey.getJoinedId()
@@ -114,33 +114,33 @@ func (c ConfigV3_3) toConfig(m *Manager) Config {
 				if bi != nil {
 					for brightnessName, value := range m.Brightness {
 						if brightnessName == bi.Name {
-							brightnes = value
+							brightness = value
 						}
 					}
-				}
 
-				newConfig[jId] = &ScreenConfig{
-					Mirror:  nil,
-					Extend:  nil,
-					OnlyOne: nil,
-					Single: &SingleModeConfig{
-						Monitors: &MonitorConfig{
-							UUID:        bi.UUID,
-							Name:        bi.Name,
-							Enabled:     bi.Enabled,
-							X:           bi.X,
-							Y:           bi.Y,
-							Width:       bi.Width,
-							Height:      bi.Height,
-							Rotation:    bi.Rotation,
-							Reflect:     bi.Reflect,
-							RefreshRate: bi.RefreshRate,
-							Brightness:  brightnes,
-							Primary:     true,
+					newConfig[jId] = &ScreenConfig{
+						Mirror:  nil,
+						Extend:  nil,
+						OnlyOne: nil,
+						Single: &SingleModeConfig{
+							Monitors: &MonitorConfig{
+								UUID:        bi.UUID,
+								Name:        bi.Name,
+								Enabled:     bi.Enabled,
+								X:           bi.X,
+								Y:           bi.Y,
+								Width:       bi.Width,
+								Height:      bi.Height,
+								Rotation:    bi.Rotation,
+								Reflect:     bi.Reflect,
+								RefreshRate: bi.RefreshRate,
+								Brightness:  brightness,
+								Primary:     true,
+							},
+							ColorTemperatureMode:   m.gsColorTemperatureMode,
+							ColorTemperatureManual: m.gsColorTemperatureManual,
 						},
-						ColorTemperatureMode:   m.gsColorTemperatureMode,
-						ColorTemperatureManual: m.gsColorTemperatureManual,
-					},
+					}
 				}
 			}
 		} else {

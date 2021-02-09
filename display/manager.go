@@ -50,6 +50,8 @@ const (
 	gsKeyColorTemperatureManual = "color-temperature-manual"
 	customModeDelim             = "+"
 	monitorsIdDelimiter         = ","
+	defaultTemperatureMode 		= ColorTemperatureModeNormal
+	defaultTemperatureManual	= 6500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 )
@@ -126,9 +128,6 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
-
-	tempColorTemperatureMode   int32
-	tempColorTemperatureManual int32
 }
 
 type ModeInfo struct {
@@ -235,8 +234,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 	m.gsColorTemperatureManual = m.settings.GetInt(gsKeyColorTemperatureManual)
 	m.gsColorTemperatureMode = m.settings.GetEnum(gsKeyColorTemperatureMode)
-	m.tempColorTemperatureManual = m.gsColorTemperatureManual
-	m.tempColorTemperatureMode = m.gsColorTemperatureMode
+	m.ColorTemperatureManual = defaultTemperatureManual
+	m.ColorTemperatureMode = defaultTemperatureMode
 
 	m.xConn = _xConn
 
@@ -389,7 +388,7 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 	return result
 }
 
-func (m *Manager) applyDisplayMode() {
+func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	// TODO 实现功能
 	if !_hasRandr1d2 {
 		return
@@ -414,18 +413,27 @@ func (m *Manager) applyDisplayMode() {
 			config.Monitors.Height = mode.Height
 			config.Monitors.RefreshRate = mode.Rate
 			config.Monitors.Brightness = 1
-			config.ColorTemperatureMode = m.gsColorTemperatureMode
-			config.ColorTemperatureManual = m.gsColorTemperatureManual
+			config.ColorTemperatureMode = defaultTemperatureMode
+			config.ColorTemperatureManual = defaultTemperatureManual
 			config.Monitors.Rotation = randr.RotationRotate0
 			screenCfg.Single = config
 		}
 
-		err = m.applySignalConfigs(config)
+		err = m.applySingleConfigs(config)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 		}
+		//拔插屏幕时需要根据配置文件重置色温
+		if needInitColorTemperature {
+			m.initColorTemperature()
+		}
+
 		err = m.saveConfig()
-		logger.Warning(err)
+		if err != nil {
+			logger.Warning(err)
+		}
+		m.syncBrightness()
+
 		return
 	}
 
@@ -441,6 +449,11 @@ func (m *Manager) applyDisplayMode() {
 	if err != nil {
 		logger.Warning(err)
 	}
+	//拔插屏幕时需要根据配置文件重置色温
+	if needInitColorTemperature {
+		m.initColorTemperature()
+	}
+	m.syncBrightness()
 }
 
 func (m *Manager) init() {
@@ -448,13 +461,13 @@ func (m *Manager) init() {
 	m.initBrightness()
 	//在获取屏幕亮度之后再加载配置文件,版本迭代时把上次的亮度值写入配置文件
 	m.config = loadConfig(m)
-	//重启startdde 读取上一次设置
-	m.applyDisplayMode()
+	//重启startdde 读取上一次设置 不需要重置色温
+	m.applyDisplayMode(false)
 	m.listenEvent() //等待applyDisplayMode执行完成再开启监听X事件
 }
 
 func (m *Manager) initColorTemperature() {
-	method := m.tempColorTemperatureMode
+	method := m.ColorTemperatureMode
 	err := m.setMethodAdjustCCT(method)
 	if err != nil {
 		logger.Error(err)
@@ -876,16 +889,21 @@ func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 			monitor.setPosition(0, 0)
 			monitor.setRotation(randr.RotationRotate0)
 			monitor.setReflect(0)
+			monitor.setBrightness(1)
 
 		} else {
 			monitor.enable(false)
 		}
 	}
 
+	m.ColorTemperatureMode = defaultTemperatureMode
+	m.ColorTemperatureManual = defaultTemperatureManual
+
 	err = m.apply()
 	if err != nil {
 		return
 	}
+
 
 	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	if monitor0 != nil {
@@ -911,10 +929,8 @@ func (m *Manager) switchModeMirror() (err error) {
 		return
 	}
 
-	screenCfg.setModeConfigs(DisplayModeMirror, m.tempColorTemperatureMode, m.tempColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
-	//设置dbus初始值
-	m.setPropColorTemperatureMode(m.tempColorTemperatureManual)
-	m.setPropColorTemperatureManual(m.tempColorTemperatureManual)
+	screenCfg.setModeConfigs(DisplayModeMirror, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
+
 	return m.saveConfig()
 }
 
@@ -1064,11 +1080,9 @@ func (m *Manager) apply() error {
 
 		if monitor.Enabled {
 			m.PropsMu.Lock()
-			value, ok := m.Brightness[monitor.Name]
-			if !ok {
+			value := monitor.Brightness
+			if value == 0 {
 				value = 1
-				m.Brightness[monitor.Name] = value
-				_ = m.emitPropChangedBrightness(m.Brightness)
 			}
 			m.PropsMu.Unlock()
 
@@ -1079,8 +1093,11 @@ func (m *Manager) apply() error {
 				}
 			}(monitor) // 用局部变量作闭包上值
 		}
+		err = monitor.emitPropChangedBrightness(monitor.Brightness)
+		if err != nil {
+			logger.Error("emitPropChangedBrightness failed")
+		}
 	}
-	m.setPropBrightness(m.Brightness)
 	return nil
 }
 
@@ -1246,13 +1263,16 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 			monitor.setPosition(int16(xOffset), 0)
 			monitor.setRotation(randr.RotationRotate0)
 			monitor.setReflect(0)
-			m.Brightness[monitor.Name] = 1
+			monitor.setBrightness(1)
 
 			xOffset += int(monitor.Width)
 		} else {
 			monitor.enable(false)
 		}
 	}
+	m.ColorTemperatureMode = defaultTemperatureMode
+	m.ColorTemperatureManual  = defaultTemperatureManual
+
 	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 
 	err = m.apply()
@@ -1267,11 +1287,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 			return
 		}
 
-		screenCfg.setModeConfigs(DisplayModeExtend, m.tempColorTemperatureMode, m.tempColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
-
-		//设置dbus初始值
-		m.setPropColorTemperatureMode(m.tempColorTemperatureManual)
-		m.setPropColorTemperatureManual(m.tempColorTemperatureManual)
+		screenCfg.setModeConfigs(DisplayModeExtend, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
 
 		err = m.saveConfig()
 		if err != nil {
@@ -1362,28 +1378,23 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 					reflect = cfg.Reflect
 
 					if cfg.Brightness == 0 {
-						m.Brightness[monitor.Name] = 1
+						cfg.Brightness = 1
 					}
-					m.Brightness[monitor.Name] = cfg.Brightness
-					//色温为手动模式 且配置文件中的色温不为0设置当前色温为之前的色温
-					if screenCfg.OnlyOne.ColorTemperatureManual != 0 {
-						m.tempColorTemperatureMode = screenCfg.OnlyOne.ColorTemperatureMode
-						m.tempColorTemperatureManual = screenCfg.OnlyOne.ColorTemperatureManual
-					} else if screenCfg.OnlyOne.ColorTemperatureMode == 0 && screenCfg.OnlyOne.ColorTemperatureManual == 0 { //当前色温和模式都为0,说明迭代时没有这个屏,那么用跟之前的值
-						m.tempColorTemperatureManual = m.gsColorTemperatureManual
-						m.tempColorTemperatureMode = m.gsColorTemperatureMode
-					}
+					monitor.setBrightness(cfg.Brightness)
+
+					m.ColorTemperatureMode = screenCfg.OnlyOne.ColorTemperatureMode
+					m.ColorTemperatureManual = screenCfg.OnlyOne.ColorTemperatureManual
 				} else {
 					mode = monitor.BestMode
-					m.Brightness[monitor.Name] = 1
+					monitor.setBrightness(1)
 				}
 
 				//启动时从配置文件读取
 			} else {
 				mode = monitor.BestMode
-				m.tempColorTemperatureManual = m.gsColorTemperatureManual
-				m.tempColorTemperatureMode = m.gsColorTemperatureMode
-				m.Brightness[monitor.Name] = 1
+				m.ColorTemperatureMode = defaultTemperatureMode
+				m.ColorTemperatureManual = defaultTemperatureManual
+				monitor.setBrightness(1)
 			}
 
 			monitor.setMode(mode)
@@ -1393,6 +1404,15 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 
 		} else {
 			monitor.enable(false)
+			//配置文件中有数据使用配置文件中的数据,否则设置亮度为1
+			if len(configs.Monitors) > 0 {
+				cfg := getMonitorConfigByUuid(configs.Monitors, monitor.uuid)
+				if cfg != nil {
+					monitor.setPropBrightness(cfg.Brightness)
+				}
+			} else {
+				monitor.setPropBrightness(1)
+			}
 		}
 	}
 
@@ -1406,10 +1426,7 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		return
 	}
 
-	logger.Debug("m.getConnectedMonitors()", spew.Sdump(toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name)))
-	screenCfg.setModeConfigs(m.DisplayMode, m.tempColorTemperatureMode, m.tempColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
-	m.setPropColorTemperatureMode(m.tempColorTemperatureManual)
-	m.setPropColorTemperatureManual(m.tempColorTemperatureManual)
+	screenCfg.setModeConfigs(DisplayModeOnlyOne, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
 	err = m.saveConfig()
 	if err != nil {
 		return
@@ -1431,20 +1448,13 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	}
 	if err == nil {
 		m.setDisplayMode(mode)
-		for brightNsname, value := range m.Brightness {
-			m.saveBrightness(brightNsname, value)
-		}
-
-		err = m.setMethodAdjustCCT(m.tempColorTemperatureMode)
+		m.syncBrightness()
+		err = m.setMethodAdjustCCT(m.ColorTemperatureMode)
 		if err != nil {
 			logger.Debug("SetMethodAdjustCCT", err)
 			return err
 		}
 		m.modeChanged = true
-		err = m.saveConfig()
-		if err != nil {
-			return err
-		}
 	} else {
 		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
 	}
@@ -1473,10 +1483,10 @@ func (m *Manager) save() (err error) {
 
 	if len(monitors) == 1 {
 		screenCfg.Single.Monitors = monitors[0].toConfig()
-		screenCfg.Single.ColorTemperatureMode = m.tempColorTemperatureMode
-		screenCfg.Single.ColorTemperatureManual = m.tempColorTemperatureManual
+		screenCfg.Single.ColorTemperatureMode = m.ColorTemperatureMode
+		screenCfg.Single.ColorTemperatureManual = m.ColorTemperatureManual
 	} else {
-		screenCfg.setModeConfigs(m.DisplayMode, m.tempColorTemperatureMode, m.tempColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
+		screenCfg.setModeConfigs(m.DisplayMode, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
 	}
 
 	err = m.saveConfig()
@@ -1527,11 +1537,8 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 			monitor.setRotation(monitorCfg.Rotation)
 			monitor.setReflect(monitorCfg.Reflect)
 			//切换到新模式,用之前的亮度值
-			logger.Debug("monitorCfg.Brightnes[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
-			if monitorCfg.Brightness == 0 {
-				monitorCfg.Brightness = 1
-			}
-			m.Brightness[monitor.Name] = monitorCfg.Brightness
+			logger.Debug("monitorCfg.Brightness[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
+			monitor.setBrightness(monitorCfg.Brightness)
 
 			width := monitorCfg.Width
 			height := monitorCfg.Height
@@ -1545,14 +1552,9 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	}
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
-	//色温为手动模式 且配置文件中的色温不为0设置当前色温为之前的色温
-	if configs.ColorTemperatureManual != 0 {
-		m.tempColorTemperatureMode = configs.ColorTemperatureMode
-		m.tempColorTemperatureManual = configs.ColorTemperatureManual
-	} else if configs.ColorTemperatureMode == 0 && configs.ColorTemperatureManual == 0 { //当前色温和模式都为0,说明迭代时没有这个屏,那么用跟之前的值
-		m.tempColorTemperatureManual = m.gsColorTemperatureManual
-		m.tempColorTemperatureMode = m.gsColorTemperatureMode
-	}
+
+	m.ColorTemperatureManual = configs.ColorTemperatureManual
+	m.ColorTemperatureMode = configs.ColorTemperatureMode
 
 	err := m.apply()
 	if err != nil {
@@ -1569,7 +1571,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	return nil
 }
 
-func (m *Manager) applySignalConfigs(configs *SingleModeConfig) error {
+func (m *Manager) applySingleConfigs(configs *SingleModeConfig) error {
 	logger.Debug("applyConfigs", spew.Sdump(configs))
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
@@ -1585,11 +1587,8 @@ func (m *Manager) applySignalConfigs(configs *SingleModeConfig) error {
 			monitor.setRotation(monitorCfg.Rotation)
 			monitor.setReflect(monitorCfg.Reflect)
 			//切换到新模式,用之前的亮度值
-			logger.Debug("monitorCfg.Brightnes[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
-			if monitorCfg.Brightness == 0 {
-				monitorCfg.Brightness = 1
-			}
-			m.Brightness[monitor.Name] = monitorCfg.Brightness
+			logger.Debug("monitorCfg.Brightness[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
+			monitor.setBrightness(monitorCfg.Brightness)
 
 			width := monitorCfg.Width
 			height := monitorCfg.Height
@@ -1603,14 +1602,8 @@ func (m *Manager) applySignalConfigs(configs *SingleModeConfig) error {
 	}
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
-	//色温为手动模式 且配置文件中的色温不为0设置当前色温为之前的色温
-	if configs.ColorTemperatureManual != 0 {
-		m.tempColorTemperatureMode = configs.ColorTemperatureMode
-		m.tempColorTemperatureManual = configs.ColorTemperatureManual
-	} else if configs.ColorTemperatureMode == 0 && configs.ColorTemperatureManual == 0 { //当前色温和模式都为0,说明迭代时没有这个屏,那么用跟之前的值
-		m.tempColorTemperatureManual = m.gsColorTemperatureManual
-		m.tempColorTemperatureMode = m.gsColorTemperatureMode
-	}
+	m.ColorTemperatureMode = configs.ColorTemperatureMode
+	m.ColorTemperatureManual = configs.ColorTemperatureManual
 
 	err := m.apply()
 	if err != nil {
@@ -1957,8 +1950,8 @@ func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
 		return errors.New("adjustMethod type out of range, not 0 or 1 or 2")
 	}
-	m.setPropColorTemperatureMode(adjustMethod)
-	m.saveColorTemperaturModeToConfigs(adjustMethod)
+	m.emitPropChangedColorTemperatureMode(adjustMethod)
+	m.saveColorTemperatureModeToConfigs(adjustMethod)
 	switch adjustMethod {
 	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
 		controlRedshift("stop") // 停止服务
@@ -1968,8 +1961,8 @@ func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 		controlRedshift("start") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
-		lastManualCCT := m.tempColorTemperatureManual
-		err := m.SetColorTemperature(lastManualCCT)
+		lastManualCCT := m.ColorTemperatureManual
+		err := m.setColorTemperature(lastManualCCT)
 		if err != nil {
 			return err
 		}
@@ -1978,15 +1971,24 @@ func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 }
 
 func (m *Manager) setColorTemperature(value int32) error {
-	if m.tempColorTemperatureMode != ColorTemperatureModeManual {
+	if m.ColorTemperatureMode != ColorTemperatureModeManual {
 		return errors.New("current not manual mode, can not adjust CCT by manual")
 	}
 	if value < 1000 || value > 25000 {
 		return errors.New("value out of range")
 	}
 	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
-	logger.Debug("setPropColorTemperatureManual")
-	m.setPropColorTemperatureManual(value)
+	m.emitPropChangedColorTemperatureManual(value)
 	m.saveColorTemperatureToConfigs(value)
 	return nil
+}
+
+func (m *Manager) syncBrightness() {
+	for _, monitor := range m.monitorMap {
+		if monitor.Connected {
+			logger.Debug("monitor.Brightness = ", monitor.Brightness)
+			m.Brightness[monitor.Name] = monitor.Brightness
+		}
+	}
+	m.setPropBrightness(m.Brightness)
 }

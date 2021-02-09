@@ -51,6 +51,7 @@ type Monitor struct {
 	Rotation    uint16
 	Reflect     uint16
 	RefreshRate float64
+	Brightness  float64
 
 	oldRotation uint16
 
@@ -78,18 +79,20 @@ type MonitorBackup struct {
 	X, Y     int16
 	Reflect  uint16
 	Rotation uint16
+	Brightness  float64
 }
 
 func (m *Monitor) markChanged() {
 	m.m.setPropHasChanged(true)
 	if m.backup == nil {
 		m.backup = &MonitorBackup{
-			Enabled:  m.Enabled,
-			Mode:     m.CurrentMode,
-			X:        m.X,
-			Y:        m.Y,
-			Reflect:  m.Reflect,
-			Rotation: m.Rotation,
+			Enabled:  	m.Enabled,
+			Mode:     	m.CurrentMode,
+			X:        	m.X,
+			Y:        	m.Y,
+			Reflect:  	m.Reflect,
+			Rotation: 	m.Rotation,
+			Brightness: m.Brightness,
 		}
 	}
 }
@@ -265,6 +268,12 @@ func (m *Monitor) setRotation(value uint16) {
 	m.PropsMu.Unlock()
 }
 
+func (m *Monitor) setBrightness(value float64)  {
+	m.PropsMu.Lock()
+	m.setPropBrightness(value)
+	m.PropsMu.Unlock()
+}
+
 func (m *Monitor) resetChanges() {
 	if m.backup == nil {
 		return
@@ -282,6 +291,7 @@ func (m *Monitor) resetChanges() {
 	m.setPropWidth(b.Mode.Width)
 	m.setPropHeight(b.Mode.Height)
 	m.setPropRefreshRate(b.Mode.Rate)
+	m.setPropBrightness(b.Brightness)
 
 	m.backup = nil
 }
@@ -344,17 +354,17 @@ func toMonitorConfigs(monitors []*Monitor, primary string) []*MonitorConfig {
 
 func (m *Monitor) toConfig() *MonitorConfig {
 	return &MonitorConfig{
-		UUID:                   m.uuid,
-		Name:                   m.Name,
-		Enabled:                m.Enabled,
-		X:                      m.X,
-		Y:                      m.Y,
-		Width:                  m.Width,
-		Height:                 m.Height,
-		Rotation:               m.Rotation,
-		Reflect:                m.Reflect,
-		RefreshRate:            m.RefreshRate,
-		Brightness:             m.m.Brightness[m.Name],
+		UUID:        m.uuid,
+		Name:        m.Name,
+		Enabled:     m.Enabled,
+		X:           m.X,
+		Y:           m.Y,
+		Width:       m.Width,
+		Height:      m.Height,
+		Rotation:    m.Rotation,
+		Reflect:     m.Reflect,
+		RefreshRate: m.RefreshRate,
+		Brightness:  m.Brightness,
 	}
 }
 

@@ -202,17 +202,13 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 		}
 	}
 
-	oldValue := m.Brightness[name]
+	oldValue := monitor0.Brightness
 	if oldValue == value {
 		return nil
 	}
 
 	// update brightness of the output
-	m.Brightness[name] = value
-	err := m.emitPropChangedBrightness(m.Brightness)
-	if err != nil {
-		logger.Warning(err)
-	}
+	monitor0.setBrightness(value)
 
 	return nil
 }

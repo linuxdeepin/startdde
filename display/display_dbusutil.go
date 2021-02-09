@@ -401,6 +401,19 @@ func (v *Monitor) setPropReflect(value uint16) (changed bool) {
 	return false
 }
 
+func (v *Monitor) emitPropChangedBrightness(value float64) error {
+	return v.service.EmitPropertyChanged(v, "Brightness", value)
+}
+
+func (v *Monitor) setPropBrightness(value float64) (changed bool) {
+	if v.Brightness != value {
+		v.Brightness = value
+		v.emitPropChangedBrightness(value)
+		return true
+	}
+	return false
+}
+
 func (v *Monitor) emitPropChangedReflect(value uint16) error {
 	return v.service.EmitPropertyChanged(v, "Reflect", value)
 }
