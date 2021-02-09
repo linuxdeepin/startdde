@@ -267,7 +267,9 @@ func (m *Manager) listenDBusSignals() {
 		kinfo.Edid = kinfo.Edid
 
 		monitorId := m.mig.getId(kinfo.Uuid)
-
+		if needSwapWidthHeight(kinfo.rotation()) {
+			kinfo.Width, kinfo.Height = kinfo.Height, kinfo.Width
+		}
 		monitor := m.monitorMap[monitorId]
 		if monitor == nil {
 			logger.Warning("not found monitor uuid:", kinfo.Uuid)
