@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
@@ -208,10 +209,27 @@ func newManager(service *dbusutil.Service) *Manager {
 	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateScreenSize()
-
-	//m.config = loadConfig()
+    //m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
+}
+
+func (m *Manager)tryBrightnessConnection() {
+	var flag bool = false
+	for i:=0; i<3; i++ {
+		brightness.RefreshDDCCI()
+		err:= m.initBrightness()
+		if err == nil {
+			flag = true
+			break
+		} else {
+			logger.Warning("RefreshDDCCI again")
+			time.Sleep(time.Second * 3)
+		}
+	}
+	if !flag {
+		logger.Warning("RefreshDDCCI 3 times failed")
+	}
 }
 
 func (m *Manager) getSystemInfo(systemBus *dbus.Conn) string {
@@ -247,10 +265,7 @@ func (m *Manager) listenDBusSignals() {
 		m.updateMonitorsId()
 		m.updateScreenSize()
 		// apply last saved brightness
-		go func() {
-			brightness.RefreshDDCCI()
-			m.initBrightness()
-		}()
+		go m.tryBrightnessConnection()
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -283,10 +298,9 @@ func (m *Manager) listenDBusSignals() {
 			m.updateMonitorsId()
 			m.updateScreenSize()
 
-			go func() {
-				brightness.RefreshDDCCI()
-				m.initBrightness()
-			}()
+			// go func() {
+			go m.tryBrightnessConnection()
+
 			return
 		}
 		if m.checkKwinMonitorData(monitor, kinfo) == true {
@@ -316,10 +330,6 @@ func (m *Manager) listenDBusSignals() {
 		m.updatePropMonitors()
 		m.updateMonitorsId()
 		m.updateScreenSize()
-
-		go func() {
-			brightness.RefreshDDCCI()
-		}()
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -412,7 +422,8 @@ out:
 
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
-	m.initBrightness()
+	//m.initBrightness()
+	go m.tryBrightnessConnection()
 	m.applyDisplayMode()
 	m.initTouchMap()
 	m.initMiniEffect()

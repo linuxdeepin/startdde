@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"errors"
 	"path/filepath"
 
 	"pkg.deepin.io/dde/startdde/wl_display/brightness"
@@ -197,7 +198,7 @@ func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	return result, nil
 }
 
-func (m *Manager) initBrightness() {
+func (m *Manager) initBrightness() error {
 	brightnessTable, err := m.getSavedBrightnessTable()
 	if err != nil {
 		logger.Warning(err)
@@ -216,7 +217,7 @@ func (m *Manager) initBrightness() {
 			saved = true
 		}
 	}
-
+        var lightSet = false 
 	m.Brightness = brightnessTable
 	for name, v := range brightnessTable {
 		// set the saved brightness
@@ -225,6 +226,9 @@ func (m *Manager) initBrightness() {
 			logger.Warning("brightness: Failed to set default brightness:", name, err)
 			continue
 		}
+		if !lightSet{
+			lightSet = true 
+		} 
 	}
 
 	if saved {
@@ -232,6 +236,10 @@ func (m *Manager) initBrightness() {
 		// In huawei KelvinU sometimes crash because of GObject assert failure in GSettings
 		//m.saveBrightness()
 	}
+	if !lightSet {
+		return errors.New("Init default output brightness failed!")
+	}
+	return nil
 }
 
 func (m *Manager) getBrightnessSetter() string {
