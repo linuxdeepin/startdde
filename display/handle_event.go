@@ -132,13 +132,6 @@ func (m *Manager) handleCrtcChanged(ev *randr.CrtcChangeNotifyEvent) {
 		}
 		m.PropsMu.Unlock()
 	}
-
-	DisplayMode, err1 := m.GetRealDisplayMode()
-	if err1 != nil {
-		logger.Warning("GetRealDisplayMode failed", err1)
-	} else {
-		m.DisplayMode = DisplayMode
-	}
 }
 
 func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
