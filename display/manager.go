@@ -1018,24 +1018,14 @@ func (m *Manager) apply() error {
 	m.crtcMapMu.Lock()
 	for crtc, crtcInfo := range m.crtcMap {
 		rect := getCrtcRect(crtcInfo)
-		logger.Debugf("crtc %v, rect: %+v", crtc, rect)
+		logger.Debugf("crtc %v, rect: %+v, screenSize: %+v", crtc, rect, screenSize)
 		if int(rect.X)+int(rect.Width) <= int(screenSize.width) &&
 			int(rect.Y)+int(rect.Height) <= int(screenSize.height) {
 			// 适合
-			monitors := m.getConnectedMonitors()
-			for _, monitor := range monitors {
-				if monitor.crtc == crtc {
-					if monitor.oldRotation != monitor.Rotation || m.modeChanged {
-						monitor.oldRotation = monitor.Rotation
-						logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
-						err := m.disableCrtc(crtc, cfgTs)
-						if err != nil {
-							return err
-						}
-					}
-				}
+			err := m.disableCrtc(crtc, cfgTs)
+			if err != nil {
+				return err
 			}
-
 		} else {
 			// 不适合新的屏幕大小，如果已经启用，则需要禁用它
 			if len(crtcInfo.Outputs) == 0 {
