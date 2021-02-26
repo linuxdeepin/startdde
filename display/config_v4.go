@@ -100,10 +100,19 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 				result[idx] = monitor
 			}
 		}
+
 		if result[0].X == result[1].X {
 			screenCfg.setModeConfigs(DisplayModeMirror, m.gsColorTemperatureMode, m.gsColorTemperatureManual, result)
+			//如果升级之前是自定义模式.重新判断是拆分/合并模式
+			if m.DisplayMode == DisplayModeCustom {
+				m.setDisplayMode(DisplayModeMirror)
+			}
 		} else {
 			screenCfg.setModeConfigs(DisplayModeExtend, m.gsColorTemperatureMode, m.gsColorTemperatureManual, result)
+			//如果升级之前是自定义模式.重新判断是拆分/合并模式
+			if m.DisplayMode == DisplayModeCustom {
+				m.setDisplayMode(DisplayModeExtend)
+			}
 		}
 		return
 	}

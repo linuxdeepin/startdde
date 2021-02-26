@@ -267,15 +267,6 @@ func newManager(service *dbusutil.Service) *Manager {
 			}
 		}
 
-		//如果升级之前是自定义模式.重新判断是拆分/合并模式
-		if m.DisplayMode == DisplayModeCustom {
-			m.DisplayMode, err = m.GetRealDisplayMode()
-			if err != nil {
-				logger.Warning(err)
-			}
-			logger.Debug("m.displaymode = ", m.DisplayMode)
-		}
-
 		m.initBuiltinMonitor()
 		m.monitorsId = m.getMonitorsId()
 		m.updatePropMonitors()

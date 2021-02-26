@@ -154,8 +154,16 @@ func (c ConfigV3_3) toConfig(m *Manager) Config {
 			//只有合并和拆分模式 只判断两个屏
 			if configs[0].X == configs[1].X {
 				screenCfg.setModeConfigs(DisplayModeMirror, m.gsColorTemperatureMode, m.gsColorTemperatureManual, configs)
+				//如果升级之前是自定义模式.重新判断是拆分/合并模式
+				if m.DisplayMode == DisplayModeCustom {
+					m.setDisplayMode(DisplayModeMirror)
+				}
 			} else {
 				screenCfg.setModeConfigs(DisplayModeExtend, m.gsColorTemperatureMode, m.gsColorTemperatureManual, configs)
+				//如果升级之前是自定义模式.重新判断是拆分/合并模式
+				if m.DisplayMode == DisplayModeCustom {
+					m.setDisplayMode(DisplayModeExtend)
+				}
 
 			}
 		}
