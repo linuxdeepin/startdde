@@ -121,6 +121,8 @@ func launchCoreComponents(sm *SessionManager) {
 		sm.launchWithoutWait(program, args...)
 	}
 
+	wmCh := make(chan struct{}, 1)
+
 	coreStartTime := time.Now()
 	// launch window manager
 	if !_useWayland {
@@ -130,6 +132,8 @@ func launchCoreComponents(sm *SessionManager) {
 				wm_kwin.SyncWmChooserChoice()
 			}
 			launch(cmdKWin, nil, "kwin", true, func() {
+				wmCh <- struct{}{}
+
 				// 等待 kwin 就绪，然后让 dock 显示
 				handleKWinReady(sm)
 			})
@@ -139,7 +143,9 @@ func launchCoreComponents(sm *SessionManager) {
 			if wmCmd == "" {
 				wmCmd = "x-window-manager"
 			}
-			launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", false, nil)
+			launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", true, func() {
+				wmCh <- struct{}{}
+			})
 		}
 	}
 
@@ -151,6 +157,11 @@ func launchCoreComponents(sm *SessionManager) {
 		}
 		launch(cmdDdeDock, dockArgs, "dde-dock", true, nil)
 	})
+
+	// 若使用 X，等待窗管启动再启动 dde-desktop
+	if !_useWayland {
+		<-wmCh
+	}
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
 	wg.Wait()
