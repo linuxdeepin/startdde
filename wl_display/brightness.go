@@ -20,13 +20,13 @@
 package display
 
 import (
-	"strings"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
-	"errors"
 	"path/filepath"
+	"strings"
 
 	"pkg.deepin.io/dde/startdde/wl_display/brightness"
 )
@@ -162,8 +162,8 @@ func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name 
 				return err
 			}
 
-                  	// 防止出现多次调节亮度值不变的情况
-			if math.Abs(br - 0.1) < 1e-5 || math.Abs(br - 1.0) < 1e-5 {
+			// 防止出现多次调节亮度值不变的情况
+			if math.Abs(br-0.1) < 1e-5 || math.Abs(br-1.0) < 1e-5 {
 				break
 			}
 		}
@@ -217,7 +217,8 @@ func (m *Manager) initBrightness() error {
 			saved = true
 		}
 	}
-        var lightSet = false 
+
+	var lightSet = false
 	m.Brightness = brightnessTable
 	for name, v := range brightnessTable {
 		// set the saved brightness
@@ -226,9 +227,9 @@ func (m *Manager) initBrightness() error {
 			logger.Warning("brightness: Failed to set default brightness:", name, err)
 			continue
 		}
-		if !lightSet{
-			lightSet = true 
-		} 
+		if !lightSet {
+			lightSet = true
+		}
 	}
 
 	if saved {
@@ -282,11 +283,6 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 			logger.Warningf("brightness: failed to set brightness for %s: %v", name, err)
 			return err
 		}
-	}
-
-	oldValue := m.Brightness[name]
-	if oldValue == value {
-		return nil
 	}
 
 	// update brightness of the output
