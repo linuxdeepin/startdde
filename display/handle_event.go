@@ -65,12 +65,6 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 				if err != nil {
 					logger.Warning(err)
 				}
-				if m.DisplayMode == DisplayModeExtend {
-					err = m.setPrimary(outputInfo0.Name)
-					if err != nil {
-						logger.Warning(err)
-					}
-				}
 				break
 			}
 		}
