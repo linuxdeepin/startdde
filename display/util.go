@@ -297,8 +297,13 @@ func getOutputUUID(name string, edid []byte) string {
 	return name + id
 }
 
-func sortMonitorsByID(monitors []*Monitor) {
+func sortMonitorsByPrimaryAndID(monitors []*Monitor, primary *Monitor) {
 	sort.Slice(monitors, func(i, j int) bool {
+		if monitors[i].Name == primary.Name {
+			return true
+		} else if monitors[j].Name == primary.Name {
+			return false
+		}
 		return monitors[i].ID < monitors[j].ID
 	})
 }

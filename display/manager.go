@@ -1227,10 +1227,14 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	for _, monitor := range m.monitorMap {
 		monitors = append(monitors, monitor)
 	}
-	sortMonitorsByID(monitors)
 
 	var xOffset int
 	var monitor0 *Monitor
+	//先获取主屏
+	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
+
+	sortMonitorsByPrimaryAndID(monitors, monitor0)
+
 	for _, monitor := range monitors {
 		if monitor.Connected {
 			monitor.enable(true)
@@ -1253,8 +1257,6 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	}
 	m.ColorTemperatureMode = defaultTemperatureMode
 	m.ColorTemperatureManual  = defaultTemperatureManual
-
-	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 
 	err = m.apply()
 	if err != nil {
