@@ -434,7 +434,7 @@ func (m *Manager) applyDisplayMode() {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend("")
+		err = m.switchModeExtend()
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne("")
 	}
@@ -1229,18 +1229,32 @@ func (m *Manager) setPrimary(name string) error {
 	return nil
 }
 
-func (m *Manager) switchModeExtend(primary string) (err error) {
+func (m *Manager) switchModeExtend() (err error) {
 	logger.Debug("switch mode extend")
 	var monitors []*Monitor
 	for _, monitor := range m.monitorMap {
 		monitors = append(monitors, monitor)
 	}
-	sortMonitorsByID(monitors)
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
 
 	var xOffset int
 	var monitor0 *Monitor
+
+	//配置文件为nil,设置默认主屏
+	if configs == nil {
+		monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
+	} else { //配置文件不为nil,设置配置文件中的屏为主屏
+		cfgPrimary := getMonitorConfigPrimary(configs)
+		for _, monitor := range monitors {
+			if cfgPrimary.Name == monitor.Name {
+				monitor0 = monitor
+			}
+		}
+	}
+
+	sortMonitorsByPrimaryAndID(monitors, monitor0)
+
 	for _, monitor := range monitors {
 		if monitor.Connected {
 			monitor.enable(true)
@@ -1249,10 +1263,6 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 			var mode ModeInfo
 			if cfg != nil {
 				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-				if monitor0 == nil && cfg.Primary {
-					monitor0 = monitor
-				}
-
 			} else {
 				mode = monitor.BestMode
 			}
@@ -1270,10 +1280,6 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		} else {
 			monitor.enable(false)
 		}
-	}
-
-	if monitor0 == nil {
-		monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	}
 
 	err = m.apply()
@@ -1449,7 +1455,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend("")
+		err = m.switchModeExtend()
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne(name)
 	case DisplayModeCustom:

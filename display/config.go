@@ -94,6 +94,15 @@ func getMonitorConfigByUuid(configs []*MonitorConfig, uuid string) *MonitorConfi
 	return nil
 }
 
+func getMonitorConfigPrimary(configs []*MonitorConfig) *MonitorConfig {
+	for _, mc := range configs {
+		if mc.Primary {
+			return mc
+		}
+	}
+	return &MonitorConfig{}
+}
+
 func setMonitorConfigsPrimary(configs []*MonitorConfig, uuid string) {
 	for _, mc := range configs {
 		if mc.UUID == uuid {
