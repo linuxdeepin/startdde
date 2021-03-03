@@ -55,19 +55,20 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 		jId := cfgKey.getJoinedId()
 		// 单屏幕，可设置分辨率
 		if len(cfgKey.idFields) == 1 {
-			//把亮度,色温写入配置文件
+			//配置文件中保存的可能为空值
 			if sc.Single != nil {
+				//把亮度,色温写入配置文件
 				sc.Single.Brightness = m.Brightness[sc.Single.Name]
-			}
-			newConfig[jId] = &ScreenConfig{
-				Mirror:  nil,
-				Extend:  nil,
-				OnlyOne: nil,
-				Single: &SingleModeConfig{
-					Monitors:               sc.Single,
-					ColorTemperatureMode:   m.gsColorTemperatureMode,
-					ColorTemperatureManual: m.gsColorTemperatureManual,
-				},
+				newConfig[jId] = &ScreenConfig{
+					Mirror:  nil,
+					Extend:  nil,
+					OnlyOne: nil,
+					Single: &SingleModeConfig{
+						Monitors:               sc.Single,
+						ColorTemperatureMode:   m.gsColorTemperatureMode,
+						ColorTemperatureManual: m.gsColorTemperatureManual,
+					},
+				}
 			}
 		} else {
 			screenCfg := newConfig[id]
@@ -115,6 +116,10 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 			}
 		}
 		return
+	} else {
+		if m.DisplayMode == DisplayModeCustom {
+			m.setDisplayMode(DisplayModeMirror)
+		}
 	}
 
 	if sc.Mirror != nil {
