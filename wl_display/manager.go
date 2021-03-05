@@ -50,7 +50,7 @@ const (
 type Manager struct {
 	service    *dbusutil.Service
 	xConn      *x.Conn
-	management *kwayland.OutputManagement
+	management kwayland.OutputManagement
 
 	PropsMu              sync.RWMutex
 	config               Config

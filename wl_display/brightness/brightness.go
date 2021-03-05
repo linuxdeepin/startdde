@@ -23,11 +23,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
-	"github.com/linuxdeepin/go-x11-client"
+	"github.com/godbus/dbus"
+	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "pkg.deepin.io/lib/backlight/display"
-	"github.com/godbus/dbus"
 )
 
 const (
@@ -36,7 +36,7 @@ const (
 	SetterBacklight = "backlight"
 )
 
-var helper *backlight.Backlight
+var helper backlight.Backlight
 
 func InitBacklightHelper() {
 	var err error
@@ -47,7 +47,7 @@ func InitBacklightHelper() {
 	helper = backlight.NewBacklight(sysBus)
 }
 
-func getHelper() *backlight.Backlight {
+func getHelper() backlight.Backlight {
 	if helper == nil {
 		InitBacklightHelper()
 	}

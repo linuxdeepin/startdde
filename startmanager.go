@@ -82,7 +82,7 @@ type StartManager struct {
 	service             *dbusutil.Service
 	userAutostartPath   string
 	delayHandler        *mapDelayHandler
-	daemonApps          *daemonApps.Apps
+	daemonApps          daemonApps.Apps
 	restartTimeMap      map[string]time.Time
 	restartTimeMapMu    sync.Mutex
 	proxyChainsConfFile string
@@ -96,7 +96,7 @@ type StartManager struct {
 	launchedHooks       []string
 
 	NeededMemory     uint64
-	systemPower      *systemPower.Power
+	systemPower      systemPower.Power
 	cpuFreqAdjustMap map[string]int32
 
 	//nolint
@@ -330,7 +330,7 @@ func (m *StartManager) launchAppWithOptions(desktopFile string, timestamp uint32
 
 	// mark app launched
 	if m.daemonApps != nil {
-		err := m.daemonApps.MarkLaunched(0, desktopFile)
+		err := m.daemonApps.LaunchedRecorder().MarkLaunched(0, desktopFile)
 		if err != nil {
 			logger.Warning(err)
 		}
@@ -369,7 +369,7 @@ func (m *StartManager) launchAppAction(desktopFile, action string, timestamp uin
 	}
 	// mark app launched
 	if m.daemonApps != nil {
-		err := m.daemonApps.MarkLaunched(0, desktopFile)
+		err := m.daemonApps.LaunchedRecorder().MarkLaunched(0, desktopFile)
 		if err != nil {
 			logger.Warning(err)
 		}

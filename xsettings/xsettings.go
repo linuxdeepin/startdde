@@ -53,8 +53,8 @@ type XSManager struct {
 	owner   x.Window
 
 	gs        *gio.Settings
-	greeter   *greeter.Greeter
-	sysDaemon *ddeSysDaemon.Daemon
+	greeter   greeter.Greeter
+	sysDaemon ddeSysDaemon.Daemon
 
 	plymouthScalingMu    sync.Mutex
 	plymouthScalingTasks []int

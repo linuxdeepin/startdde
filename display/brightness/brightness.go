@@ -38,7 +38,7 @@ const (
 
 var logger = log.NewLogger("daemon/display/brightness")
 
-var helper *backlight.Backlight
+var helper backlight.Backlight
 
 func InitBacklightHelper() {
 	var err error

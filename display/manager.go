@@ -90,7 +90,7 @@ type touchscreenMapValue struct {
 type Manager struct {
 	service                  *dbusutil.Service
 	sysBus                   *dbus.Conn
-	inputDevices             *inputdevices.InputDevices
+	inputDevices             inputdevices.InputDevices
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
 	config                   Config

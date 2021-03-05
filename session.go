@@ -81,16 +81,16 @@ type SessionManager struct {
 	cookies               map[string]chan time.Time
 	Stage                 int32
 	allowSessionDaemonRun bool
-	loginSession          *login1.Session
-	dbusDaemon            *ofdbus.DBus         // session bus daemon
+	loginSession          login1.Session
+	dbusDaemon            ofdbus.DBus          // session bus daemon
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
 	inhibitManager        InhibitManager
-	powerManager          *powermanager.PowerManager
+	powerManager          powermanager.PowerManager
 
 	CurrentSessionPath  dbus.ObjectPath
-	objLogin            *login1.Manager
-	objLoginSessionSelf *login1.Session
-	daemon              *daemon.Daemon
+	objLogin            login1.Manager
+	objLoginSessionSelf login1.Session
+	daemon              daemon.Daemon
 	inCallRequestLock   bool
 	inCallRequestLockMu sync.Mutex
 
@@ -1184,7 +1184,7 @@ func setLeftPtrCursor() {
 	}
 }
 
-func getLoginSession() (*login1.Session, error) {
+func getLoginSession() (login1.Session, error) {
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		return nil, err

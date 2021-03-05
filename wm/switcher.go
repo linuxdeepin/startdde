@@ -61,7 +61,7 @@ type Switcher struct {
 	mu              sync.Mutex
 	workability3dWM int
 
-	wm                *libwm.Wm
+	wm                libwm.Wm
 	currentWM         string
 	wmChooserLaunched bool
 

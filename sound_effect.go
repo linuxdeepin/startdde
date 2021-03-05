@@ -28,13 +28,13 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
-	"pkg.deepin.io/dde/api/soundutils"
 	dbus1 "github.com/godbus/dbus"
+	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
+	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/lib/pulse"
 )
 
-var soundThemePlayer *soundthemeplayer.SoundThemePlayer
+var soundThemePlayer soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
 	// NOTE: always start pulseaudio

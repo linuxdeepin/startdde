@@ -76,7 +76,7 @@ func SyncWmChooserChoice() {
 
 type Switcher struct {
 	service *dbusutil.Service
-	wm      *wm.Wm
+	wm      wm.Wm
 
 	signals *struct { //nolint
 		WMChanged struct {
