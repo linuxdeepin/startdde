@@ -238,8 +238,12 @@ func (m *SessionManager) logout(force bool) {
 }
 
 func (m *SessionManager) CanShutdown() (bool, *dbus.Error) {
-	can, err := m.powerManager.CanShutdown(0)
-	return can, dbusutil.ToError(err)
+	str, err := m.objLogin.CanPowerOff(0) // 当前能否关机
+	if err != nil {
+		logger.Warning(err)
+		return false, dbusutil.ToError(err)
+	}
+	return str == "yes", nil
 }
 
 func (m *SessionManager) Shutdown() *dbus.Error {
@@ -301,8 +305,12 @@ func (m *SessionManager) shutdown(force bool) {
 }
 
 func (m *SessionManager) CanReboot() (bool, *dbus.Error) {
-	can, err := m.powerManager.CanReboot(0)
-	return can, dbusutil.ToError(err)
+	str, err := m.objLogin.CanReboot(0) // 当前能否重启
+	if err != nil {
+		logger.Warning(err)
+		return false, dbusutil.ToError(err)
+	}
+	return str == "yes", nil
 }
 
 func (m *SessionManager) Reboot() *dbus.Error {
@@ -345,8 +353,24 @@ func (m *SessionManager) reboot(force bool) {
 }
 
 func (m *SessionManager) CanSuspend() (bool, *dbus.Error) {
-	can, err := m.powerManager.CanSuspend(0)
-	return can, dbusutil.ToError(err)
+	if os.Getenv("POWER_CAN_SLEEP") == "0" {
+		logger.Info("can not Suspend, env POWER_CAN_SLEEP == 0")
+		return false, nil
+	}
+	can, err := m.powerManager.CanSuspend(0) // 是否支持待机
+	if err != nil {
+		logger.Warning(err)
+		return false, dbusutil.ToError(err)
+	}
+	if can {
+		str, err := m.objLogin.CanSuspend(0) // 当前能否待机
+		if err != nil {
+			logger.Warning(err)
+			return false, dbusutil.ToError(err)
+		}
+		return str == "yes", nil
+	}
+	return false, nil
 }
 
 func (m *SessionManager) RequestSuspend() *dbus.Error {
@@ -370,8 +394,24 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 }
 
 func (m *SessionManager) CanHibernate() (bool, *dbus.Error) {
-	can, err := m.powerManager.CanHibernate(0)
-	return can, dbusutil.ToError(err)
+	if os.Getenv("POWER_CAN_SLEEP") == "0" {
+		logger.Info("can not Hibernate, env POWER_CAN_SLEEP == 0")
+		return false, nil
+	}
+	can, err := m.powerManager.CanHibernate(0) // 是否支持休眠
+	if err != nil {
+		logger.Warning(err)
+		return false, dbusutil.ToError(err)
+	}
+	if can {
+		str, err := m.objLogin.CanHibernate(0) // 当前能否休眠
+		if err != nil {
+			logger.Warning(err)
+			return false, dbusutil.ToError(err)
+		}
+		return str == "yes", nil
+	}
+	return false, nil
 }
 
 func (m *SessionManager) RequestHibernate() *dbus.Error {
