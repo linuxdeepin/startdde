@@ -323,13 +323,13 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 }
 
 // 获取最早连接的显示器
-func getMinLastConnectedTimeMonitor(monitors []*Monitor) *Monitor {
+func (m *Manager) getMinLastConnectedTimeMonitor(monitors []*Monitor) *Monitor {
 	if len(monitors) == 0 {
 		return nil
 	}
 	minMonitor := monitors[0]
 	for _, monitor := range monitors[1:] {
-		if minMonitor.lastConnectedTime.After(monitor.lastConnectedTime) {
+		if m.info.LastConnectedTimes[minMonitor.Name].After(m.info.LastConnectedTimes[monitor.Name]) {
 			// minMonitor > monitor
 			minMonitor = monitor
 		}

@@ -50,8 +50,8 @@ const (
 	gsKeyColorTemperatureManual = "color-temperature-manual"
 	customModeDelim             = "+"
 	monitorsIdDelimiter         = ","
-	defaultTemperatureMode 		= ColorTemperatureModeNormal
-	defaultTemperatureManual	= 6500
+	defaultTemperatureMode      = ColorTemperatureModeNormal
+	defaultTemperatureManual    = 6500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 )
@@ -99,6 +99,7 @@ type Manager struct {
 	monitorsId               string
 	isLaptop                 bool
 	modeChanged              bool
+	info                     ConnectInfo
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -695,11 +696,10 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 		return nil
 	}
 
-	var lastConnectedTime time.Time
+	m.initConnectInfo()
+
 	connected := outputInfo.Connection == randr.ConnectionConnected
-	if connected {
-		lastConnectedTime = time.Now()
-	}
+	m.setAndSaveConnectInfo(connected, outputInfo)
 	enabled := outputInfo.Crtc != 0
 	var err error
 	var crtcInfo *randr.GetCrtcInfoReply
@@ -722,19 +722,18 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	}
 	manufacturer, model := parseEDID(edid)
 	monitor := &Monitor{
-		service:           m.service,
-		m:                 m,
-		ID:                uint32(output),
-		Name:              outputInfo.Name,
-		Connected:         connected,
-		MmWidth:           outputInfo.MmWidth,
-		MmHeight:          outputInfo.MmHeight,
-		Enabled:           enabled,
-		crtc:              outputInfo.Crtc,
-		uuid:              getOutputUUID(outputInfo.Name, edid),
-		Manufacturer:      manufacturer,
-		Model:             model,
-		lastConnectedTime: lastConnectedTime,
+		service:      m.service,
+		m:            m,
+		ID:           uint32(output),
+		Name:         outputInfo.Name,
+		Connected:    connected,
+		MmWidth:      outputInfo.MmWidth,
+		MmHeight:     outputInfo.MmHeight,
+		Enabled:      enabled,
+		crtc:         outputInfo.Crtc,
+		uuid:         getOutputUUID(outputInfo.Name, edid),
+		Manufacturer: manufacturer,
+		Model:        model,
 	}
 
 	monitor.Modes = m.getModeInfos(outputInfo.Modes)
@@ -798,14 +797,20 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	}
 
 	var edid []byte
-	var lastConnectedTime time.Time
 	if connected {
 		edid, err = utils.GetOutputEDID(m.xConn, output)
 		if err != nil {
 			logger.Warning(err)
 		}
-		lastConnectedTime = time.Now()
+
+		m.initConnectInfo()
+		m.setAndSaveConnectInfo(connected, outputInfo)
 	} else {
+		m.info.Connects[outputInfo.Name] = connected
+		err := doSaveCache(&m.info, cacheFile)
+		if err != nil {
+			logger.Warning("doSaveCache failed", err)
+		}
 		m.updateBuiltinMonitorOnDisconnected(monitor.ID)
 	}
 	manufacturer, model := parseEDID(edid)
@@ -813,7 +818,6 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	monitor.PropsMu.Lock()
 	monitor.uuid = uuid
 	monitor.crtc = outputInfo.Crtc
-	monitor.lastConnectedTime = lastConnectedTime
 	monitor.setPropManufacturer(manufacturer)
 	monitor.setPropModel(model)
 	monitor.setPropConnected(connected)
@@ -894,7 +898,6 @@ func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 	if err != nil {
 		return
 	}
-
 
 	monitor0 = m.getDefaultPrimaryMonitor(m.getConnectedMonitors())
 	if monitor0 != nil {
@@ -1256,7 +1259,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		}
 	}
 	m.ColorTemperatureMode = defaultTemperatureMode
-	m.ColorTemperatureManual  = defaultTemperatureManual
+	m.ColorTemperatureManual = defaultTemperatureManual
 
 	err = m.apply()
 	if err != nil {
@@ -1617,7 +1620,7 @@ func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
 		return monitor
 	}
 
-	return getMinLastConnectedTimeMonitor(monitors)
+	return m.getMinLastConnectedTimeMonitor(monitors)
 }
 
 func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
@@ -1639,9 +1642,15 @@ func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
 		}
 
 		// 当接口类型相同，若一个是默认显示器，继续让它作为默认显示器
-		if p == priority && m.Primary == v.Name {
-			monitor = v
-			priority = p
+		if p == priority {
+			if m.info.LastConnectedTimes == nil {
+				if m.Primary == v.Name {
+					monitor = v
+					priority = p
+				}
+			} else {
+				return nil
+			}
 		}
 	}
 
@@ -1974,4 +1983,25 @@ func (m *Manager) syncBrightness() {
 		}
 	}
 	m.setPropBrightness(m.Brightness)
+}
+
+func (m *Manager) initConnectInfo() {
+	tmp, _ := doReadCache(cacheFile)
+	if tmp.Connects != nil && tmp.LastConnectedTimes != nil {
+		m.info = *tmp
+	} else {
+		m.info.Connects = make(map[string]bool)
+		m.info.LastConnectedTimes = make(map[string]time.Time)
+	}
+}
+
+func (m *Manager) setAndSaveConnectInfo(connected bool, outputInfo *randr.GetOutputInfoReply) {
+	if connected && !m.info.Connects[outputInfo.Name] {
+		m.info.Connects[outputInfo.Name] = connected
+		m.info.LastConnectedTimes[outputInfo.Name] = time.Now()
+		err := doSaveCache(&m.info, cacheFile)
+		if err != nil {
+			logger.Warning("doSaveCache failed", err)
+		}
+	}
 }
