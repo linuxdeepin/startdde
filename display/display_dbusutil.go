@@ -3,8 +3,8 @@
 package display
 
 import (
-	"github.com/linuxdeepin/go-x11-client"
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client"
 )
 
 func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
