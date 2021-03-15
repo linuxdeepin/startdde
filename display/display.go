@@ -39,25 +39,11 @@ func StartPart2() error {
 	}
 	m := _dpy
 	m.initTouchscreens()
-	m.initTouchMap()
 	err := generateRedshiftConfFile()
 	if err != nil {
 		logger.Warning(err)
 	}
 	m.initColorTemperature()
-
-	for _, touch := range m.Touchscreens {
-		if _, ok := m.TouchMap[touch.Serial]; !ok {
-			err := m.associateTouch(m.Primary, touch.Serial)
-			if err != nil {
-				logger.Warningf("associate touch(%v, %v) failed: %v", m.Primary, touch.Serial, err)
-			}
-			err = m.showTouchscreenDialog(touch.Serial)
-			if err != nil {
-				logger.Warning("failed to show touchscreen dialog:", err)
-			}
-		}
-	}
 
 	return nil
 }

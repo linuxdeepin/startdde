@@ -16,6 +16,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	dbus "github.com/godbus/dbus"
+	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/display/brightness"
@@ -75,11 +76,17 @@ var (
 	}
 )
 
+type touchscreenMapValue struct {
+	OutputName string
+	Auto       bool
+}
+
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 //go:generate dbusutil-gen em -type Manager,Monitor
-
 type Manager struct {
 	service                  *dbusutil.Service
+	sysBus                   *dbus.Conn
+	inputDevices             *inputdevices.InputDevices
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
 	config                   Config
@@ -112,7 +119,9 @@ type Manager struct {
 	// dbusutil-gen: equal=nil
 	Touchscreens dxTouchscreens
 	// dbusutil-gen: equal=nil
-	TouchMap        map[string]string
+	TouchMap       map[string]string
+	touchscreenMap map[string]touchscreenMapValue
+
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
@@ -296,6 +305,17 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 
 	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
+
+	m.sysBus, err = dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	sigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
+	sigLoop.Start()
+
+	m.inputDevices = inputdevices.NewInputDevices(m.sysBus)
+	m.inputDevices.InitSignalExt(sigLoop, true)
 
 	return m
 }
@@ -1759,54 +1779,113 @@ func (m *Manager) getScreenSize() (sw, sh uint16) {
 	return
 }
 
-func (m *Manager) initTouchscreens() {
-	touchscreenInfos := getTouchscreenInfos(true)
-	m.setPropTouchscreens(touchscreenInfos)
-
-	startDeviceListener()
-}
-
-func (m *Manager) initTouchMap() {
-	value := m.settings.GetString(gsKeyMapOutput)
-	if len(value) == 0 {
-		m.TouchMap = make(map[string]string)
-		monitors := m.getConnectedMonitors()
-		// 单触摸屏安装系统，不用弹出选项框
-		if len(m.Touchscreens) == 1 && len(monitors) == 1 {
-			m.TouchMap[m.Touchscreens[0].Serial] = monitors[0].Name
-			m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.TouchMap))
-			go func() {
-				err := m.doSetTouchMap(monitors[0].Name, m.Touchscreens[0].Serial)
-				if err != nil {
-					logger.Warningf("failed to map touch: %s", err)
-				}
-			}()
-		}
+func (m *Manager) newTouchscreen(path dbus.ObjectPath) {
+	t, err := inputdevices.NewTouchscreen(m.sysBus, path)
+	if err != nil {
+		logger.Warning(err)
 		return
 	}
 
-	err := jsonUnmarshal(value, &m.TouchMap)
+	touchscreen := &Touchscreen{
+		path: path,
+	}
+	touchscreen.Name, _ = t.Name().Get(0)
+	touchscreen.DeviceNode, _ = t.DevNode().Get(0)
+	touchscreen.Serial, _ = t.Serial().Get(0)
+	touchscreen.uuid, _ = t.UUID().Get(0)
+	touchscreen.outputName, _ = t.OutputName().Get(0)
+	touchscreen.width, _ = t.Width().Get(0)
+	touchscreen.height, _ = t.Height().Get(0)
+
+	touchscreen.busType = BusTypeUnknown
+	busType, _ := t.BusType().Get(0)
+	if strings.ToLower(busType) == "usb" {
+		touchscreen.busType = BusTypeUSB
+	}
+
+	getXTouchscreenInfo(touchscreen)
+	if touchscreen.Id == 0 {
+		logger.Warning("failed to get touchscreen id")
+		return
+	}
+
+	m.Touchscreens = append(m.Touchscreens, touchscreen)
+	m.emitPropChangedTouchscreens(m.Touchscreens)
+}
+
+func (m *Manager) initTouchscreens() {
+	_, err := m.inputDevices.ConnectTouchscreenAdded(func(path dbus.ObjectPath) {
+		getDeviceInfos(true)
+		m.newTouchscreen(path)
+
+		m.handleTouchscreenChanged()
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
+		i := -1
+		for index, v := range m.Touchscreens {
+			if v.path == path {
+				i = index
+			}
+		}
+
+		if i == -1 {
+			return
+		}
+
+		m.Touchscreens = append(m.Touchscreens[:i], m.Touchscreens[i+1:]...)
+		m.emitPropChangedTouchscreens(m.Touchscreens)
+		//m.handleTouchscreenChanged()
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	touchscreens, err := m.inputDevices.Touchscreens().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	getDeviceInfos(true)
+	for _, p := range touchscreens {
+		m.newTouchscreen(p)
+	}
+
+	m.initTouchMap()
+	m.handleTouchscreenChanged()
+}
+
+func (m *Manager) initTouchMap() {
+	m.touchscreenMap = make(map[string]touchscreenMapValue)
+	m.TouchMap = make(map[string]string)
+
+	value := m.settings.GetString(gsKeyMapOutput)
+	if len(value) == 0 {
+		return
+	}
+
+	err := jsonUnmarshal(value, &m.touchscreenMap)
 	if err != nil {
 		logger.Warningf("[initTouchMap] unmarshal (%s) failed: %v",
 			value, err)
 		return
 	}
 
-	m.doMapTouches()
-}
-
-func (m *Manager) doMapTouches() {
-	go func() {
-		for touchSerial, output := range m.TouchMap {
-			err := m.doSetTouchMap(output, touchSerial)
-			if err != nil {
-				logger.Warningf("failed to map touch: %s", err)
+	for touchUUID, v := range m.touchscreenMap {
+		for _, t := range m.Touchscreens {
+			if t.uuid == touchUUID {
+				m.TouchMap[t.Serial] = v.OutputName
+				break
 			}
 		}
-	}()
+	}
 }
 
-func (m *Manager) doSetTouchMap(output, touchSerial string) error {
+func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 	monitors := m.getConnectedMonitors()
 	found := false
 	for _, monitor := range monitors {
@@ -1819,47 +1898,61 @@ func (m *Manager) doSetTouchMap(output, touchSerial string) error {
 		return fmt.Errorf("invalid output name: %s", output)
 	}
 
-	found = false
+	var touchId int32 = -1
 	for _, touchscreen := range m.Touchscreens {
-		if touchscreen.Serial != touchSerial {
+		if touchscreen.uuid != touchUUID {
 			continue
 		}
 
-		found = true
-		// 有多个设备的序列号一样的情况
-		err := doAction(fmt.Sprintf("xinput --map-to-output %d %s", touchscreen.Id, output))
-		if err != nil {
-			logger.Warning("failed to map touchscreen:", err)
-		}
+		touchId = touchscreen.Id
 	}
-	if !found {
-		return fmt.Errorf("invalid touchscreen, serial: %s", touchSerial)
+	if touchId == -1 {
+		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
 	}
 
-	return nil
+	return doAction(fmt.Sprintf("xinput --map-to-output %d %s", touchId, output))
 }
 
-func (m *Manager) associateTouch(outputName, touchSerial string) error {
+func (m *Manager) updateTouchscreenMap(outputName string, touchUUID string, auto bool) {
+	var err error
+
+	m.touchscreenMap[touchUUID] = touchscreenMapValue{
+		OutputName: outputName,
+		Auto:       auto,
+	}
+	m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.touchscreenMap))
+
+	var touchSerial string
+	for _, v := range m.Touchscreens {
+		if v.uuid == touchUUID {
+			touchSerial = v.Serial
+		}
+	}
+
+	m.TouchMap[touchSerial] = outputName
+
+	err = m.emitPropChangedTouchMap(m.TouchMap)
+	if err != nil {
+		logger.Warning("failed to emit TouchMap PropChanged:", err)
+	}
+}
+
+func (m *Manager) associateTouch(outputName string, touchUUID string, auto bool) error {
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
-	if m.TouchMap[touchSerial] == outputName {
+	if v, ok := m.touchscreenMap[touchUUID]; ok && v.OutputName == outputName {
 		return nil
 	}
 
-	err := m.doSetTouchMap(outputName, touchSerial)
+	err := m.doSetTouchMap(outputName, touchUUID)
 	if err != nil {
 		logger.Warning("[AssociateTouch] set failed:", err)
 		return err
 	}
 
-	m.TouchMap[touchSerial] = outputName
-	m.settings.SetString(gsKeyMapOutput, jsonMarshal(m.TouchMap))
-	err = m.emitPropChangedTouchMap(m.TouchMap)
-	if err != nil {
-		logger.Warning("failed to emit TouchMap PropChanged:", err)
-		return err
-	}
+	m.updateTouchscreenMap(outputName, touchUUID, auto)
+
 	return nil
 }
 
@@ -1900,38 +1993,66 @@ func (m *Manager) showTouchscreenDialog(touchscreenSerial string) error {
 }
 
 func (m *Manager) handleTouchscreenChanged() {
-	touchscreens := getTouchscreenInfos(true)
-	m.PropsMu.Lock()
-	oldTouchscreens := m.Touchscreens
-	m.setPropTouchscreens(touchscreens)
-	m.PropsMu.Unlock()
+	logger.Debugf("touchscreens changed %#v", m.Touchscreens)
 
-	for _, touch := range touchscreens {
-		found := false
-		for _, v := range oldTouchscreens {
-			if v.Serial == touch.Serial {
-				found = true
-				break
-			}
-		}
+	monitors := m.getConnectedMonitors()
 
-		// 当前触摸屏不是新插入的触摸屏
-		if found {
-			continue
-		}
+	// 只有一个显示器的情况下，无需进行关联
+	if len(monitors) <= 1 {
+		return
+	}
 
+	for _, touch := range m.Touchscreens {
 		// 有配置，直接使配置生效
-		if v, ok := m.TouchMap[touch.Serial]; ok {
-			err := m.doSetTouchMap(v, touch.Serial)
+		if v, ok := m.touchscreenMap[touch.uuid]; ok {
+			logger.Debugf("assigned %s to %s, cfg", touch.uuid, v.OutputName)
+			err := m.doSetTouchMap(v.OutputName, touch.uuid)
 			if err != nil {
 				logger.Warning("failed to map touchscreen:", err)
 			}
 			continue
 		}
 
-		// 无配置，关联默认显示器，并显示配置 Dialog
-		m.associateTouch(m.Primary, touch.Serial)
-		err := m.showTouchscreenDialog(touch.Serial)
+		if touch.outputName != "" {
+			logger.Debugf("assigned %s to %s, WL_OUTPUT", touch.uuid, touch.outputName)
+			m.associateTouch(touch.outputName, touch.uuid, true)
+			continue
+		}
+
+		// 物理大小匹配
+		assigned := false
+		for _, monitor := range monitors {
+			logger.Debugf("monitor %s w %d h %d, touch %s w %d h %d",
+				monitor.Name, monitor.MmWidth, monitor.MmHeight,
+				touch.uuid, uint32(math.Round(touch.width)), uint32(math.Round(touch.height)))
+
+			if monitor.MmWidth == uint32(math.Round(touch.width)) && monitor.MmHeight == uint32(math.Round(touch.height)) {
+				logger.Debugf("assigned %s to %s, phy size", touch.uuid, monitor.Name)
+				m.associateTouch(monitor.Name, touch.uuid, true)
+				assigned = true
+				break
+			}
+		}
+		if assigned {
+			continue
+		}
+
+		// 有内置显示器，且触摸屏不是通过 USB 连接，关联内置显示器
+		if m.builtinMonitor != nil {
+			if touch.busType != BusTypeUSB {
+				logger.Debugf("assigned %s to %s, builtin", touch.uuid, m.builtinMonitor.Name)
+				m.associateTouch(m.builtinMonitor.Name, touch.uuid, true)
+				continue
+			}
+		}
+
+		// 关联主显示器，不保存主显示器不保存配置，并显示配置 Dialog
+		err := m.doSetTouchMap(m.Primary, touch.uuid)
+		if err != nil {
+			logger.Warning("failed to map touchscreen:", err)
+		}
+
+		err = m.showTouchscreenDialog(touch.Serial)
 		if err != nil {
 			logger.Warning("shotTouchscreenOSD", err)
 		}
