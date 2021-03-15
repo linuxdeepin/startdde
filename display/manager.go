@@ -1987,7 +1987,7 @@ func (m *Manager) syncBrightness() {
 
 func (m *Manager) initConnectInfo() {
 	tmp, _ := doReadCache(cacheFile)
-	if tmp.Connects != nil && tmp.LastConnectedTimes != nil {
+	if tmp != nil {
 		m.info = *tmp
 	} else {
 		m.info.Connects = make(map[string]bool)
