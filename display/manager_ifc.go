@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -154,7 +154,7 @@ func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
 	}
 
 	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
-	if os.Getenv("CAN_SET_BRIGHTNESS") == "N"{
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
 		if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
 			return false, nil
 		}
@@ -258,7 +258,7 @@ func controlRedshift(action string) {
 }
 
 func setColorTempOneShot(colorTemp string) {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp).Output()
+	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp, "-P").Output()
 	if err != nil {
 		logger.Warning("failed to set current ColorTemperature by redshift.service: ", err)
 	} else {
