@@ -93,6 +93,11 @@ const (
 	cmdDdeSessionDaemon = "/usr/lib/deepin-daemon/dde-session-daemon"
 	cmdDdeDock          = "/usr/bin/dde-dock"
 	cmdDdeDesktop       = "/usr/bin/dde-desktop"
+	cmdDueShell         = "/usr/bin/due-shell"
+	cmdDueLauncher      = "/usr/bin/due-launcher"
+	cmdDueIm            = "/usr/bin/due-im"
+	desktopEnv          = "deepin"
+	padEnv              = "deepin_tablet"
 )
 
 func launchCoreComponents(sm *SessionManager) {
@@ -143,16 +148,28 @@ func launchCoreComponents(sm *SessionManager) {
 		}
 	}
 
-	// 先启动 dde-session-daemon，再启动 dde-dock
-	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-		var dockArgs []string
-		if _useKWin {
-			dockArgs = []string{"-r"}
-		}
-		launch(cmdDdeDock, dockArgs, "dde-dock", true, nil)
-	})
-	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
-
+	// 平板环境
+	if os.Getenv("XDG_SESSION_DESKTOP") == padEnv {
+		// 先启动 dde-session-daemon
+		launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
+			// 启动 due-shell, 再启动 due-launcher
+			launch(cmdDueShell, nil, "due-shell", true, func() {
+				launch(cmdDueLauncher, nil, "due-launcher", true, nil)
+			})
+			// 启动软键盘
+			launch(cmdDueIm, nil, "due-im", true, nil)
+		})
+	} else {
+		// 如果是桌面环境，先启动 dde-session-daemon，再启动 dde-dock
+		launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
+			var dockArgs []string
+			if _useKWin {
+				dockArgs = []string{"-r"}
+			}
+			launch(cmdDdeDock, dockArgs, "dde-dock", true, nil)
+		})
+		launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
+	}
 	wg.Wait()
 	logger.Info("core components cost:", time.Since(coreStartTime))
 }
