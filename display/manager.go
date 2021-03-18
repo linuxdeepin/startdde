@@ -1864,7 +1864,7 @@ func (m *Manager) associateTouch(outputName, touchSerial string) error {
 }
 
 func (m *Manager) saveConfig() error {
-	dir := filepath.Dir(configFile)
+	dir := filepath.Dir(configFile_v5)
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
@@ -1875,7 +1875,7 @@ func (m *Manager) saveConfig() error {
 		return err
 	}
 
-	err = m.config.save(configFile)
+	err = m.config.save(configFile_v5)
 	if err != nil {
 		return err
 	}

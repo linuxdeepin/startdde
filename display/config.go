@@ -17,6 +17,7 @@ const configVersion = "5.0"
 
 var (
 	configFile               string
+	configFile_v5            string
 	configVersionFile        string
 	builtinMonitorConfigFile string
 )
@@ -24,6 +25,7 @@ var (
 func init() {
 	cfgDir := filepath.Join(basedir.GetUserConfigDir(), "deepin/startdde")
 	configFile = filepath.Join(cfgDir, "display.json")
+	configFile_v5 = filepath.Join(cfgDir, "display_v5.json")
 	configVersionFile = filepath.Join(cfgDir, "config.version")
 	builtinMonitorConfigFile = filepath.Join(cfgDir, "builtin-monitor")
 }
@@ -232,9 +234,13 @@ func loadConfig(m *Manager) (config Config) {
 	}
 
 	if len(config) == 0 {
-		config, err = loadConfigV5(configFile)
+		config, err = loadConfigV5(configFile_v5)
 		if err != nil {
 			config = make(Config)
+			//配置文件为空，且当前模式为自定义，则设置当前模式为复制模式
+			if m.DisplayMode == DisplayModeCustom {
+				m.DisplayMode = DisplayModeMirror
+			}
 			if !os.IsNotExist(err) {
 				logger.Warning(err)
 			}
