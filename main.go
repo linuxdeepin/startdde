@@ -97,7 +97,7 @@ const (
 	cmdDueLauncher      = "/usr/bin/due-launcher"
 	cmdDueIm            = "/usr/bin/due-im"
 	desktopEnv          = "deepin"
-	padEnv              = "deepin_tablet"
+	padEnv              = "deepin-tablet"
 )
 
 func launchCoreComponents(sm *SessionManager) {
