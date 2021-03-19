@@ -16,4 +16,5 @@ if [ "$1" = "/usr/bin/startdde" ]; then
     fi
     # control qt program infos level
     export QT_LOGGING_RULES="*.debug=false"
+    export LD_LIBRARY_PATH="/usr/lib/mali/;/usr/lib/aarch64-linux-gnu/"
 fi
