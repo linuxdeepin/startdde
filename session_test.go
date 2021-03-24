@@ -37,7 +37,7 @@ func TestSetupEnvironments1(t *testing.T) {
 
 		testdata := map[string]string{
 			"GNOME_DESKTOP_SESSION_ID":         "this-is-deprecated",
-			"XDG_CURRENT_DESKTOP":              "Deepin",
+			"XDG_CURRENT_DESKTOP":              "Deepin-tablet",
 			"QT_LINUX_ACCESSIBILITY_ALWAYS_ON": "1",
 		}
 

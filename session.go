@@ -746,7 +746,7 @@ var _envVars = make(map[string]string, 17)
 func setupEnvironments1() {
 	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
 	_envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
-	_envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
+	_envVars["XDG_CURRENT_DESKTOP"] = "Deepin-tablet"
 
 	scaleFactor := xsettings.GetScaleFactor()
 	_envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
