@@ -1489,7 +1489,22 @@ func (m *Manager) save() (err error) {
 		screenCfg.Single.ColorTemperatureMode = m.ColorTemperatureMode
 		screenCfg.Single.ColorTemperatureManual = m.ColorTemperatureManual
 	} else {
-		screenCfg.setModeConfigs(m.DisplayMode, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
+		var primaryName string
+		//当为扩展屏幕的时候，设置默认屏为配置文件中默认屏幕
+		if DisplayModeExtend == m.DisplayMode {
+			for _, i := range screenCfg.Extend.Monitors {
+				if i.Primary {
+					primaryName = i.Name
+				}
+			}
+		}
+		//没找到主屏或者模式非扩展模式，则取默认值
+		if len(primaryName) == 0 {
+			primaryName = m.Primary
+		}
+
+		logger.Debugf("DisplayMode:<%d>,Primary Name<%s>", m.DisplayMode, primaryName)
+		screenCfg.setMonitorConfigs(m.DisplayMode, toMonitorConfigs(monitors, primaryName))
 	}
 
 	err = m.saveConfig()
