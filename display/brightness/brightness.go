@@ -21,6 +21,7 @@ package brightness
 
 import (
 	"fmt"
+	"os"
 
 	dbus "github.com/godbus/dbus"
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
@@ -34,6 +35,7 @@ const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
+	padEnv          = "deepin-tablet"
 )
 
 var logger = log.NewLogger("daemon/display/brightness")
@@ -68,6 +70,14 @@ func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.
 	if isBuiltin {
 		if supportBacklight(output, conn) {
 			return setBacklight(value, output, conn)
+		}
+	} else {
+		// 平板环境
+		if os.Getenv("XDG_SESSION_DESKTOP") == padEnv {
+			// 目前平板环境下只支持设置backLight
+			if supportBacklight(output, conn) {
+				return setBacklight(value, output, conn)
+			}
 		}
 	}
 
