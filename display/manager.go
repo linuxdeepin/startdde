@@ -1498,8 +1498,24 @@ func (m *Manager) save() (err error) {
 	if len(monitors) == 1 {
 		screenCfg.Single = monitors[0].toConfig()
 	} else {
+		var primaryName string
+		//当为扩展屏幕的时候，设置默认屏为配置文件中默认屏幕
+		if DisplayModeExtend == m.DisplayMode {
+			for _, i := range screenCfg.Extend.Monitors {
+				if i.Primary {
+					primaryName = i.Name
+				}
+			}
+		}
+		//没找到主屏或者模式非扩展模式，则取默认值
+		if len(primaryName) == 0 {
+			primaryName = m.Primary
+		}
+
+		logger.Debugf("DisplayMode:<%d>,Primary Name<%s>", m.DisplayMode, primaryName)
 		screenCfg.setMonitorConfigs(m.DisplayMode, m.CurrentCustomId,
-			toMonitorConfigs(monitors, m.Primary))
+			toMonitorConfigs(monitors, primaryName))
+
 	}
 
 	err = m.saveConfig()
