@@ -104,6 +104,11 @@ func (m *SessionManager) launchWaitAux(cookie, program string, args []string, cm
 		m.cookieLocker.Unlock()
 	})
 
+	// 平板环境,启动超时30s太长了,根据经验修改为15s
+	if os.Getenv("XDG_SESSION_DESKTOP") == padEnv {
+		launchTimeout = 15 * time.Second
+	}
+
 	waitCh := func() {
 		select {
 		case timeEnd := <-ch:
