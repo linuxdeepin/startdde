@@ -1030,25 +1030,22 @@ func (m *Manager) apply() error {
 	screenSize := m.getScreenSize1()
 
 	m.crtcMapMu.Lock()
+	monitors := m.getConnectedMonitors()
 	for crtc, crtcInfo := range m.crtcMap {
 		rect := getCrtcRect(crtcInfo)
-		logger.Debugf("crtc %v, rect: %+v, screenSize: %+v", crtc, rect, screenSize)
-		if int(rect.X)+int(rect.Width) <= int(screenSize.width) &&
-			int(rect.Y)+int(rect.Height) <= int(screenSize.height) {
-			// 适合
-			err := m.disableCrtc(crtc, cfgTs)
-			if err != nil {
-				return err
-			}
-		} else {
-			// 不适合新的屏幕大小，如果已经启用，则需要禁用它
-			if len(crtcInfo.Outputs) == 0 {
-				continue
-			}
-			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
-			err := m.disableCrtc(crtc, cfgTs)
-			if err != nil {
-				return err
+		logger.Debugf("crtc %v, rect: %+v", crtc, rect)
+		for _, monitor := range monitors {
+			if monitor.crtc == crtc {
+				if rect.X != monitor.X || rect.Y != monitor.Y ||
+					rect.Width != monitor.Width || rect.Height != monitor.Height ||
+					monitor.oldRotation != monitor.Rotation || m.modeChanged {
+					monitor.oldRotation = monitor.Rotation
+					logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
+					err := m.disableCrtc(crtc, cfgTs)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 	}
