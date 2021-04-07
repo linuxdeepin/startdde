@@ -74,29 +74,6 @@ func (m *Manager) changeBrightness(raised bool) error {
 		}
 
 		var br float64
-		//setBr := true
-
-		//if blCtrl, err := brightness.GetBacklightController(monitor.ID, m.xConn); err != nil {
-		//	logger.Debugf("get output %q backlight controller failed: %v", monitor.Name, err)
-		//} else {
-		//	max := blCtrl.MaxBrightness
-		//	cur, err := blCtrl.GetBrightness()
-		//	if err == nil {
-		//		// TODO: Some drivers will also set the brightness when the brightness up/down key is pressed
-		//		hv := float64(cur) / float64(max)
-		//		avg := (v + hv) / 2
-		//		delta := (v - hv) / avg
-		//		logger.Debugf("v: %g, hv: %g, avg: %g delta: %g", v, hv, avg, delta)
-		//
-		//		if math.Abs(delta) > 0.05 {
-		//			logger.Debug("backlight actual brightness is not set")
-		//			setBr = false
-		//			br = hv
-		//		}
-		//	}
-		//}
-
-		//if setBr {
 		br = v + step
 		if br > 1.0 {
 			br = 1.0
@@ -109,16 +86,10 @@ func (m *Manager) changeBrightness(raised bool) error {
 		if err != nil {
 			return err
 		}
-		//} else {
-		//	logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
-		//	err := m.doSetBrightnessFake(br, monitor.Name)
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
 		m.saveBrightness(monitor.Name, br)
-
 	}
+	m.syncBrightness()
+	m.save()
 
 	return nil
 }
