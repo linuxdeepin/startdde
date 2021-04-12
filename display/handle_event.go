@@ -142,6 +142,7 @@ func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
 	m.PropsMu.Unlock()
 
 	if cfgTsChanged {
+		m.screenChanged = true
 		logger.Debug("config timestamp changed")
 		if _hasRandr1d2 {
 			resources, err := m.getScreenResourcesCurrent()

@@ -366,11 +366,31 @@ func (m *Monitor) toConfig() *MonitorConfig {
 	}
 }
 
+func (m *Monitor) dumpInfoForDebug() {
+	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
+		m.Name,
+		m.uuid,
+		m.ID,
+		m.crtc,
+		m.X, m.Y, m.Width, m.Height,
+		m.Enabled,
+		m.Rotation, m.Reflect,
+		m.CurrentMode)
+}
+
 type Monitors []*Monitor
 
 func (monitors Monitors) GetByName(name string) *Monitor {
 	for _, monitor := range monitors {
 		if monitor.Name == name {
+			return monitor
+		}
+	}
+	return nil
+}
+func (monitors Monitors) GetMonitorByCrtc(crtc randr.Crtc) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.crtc == crtc {
 			return monitor
 		}
 	}
