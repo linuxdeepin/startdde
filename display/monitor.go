@@ -316,6 +316,27 @@ func getRandrStatusStr(status uint8) string {
 	}
 }
 
+func (m *Monitor) dumpInfoForDebug() {
+	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
+		m.Name,
+		m.uuid,
+		m.ID,
+		m.crtc,
+		m.X, m.Y, m.Width, m.Height,
+		m.Enabled,
+		m.Rotation, m.Reflect,
+		m.CurrentMode)
+}
+
+func (monitors Monitors) GetByCrtc(crtc randr.Crtc) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.crtc == crtc {
+			return monitor
+		}
+	}
+	return nil
+}
+
 func (m *Monitor) applyConfig(cfg crtcConfig) error {
 	m.PropsMu.RLock()
 	name := m.Name
