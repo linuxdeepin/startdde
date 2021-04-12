@@ -10,6 +10,7 @@ func (m *Manager) listenEvent() {
 	m.xConn.AddEventChan(eventChan)
 
 	root := m.xConn.GetDefaultScreen().Root
+	// 选择监听哪些 randr 事件
 	err := randr.SelectInputChecked(m.xConn, root,
 		randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|
 			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange).Check(m.xConn)

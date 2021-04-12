@@ -13,12 +13,17 @@ import (
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
+// 目前最新配置文件版本
 const configVersion = "5.0"
 
 var (
-	configFile               string
-	configFile_v5            string
-	configVersionFile        string
+	// 旧版本配置文件，~/.config/deepin/startdde/display.json
+	configFile string
+	// 目前最新版本配置文件， ~/.config/deepin/startdde/display_v5.json
+	configFile_v5 string
+	// ~/.config/deepin/startdde/config.version
+	configVersionFile string
+	// 内置显示器配置文件，~/.config/deepin/startdde/builtin-monitor
 	builtinMonitorConfigFile string
 )
 
@@ -46,6 +51,7 @@ type ModeConfigs struct {
 }
 
 type SingleModeConfig struct {
+	// 这里其实不能用 Monitors，因为是单数
 	Monitors               *MonitorConfig
 	ColorTemperatureMode   int32
 	ColorTemperatureManual int32

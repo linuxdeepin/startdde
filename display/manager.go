@@ -34,8 +34,11 @@ const (
 )
 
 const (
+	// 不调整色温
 	ColorTemperatureModeNormal int32 = iota
+	// 自动调整色温
 	ColorTemperatureModeAuto
+	// 手动调整色温
 	ColorTemperatureModeManual
 )
 
@@ -320,10 +323,13 @@ func newManager(service *dbusutil.Service) *Manager {
 	return m
 }
 
+// initBuiltinMonitor 初始化内置显示器。
 func (m *Manager) initBuiltinMonitor() {
+	// 只有笔记本 laptop 才有内置显示器
 	if !m.isLaptop {
 		return
 	}
+	// 从配置文件获取内置显示器名称
 	builtinMonitorName, err := loadBuiltinMonitorConfig(builtinMonitorConfigFile)
 	if err != nil {
 		logger.Warning(err)
@@ -337,6 +343,7 @@ func (m *Manager) initBuiltinMonitor() {
 		}
 	}
 
+	// 从配置文件获取的内置显示器还存在，信任配置文件，可以返回了
 	if m.builtinMonitor != nil {
 		return
 	}
@@ -346,7 +353,7 @@ func (m *Manager) initBuiltinMonitor() {
 	for _, monitor := range monitors {
 		name := strings.ToLower(monitor.Name)
 		if strings.HasPrefix(name, "vga") {
-			// ignore  VGA
+			// 忽略 vga 开头的
 		} else if strings.HasPrefix(name, "edp") {
 			// 如果是 edp 开头，直接成为 builtinMonitor
 			rest = []*Monitor{monitor}
@@ -360,17 +367,22 @@ func (m *Manager) initBuiltinMonitor() {
 		m.builtinMonitor = rest[0]
 		builtinMonitorName = m.builtinMonitor.Name
 	} else if len(rest) > 1 {
+		// 选择 id 最小的显示器作为内置显示器，这个结果不太准确，但却无可奈何。
+		// 不保存 builtinMonitor 到配置文件中，由于 builtinMonitorName 为空，就会清空配置文件。
 		m.builtinMonitor = getMinIDMonitor(rest)
-		// 但是不保存到配置文件中
+		// 把剩余显示器列表 rest 设置到候选内置显示器列表。
 		m.candidateBuiltinMonitors = rest
 	}
 
+	// 保存内置显示器配置文件
 	err = saveBuiltinMonitorConfig(builtinMonitorConfigFile, builtinMonitorName)
 	if err != nil {
 		logger.Warning("failed to save builtin monitor config:", err)
 	}
 }
 
+// updateBuiltinMonitorOnDisconnected 在发现显示器断开连接时，更新内置显示器，因为断开的不可能是内置显示器。
+// 参数 id 是断开的显示器的 id。
 func (m *Manager) updateBuiltinMonitorOnDisconnected(id uint32) {
 	m.builtinMonitorMu.Lock()
 	defer m.builtinMonitorMu.Unlock()
@@ -383,6 +395,7 @@ func (m *Manager) updateBuiltinMonitorOnDisconnected(id uint32) {
 		// 当只剩下一个候补时能自动成为真的 builtin monitor
 		m.builtinMonitor = m.candidateBuiltinMonitors[0]
 		m.candidateBuiltinMonitors = nil
+		// 保存内置显示器配置文件
 		err := saveBuiltinMonitorConfig(builtinMonitorConfigFile, m.builtinMonitor.Name)
 		if err != nil {
 			logger.Warning("failed to save builtin monitor config:", err)
@@ -390,6 +403,7 @@ func (m *Manager) updateBuiltinMonitorOnDisconnected(id uint32) {
 	}
 }
 
+// monitorsRemove 删除 monitors 列表中显示器 id 为参数 id 的显示器，返回新列表
 func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 	var result []*Monitor
 	for _, m := range monitors {
@@ -401,23 +415,24 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 }
 
 func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
-	// TODO 实现功能
+	// 对于 randr 版本低于 1.2 时，不做操作
 	if !_hasRandr1d2 {
 		return
 	}
 	monitors := m.getConnectedMonitors()
 	var err error
 	if len(monitors) == 1 {
-		// 单屏
+		// 单屏情况
 		screenCfg := m.getScreenConfig()
 		config := new(SingleModeConfig)
 		if screenCfg.Single != nil {
+			// 已有单屏配置
 			config = screenCfg.Single
 		} else {
+			// 没有单屏配置
 			config.Monitors = monitors[0].toConfig()
 			config.Monitors.Enabled = true
 			config.Monitors.Primary = true
-			logger.Debug("monitors[0].BestMode")
 			mode := monitors[0].BestMode
 			config.Monitors.X = 0
 			config.Monitors.Y = 0
@@ -431,11 +446,12 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 			screenCfg.Single = config
 		}
 
+		// 应用单屏配置
 		err = m.applySingleConfigs(config)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 		}
-		//拔插屏幕时需要根据配置文件重置色温
+		// 拔插屏幕时需要根据配置文件重置色温
 		if needInitColorTemperature {
 			m.initColorTemperature()
 		}
@@ -448,7 +464,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 
 		return
 	}
-
+	// 多屏情况
 	switch m.DisplayMode {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
@@ -461,7 +477,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	if err != nil {
 		logger.Warning(err)
 	}
-	//拔插屏幕时需要根据配置文件重置色温
+	// 拔插屏幕时需要根据配置文件重置色温
 	if needInitColorTemperature {
 		m.initColorTemperature()
 	}
@@ -471,13 +487,14 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
-	//在获取屏幕亮度之后再加载配置文件,版本迭代时把上次的亮度值写入配置文件
+	// 在获取屏幕亮度之后再加载配置文件，版本迭代时把上次的亮度值写入配置文件。
 	m.config = loadConfig(m)
-	//重启startdde 读取上一次设置 不需要重置色温
+	// 重启 startdde 读取上一次设置，不需要重置色温。
 	m.applyDisplayMode(false)
-	m.listenEvent() //等待applyDisplayMode执行完成再开启监听X事件
+	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 }
 
+// initColorTemperature 初始化色温设置，名字不太好，不在初始化时，也调用了。
 func (m *Manager) initColorTemperature() {
 	method := m.ColorTemperatureMode
 	err := m.setMethodAdjustCCT(method)
@@ -487,6 +504,7 @@ func (m *Manager) initColorTemperature() {
 	}
 }
 
+// calcRecommendedScaleFactor 计算推荐的缩放比
 func calcRecommendedScaleFactor(widthPx, heightPx, widthMm, heightMm float64) float64 {
 	if widthMm == 0 || heightMm == 0 {
 		return 1
@@ -621,6 +639,7 @@ func (m *Manager) updateOutputInfo(output randr.Output) (*randr.GetOutputInfoRep
 	return outputInfo, nil
 }
 
+// getModeInfo 从 Manager.modes 模式列表中找 id 和参数 mode 相同的模式，然后转换类型为 ModeInfo。
 func (m *Manager) getModeInfo(mode randr.Mode) ModeInfo {
 	if mode == 0 {
 		return ModeInfo{}
@@ -708,6 +727,7 @@ func (m *Manager) updateMonitorFallback(screenInfo *randr.GetScreenInfoReply) *M
 	return monitor
 }
 
+// addMonitor 在 Manager.monitorMap 增加显示器，在 dbus 上导出显示器对象
 func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInfoReply) error {
 	m.monitorMapMu.Lock()
 	_, ok := m.monitorMap[output]
@@ -785,6 +805,7 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	return nil
 }
 
+// updateMonitor 根据 outputInfo 中的信息更新 dbus 上的 Monitor 对象的属性
 func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutputInfoReply) {
 	m.monitorMapMu.Lock()
 	monitor, ok := m.monitorMap[output]
@@ -1302,6 +1323,8 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	return
 }
 
+// getScreenConfig 根据当前的 MonitorsId 返回不同的屏幕配置，不同 MonitorsId 则屏幕配置不同。
+// MonitorsId 代表了已连接了哪些显示器。
 func (m *Manager) getScreenConfig() *ScreenConfig {
 	id := m.getMonitorsId()
 	screenCfg := m.config[id]
@@ -1655,6 +1678,7 @@ func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
 	return m.getMinLastConnectedTimeMonitor(monitors)
 }
 
+// getPriorMonitor 获取优先级最高的显示器，用于作为主屏。
 func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
 	var monitor *Monitor
 	priority := priorityOther
@@ -1667,6 +1691,7 @@ func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
 			continue
 		}
 
+		// 优先级的数值越小，级别越高。
 		if p < priority {
 			monitor = v
 			priority = p
@@ -1689,6 +1714,7 @@ func (m *Manager) getPriorMonitor(monitors []*Monitor) *Monitor {
 	return monitor
 }
 
+// getPortType 根据显示器名称判断出端口类型，比如 vga，hdmi，edp 等。
 func (m *Manager) getPortType(name string) string {
 	i := strings.IndexRune(name, '-')
 	if i != -1 {
@@ -1714,6 +1740,7 @@ func (m *Manager) getMonitorsId() string {
 	return strings.Join(ids, monitorsIdDelimiter)
 }
 
+// updatePropMonitors 把所有已连接显示器的对象路径设置到 Manager 的 Monitors 属性。
 func (m *Manager) updatePropMonitors() {
 	monitors := m.getConnectedMonitors()
 	sort.Slice(monitors, func(i, j int) bool {
@@ -1968,6 +1995,7 @@ func (m *Manager) associateTouch(outputName string, touchUUID string, auto bool)
 	return nil
 }
 
+// saveConfig 保存配置到文件，把 Manager.config 内容写到文件。
 func (m *Manager) saveConfig() error {
 	dir := filepath.Dir(configFile_v5)
 	err := os.MkdirAll(dir, 0755)
@@ -2071,6 +2099,8 @@ func (m *Manager) handleTouchscreenChanged() {
 	}
 }
 
+// setMethodAdjustCCT 调用 redshift 程序设置色温的模式。
+// Normal 模式不调节色温，Auto 模式是自动，Manual 模式是手动，根据数值调整。
 func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
 		return errors.New("adjustMethod type out of range, not 0 or 1 or 2")
@@ -2095,6 +2125,7 @@ func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 	return nil
 }
 
+// setColorTemperature 指定色温值为参数 value。
 func (m *Manager) setColorTemperature(value int32) error {
 	if m.ColorTemperatureMode != ColorTemperatureModeManual {
 		return errors.New("current not manual mode, can not adjust CCT by manual")
@@ -2108,6 +2139,7 @@ func (m *Manager) setColorTemperature(value int32) error {
 	return nil
 }
 
+// syncBrightness 将亮度从每个显示器 monitor.Brightness 同步到 Manager 的属性 Brightness 中。
 func (m *Manager) syncBrightness() {
 	for _, monitor := range m.monitorMap {
 		if monitor.Connected {

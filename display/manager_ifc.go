@@ -286,7 +286,7 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 	return mode, nil
 }
 
-//保存色温到配置文件
+// saveColorTemperatureToConfigs 保存手动色温值到配置文件，但这里并未保存到文件。
 func (m *Manager) saveColorTemperatureToConfigs(colorTemperatureManual int32) {
 	monitors := m.getConnectedMonitors()
 	screenCfg := m.getScreenConfig()
@@ -299,7 +299,7 @@ func (m *Manager) saveColorTemperatureToConfigs(colorTemperatureManual int32) {
 	}
 }
 
-//保存色温模式到配置文件
+// saveColorTemperatureModeToConfigs 保存色温模式到配置文件，但这里并未保存到文件。
 func (m *Manager) saveColorTemperatureModeToConfigs(colorTemperatureMode int32) {
 	monitors := m.getConnectedMonitors()
 	screenCfg := m.getScreenConfig()
@@ -321,6 +321,7 @@ func controlRedshift(action string) {
 	}
 }
 
+// setColorTempOneShot 调用 redshift 命令设置一次色温
 func setColorTempOneShot(colorTemp string) {
 	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp).Output()
 	if err != nil {
@@ -330,6 +331,7 @@ func setColorTempOneShot(colorTemp string) {
 	}
 }
 
+// resetColorTemp 调用 redshift 命令重置色温，即删除色温设置。
 func resetColorTemp() {
 	_, err := exec.Command("redshift", "-m", "vidmode", "-x").Output()
 	if err != nil {
@@ -339,7 +341,9 @@ func resetColorTemp() {
 	}
 }
 
-func generateRedshiftConfFile() error { // 用来生成redshift的配置文件，路径为“~/.config/redshift/redshift.conf”
+// generateRedshiftConfFile 用来生成 redshift 的配置文件，路径为“~/.config/redshift/redshift.conf”。
+// 如果配置文件已经存在，则不生成。
+func generateRedshiftConfFile() error {
 	controlRedshift("disable")
 	configFilePath := basedir.GetUserConfigDir() + "/redshift/redshift.conf"
 	_, err := os.Stat(configFilePath)
