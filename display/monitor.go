@@ -74,24 +74,24 @@ func (m *Monitor) getPath() dbus.ObjectPath {
 }
 
 type MonitorBackup struct {
-	Enabled  bool
-	Mode     ModeInfo
-	X, Y     int16
-	Reflect  uint16
-	Rotation uint16
-	Brightness  float64
+	Enabled    bool
+	Mode       ModeInfo
+	X, Y       int16
+	Reflect    uint16
+	Rotation   uint16
+	Brightness float64
 }
 
 func (m *Monitor) markChanged() {
 	m.m.setPropHasChanged(true)
 	if m.backup == nil {
 		m.backup = &MonitorBackup{
-			Enabled:  	m.Enabled,
-			Mode:     	m.CurrentMode,
-			X:        	m.X,
-			Y:        	m.Y,
-			Reflect:  	m.Reflect,
-			Rotation: 	m.Rotation,
+			Enabled:    m.Enabled,
+			Mode:       m.CurrentMode,
+			X:          m.X,
+			Y:          m.Y,
+			Reflect:    m.Reflect,
+			Rotation:   m.Rotation,
 			Brightness: m.Brightness,
 		}
 	}
@@ -268,7 +268,7 @@ func (m *Monitor) setRotation(value uint16) {
 	m.PropsMu.Unlock()
 }
 
-func (m *Monitor) setBrightness(value float64)  {
+func (m *Monitor) setBrightness(value float64) {
 	m.PropsMu.Lock()
 	m.setPropBrightness(value)
 	m.PropsMu.Unlock()
@@ -368,11 +368,31 @@ func (m *Monitor) toConfig() *MonitorConfig {
 	}
 }
 
+func (m *Monitor) dumpInfoForDebug() {
+	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
+		m.Name,
+		m.uuid,
+		m.ID,
+		m.crtc,
+		m.X, m.Y, m.Width, m.Height,
+		m.Enabled,
+		m.Rotation, m.Reflect,
+		m.CurrentMode)
+}
+
 type Monitors []*Monitor
 
 func (monitors Monitors) GetByName(name string) *Monitor {
 	for _, monitor := range monitors {
 		if monitor.Name == name {
+			return monitor
+		}
+	}
+	return nil
+}
+func (monitors Monitors) GetByCrtc(crtc randr.Crtc) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.crtc == crtc {
 			return monitor
 		}
 	}

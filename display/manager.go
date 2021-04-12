@@ -976,6 +976,7 @@ type screenSize struct {
 	mmHeight uint32
 }
 
+// getScreenSize1 计算出需要的屏幕尺寸
 func (m *Manager) getScreenSize1() screenSize {
 	width, height := m.getScreenSize()
 	mmWidth := uint32(float64(width) / 3.792)
@@ -1008,17 +1009,22 @@ type crtcConfig struct {
 }
 
 func (m *Manager) apply() error {
+	logger.Debug("call apply")
 	x.GrabServer(m.xConn)
 	defer func() {
 		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
 		if err != nil {
 			logger.Warning(err)
 		}
+		logger.Debug("apply return")
 	}()
 
 	monitorCrtcCfgMap := make(map[randr.Output]crtcConfig)
+	// 根据 monitor 的配置，准备 crtc 配置到 monitorCrtcCfgMap
 	for output, monitor := range m.monitorMap {
+		monitor.dumpInfoForDebug()
 		if monitor.Enabled {
+			// 启用显示器
 			crtc := monitor.crtc
 			if crtc == 0 {
 				crtc = m.findFreeCrtc(output)
@@ -1035,7 +1041,9 @@ func (m *Manager) apply() error {
 				outputs:  []randr.Output{output},
 			}
 		} else {
+			// 禁用显示器
 			if monitor.crtc != 0 {
+				// 禁用此 crtc，把它的 outputs 设置为空。
 				monitorCrtcCfgMap[output] = crtcConfig{
 					crtc:     monitor.crtc,
 					rotation: randr.RotationRotate0,
@@ -1048,30 +1056,51 @@ func (m *Manager) apply() error {
 	cfgTs := m.configTimestamp
 	m.PropsMu.RUnlock()
 
+	// 未来的，apply 之后的屏幕所需尺寸
 	screenSize := m.getScreenSize1()
+	logger.Debugf("screen size after apply: %+v", screenSize)
 
-	m.crtcMapMu.Lock()
 	monitors := m.getConnectedMonitors()
+	m.crtcMapMu.Lock()
 	for crtc, crtcInfo := range m.crtcMap {
 		rect := getCrtcRect(crtcInfo)
-		logger.Debugf("crtc %v, rect: %+v", crtc, rect)
-		for _, monitor := range monitors {
-			if monitor.crtc == crtc {
+		logger.Debugf("crtc %v, crtcInfo: %+v", crtc, crtcInfo)
+
+		// 是否考虑临时禁用 crtc
+		shouldDisable := false
+
+		if m.modeChanged {
+			// 显示模式切换了
+			logger.Debugf("should disable crtc %v because of mode changed", crtc)
+			shouldDisable = true
+		} else if int(rect.X)+int(rect.Width) > int(screenSize.width) ||
+			int(rect.Y)+int(rect.Height) > int(screenSize.height) {
+			// 当前 crtc 的尺寸超过了未来的屏幕尺寸，必须禁用
+			logger.Debugf("should disable crtc %v because of the size of crtc exceeds the size of future screen", crtc)
+			shouldDisable = true
+		} else {
+			monitor := monitors.GetByCrtc(crtc)
+			if monitor != nil && monitor.Enabled {
 				if rect.X != monitor.X || rect.Y != monitor.Y ||
 					rect.Width != monitor.Width || rect.Height != monitor.Height ||
-					monitor.oldRotation != monitor.Rotation || m.modeChanged {
-					monitor.oldRotation = monitor.Rotation
-					logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
-					err := m.disableCrtc(crtc, cfgTs)
-					if err != nil {
-						return err
-					}
+					crtcInfo.Rotation != monitor.Rotation|monitor.Reflect {
+					// crtc 的参数将发生改变, 这里的 monitor 包含了 crtc 未来的状态。
+					logger.Debugf("should disable crtc %v because of the parameters of crtc changed", crtc)
+					shouldDisable = true
 				}
 			}
 		}
+
+		if shouldDisable && len(crtcInfo.Outputs) > 0 {
+			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
+			err := m.disableCrtc(crtc, cfgTs)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	m.modeChanged = false
 	m.crtcMapMu.Unlock()
+	m.modeChanged = false
 
 	err := m.setScreenSize(screenSize)
 	if err != nil {
@@ -1195,7 +1224,7 @@ func (m *Manager) updateOutputPrimary() {
 	m.setPropPrimaryRect(newRect)
 	m.PropsMu.Unlock()
 
-	logger.Debugf("updateOutputPrimary name: %q, rect: %#v", newPrimary, newRect)
+	logger.Debugf("updateOutputPrimary name: %q, rect: %+v", newPrimary, newRect)
 }
 
 func (m *Manager) setPrimary(name string) error {
@@ -1783,6 +1812,7 @@ func (m *Manager) modifyConfigName(name, newName string) (err error) {
 	return nil
 }
 
+// getScreenSize 根据 Manager.monitorMap 中显示器的设置，计算出需要的屏幕尺寸。
 func (m *Manager) getScreenSize() (sw, sh uint16) {
 	var w, h int
 	for _, monitor := range m.monitorMap {
