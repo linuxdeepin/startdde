@@ -46,5 +46,6 @@ func supportProxyServerOption(appId string) bool {
 	return strings.HasPrefix(appId, "google-chrome") ||
 		strings.HasPrefix(appId, "browser360") ||
 		strings.HasPrefix(appId, "uos-browser") ||
-		strings.HasPrefix(appId, "chromium")
+		strings.HasPrefix(appId, "chromium") ||
+		strings.HasPrefix(appId,"org.deepin.browser")
 }

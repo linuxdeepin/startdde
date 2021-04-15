@@ -555,6 +555,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	appId := m.getAppIdByFilePath(desktopFile)
 	if appId != "" {
+		logger.Debugf("appId is %v", appId)
 		if m.shouldUseProxy(appId) {
 			logger.Debug("launch: use proxy")
 			if supportProxyServerOption(appId) {
