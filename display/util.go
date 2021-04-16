@@ -299,6 +299,9 @@ func getOutputUUID(name string, edid []byte) string {
 
 func sortMonitorsByPrimaryAndID(monitors []*Monitor, primary *Monitor) {
 	sort.Slice(monitors, func(i, j int) bool {
+		if primary == nil {
+			return monitors[i].ID < monitors[j].ID
+		}
 		if monitors[i].Name == primary.Name {
 			return true
 		} else if monitors[j].Name == primary.Name {
