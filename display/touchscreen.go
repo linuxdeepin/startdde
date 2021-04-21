@@ -6,6 +6,7 @@ package display
 import "C"
 
 import (
+	"os"
 	"sync"
 
 	"pkg.deepin.io/dde/api/dxinput"
@@ -73,6 +74,11 @@ func getTouchscreenInfos(force bool) dxTouchscreens {
 			// 为了防止虚拟机再次添加非ID_INPUT_TOUCHSCREEN设备到TouchscreenMap中
 			// 通过gudevClient再次判断保证设备为触控屏
 			deviceType := device.GetProperty("ID_INPUT_TOUCHSCREEN")
+
+			// rockchip平板设备信息中没有ID_SERIAL, 无法准确识别触摸屏，使用DEVPATH作为唯一标识进行标记
+			if os.Getenv("XDG_CURRENT_DESKTOP") == "Deepin-tablet" && serial == "" {
+				serial = device.GetProperty("DEVPATH")
+			}
 
 			if serial == "" || deviceType == "" {
 				continue
