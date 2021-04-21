@@ -1300,7 +1300,13 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	if err != nil {
 		return
 	}
-	m.setPrimarySettings(m.Primary)
+
+	for _, monitor := range monitors {
+        	if m.Primary == monitor.Name {
+		   m.setMonitorPrimary(monitor)
+		   break
+		}
+	}
 	m.setPropCustomIdList(m.getCustomIdList())
 	return
 }
