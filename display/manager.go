@@ -469,7 +469,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend("")
+		err = m.switchModeExtend()
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne("")
 	}
@@ -1283,7 +1283,7 @@ func (m *Manager) setPrimary(name string) error {
 	return nil
 }
 
-func (m *Manager) switchModeExtend(primary string) (err error) {
+func (m *Manager) switchModeExtend() (err error) {
 	logger.Debug("switch mode extend")
 	screenCfg := m.getScreenConfig()
 	modeConfigs := screenCfg.getModeConfigs(DisplayModeExtend)
@@ -1495,7 +1495,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
 	case DisplayModeExtend:
-		err = m.switchModeExtend("")
+		err = m.switchModeExtend()
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne(name)
 	default:

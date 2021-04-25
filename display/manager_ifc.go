@@ -323,7 +323,7 @@ func controlRedshift(action string) {
 
 // setColorTempOneShot 调用 redshift 命令设置一次色温
 func setColorTempOneShot(colorTemp string) {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp).Output()
+	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp, "-P").Output()
 	if err != nil {
 		logger.Warning("failed to set current ColorTemperature by redshift.service: ", err)
 	} else {
