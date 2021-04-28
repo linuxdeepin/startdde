@@ -1,13 +1,13 @@
 %global _missing_build_ids_terminate_build 0
 %global debug_package   %{nil}
 
-%define specrelease 2%{?dist}
+%define specrelease 1%{?dist}
 %if 0%{?openeuler}
-%define specrelease 2
+%define specrelease 1
 %endif
 
 Name:           startdde
-Version:        5.6.0.7
+Version:        5.8.9.1
 Release:        %{specrelease}
 Summary:        Starter of deepin desktop environment
 License:        GPLv3
@@ -26,6 +26,11 @@ BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  libgnome-keyring-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  pkgconfig(gudev-1.0)
+BuildRequires:  go-gir-generator
+BuildRequires:  dde-api-devel
+BuildRequires:  go-lib-devel
+BuildRequires:  golang-github-linuxdeepin-go-x11-client-devel
+BuildRequires:  golang-github-linuxdeepin-go-dbus-factory-devel
 
 Provides:       x-session-manager
 Requires:       dde-daemon
@@ -42,9 +47,10 @@ Recommends:     dde-qt5integration
 
 %prep
 %autosetup -n %{name}-%{version}
+sed -i 's|/usr/lib/deepin-daemon|/usr/libexec/deepin-daemon|g' \
+misc/auto_launch/chinese.json misc/auto_launch/default.json
+
 patch Makefile < rpm/Makefile.patch
-patch misc/auto_launch/chinese.json < rpm/chinese.json.patch
-patch misc/auto_launch/default.json < rpm/default.json.patch
 patch main.go < rpm/main.go.patch
 
 %build
@@ -81,11 +87,12 @@ fi
 %{_datadir}/lightdm/lightdm.conf.d/60-deepin.conf
 %{_datadir}/%{name}/auto_launch.json
 %{_datadir}/%{name}/memchecker.json
+%{_datadir}/%{name}/app_startup.conf
+%{_datadir}/%{name}/filter.conf
+%{_datadir}/glib-2.0/schemas/com.deepin.dde.display.gschema.xml
+%{_datadir}/glib-2.0/schemas/com.deepin.dde.startdde.gschema.xml
 /usr/lib/deepin-daemon/greeter-display-daemon
 
 %changelog
-* Wed Oct 14 2020 guoqinglan <guoqinglan@uniontech.com> - 5.6.0.5-2
-- bugfix-49318, modify /usr/lib/deepin-daemon path
-
-* Sat Oct 10 2020 guoqinglan <guoqinglan@uniontech.com> - 5.6.0.5-1
-- bugfix-49970, fix post add preun scripts
+* Tue Apr 13 2021 uoser <uoser@uniontech.com> - 5.8.9.1-1
+- update to 5.8.9.1-1
