@@ -48,6 +48,9 @@ Recommends:     dde-qt5integration
 
 %prep
 %autosetup -n %{name}-%{version}
+sed -i 's|/usr/lib/deepin-daemon|/usr/libexec/deepin-daemon|g' \
+misc/auto_launch/chinese.json misc/auto_launch/default.json
+
 patch Makefile < rpm/Makefile.patch
 patch main.go < rpm/main.go.patch
 
@@ -90,8 +93,5 @@ fi
 /usr/lib/deepin-daemon/greeter-display-daemon
 
 %changelog
-* Wed Oct 14 2020 guoqinglan <guoqinglan@uniontech.com> - 5.6.0.5-2
-- bugfix-49318, modify /usr/lib/deepin-daemon path
-
-* Sat Oct 10 2020 guoqinglan <guoqinglan@uniontech.com> - 5.6.0.5-1
-- bugfix-49970, fix post add preun scripts
+* Tue Apr 13 2021 uoser <uoser@uniontech.com> - 5.8.9.1-1
+- update to 5.8.9.1-1
