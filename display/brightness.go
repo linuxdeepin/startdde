@@ -25,6 +25,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"pkg.deepin.io/dde/startdde/display/brightness"
 )
@@ -140,14 +141,37 @@ func (m *Manager) getBrightnessSetter() string {
 	return m.settings.GetString(gsKeySetter)
 }
 
-func (m *Manager) isBuiltinMonitor(monitor *Monitor) bool {
-	m.builtinMonitorMu.Lock()
-	defer m.builtinMonitorMu.Unlock()
-	return m.builtinMonitor == monitor
+// see also: gnome-desktop/libgnome-desktop/gnome-rr.c
+//           '_gnome_rr_output_name_is_builtin_display'
+func (m *Manager) isBuiltinMonitor(name string) bool {
+	name = strings.ToLower(name)
+	switch {
+	case strings.HasPrefix(name, "vga"):
+		return false
+	case strings.HasPrefix(name, "hdmi"):
+		return false
+	case strings.HasPrefix(name, "dvi"):
+		return false
+
+	case strings.HasPrefix(name, "lvds"):
+		// Most drivers use an "LVDS" prefix
+		return true
+	case strings.HasPrefix(name, "lcd"):
+		// fglrx uses "LCD" in some versions
+		return true
+	case strings.HasPrefix(name, "edp"):
+		// eDP is for internal built-in panel connections
+		return true
+	case strings.HasPrefix(name, "dsi"):
+		return true
+	case name == "default":
+		return true
+	}
+	return false
 }
 
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
-	isBuiltin := m.isBuiltinMonitor(monitor)
+	isBuiltin := m.isBuiltinMonitor(monitor.Name)
 	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
 		monitor.ID, m.xConn)
 	return err
