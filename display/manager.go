@@ -19,6 +19,7 @@ import (
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/dde/startdde/display/utils"
 	gio "pkg.deepin.io/gir/gio-2.0"
@@ -1956,14 +1957,14 @@ func (m *Manager) initTouchMap() {
 
 func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 	monitors := m.getConnectedMonitors()
-	found := false
+	var monitor0 *Monitor
 	for _, monitor := range monitors {
 		if monitor.Name == output {
-			found = true
+			monitor0 = monitor
 			break
 		}
 	}
-	if !found {
+	if monitor0 == nil {
 		return fmt.Errorf("invalid output name: %s", output)
 	}
 
@@ -1979,7 +1980,15 @@ func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
 	}
 
-	return doAction(fmt.Sprintf("xinput --map-to-output %d %s", touchId, output))
+	matrix := m.genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
+	logger.Debugf("matrix: %v", matrix)
+
+	dxTouchscreen, err := dxinput.NewTouchscreen(touchId)
+	if err != nil {
+		return err
+	}
+
+	return dxTouchscreen.SetTransformationMatrix(matrix)
 }
 
 func (m *Manager) updateTouchscreenMap(outputName string, touchUUID string, auto bool) {

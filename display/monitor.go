@@ -249,7 +249,6 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 	m.oldRotation = m.Rotation
 	m.markChanged()
 	m.setRotation(value)
-	m.m.touchScreenSetRotation(value, m.Name)
 	return nil
 }
 
