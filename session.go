@@ -81,6 +81,7 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
 	inhibitManager        InhibitManager
 	powerManager          *powermanager.PowerManager
+	firstOn               bool
 
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            *login1.Manager
@@ -108,6 +109,7 @@ type SessionManager struct {
 		IsInhibited           func() `in:"flags" out:"result"`
 		Uninhibit             func() `in:"cookie"`
 		GetInhibitors         func() `out:"inhibitors"`
+		SetBatteryWarnLevel   func() `in:"level"`
 	}
 }
 
@@ -607,6 +609,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		objLoginSessionSelf: objLoginSessionSelf,
 		powerManager:        powerManager,
 		dbusDaemon:          dbusDaemon,
+		firstOn:             true,
 	}
 	return m
 }
@@ -1270,4 +1273,10 @@ func getCurSessionPath() (dbus.ObjectPath, error) {
 		return "", err
 	}
 	return sessionPath, nil
+}
+
+func (m *SessionManager) SetBatteryWarnLevel(level WarnLevel) *dbus.Error {
+	startddeGs := gio.NewSettings("com.deepin.dde.startdde")
+	startddeGs.SetInt("battery-warn-level", int32(level))
+	return nil
 }

@@ -24,12 +24,14 @@ import (
 	"context"
 	"flag"
 	"os"
+	"os/exec"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/display"
 	"pkg.deepin.io/dde/startdde/iowait"
@@ -65,6 +67,8 @@ var _useKWin bool
 
 var _homeDir string
 
+var systemSigLoop *dbusutil.SignalLoop
+
 func init() {
 	flag.BoolVar(&_options.noXSessionScripts, "no-xsession-scripts", false, "")
 }
@@ -98,6 +102,27 @@ const (
 	cmdDueIm            = "/usr/bin/due-im"
 	desktopEnv          = "deepin"
 	padEnv              = "deepin-tablet"
+	cmdDDELowPower      = "/usr/lib/deepin-daemon/dde-lowpower"
+)
+
+type WarnLevel uint32
+
+const (
+	WarnLevelNone WarnLevel = iota
+	WarnLevelLow
+	WarnLevelDanger
+	WarnLevelCritical
+	WarnLevelAction
+)
+
+type Status uint32
+
+const (
+	StatusUnknown uint32 = iota
+	StatusCharging
+	StatusDischarging
+	StatusNotCharging
+	StatusFull
 )
 
 func launchCoreComponents(sm *SessionManager) {
@@ -150,6 +175,48 @@ func launchCoreComponents(sm *SessionManager) {
 
 	// 平板环境
 	if os.Getenv("XDG_SESSION_DESKTOP") == padEnv {
+		systemBus, _ := dbus.SystemBus()
+		systemSigLoop = dbusutil.NewSignalLoop(systemBus, 10)
+		systemSigLoop.Start()
+
+		systemPower := power.NewPower(systemBus)
+		systemPower.InitSignalExt(systemSigLoop, true)
+
+		onBattery, err := systemPower.OnBattery().Get(0)
+		if err != nil {
+			logger.Error(err)
+		}
+
+		if onBattery && _gSettingsConfig.warnLevel == WarnLevelAction {
+			go func() {
+				logger.Info("Show dde low power")
+				err := exec.Command(cmdDDELowPower, "--raise").Run()
+				if err != nil {
+					logger.Warning(err)
+				}
+			}()
+		}
+
+		err = systemPower.OnBattery().ConnectChanged(func(hasValue bool, onBattery bool) {
+			if !hasValue {
+				return
+			}
+			if !onBattery && sm.firstOn {
+				go func() {
+					logger.Info("Close dde low power")
+					err := exec.Command(cmdDDELowPower, "--quit").Run()
+					if err != nil {
+						logger.Warning(err)
+					}
+					systemSigLoop.Stop()
+					sm.firstOn = false
+				}()
+			}
+		})
+		if err != nil {
+			logger.Warning(err)
+		}
+
 		// 先启动 dde-session-daemon
 		launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
 			// 启动 due-shell, 再启动 due-launcher
@@ -282,7 +349,7 @@ func main() {
 			logger.Warning("start display part1 failed:", err)
 		}
 	}
-
+	initGSettingsConfig()
 	launchCoreComponents(sessionManager)
 
 	if !_useWayland {
@@ -295,7 +362,6 @@ func main() {
 		}()
 	}
 
-	initGSettingsConfig()
 	go func() {
 		initSoundThemePlayer()
 		playLoginSound()
