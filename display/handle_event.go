@@ -76,7 +76,7 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 
 	oldMonitorsID := m.monitorsId
 	newMonitorsID := m.getMonitorsId()
-	if newMonitorsID != oldMonitorsID {
+	if newMonitorsID != oldMonitorsID && newMonitorsID != "" {
 		logger.Debug("new monitors id:", newMonitorsID)
 		m.markClean()
 		//接入新屏幕点亮屏幕
