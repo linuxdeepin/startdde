@@ -2067,11 +2067,6 @@ func (m *Manager) handleTouchscreenChanged() {
 
 	monitors := m.getConnectedMonitors()
 
-	// 只有一个显示器的情况下，无需进行关联
-	if len(monitors) <= 1 {
-		return
-	}
-
 	for _, touch := range m.Touchscreens {
 		// 有配置，直接使配置生效
 		if v, ok := m.touchscreenMap[touch.uuid]; ok {

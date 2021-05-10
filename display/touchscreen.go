@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/godbus/dbus"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/api/dxinput/common"
@@ -104,18 +105,26 @@ func (m *Manager) genTransformationMatrix(offsetX int16, offsetY int16,
 	screenWidth uint16, screenHeight uint16,
 	rotation uint16) TransformationMatrix {
 
+	var matrix TransformationMatrix
+	matrix.setUnity()
+
+	// 必须新的 X 链接才能获取最新的 WidthInPixels 和 HeightInPixels
+	xConn, err := x.NewConn()
+	if err != nil {
+		logger.Warning("failed to connect to x server")
+		return matrix
+	}
+
 	// total display size
-	width := m.ScreenWidth
-	height := m.ScreenHeight
+	width := xConn.GetDefaultScreen().WidthInPixels
+	height := xConn.GetDefaultScreen().HeightInPixels
+	xConn.Close()
 
 	x := float32(offsetX) / float32(width)
 	y := float32(offsetY) / float32(height)
 
 	w := float32(screenWidth) / float32(width)
 	h := float32(screenHeight) / float32(height)
-
-	var matrix TransformationMatrix
-	matrix.setUnity()
 
 	/*
 	 * There are 16 cases:
