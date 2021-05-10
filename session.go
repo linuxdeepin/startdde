@@ -30,6 +30,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
@@ -90,6 +91,8 @@ type SessionManager struct {
 	objLogin            *login1.Manager
 	objLoginSessionSelf *login1.Session
 	daemon              *daemon.Daemon
+	inCallRequestLock   bool
+	inCallRequestLockMu sync.Mutex
 
 	//nolint
 	signals *struct {
@@ -473,6 +476,7 @@ func (m *SessionManager) SetLocked(sender dbus.Sender, value bool) *dbus.Error {
 }
 
 func (m *SessionManager) setLocked(value bool) {
+	logger.Debug("call setLocked", value)
 	m.mu.Lock()
 	if m.Locked != value {
 		m.Locked = value
@@ -499,14 +503,6 @@ func (m *SessionManager) setLocked(value bool) {
 		}
 	} else {
 		logger.Warning("watchdogManager is nil")
-	}
-
-	if !value && m.loginSession != nil {
-		// unlock
-		err := m.loginSession.Unlock(0)
-		if err != nil {
-			logger.Warning("failed to unlock login session:", err)
-		}
 	}
 }
 
@@ -540,10 +536,19 @@ func (m *SessionManager) initSession() {
 	sysSigLoop.Start()
 	m.objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
 	err = m.objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
-		logger.Debug("session status changed:", hasValue, active)
-		if hasValue && !active {
+		logger.Debugf("session status changed hasValue: %v, active: %v", hasValue, active)
+		if !hasValue {
+			return
+		}
+
+		if active {
+			// 变活跃
+		} else {
+			// 变不活跃
 			isPreparingForSleep, _ := m.objLogin.PreparingForSleep().Get(0)
+			// 待机时不在这里锁屏
 			if !isPreparingForSleep {
+				logger.Debug("call objLoginSessionSelf.Lock")
 				err = m.objLoginSessionSelf.Lock(0)
 				if err != nil {
 					logger.Warning("failed to Lock current session:", err)
@@ -1199,18 +1204,106 @@ func getLoginSession() (*login1.Session, error) {
 
 func (m *SessionManager) handleLoginSessionLock() {
 	logger.Debug("login session lock")
-	err := m.RequestLock()
-	if err != nil {
-		logger.Warning("failed to request lock:", err)
-	}
+	go func() {
+		// 在特殊情况下，比如用 dde-switchtogreeter 命令切换到 greeter, 即切换到其他 tty,
+		// RequestLock 方法不能立即返回。
+
+		// 如果已经锁定，则立即返回
+		locked := m.getLocked()
+		if locked {
+			logger.Debug("handleLoginSessionLock locked is true, return")
+			return
+		}
+
+		// 使用 m.inCallRequestLock 防止同时多次调用 RequestLock，以简化状况。
+		m.inCallRequestLockMu.Lock()
+		if m.inCallRequestLock {
+			m.inCallRequestLockMu.Unlock()
+			// 如果已经发出一个锁屏请求，则立即返回。
+			logger.Debug("handleLoginSessionLock inCall is true, return")
+			return
+		}
+		m.inCallRequestLock = true
+		m.inCallRequestLockMu.Unlock()
+
+		t0 := time.Now()
+		logger.Debug("handleLoginSessionLock call RequestLock begin")
+		err := m.RequestLock()
+		elapsed := time.Since(t0)
+		logger.Debugf("handleLoginSessionLock call RequestLock end, cost: %v", elapsed)
+		if err != nil {
+			logger.Warning("failed to request lock:", err)
+		}
+
+		m.inCallRequestLockMu.Lock()
+		m.inCallRequestLock = false
+		m.inCallRequestLockMu.Unlock()
+	}()
+
 }
 
 func (m *SessionManager) handleLoginSessionUnlock() {
 	logger.Debug("login session unlock")
+	isActive, err := m.loginSession.Active().Get(0)
+	if err != nil {
+		logger.Warning("failed to get session property Active:", err)
+		return
+	}
+
+	if isActive {
+		// 图形界面 session 活跃
+		m.emitSignalUnlock()
+	} else {
+		// 图形界面 session 不活跃，此时采用 kill 掉锁屏前端的特殊操作，
+		// 如果不 kill 掉它，则一旦 session 变活跃，锁屏前端会在很近的时间内执行锁屏和解锁，
+		// 会使用系统通知报告锁屏失败。 而在此种特殊情况下 kill 掉它，并不会造成明显问题。
+		err = m.killLockFront()
+		if err != nil {
+			logger.Warning("failed to kill lock front:", err)
+			m.emitSignalUnlock()
+		} else {
+			m.setLocked(false)
+		}
+	}
+}
+
+// 发送 Unlock 信号，前端锁屏程序收到后会立即解锁。
+func (m *SessionManager) emitSignalUnlock() {
+	logger.Debug("emit signal Unlock")
 	err := m.service.Emit(m, "Unlock")
 	if err != nil {
 		logger.Warning("failed to emit signal Unlock:", err)
 	}
+}
+
+// kill 掉前端锁屏程序
+func (m *SessionManager) killLockFront() error {
+	sessionBus := m.service.Conn()
+	dbusDaemon := ofdbus.NewDBus(sessionBus)
+	owner, err := dbusDaemon.GetNameOwner(0, "com.deepin.dde.lockFront")
+	if err != nil {
+		return err
+	}
+
+	pid, err := m.service.GetConnPID(owner)
+	if err != nil {
+		return err
+	}
+	logger.Debugf("kill lock front owner: %v, pid: %v", owner, pid)
+
+	p, err := os.FindProcess(int(pid))
+	// linux 系统下这里不会失败
+	if err != nil {
+		return err
+	}
+
+	// 发送 SIGTERM 礼貌的退出信号
+	err = p.Signal(syscall.SIGTERM)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func setDPMSMode(on bool) {
