@@ -45,14 +45,12 @@ type ScreenConfig struct {
 }
 
 type ModeConfigs struct {
-	Monitors               []*MonitorConfig
-	ColorTemperatureMode   int32
-	ColorTemperatureManual int32
+	Monitors []*MonitorConfig
 }
 
 type SingleModeConfig struct {
 	// 这里其实不能用 Monitors，因为是单数
-	Monitors               *MonitorConfig
+	Monitor                *MonitorConfig // 单屏时,该配置文件中色温相关数据未生效
 	ColorTemperatureMode   int32
 	ColorTemperatureManual int32
 }
@@ -114,7 +112,7 @@ func getMonitorConfigByUuid(configs []*MonitorConfig, uuid string) *MonitorConfi
 	return nil
 }
 
-func getMonitorConfigPrimary(configs []*MonitorConfig) *MonitorConfig {
+func getMonitorConfigPrimary(configs []*MonitorConfig) *MonitorConfig { //unused
 	for _, mc := range configs {
 		if mc.Primary {
 			return mc
@@ -164,10 +162,14 @@ func (s *ScreenConfig) setMonitorConfigs(mode uint8, configs []*MonitorConfig) {
 }
 
 func (s *ScreenConfig) setModeConfigs(mode uint8, colorTemperatureMode int32, colorTemperatureManual int32, monitorConfig []*MonitorConfig) {
-	cfg := s.getModeConfigs(mode)
-	cfg.ColorTemperatureMode = colorTemperatureMode
-	cfg.ColorTemperatureManual = colorTemperatureManual
 	s.setMonitorConfigs(mode, monitorConfig)
+	cfg := s.getModeConfigs(mode)
+	for _, monitorConfig := range cfg.Monitors {
+		if monitorConfig.Enabled {
+			monitorConfig.ColorTemperatureMode = colorTemperatureMode
+			monitorConfig.ColorTemperatureManual = colorTemperatureManual
+		}
+	}
 }
 
 func (s *ScreenConfig) setMonitorConfigsOnlyOne(configs []*MonitorConfig) {
@@ -208,6 +210,9 @@ type MonitorConfig struct {
 	RefreshRate float64
 	Brightness  float64
 	Primary     bool
+
+	ColorTemperatureMode   int32
+	ColorTemperatureManual int32
 }
 
 func loadConfigV5(filename string) (Config, error) {

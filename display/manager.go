@@ -431,19 +431,19 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 			config = screenCfg.Single
 		} else {
 			// 没有单屏配置
-			config.Monitors = monitors[0].toConfig()
-			config.Monitors.Enabled = true
-			config.Monitors.Primary = true
+			config.Monitor = monitors[0].toConfig()
+			config.Monitor.Enabled = true
+			config.Monitor.Primary = true
 			mode := monitors[0].BestMode
-			config.Monitors.X = 0
-			config.Monitors.Y = 0
-			config.Monitors.Width = mode.Width
-			config.Monitors.Height = mode.Height
-			config.Monitors.RefreshRate = mode.Rate
-			config.Monitors.Brightness = 1
+			config.Monitor.X = 0
+			config.Monitor.Y = 0
+			config.Monitor.Width = mode.Width
+			config.Monitor.Height = mode.Height
+			config.Monitor.RefreshRate = mode.Rate
+			config.Monitor.Brightness = 1
 			config.ColorTemperatureMode = defaultTemperatureMode
 			config.ColorTemperatureManual = defaultTemperatureManual
-			config.Monitors.Rotation = randr.RotationRotate0
+			config.Monitor.Rotation = randr.RotationRotate0
 			screenCfg.Single = config
 		}
 
@@ -1437,9 +1437,10 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 						cfg.Brightness = 1
 					}
 					monitor.setBrightness(cfg.Brightness)
-
-					m.ColorTemperatureMode = screenCfg.OnlyOne.ColorTemperatureMode
-					m.ColorTemperatureManual = screenCfg.OnlyOne.ColorTemperatureManual
+					m.ColorTemperatureMode = cfg.ColorTemperatureMode
+					m.ColorTemperatureManual = cfg.ColorTemperatureManual
+					monitor.colorTemperatureManual = cfg.ColorTemperatureManual
+					monitor.colorTemperatureMode = cfg.ColorTemperatureMode
 				} else {
 					mode = monitor.BestMode
 					monitor.setBrightness(1)
@@ -1465,6 +1466,8 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 				cfg := getMonitorConfigByUuid(configs.Monitors, monitor.uuid)
 				if cfg != nil {
 					monitor.setPropBrightness(cfg.Brightness)
+					monitor.colorTemperatureManual = cfg.ColorTemperatureManual
+					monitor.colorTemperatureMode = cfg.ColorTemperatureMode
 				}
 			} else {
 				monitor.setPropBrightness(1)
@@ -1482,7 +1485,8 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		return
 	}
 
-	screenCfg.setModeConfigs(DisplayModeOnlyOne, m.ColorTemperatureMode, m.ColorTemperatureManual, toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
+	screenCfg.setModeConfigs(DisplayModeOnlyOne, m.ColorTemperatureMode, m.ColorTemperatureManual,
+		toMonitorConfigs(m.getConnectedMonitors(), monitor0.Name))
 	err = m.saveConfig()
 	if err != nil {
 		return
@@ -1538,7 +1542,9 @@ func (m *Manager) save() (err error) {
 	monitors := m.getConnectedMonitors()
 
 	if len(monitors) == 1 {
-		screenCfg.Single.Monitors = monitors[0].toConfig()
+		screenCfg.Single.Monitor = monitors[0].toConfig()
+		screenCfg.Single.Monitor.ColorTemperatureMode = defaultTemperatureMode
+		screenCfg.Single.Monitor.ColorTemperatureManual = defaultTemperatureManual
 		screenCfg.Single.ColorTemperatureMode = m.ColorTemperatureMode
 		screenCfg.Single.ColorTemperatureManual = m.ColorTemperatureManual
 	} else {
@@ -1592,6 +1598,7 @@ func (m *Manager) getConnectedMonitors() Monitors {
 	return monitors
 }
 
+// 复制和扩展时触发
 func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	logger.Debug("applyConfigs", spew.Sdump(configs))
 	var primaryOutput randr.Output
@@ -1619,13 +1626,12 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 			mode := monitor.selectMode(width, height, monitorCfg.RefreshRate)
 			monitor.setMode(mode)
 			monitor.enable(true)
+			m.ColorTemperatureMode = monitorCfg.ColorTemperatureMode
+			m.ColorTemperatureManual = monitorCfg.ColorTemperatureManual
 		}
 	}
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
-
-	m.ColorTemperatureManual = configs.ColorTemperatureManual
-	m.ColorTemperatureMode = configs.ColorTemperatureMode
 
 	err := m.apply()
 	if err != nil {
@@ -1642,11 +1648,11 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	return nil
 }
 
-func (m *Manager) applySingleConfigs(configs *SingleModeConfig) error {
-	logger.Debug("applyConfigs", spew.Sdump(configs))
+func (m *Manager) applySingleConfigs(config *SingleModeConfig) error {
+	logger.Debug("applyConfigs", spew.Sdump(config))
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
-		monitorCfg := getMonitorConfigByUuid([]*MonitorConfig{configs.Monitors}, monitor.uuid)
+		monitorCfg := getMonitorConfigByUuid([]*MonitorConfig{config.Monitor}, monitor.uuid)
 		if monitorCfg == nil {
 			monitor.enable(false)
 		} else {
@@ -1673,8 +1679,8 @@ func (m *Manager) applySingleConfigs(configs *SingleModeConfig) error {
 	}
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
-	m.ColorTemperatureMode = configs.ColorTemperatureMode
-	m.ColorTemperatureManual = configs.ColorTemperatureManual
+	m.ColorTemperatureMode = config.ColorTemperatureMode
+	m.ColorTemperatureManual = config.ColorTemperatureManual
 
 	err := m.apply()
 	if err != nil {
@@ -1880,7 +1886,7 @@ func (m *Manager) newTouchscreen(path dbus.ObjectPath) {
 	}
 
 	m.Touchscreens = append(m.Touchscreens, touchscreen)
-	m.emitPropChangedTouchscreens(m.Touchscreens)
+	_ = m.emitPropChangedTouchscreens(m.Touchscreens)
 }
 
 func (m *Manager) initTouchscreens() {
@@ -1907,7 +1913,7 @@ func (m *Manager) initTouchscreens() {
 		}
 
 		m.Touchscreens = append(m.Touchscreens[:i], m.Touchscreens[i+1:]...)
-		m.emitPropChangedTouchscreens(m.Touchscreens)
+		_ = m.emitPropChangedTouchscreens(m.Touchscreens)
 		//m.handleTouchscreenChanged()
 	})
 	if err != nil {
@@ -2089,7 +2095,10 @@ func (m *Manager) handleTouchscreenChanged() {
 
 		if touch.outputName != "" {
 			logger.Debugf("assigned %s to %s, WL_OUTPUT", touch.uuid, touch.outputName)
-			m.associateTouch(touch.outputName, touch.uuid, true)
+			err := m.associateTouch(touch.outputName, touch.uuid, true)
+			if err != nil {
+				logger.Warning(err)
+			}
 			continue
 		}
 
@@ -2102,7 +2111,10 @@ func (m *Manager) handleTouchscreenChanged() {
 
 			if monitor.MmWidth == uint32(math.Round(touch.width)) && monitor.MmHeight == uint32(math.Round(touch.height)) {
 				logger.Debugf("assigned %s to %s, phy size", touch.uuid, monitor.Name)
-				m.associateTouch(monitor.Name, touch.uuid, true)
+				err := m.associateTouch(monitor.Name, touch.uuid, true)
+				if err != nil {
+					logger.Warning(err)
+				}
 				assigned = true
 				break
 			}
@@ -2115,7 +2127,10 @@ func (m *Manager) handleTouchscreenChanged() {
 		if m.builtinMonitor != nil {
 			if touch.busType != BusTypeUSB {
 				logger.Debugf("assigned %s to %s, builtin", touch.uuid, m.builtinMonitor.Name)
-				m.associateTouch(m.builtinMonitor.Name, touch.uuid, true)
+				err := m.associateTouch(m.builtinMonitor.Name, touch.uuid, true)
+				if err != nil {
+					logger.Warning(err)
+				}
 				continue
 			}
 		}
@@ -2139,7 +2154,7 @@ func (m *Manager) setMethodAdjustCCT(adjustMethod int32) error {
 	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
 		return errors.New("adjustMethod type out of range, not 0 or 1 or 2")
 	}
-	m.emitPropChangedColorTemperatureMode(adjustMethod)
+	_ = m.emitPropChangedColorTemperatureMode(adjustMethod)
 	m.saveColorTemperatureModeToConfigs(adjustMethod)
 	switch adjustMethod {
 	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
@@ -2168,7 +2183,7 @@ func (m *Manager) setColorTemperature(value int32) error {
 		return errors.New("value out of range")
 	}
 	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
-	m.emitPropChangedColorTemperatureManual(value)
+	_ = m.emitPropChangedColorTemperatureManual(value)
 	m.saveColorTemperatureToConfigs(value)
 	return nil
 }

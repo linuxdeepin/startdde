@@ -64,7 +64,7 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 					Extend:  nil,
 					OnlyOne: nil,
 					Single: &SingleModeConfig{
-						Monitors:               sc.Single,
+						Monitor:                sc.Single,
 						ColorTemperatureMode:   m.gsColorTemperatureMode,
 						ColorTemperatureManual: m.gsColorTemperatureManual,
 					},

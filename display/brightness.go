@@ -42,9 +42,9 @@ func (m *Manager) saveBrightness(outputName string, value float64) {
 	monitors := m.getConnectedMonitors()
 	screenCfg := m.getScreenConfig()
 	if len(monitors) == 1 {
-		screenCfg.Single.Monitors = monitors[0].toConfig()
-		if screenCfg.Single.Monitors.Name == outputName {
-			screenCfg.Single.Monitors.Brightness = value
+		screenCfg.Single.Monitor = monitors[0].toConfig()
+		if screenCfg.Single.Monitor.Name == outputName {
+			screenCfg.Single.Monitor.Brightness = value
 		}
 	} else {
 		configs := screenCfg.getMonitorConfigs(m.DisplayMode)

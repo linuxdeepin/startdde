@@ -123,7 +123,7 @@ func (c ConfigV3_3) toConfig(m *Manager) Config {
 						Extend:  nil,
 						OnlyOne: nil,
 						Single: &SingleModeConfig{
-							Monitors: &MonitorConfig{
+							Monitor: &MonitorConfig{
 								UUID:        bi.UUID,
 								Name:        bi.Name,
 								Enabled:     bi.Enabled,
