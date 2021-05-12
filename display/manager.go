@@ -1990,15 +1990,25 @@ func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
 	}
 
-	matrix := m.genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
-	logger.Debugf("matrix: %v", matrix)
-
 	dxTouchscreen, err := dxinput.NewTouchscreen(touchId)
 	if err != nil {
 		return err
 	}
 
-	return dxTouchscreen.SetTransformationMatrix(matrix)
+	if monitor0.Enabled {
+		matrix := m.genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
+		logger.Debugf("matrix: %v", matrix)
+
+		err = dxTouchscreen.Enable(true)
+		if err != nil {
+			return err
+		}
+
+		return dxTouchscreen.SetTransformationMatrix(matrix)
+	} else {
+		logger.Debugf("touchscreen %s disabled", touchUUID)
+		return dxTouchscreen.Enable(false)
+	}
 }
 
 func (m *Manager) updateTouchscreenMap(outputName string, touchUUID string, auto bool) {
