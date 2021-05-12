@@ -1444,6 +1444,10 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 				} else {
 					mode = monitor.BestMode
 					monitor.setBrightness(1)
+					m.ColorTemperatureMode = defaultTemperatureMode
+					m.ColorTemperatureManual = defaultTemperatureManual
+					monitor.colorTemperatureManual = defaultTemperatureManual
+					monitor.colorTemperatureMode = defaultTemperatureMode
 				}
 
 				//启动时从配置文件读取
