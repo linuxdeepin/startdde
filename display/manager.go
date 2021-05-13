@@ -17,8 +17,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	dbus "github.com/godbus/dbus"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"golang.org/x/xerrors"
 	"pkg.deepin.io/dde/api/dxinput"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/dde/startdde/display/utils"
@@ -90,6 +92,7 @@ type touchscreenMapValue struct {
 type Manager struct {
 	service                  *dbusutil.Service
 	sysBus                   *dbus.Conn
+	ofdbus                   ofdbus.DBus
 	inputDevices             inputdevices.InputDevices
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
@@ -317,6 +320,9 @@ func newManager(service *dbusutil.Service) *Manager {
 
 	sigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
 	sigLoop.Start()
+
+	m.ofdbus = ofdbus.NewDBus(m.sysBus)
+	m.ofdbus.InitSignalExt(sigLoop, true)
 
 	m.inputDevices = inputdevices.NewInputDevices(m.sysBus)
 	m.inputDevices.InitSignalExt(sigLoop, true)
@@ -1859,11 +1865,10 @@ func (m *Manager) getScreenSize() (sw, sh uint16) {
 	return
 }
 
-func (m *Manager) newTouchscreen(path dbus.ObjectPath) {
+func (m *Manager) newTouchscreen(path dbus.ObjectPath) (*Touchscreen, error) {
 	t, err := inputdevices.NewTouchscreen(m.sysBus, path)
 	if err != nil {
-		logger.Warning(err)
-		return
+		return nil, err
 	}
 
 	touchscreen := &Touchscreen{
@@ -1885,18 +1890,74 @@ func (m *Manager) newTouchscreen(path dbus.ObjectPath) {
 
 	getXTouchscreenInfo(touchscreen)
 	if touchscreen.Id == 0 {
-		logger.Warning("failed to get touchscreen id")
+		return nil, xerrors.New("no mathced touchscreen ID")
+	}
+
+	return touchscreen, nil
+}
+
+func (m *Manager) removeTouchscreenByIdx(i int) {
+	// see https://github.com/golang/go/wiki/SliceTricks
+	m.Touchscreens[i] = m.Touchscreens[len(m.Touchscreens)-1]
+	m.Touchscreens[len(m.Touchscreens)-1] = nil
+	m.Touchscreens = m.Touchscreens[:len(m.Touchscreens)-1]
+}
+
+func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
+	i := -1
+	for index, v := range m.Touchscreens {
+		if v.path == path {
+			i = index
+		}
+	}
+
+	if i == -1 {
 		return
 	}
 
-	m.Touchscreens = append(m.Touchscreens, touchscreen)
-	_ = m.emitPropChangedTouchscreens(m.Touchscreens)
+	m.removeTouchscreenByIdx(i)
+}
+
+func (m *Manager) removeTouchscreenByDeviceNode(deviceNode string) {
+	i := -1
+	for idx, v := range m.Touchscreens {
+		if v.DeviceNode == deviceNode {
+			i = idx
+			break
+		}
+	}
+
+	if i == -1 {
+		return
+	}
+
+	m.removeTouchscreenByIdx(i)
 }
 
 func (m *Manager) initTouchscreens() {
+	m.ofdbus.ConnectNameOwnerChanged(func(name, oldOwner, newOwner string) {
+		if name == m.inputDevices.ServiceName_() && newOwner == "" {
+			m.setPropTouchscreens(nil)
+		}
+	})
+
 	_, err := m.inputDevices.ConnectTouchscreenAdded(func(path dbus.ObjectPath) {
 		getDeviceInfos(true)
-		m.newTouchscreen(path)
+
+		// 通过 path 删除重复设备
+		m.removeTouchscreenByPath(path)
+
+		touchscreen, err := m.newTouchscreen(path)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		// 若设备已存在，删除并重新添加
+		m.removeTouchscreenByDeviceNode(touchscreen.DeviceNode)
+
+		m.Touchscreens = append(m.Touchscreens, touchscreen)
+		m.emitPropChangedTouchscreens(m.Touchscreens)
 
 		m.handleTouchscreenChanged()
 	})
@@ -1905,20 +1966,8 @@ func (m *Manager) initTouchscreens() {
 	}
 
 	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
-		i := -1
-		for index, v := range m.Touchscreens {
-			if v.path == path {
-				i = index
-			}
-		}
-
-		if i == -1 {
-			return
-		}
-
-		m.Touchscreens = append(m.Touchscreens[:i], m.Touchscreens[i+1:]...)
-		_ = m.emitPropChangedTouchscreens(m.Touchscreens)
-		//m.handleTouchscreenChanged()
+		m.removeTouchscreenByPath(path)
+		m.emitPropChangedTouchscreens(m.Touchscreens)
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -1932,8 +1981,15 @@ func (m *Manager) initTouchscreens() {
 
 	getDeviceInfos(true)
 	for _, p := range touchscreens {
-		m.newTouchscreen(p)
+		touchscreen, err := m.newTouchscreen(p)
+		if err != nil {
+			logger.Warning(err)
+			continue
+		}
+
+		m.Touchscreens = append(m.Touchscreens, touchscreen)
 	}
+	m.emitPropChangedTouchscreens(m.Touchscreens)
 
 	m.initTouchMap()
 	m.handleTouchscreenChanged()
