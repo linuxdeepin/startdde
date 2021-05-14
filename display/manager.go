@@ -2003,18 +2003,6 @@ func (m *Manager) initTouchMap() {
 }
 
 func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
-	monitors := m.getConnectedMonitors()
-	var monitor0 *Monitor
-	for _, monitor := range monitors {
-		if monitor.Name == output {
-			monitor0 = monitor
-			break
-		}
-	}
-	if monitor0 == nil {
-		return fmt.Errorf("invalid output name: %s", output)
-	}
-
 	var touchId int32 = -1
 	for _, touchscreen := range m.Touchscreens {
 		if touchscreen.uuid != touchUUID {
@@ -2030,6 +2018,19 @@ func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 	dxTouchscreen, err := dxinput.NewTouchscreen(touchId)
 	if err != nil {
 		return err
+	}
+
+	monitors := m.getConnectedMonitors()
+	var monitor0 *Monitor
+	for _, monitor := range monitors {
+		if monitor.Name == output {
+			monitor0 = monitor
+			break
+		}
+	}
+	if monitor0 == nil {
+		logger.Infof("monitor %s disconnected, touchscreen %s disabled", output, touchUUID)
+		return dxTouchscreen.Enable(false)
 	}
 
 	if monitor0.Enabled {
