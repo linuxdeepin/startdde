@@ -295,9 +295,14 @@ func (m *Manager) saveColorTemperatureToConfigs(colorTemperatureManual int32) {
 		screenCfg.Single.ColorTemperatureManual = colorTemperatureManual
 	} else {
 		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		for _, m := range configs.Monitors {
-			if m.Enabled {
-				m.ColorTemperatureManual = colorTemperatureManual
+		for _, monitorConfig := range configs.Monitors {
+			if monitorConfig.Enabled {
+				monitorConfig.ColorTemperatureManual = colorTemperatureManual
+			}
+		}
+		for _, monitor := range monitors {
+			if monitor.Enabled {
+				monitor.colorTemperatureManual = colorTemperatureManual
 			}
 		}
 	}
@@ -312,9 +317,14 @@ func (m *Manager) saveColorTemperatureModeToConfigs(colorTemperatureMode int32) 
 		screenCfg.Single.ColorTemperatureMode = colorTemperatureMode
 	} else {
 		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		for _, m := range configs.Monitors {
-			if m.Enabled {
-				m.ColorTemperatureMode = colorTemperatureMode
+		for _, monitorConfig := range configs.Monitors {
+			if monitorConfig.Enabled {
+				monitorConfig.ColorTemperatureMode = colorTemperatureMode
+			}
+		}
+		for _, monitor := range monitors {
+			if monitor.Enabled {
+				monitor.colorTemperatureMode = colorTemperatureMode
 			}
 		}
 	}

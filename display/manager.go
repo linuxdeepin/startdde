@@ -1461,6 +1461,8 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 				mode = monitor.BestMode
 				m.ColorTemperatureMode = defaultTemperatureMode
 				m.ColorTemperatureManual = defaultTemperatureManual
+				monitor.colorTemperatureManual = defaultTemperatureManual
+				monitor.colorTemperatureMode = defaultTemperatureMode
 				monitor.setBrightness(1)
 			}
 
@@ -1481,6 +1483,8 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 				}
 			} else {
 				monitor.setPropBrightness(1)
+				monitor.colorTemperatureManual = defaultTemperatureManual
+				monitor.colorTemperatureMode = defaultTemperatureMode
 			}
 		}
 	}
@@ -1638,6 +1642,8 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 			monitor.enable(true)
 			m.ColorTemperatureMode = monitorCfg.ColorTemperatureMode
 			m.ColorTemperatureManual = monitorCfg.ColorTemperatureManual
+			monitor.colorTemperatureMode = monitorCfg.ColorTemperatureMode
+			monitor.colorTemperatureManual = monitorCfg.ColorTemperatureManual
 		}
 	}
 

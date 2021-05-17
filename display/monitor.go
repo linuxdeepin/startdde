@@ -374,7 +374,7 @@ func (m *Monitor) toConfig() *MonitorConfig {
 }
 
 func (m *Monitor) dumpInfoForDebug() {
-	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
+	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v,colorTemperatureMode: %v,colorTemperatureManual: %v",
 		m.Name,
 		m.uuid,
 		m.ID,
@@ -382,7 +382,9 @@ func (m *Monitor) dumpInfoForDebug() {
 		m.X, m.Y, m.Width, m.Height,
 		m.Enabled,
 		m.Rotation, m.Reflect,
-		m.CurrentMode)
+		m.CurrentMode,
+		m.colorTemperatureMode,
+		m.colorTemperatureManual)
 }
 
 type Monitors []*Monitor
