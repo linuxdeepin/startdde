@@ -50,6 +50,21 @@ func (m *Manager) saveBrightness() {
 	m.settings.SetString(gsKeyBrightness, jsonStr)
 }
 
+const MAX_FAILED_LIMITS int16 = 5
+func (m *Manager) setFailedBrightnessCnt (uuid string) {
+        _,ok := m.brightnessFailedCnt[uuid]
+        if ok {
+	    if m.brightnessFailedCnt[uuid] >=MAX_FAILED_LIMITS {
+	        return
+	    } else {
+		m.brightnessFailedCnt[uuid]= m.brightnessFailedCnt[uuid] + 1
+	    }
+        } else {
+               m.brightnessFailedCnt[uuid] = 1
+        }
+	return
+}
+
 func (m *Manager) changeBrightness(raised bool) error {
 	// TODO
 	// return errors.New("TODO")
@@ -60,12 +75,14 @@ func (m *Manager) changeBrightness(raised bool) error {
 
 	monitors := m.getConnectedMonitors()
 
-	for _, monitor := range monitors {
+	for _, monitor := range monitors {          
+                if monitor.Enabled == false {
+		    continue
+		} 
 		v, ok := m.Brightness[monitor.Name]
 		if !ok {
 			v = 1.0
 		}
-
 		var br float64
 		setBr := true
 
@@ -87,25 +104,40 @@ func (m *Manager) changeBrightness(raised bool) error {
 					br = hv
 				}
 			}
-		}
+		}     
+                _, ok = m.brightnessFailedCnt[monitor.uuid]
+                if ok {
+	            if m.brightnessFailedCnt[monitor.uuid] >=MAX_FAILED_LIMITS {
+	                logger.Debug("set Brightness failed times over than 5")
+			continue
+                    }
+	        }
 
 		if setBr {
 			//set brightness 5 times by one step of 0.01
 			logger.Debug("[changeBrightness] will set to:", monitor.Name, v)
 			err := m.doSetBrightnessAuxForBacklight(false, v, monitor.Name, raised)
 			if err != nil {
-				return err
-			}
+				logger.Warning(err)
+                                m.setFailedBrightnessCnt(monitor.uuid)
+                                continue
+			}                        
 		} else {
 			logger.Debug("[changeBrightness] will update to:", monitor.Name, br)
 			err := m.doSetBrightnessFake(br, monitor.Name)
 			if err != nil {
-				return err
+				logger.Warning(err)
+                                m.setFailedBrightnessCnt(monitor.uuid)
+                                continue
 			}
 		}
+                _, ok = m.brightnessFailedCnt[monitor.uuid]
+                if ok {
+                    m.brightnessFailedCnt[monitor.uuid] = 0
+                }
 	}
-
-	m.saveBrightness()
+        
+        m.saveBrightness()
 	return nil
 }
 

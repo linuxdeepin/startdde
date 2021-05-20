@@ -101,8 +101,8 @@ type Manager struct {
 	ScreenHeight    uint16
 	primarysettings *gio.Settings
 	mutiMonitorsPos uint8
-
-	methods *struct {
+        brightnessFailedCnt     map[string]int16
+        methods *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
 		ChangeBrightness       func() `in:"raised"`
 		DeleteCustomMode       func() `in:"name"`
@@ -211,6 +211,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.updateScreenSize()
     //m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
+        m.brightnessFailedCnt = make(map[string]int16)
 	return m
 }
 
