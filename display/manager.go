@@ -16,12 +16,15 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	dbus "github.com/godbus/dbus"
+	dgesture "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.gesture"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"golang.org/x/xerrors"
 	"pkg.deepin.io/dde/api/dxinput"
+	dxutil "pkg.deepin.io/dde/api/dxinput/utils"
 	"pkg.deepin.io/dde/startdde/display/brightness"
 	"pkg.deepin.io/dde/startdde/display/utils"
 	gio "pkg.deepin.io/gir/gio-2.0"
@@ -326,6 +329,39 @@ func newManager(service *dbusutil.Service) *Manager {
 
 	m.inputDevices = inputdevices.NewInputDevices(m.sysBus)
 	m.inputDevices.InitSignalExt(sigLoop, true)
+
+	selfObj, err := login1.NewSession(m.sysBus, "/org/freedesktop/login1/session/self")
+	if err != nil {
+		logger.Warningf("connect login1 self sesion failed! %v", err)
+		return m
+	}
+	id, err := selfObj.Id().Get(0)
+	if err != nil {
+		logger.Warningf("get self session id failed! %v", err)
+		return m
+	}
+	managerObj := login1.NewManager(m.sysBus)
+	path, err := managerObj.GetSession(0, id)
+	if err != nil {
+		logger.Warningf("get session path %s failed! %v", id, err)
+		return m
+	}
+	sessionObj, err := login1.NewSession(m.sysBus, path)
+	if err != nil {
+		logger.Warningf("connect login1 sesion %s failed! %v", path, err)
+		return m
+	}
+
+	sessionObj.InitSignalExt(sigLoop, true)
+	err = sessionObj.Active().ConnectChanged(func(hasValue, value bool) {
+		if !hasValue || !value {
+			return
+		}
+		m.handleTouchscreenChanged()
+	})
+	if err != nil {
+		logger.Warningf("prop active ConnectChanged failed! %v", err)
+	}
 
 	return m
 }
@@ -2053,8 +2089,21 @@ func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 			break
 		}
 	}
+
+	ignoreGestureFunc := func(id int32, ignore bool) {
+		hasNode := dxutil.IsPropertyExist(id, "Device Node")
+		if hasNode {
+			data, item := dxutil.GetProperty(id, "Device Node")
+			node := string(data[:item])
+
+			gestureObj := dgesture.NewGesture(m.sysBus)
+			gestureObj.SetInputIgnore(0, node, ignore)
+		}
+	}
+
 	if monitor0 == nil {
 		logger.Infof("monitor %s disconnected, touchscreen %s disabled", output, touchUUID)
+		ignoreGestureFunc(dxTouchscreen.Id, true)
 		return dxTouchscreen.Enable(false)
 	}
 
@@ -2066,10 +2115,12 @@ func (m *Manager) doSetTouchMap(output string, touchUUID string) error {
 		if err != nil {
 			return err
 		}
+		ignoreGestureFunc(dxTouchscreen.Id, false)
 
 		return dxTouchscreen.SetTransformationMatrix(matrix)
 	} else {
 		logger.Debugf("touchscreen %s disabled", touchUUID)
+		ignoreGestureFunc(dxTouchscreen.Id, true)
 		return dxTouchscreen.Enable(false)
 	}
 }
