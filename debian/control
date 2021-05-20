@@ -15,6 +15,7 @@ Build-Depends:
  golang-golang-x-xerrors-dev,
  golang-gopkg-check.v1-dev,
  jq,
+ libgnome-keyring-dev,
  libxcursor-dev,
  libxfixes-dev,
  libxi-dev,

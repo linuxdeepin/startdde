@@ -41,6 +41,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
 	"pkg.deepin.io/dde/api/soundutils"
 	"pkg.deepin.io/dde/startdde/autostop"
+	"pkg.deepin.io/dde/startdde/keyring"
 	"pkg.deepin.io/dde/startdde/memchecker"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/dde/startdde/watchdog"
@@ -1012,7 +1013,13 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	go startObexService()
 	m.launchDDE()
 
-	go setLeftPtrCursor()
+	go func() {
+		setLeftPtrCursor()
+		err := keyring.CheckLogin()
+		if err != nil {
+			logger.Warning("Failed to init keyring:", err)
+		}
+	}()
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
 	go m.launchAutostart()
 	sendMsgToUserExperModule(UserLoginMsg)
