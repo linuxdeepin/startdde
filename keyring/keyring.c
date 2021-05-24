@@ -17,88 +17,103 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <glib.h>
-#include <gnome-keyring.h>
+#include <stdbool.h>
+#include <stdio.h>
 
-#include "keyring.h"
+#include <gio/gio.h>
+#include <libsecret/secret.h>
 
 #define KEYRING_LOGIN "login"
+#define PASSWORD_SECRET_VALUE_CONTENT_TYPE "text/plain"
+#define COLLECTION_INTERFACE "org.freedesktop.Secret.Collection"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+static bool is_default_keyring_exists(SecretService *service);
 
-static gboolean is_default_keyring(char *name);
-static gboolean is_keyring_exist(char *name);
+int check_login() {
+    int res = 0;
 
-int
-check_login()
-{
-    if (is_default_keyring(KEYRING_LOGIN)) {
-        return 0;
-    }
+    GError *err = NULL;
+    SecretService *service = NULL;
+    SecretCollection *collection = NULL;
+    SecretValue *password = NULL;
+    GDBusConnection *bus = NULL;
+    GVariant *ret = NULL;
 
-    GnomeKeyringResult r;
-    if (!is_keyring_exist(KEYRING_LOGIN)) {
-        // create login keyring
-        r = gnome_keyring_create_sync(KEYRING_LOGIN, "");
-        if (r != GNOME_KEYRING_RESULT_OK) {
-            g_warning("Failed to create keyring: %d", r);
-            return -1;
-        }
-    }
-
-    // set login as default keyring
-    r = gnome_keyring_set_default_keyring_sync(KEYRING_LOGIN);
-    if (r != GNOME_KEYRING_RESULT_OK) {
-        g_warning("Failed to set default keyring: %d", r);
-        return -1;
-    }
-    return 0;
-}
-
-static gboolean
-is_default_keyring(char *name)
-{
-    char *cur = NULL;
-    GnomeKeyringResult r = gnome_keyring_get_default_keyring_sync(&cur);
-    if (r != GNOME_KEYRING_RESULT_OK) {
-        g_warning("Failed to get default keyring: %d", r);
-        return TRUE;
-    }
-
-    if (!cur) {
-        return FALSE;
-    }
-
-    g_debug("Default keyring: %s\n", cur);
-    gboolean ret = g_str_equal(name, cur);
-    g_free(cur);
-    return ret;
-}
-
-static gboolean
-is_keyring_exist(char *name)
-{
-    GList *list = NULL;
-    GnomeKeyringResult r = gnome_keyring_list_keyring_names_sync(&list);
-    if (r != GNOME_KEYRING_RESULT_OK) {
-        g_warning("Failed to list keyring names: %d", r);
-        return TRUE;
-    }
-
-    if (!list) {
-        return FALSE;
-    }
-
-    GList *elem = NULL;
-    gboolean ret = FALSE;
-    for (elem = list; elem; elem = g_list_next(elem)){
-        if (g_str_equal(name, (gchar*)(elem->data))) {
-            ret = TRUE;
+    do {
+        service = secret_service_get_sync(SECRET_SERVICE_OPEN_SESSION, NULL, &err);
+        if (service == NULL) {
+            printf("failed to get secret service: %s\n", err->message);
+            res = 1;
             break;
         }
-    }
-    g_list_free_full(list, g_free);
-    return ret;
+
+        if (is_default_keyring_exists(service)) {
+            break;
+        }
+
+        password = secret_value_new("", 0, PASSWORD_SECRET_VALUE_CONTENT_TYPE);
+
+        bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+        if (bus == NULL) {
+            printf("failed to get session bus: %s\n", err->message);
+            res = 1;
+            break;
+        }
+
+        // create new collection without prompt
+        GVariant *label = g_variant_new_dict_entry(
+                g_variant_new_string(COLLECTION_INTERFACE ".Label"),
+                g_variant_new_variant(g_variant_new_string(KEYRING_LOGIN)));
+        GVariant *attributes = g_variant_new_array(G_VARIANT_TYPE("{sv}"), &label, 1);
+
+        ret = g_dbus_connection_call_sync(
+                bus,
+                "org.gnome.keyring",
+                "/org/freedesktop/secrets",
+                "org.gnome.keyring.InternalUnsupportedGuiltRiddenInterface",
+                "CreateWithMasterPassword",
+                g_variant_new("(@a{sv}@(oayays))",
+                              attributes,
+                              secret_service_encode_dbus_secret(service, password)),
+                NULL,
+                G_DBUS_CALL_FLAGS_NONE,
+                G_MAXINT,
+                NULL,
+                &err);
+        if (err != NULL) {
+            printf("failed to create keyring: %s\n", err->message);
+            res = 1;
+            break;
+        }
+    } while (false);
+
+    if (err != NULL) g_error_free(err);
+    if (service != NULL) g_object_unref(service);
+    if (collection != NULL) g_object_unref(collection);
+    if (password != NULL) secret_value_unref(password);
+    if (bus != NULL) g_object_unref(bus);
+    if (ret != NULL) g_variant_unref(ret);
+
+    return res;
 }
-#pragma GCC diagnostic pop
+
+static bool is_default_keyring_exists(SecretService *service) {
+    GError *err = NULL;
+    SecretCollection *collection = secret_collection_for_alias_sync(service,
+                                                                    SECRET_COLLECTION_DEFAULT,
+                                                                    SECRET_COLLECTION_NONE,
+                                                                    NULL,
+                                                                    &err);
+    if (err != NULL) {
+        printf("failed to get default secret collection: %s\n", err->message);
+        g_error_free(err);
+        return false;
+    }
+    if (collection == NULL) {
+        printf("default secret collection not exists\n");
+        return false;
+    }
+
+    g_object_unref(collection);
+    return true;
+}
