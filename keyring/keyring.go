@@ -19,7 +19,8 @@
 
 package keyring
 
-// #cgo pkg-config: gnome-keyring-1 glib-2.0
+// #cgo CFLAGS: -DSECRET_API_SUBJECT_TO_CHANGE
+// #cgo pkg-config: libsecret-unstable
 // #include "keyring.h"
 import "C"
 
