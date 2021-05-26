@@ -69,7 +69,12 @@ func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
 		return dbusutil.ToError(errors.New("touchscreen not exists"))
 	}
 
-	err := m.associateTouch(outputName, touchUUID, false)
+	monitor := m.getConnectedMonitors().GetByName(outputName)
+	if monitor == nil {
+		return dbusutil.ToError(errors.New("monitor not exists"))
+	}
+
+	err := m.associateTouch(monitor, touchUUID, false)
 	return dbusutil.ToError(err)
 }
 
