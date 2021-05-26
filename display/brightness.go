@@ -59,7 +59,7 @@ func (m *Manager) saveBrightness(outputName string, value float64) {
 
 func (m *Manager) changeBrightness(raised bool) error {
 	var step float64 = 0.05
-	if m.MaxBacklightBrightness < 100 {
+	if m.MaxBacklightBrightness < 100 && m.MaxBacklightBrightness != 0 {
 		step = 1 / float64(m.MaxBacklightBrightness)
 	}
 	if !raised {
@@ -150,9 +150,9 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 		return false
 	case strings.HasPrefix(name, "hdmi"):
 		return false
-	case strings.HasPrefix(name, "dvi"):
-		return false
 
+	case strings.HasPrefix(name, "dvi"):
+		return true
 	case strings.HasPrefix(name, "lvds"):
 		// Most drivers use an "LVDS" prefix
 		return true
@@ -162,7 +162,7 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	case strings.HasPrefix(name, "edp"):
 		// eDP is for internal built-in panel connections
 		return true
-	case strings.HasPrefix(name, "dvi"):
+	case strings.HasPrefix(name, "dsi"):
 		return true
 	case name == "default":
 		return true
