@@ -38,6 +38,7 @@ import (
 	dbus "github.com/godbus/dbus"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
 	systemPower "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
+	proxy "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.proxy"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
 	"pkg.deepin.io/gir/gio-2.0"
@@ -93,6 +94,7 @@ type StartManager struct {
 	appsDisableScaling  strv.Strv
 	mu                  sync.Mutex
 	appClose            chan *UeMessageItem
+	appProxy            proxy.App
 	launchedHooks       []string
 
 	NeededMemory     uint64
@@ -230,6 +232,7 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 
 	m.daemonApps = daemonApps.NewApps(sysBus)
 	m.systemPower = systemPower.NewPower(sysBus)
+	m.appProxy = proxy.NewApp(sysBus)
 	m.cpuFreqAdjustMap = m.getCpuFreqAdjustMap(cpuFreqAdjustFile)
 	return m
 }
@@ -475,27 +478,18 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
-	// check if need ignore use proxy
-	if ignoreUseProxy(id) {
-		return false
-	}
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
 		return false
 	}
 	m.mu.Unlock()
-
-	if _, err := os.Stat(m.proxyChainsConfFile); err != nil {
+	msg, err := m.appProxy.GetProxy(0)
+	if err != nil {
 		return false
 	}
-
-	if m.proxyChainsBin == "" {
-		// try get proxyChainsBin again
-		m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
-		if m.proxyChainsBin == "" {
-			return false
-		}
+	if msg == "" {
+		return false
 	}
 	return true
 }
@@ -555,20 +549,6 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	appId := m.getAppIdByFilePath(desktopFile)
 	if appId != "" {
-		logger.Debugf("appId is %v", appId)
-		if m.shouldUseProxy(appId) {
-			logger.Debug("launch: use proxy")
-			if supportProxyServerOption(appId) {
-				proxyServerUrl, err := getProxyServerUrl()
-				if err == nil {
-					cmdSuffixes = append(cmdSuffixes, "--proxy-server="+proxyServerUrl)
-				} else {
-					logger.Warning("failed to get google chrome proxy server url:", err)
-				}
-			} else {
-				cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
-			}
-		}
 		if m.shouldDisableScaling(appId) {
 			logger.Debug("launch: disable scaling")
 			gs := gio.NewSettings("com.deepin.xsettings")
@@ -725,6 +705,17 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 	}
 
 	go func() {
+		appId := appInfo.GetId()
+		logger.Info(appId)
+		if m.shouldUseProxy(appId) {
+			pid := cmd.Process.Pid
+			logger.Infof("should use proxy, %v", pid)
+			err = m.appProxy.AddProc(0, int32(pid))
+			if err != nil {
+				logger.Warningf("add proc failed, err: %v", err)
+			}
+		}
+
 		err := cmd.Wait()
 
 		// send app close info to ue module
