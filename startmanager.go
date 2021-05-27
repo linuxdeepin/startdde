@@ -478,19 +478,40 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
+	// check if need ignore use proxy
+	if !isCommunity() {
+		if ignoreUseProxy(id) {
+			return false
+		}
+	}
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
 		return false
 	}
 	m.mu.Unlock()
-	msg, err := m.appProxy.GetProxy(0)
-	if err != nil {
-		return false
+	if isCommunity() {
+		msg, err := m.appProxy.GetProxy(0)
+		if err != nil {
+			return false
+		}
+		if msg == "" {
+			return false
+		}
+	} else {
+		if _, err := os.Stat(m.proxyChainsConfFile); err != nil {
+			return false
+		}
+
+		if m.proxyChainsBin == "" {
+			// try get proxyChainsBin again
+			m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
+			if m.proxyChainsBin == "" {
+				return false
+			}
+		}
 	}
-	if msg == "" {
-		return false
-	}
+
 	return true
 }
 
@@ -549,6 +570,22 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	appId := m.getAppIdByFilePath(desktopFile)
 	if appId != "" {
+		if !isCommunity() {
+			logger.Debugf("appId is %v", appId)
+			if m.shouldUseProxy(appId) {
+				logger.Debug("launch: use proxy")
+				if supportProxyServerOption(appId) {
+					proxyServerUrl, err := getProxyServerUrl()
+					if err == nil {
+						cmdSuffixes = append(cmdSuffixes, "--proxy-server="+proxyServerUrl)
+					} else {
+						logger.Warning("failed to get google chrome proxy server url:", err)
+					}
+				} else {
+					cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
+				}
+			}
+		}
 		if m.shouldDisableScaling(appId) {
 			logger.Debug("launch: disable scaling")
 			gs := gio.NewSettings("com.deepin.xsettings")
@@ -705,14 +742,21 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 	}
 
 	go func() {
-		appId := appInfo.GetId()
-		logger.Info(appId)
-		if m.shouldUseProxy(appId) {
-			pid := cmd.Process.Pid
-			logger.Infof("should use proxy, %v", pid)
-			err = m.appProxy.AddProc(0, int32(pid))
-			if err != nil {
-				logger.Warningf("add proc failed, err: %v", err)
+
+		// check if is community
+		if isCommunity() {
+			// check if app info is empty
+			if appInfo != nil {
+				appId := appInfo.GetId()
+				logger.Info(appId)
+				if m.shouldUseProxy(appId) {
+					pid := cmd.Process.Pid
+					logger.Infof("should use proxy, %v", pid)
+					err = m.appProxy.AddProc(0, int32(pid))
+					if err != nil {
+						logger.Warningf("add proc failed, err: %v", err)
+					}
+				}
 			}
 		}
 
