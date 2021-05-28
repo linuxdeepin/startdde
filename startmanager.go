@@ -479,7 +479,7 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 
 func (m *StartManager) shouldUseProxy(id string) bool {
 	// check if need ignore use proxy
-	if !isCommunity() {
+	if !shouldUseNewProxy() {
 		if ignoreUseProxy(id) {
 			return false
 		}
@@ -490,7 +490,7 @@ func (m *StartManager) shouldUseProxy(id string) bool {
 		return false
 	}
 	m.mu.Unlock()
-	if isCommunity() {
+	if shouldUseNewProxy() {
 		msg, err := m.appProxy.GetProxy(0)
 		if err != nil {
 			return false
@@ -570,7 +570,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	appId := m.getAppIdByFilePath(desktopFile)
 	if appId != "" {
-		if !isCommunity() {
+		if !shouldUseNewProxy() {
 			logger.Debugf("appId is %v", appId)
 			if m.shouldUseProxy(appId) {
 				logger.Debug("launch: use proxy")
@@ -742,9 +742,8 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 	}
 
 	go func() {
-
-		// check if is community
-		if isCommunity() {
+		// check if should use new proxy
+		if shouldUseNewProxy() {
 			// check if app info is empty
 			if appInfo != nil {
 				appId := appInfo.GetId()

@@ -296,3 +296,16 @@ func isCommunity() bool {
 	}
 	return false
 }
+
+func shouldUseNewProxy() bool {
+	// is not community dont use
+	if !isCommunity() {
+		return false
+	}
+	_, err := os.Stat("/usr/lib/deepin-daemon/dde-proxy")
+	if err != nil {
+		logger.Debug("new proxy bin not exist, use old proxy")
+		return false
+	}
+	return true
+}
