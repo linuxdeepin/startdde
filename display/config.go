@@ -50,7 +50,7 @@ type ModeConfigs struct {
 
 type SingleModeConfig struct {
 	// 这里其实不能用 Monitors，因为是单数
-	Monitor                *MonitorConfig // 单屏时,该配置文件中色温相关数据未生效
+	Monitor                *MonitorConfig `json:"Monitors"` // 单屏时,该配置文件中色温相关数据未生效;增加json的tag是为了兼容之前配置文件
 	ColorTemperatureMode   int32
 	ColorTemperatureManual int32
 }
