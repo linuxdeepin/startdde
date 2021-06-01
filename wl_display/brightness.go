@@ -267,7 +267,7 @@ func (m *Manager) initBrightness() error {
 	if saved {
 		logger.Info("brightness: Init default output brightness")
 		// In huawei KelvinU sometimes crash because of GObject assert failure in GSettings
-		//m.saveBrightness()
+		m.saveBrightness()
 	}
 	if !lightSet {
 		return errors.New("Init default output brightness failed!")
