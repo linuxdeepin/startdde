@@ -203,6 +203,9 @@ func (m *SessionManager) ForceLogout() *dbus.Error {
 }
 
 func (m *SessionManager) clearCurrentTty() {
+	if m.loginSession == nil {
+		return
+	}
 	vTNr, err := m.loginSession.VTNr().Get(0)
 	if err != nil {
 		logger.Warning("clearCurrentTty:", err)
@@ -284,9 +287,11 @@ func (m *SessionManager) shutdown(force bool) {
 	if _gSettingsConfig.needQuickBlackScreen {
 		setDPMSMode(false)
 	}
-	err = m.objLoginSessionSelf.Terminate(0)
-	if err != nil {
-		logger.Warning("failed to terminate session self:", err)
+	if m.objLoginSessionSelf != nil {
+		err = m.objLoginSessionSelf.Terminate(0)
+		if err != nil {
+			logger.Warning("failed to terminate session self:", err)
+		}
 	}
 	os.Exit(0)
 }
@@ -332,9 +337,11 @@ func (m *SessionManager) reboot(force bool) {
 	if _gSettingsConfig.needQuickBlackScreen {
 		setDPMSMode(false)
 	}
-	err = m.objLoginSessionSelf.Terminate(0)
-	if err != nil {
-		logger.Warning("failed to terminate session self:", err)
+	if m.objLoginSessionSelf != nil {
+		err = m.objLoginSessionSelf.Terminate(0)
+		if err != nil {
+			logger.Warning("failed to terminate session self:", err)
+		}
 	}
 	os.Exit(0)
 }
@@ -535,30 +542,32 @@ func (m *SessionManager) initSession() {
 
 	sysSigLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSigLoop.Start()
-	m.objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
-	err = m.objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
-		logger.Debugf("session status changed hasValue: %v, active: %v", hasValue, active)
-		if !hasValue {
-			return
-		}
+	if m.objLoginSessionSelf != nil {
+		m.objLoginSessionSelf.InitSignalExt(sysSigLoop, true)
+		err = m.objLoginSessionSelf.Active().ConnectChanged(func(hasValue bool, active bool) {
+			logger.Debugf("session status changed hasValue: %v, active: %v", hasValue, active)
+			if !hasValue {
+				return
+			}
 
-		if active {
-			// 变活跃
-		} else {
-			// 变不活跃
-			isPreparingForSleep, _ := m.objLogin.PreparingForSleep().Get(0)
-			// 待机时不在这里锁屏
-			if !isPreparingForSleep {
-				logger.Debug("call objLoginSessionSelf.Lock")
-				err = m.objLoginSessionSelf.Lock(0)
-				if err != nil {
-					logger.Warning("failed to Lock current session:", err)
+			if active {
+				// 变活跃
+			} else {
+				// 变不活跃
+				isPreparingForSleep, _ := m.objLogin.PreparingForSleep().Get(0)
+				// 待机时不在这里锁屏
+				if !isPreparingForSleep {
+					logger.Debug("call objLoginSessionSelf.Lock")
+					err = m.objLoginSessionSelf.Lock(0)
+					if err != nil {
+						logger.Warning("failed to Lock current session:", err)
+					}
 				}
 			}
+		})
+		if err != nil {
+			logger.Warning("failed to connect Active changed:", err)
 		}
-	})
-	if err != nil {
-		logger.Warning("failed to connect Active changed:", err)
 	}
 	if _gSettingsConfig.swapSchedEnabled {
 		m.initSwapSched()
@@ -580,6 +589,9 @@ func (m *SessionManager) initSwapSched() {
 		return
 	}
 
+	if m.objLoginSessionSelf == nil {
+		return
+	}
 	sessionID, err := m.objLoginSessionSelf.Id().Get(0)
 	if err != nil {
 		logger.Warning(err)
@@ -652,13 +664,16 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	dbusDaemon.InitSignalExt(sigLoop, true)
 	objLogin := login1.NewManager(sysBus)
 	powerManager := powermanager.NewPowerManager(sysBus)
+	var objLoginSessionSelf login1.Session
 	sessionPath, err := objLogin.GetSessionByPID(0, 0)
 	if err != nil {
-		panic(fmt.Errorf("get session path failed: %s", err))
-	}
-	objLoginSessionSelf, err := login1.NewSession(sysBus, sessionPath)
-	if err != nil {
-		panic(fmt.Errorf("new Login1 session failed: %s", err))
+		logger.Warning("failed to get current session path:", err)
+	} else {
+		logger.Info("session path:", sessionPath)
+		objLoginSessionSelf, err = login1.NewSession(sysBus, sessionPath)
+		if err != nil {
+			logger.Warning("login1.NewSession err:", err)
+		}
 	}
 
 	m := &SessionManager{
@@ -685,6 +700,8 @@ func (m *SessionManager) init() {
 	m.CurrentSessionPath, err = getCurSessionPath()
 	if err != nil {
 		logger.Warning("failed to get current session path:", err)
+		// 要保证 CurrentSessionPath 属性值的合法性
+		m.CurrentSessionPath = "/"
 	}
 
 	m.initInhibitManager()
@@ -1250,6 +1267,9 @@ func (m *SessionManager) handleLoginSessionLock() {
 }
 
 func (m *SessionManager) handleLoginSessionUnlock() {
+	if m.loginSession == nil {
+		return
+	}
 	logger.Debug("login session unlock")
 	isActive, err := m.loginSession.Active().Get(0)
 	if err != nil {
@@ -1335,9 +1355,11 @@ func setDPMSMode(on bool) {
 }
 
 func (m *SessionManager) doLogout(force bool) {
-	err := m.objLoginSessionSelf.Terminate(0)
-	if err != nil {
-		logger.Warning("LoginSessionSelf Terminate failed:", err)
+	if m.objLoginSessionSelf != nil {
+		err := m.objLoginSessionSelf.Terminate(0)
+		if err != nil {
+			logger.Warning("LoginSessionSelf Terminate failed:", err)
+		}
 	}
 	os.Exit(0)
 }
