@@ -31,6 +31,7 @@ BuildRequires:  dde-api-devel
 BuildRequires:  go-lib-devel
 BuildRequires:  golang-github-linuxdeepin-go-x11-client-devel
 BuildRequires:  golang-github-linuxdeepin-go-dbus-factory-devel
+BuildRequires:  libsecret-devel
 
 Provides:       x-session-manager
 Requires:       dde-daemon
@@ -40,6 +41,7 @@ Requires:       deepin-desktop-schemas
 Requires:       dde-kwin
 Requires:       libXfixes
 Requires:       libXcursor
+Requires:       libsecret
 Recommends:     dde-qt5integration
 
 %description
