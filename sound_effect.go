@@ -28,9 +28,9 @@ import (
 	"os/user"
 	"path/filepath"
 
+	dbus1 "github.com/godbus/dbus"
 	"github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"pkg.deepin.io/dde/api/soundutils"
-	dbus1 "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/pulse"
 )
 

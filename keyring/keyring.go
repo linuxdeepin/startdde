@@ -20,7 +20,7 @@
 package keyring
 
 // #cgo CFLAGS: -DSECRET_API_SUBJECT_TO_CHANGE
-// #cgo pkg-config: libsecret-unstable
+// #cgo pkg-config: libsecret-unstable libsecret-1 glib-2.0
 // #include "keyring.h"
 import "C"
 

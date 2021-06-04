@@ -28,6 +28,7 @@
 #define COLLECTION_INTERFACE "org.freedesktop.Secret.Collection"
 
 static bool is_default_keyring_exists(SecretService *service);
+static void unlock_default_keyring();
 
 int check_login() {
     int res = 0;
@@ -48,6 +49,7 @@ int check_login() {
         }
 
         if (is_default_keyring_exists(service)) {
+            unlock_default_keyring(service);
             break;
         }
 
@@ -116,4 +118,64 @@ static bool is_default_keyring_exists(SecretService *service) {
 
     g_object_unref(collection);
     return true;
+}
+
+static void unlock_default_keyring(SecretService *service)
+{
+    SecretCollection *collection;
+    GError *error = NULL;
+    GList *unlocked;
+    GList *objects;
+    gboolean ret;
+
+    collection = secret_collection_for_alias_sync(service,
+                                                SECRET_COLLECTION_DEFAULT,
+                                                SECRET_COLLECTION_NONE,
+                                                NULL,
+                                                &error);
+    g_assert_no_error (error);
+
+    objects = g_list_append (NULL, collection);
+    ret = secret_service_unlock_sync(service, objects, NULL, &unlocked, &error);
+
+    g_assert_no_error (error);
+    g_assert_true (ret);
+
+    g_assert_nonnull (unlocked);
+    g_assert_true (unlocked->data == collection);
+    g_assert_null (unlocked->next);
+    g_list_free_full (unlocked, g_object_unref);
+
+    g_list_free (objects);
+    g_object_unref (collection);
+}
+
+static void lock_default_keyring(SecretService *service)
+{
+    SecretCollection *collection;
+    GError *error = NULL;
+    GList *locked;
+    GList *objects;
+    gboolean ret;
+
+    collection = secret_collection_for_alias_sync(service,
+                            SECRET_COLLECTION_DEFAULT,
+                            SECRET_COLLECTION_NONE,
+                            NULL,
+                            &error);
+
+    g_assert_no_error (error);
+
+    objects = g_list_append (NULL, collection);
+    ret = secret_service_lock_sync(service, objects, NULL, &locked, &error);
+    g_assert_no_error (error);
+    g_assert_true (ret);
+
+    g_assert_nonnull (locked);
+    g_assert_true (locked->data == collection);
+    g_assert_null (locked->next);
+    g_list_free_full (locked, g_object_unref);
+
+    g_list_free (objects);
+    g_object_unref (collection);
 }
