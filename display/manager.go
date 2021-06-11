@@ -468,7 +468,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 		// 单屏情况
 		screenCfg := m.getScreenConfig()
 		config := new(SingleModeConfig)
-		if screenCfg.Single != nil {
+		if screenCfg.Single != nil && screenCfg.Single.Monitor != nil {
 			// 已有单屏配置
 			config = screenCfg.Single
 		} else {
