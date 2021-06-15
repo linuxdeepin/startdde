@@ -358,6 +358,7 @@ func newManager(service *dbusutil.Service) *Manager {
 			return
 		}
 		m.handleTouchscreenChanged()
+		m.showTouchscreenDialogs()
 	})
 	if err != nil {
 		logger.Warningf("prop active ConnectChanged failed! %v", err)
@@ -2002,6 +2003,7 @@ func (m *Manager) initTouchscreens() {
 		m.emitPropChangedTouchscreens(m.Touchscreens)
 
 		m.handleTouchscreenChanged()
+		m.showTouchscreenDialogs()
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -2010,6 +2012,8 @@ func (m *Manager) initTouchscreens() {
 	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
 		m.removeTouchscreenByPath(path)
 		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.handleTouchscreenChanged()
+		m.showTouchscreenDialogs()
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -2035,6 +2039,7 @@ func (m *Manager) initTouchscreens() {
 
 	m.initTouchMap()
 	m.handleTouchscreenChanged()
+	m.showTouchscreenDialogs()
 }
 
 func (m *Manager) initTouchMap() {
@@ -2228,6 +2233,10 @@ func (m *Manager) handleTouchscreenChanged() {
 		}
 	}
 
+	if len(m.Touchscreens) == 1 && len(monitors) == 1 {
+		m.associateTouch(monitors[0], m.Touchscreens[0].uuid, true)
+	}
+
 	for _, touch := range m.Touchscreens {
 		// 有配置，直接使配置生效
 		if v, ok := m.touchscreenMap[touch.uuid]; ok {
@@ -2302,10 +2311,18 @@ func (m *Manager) handleTouchscreenChanged() {
 				logger.Warning("failed to map touchscreen:", err)
 			}
 		}
+	}
+}
 
-		err := m.showTouchscreenDialog(touch.Serial)
-		if err != nil {
-			logger.Warning("shotTouchscreenOSD", err)
+// 检查当前连接的所有触控面板, 如果没有映射配置, 那么调用 OSD 弹窗.
+func (m *Manager) showTouchscreenDialogs() {
+	for _, touch := range m.Touchscreens {
+		if _, ok := m.touchscreenMap[touch.uuid]; !ok {
+			logger.Debug("cannot find touchscreen", touch.uuid, "'s configure, show OSD")
+			err := m.showTouchscreenDialog(touch.Serial)
+			if err != nil {
+				logger.Warning("shotTouchscreenOSD", err)
+			}
 		}
 	}
 }
