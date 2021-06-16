@@ -2100,7 +2100,7 @@ func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
 	}
 
 	if monitor0.Enabled {
-		matrix := m.genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
+		matrix := genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
 		logger.Debugf("matrix: %v", matrix)
 
 		err = dxTouchscreen.Enable(true)

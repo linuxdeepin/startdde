@@ -101,18 +101,15 @@ func (m *TransformationMatrix) s4(x02 float32, x12 float32, d1 float32, d2 float
 	}
 }
 
-func (m *Manager) genTransformationMatrix(offsetX int16, offsetY int16,
+func genTransformationMatrix(offsetX int16, offsetY int16,
 	screenWidth uint16, screenHeight uint16,
 	rotation uint16) TransformationMatrix {
-
-	var matrix TransformationMatrix
-	matrix.setUnity()
 
 	// 必须新的 X 链接才能获取最新的 WidthInPixels 和 HeightInPixels
 	xConn, err := x.NewConn()
 	if err != nil {
 		logger.Warning("failed to connect to x server")
-		return matrix
+		return genTransformationMatrixAux(offsetX, offsetY, screenWidth, screenHeight, screenWidth, screenHeight, rotation)
 	}
 
 	// total display size
@@ -120,11 +117,22 @@ func (m *Manager) genTransformationMatrix(offsetX int16, offsetY int16,
 	height := xConn.GetDefaultScreen().HeightInPixels
 	xConn.Close()
 
-	x := float32(offsetX) / float32(width)
-	y := float32(offsetY) / float32(height)
+	return genTransformationMatrixAux(offsetX, offsetY, screenWidth, screenHeight, width, height, rotation)
+}
 
-	w := float32(screenWidth) / float32(width)
-	h := float32(screenHeight) / float32(height)
+func genTransformationMatrixAux(offsetX int16, offsetY int16,
+	screenWidth uint16, screenHeight uint16,
+	totalDisplayWidth uint16, totalDisplayHeight uint16,
+	rotation uint16) TransformationMatrix {
+
+	var matrix TransformationMatrix
+	matrix.setUnity()
+
+	x := float32(offsetX) / float32(totalDisplayWidth)
+	y := float32(offsetY) / float32(totalDisplayHeight)
+
+	w := float32(screenWidth) / float32(totalDisplayWidth)
+	h := float32(screenHeight) / float32(totalDisplayHeight)
 
 	/*
 	 * There are 16 cases:
