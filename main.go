@@ -161,7 +161,9 @@ func launchCoreComponents(sm *SessionManager) {
 			}
 			launch(cmdKWin, nil, "kwin", true, func() {
 				// 等待 kwin 就绪，然后让 dock 显示
-				handleKWinReady(sm)
+				if os.Getenv("XDG_SESSION_DESKTOP") != padEnv {
+					handleKWinReady(sm)
+				}
 			})
 		} else {
 			initGSettingsConfig()
