@@ -116,6 +116,7 @@ type Manager struct {
 	monitorsId               string
 	isLaptop                 bool
 	modeChanged              bool
+	screenChanged            bool
 	info                     ConnectInfo
 
 	// dbusutil-gen: equal=nil
@@ -1113,9 +1114,9 @@ func (m *Manager) apply() error {
 		// 是否考虑临时禁用 crtc
 		shouldDisable := false
 
-		if m.modeChanged {
-			// 显示模式切换了
-			logger.Debugf("should disable crtc %v because of mode changed", crtc)
+		if m.modeChanged || m.screenChanged {
+			// 显示模式切换了或屏幕变了
+			logger.Debugf("should disable crtc %v because of mode changed or screen changed", crtc)
 			shouldDisable = true
 		} else if int(rect.X)+int(rect.Width) > int(screenSize.width) ||
 			int(rect.Y)+int(rect.Height) > int(screenSize.height) {
@@ -1145,6 +1146,7 @@ func (m *Manager) apply() error {
 	}
 	m.crtcMapMu.Unlock()
 	m.modeChanged = false
+	m.screenChanged = false
 
 	err := m.setScreenSize(screenSize)
 	if err != nil {
