@@ -191,7 +191,7 @@ func launchCoreComponents(sm *SessionManager) {
 
 		if onBattery && _gSettingsConfig.warnLevel == WarnLevelAction {
 			go func() {
-				logger.Info("Show dde low power")
+				logger.Info("do WarnLevelAction")
 				err := exec.Command(cmdDDELowPower, "--raise").Run()
 				if err != nil {
 					logger.Warning(err)
@@ -205,7 +205,7 @@ func launchCoreComponents(sm *SessionManager) {
 			}
 			if !onBattery && sm.firstOn {
 				go func() {
-					logger.Info("Close dde low power")
+					logger.Info("cancel WarnLevelAction")
 					err := exec.Command(cmdDDELowPower, "--quit").Run()
 					if err != nil {
 						logger.Warning(err)
