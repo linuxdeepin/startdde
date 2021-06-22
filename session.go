@@ -682,21 +682,23 @@ func (m *SessionManager) launchDDE() {
 		}
 	}
 
-	osdRunning, err := isOSDRunning()
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		if osdRunning {
-			if globalXSManager.NeedRestartOSD() {
-				logger.Info("Restart dde-osd")
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-			}
+	if os.Getenv("XDG_SESSION_DESKTOP") != padEnv {
+		osdRunning, err := isOSDRunning()
+		if err != nil {
+			logger.Warning(err)
 		} else {
-			notificationsOwned, err := isNotificationsOwned()
-			if err != nil {
-				logger.Warning("failed to get org.freedesktop.Notifications status:", err)
-			} else if !notificationsOwned {
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+			if osdRunning {
+				if globalXSManager.NeedRestartOSD() {
+					logger.Info("Restart dde-osd")
+					m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+				}
+			} else {
+				notificationsOwned, err := isNotificationsOwned()
+				if err != nil {
+					logger.Warning("failed to get org.freedesktop.Notifications status:", err)
+				} else if !notificationsOwned {
+					m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+				}
 			}
 		}
 	}
