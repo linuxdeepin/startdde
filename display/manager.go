@@ -53,6 +53,7 @@ const (
 	monitorsIdDelimiter         = ","
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
+	padEnv                  = "deepin-tablet"
 )
 
 const (

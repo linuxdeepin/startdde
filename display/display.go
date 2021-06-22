@@ -2,6 +2,7 @@ package display
 
 import (
 	"errors"
+	"os"
 
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
@@ -40,11 +41,14 @@ func StartPart2() error {
 	m := _dpy
 	m.initTouchscreens()
 	m.initTouchMap()
-	err := generateRedshiftConfFile()
-	if err != nil {
-		logger.Warning(err)
+	if os.Getenv("XDG_SESSION_DESKTOP") != padEnv {
+		err := generateRedshiftConfFile()
+		if err != nil {
+			logger.Warning(err)
+		}
+
+		m.initColorTemperature()
 	}
-	m.initColorTemperature()
 
 	for _, touch := range m.Touchscreens {
 		if _, ok := m.TouchMap[touch.Serial]; !ok {
