@@ -222,14 +222,12 @@ func launchCoreComponents(sm *SessionManager) {
 		// 先启动 dde-session-daemon
 		launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
 			// 防止启动阻塞
-			go func() {
-				// 启动 due-shell
-				sm.launchWaitAux("due-shell", cmdDueShell, nil, 0, nil)
-				// 启动 launcher
-				sm.launchWaitAux("due-launcher", cmdDueLauncher, nil, 0, nil)
-				// 启动软键盘
-				sm.launchWaitAux("due-im", cmdDueIm, nil, 0, nil)
-			}()
+			// 启动 due-shell
+			go sm.launchWaitAux("due-shell", cmdDueShell, nil, 0, nil)
+			// 启动 launcher
+			go sm.launchWaitAux("due-launcher", cmdDueLauncher, nil, 0, nil)
+			// 启动软键盘
+			go sm.launchWaitAux("due-im", cmdDueIm, nil, 0, nil)
 		})
 	} else {
 		// 如果是桌面环境，先启动 dde-session-daemon，再启动 dde-dock
