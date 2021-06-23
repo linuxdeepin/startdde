@@ -19,6 +19,8 @@
 
 package watchdog
 
+import "os"
+
 const (
 	ddeDesktopTaskName    = "dde-desktop"
 	ddeDesktopServiceName = "com.deepin.dde.desktop"
@@ -29,7 +31,11 @@ func isDdeDesktopRunning() (bool, error) {
 }
 
 func launchDdeDesktop() error {
-	return startService(ddeDesktopServiceName)
+	if os.Getenv("XDG_SESSION_DESKTOP") != "deepin-tablet" {
+		return startService(ddeDesktopServiceName)
+	} else {
+		return launchCommand(ddeDesktopTaskName, []string{"--filedialog-only"}, ddeDesktopTaskName)
+	}
 }
 
 func newDdeDesktopTask() *taskInfo {
