@@ -61,7 +61,7 @@ const (
 	sectionTheme     = "Theme"
 	keyIconThemeName = "IconThemeName"
 	keyFont          = "Font"
-	keyMonoFont      = "MonFont"
+	keyMonoFont      = "MonoFont"
 	keyFontSize      = "FontSize"
 
 	xsKeyQtFontName     = "Qt/FontName"
