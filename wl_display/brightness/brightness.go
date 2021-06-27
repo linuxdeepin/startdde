@@ -22,6 +22,7 @@ package brightness
 import (
 	"errors"
 	"fmt"
+        "os"
 
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -36,6 +37,7 @@ const (
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
 	SetterDDCCI     = "ddcci"
+	SetterDRM       = "drm"
 )
 
 var logger = log.NewLogger("daemon/display")
@@ -70,7 +72,7 @@ func getHelper() *backlight.Backlight {
 	return helper
 }
 
-func Set(value float64, setter string, isBuiltin bool, edidBase64 string) error {
+func Set(uuid string, value float64, setter string, isBuiltin bool, edidBase64 string) error {
 	if value < 0 {
 		value = 0
 	} else if value > 1 {
@@ -86,6 +88,9 @@ func Set(value float64, setter string, isBuiltin bool, edidBase64 string) error 
 	case SetterDDCCI:
 		err := setDDCCIBrightness(value, edidBase64)
 		return err
+        case SetterDRM:
+          	err := setBrigntnessByKwin(uuid, value)
+		return err
 	}
 	// case SetterAuto
 	if isBuiltin {
@@ -97,8 +102,30 @@ func Set(value float64, setter string, isBuiltin bool, edidBase64 string) error 
 			return nil
 		}
 	}
-
+        if os.Getenv("SYS_PRODUCT_NAME") == "PN-WXX" {
+            err := setBrigntnessByKwin(uuid, value)
+	    if err == nil {
+		    logger.Debug("brightness: setBrigntnessByKwin ok")
+		    return nil
+	    }
+        }
 	return errors.New("brightness: AutoSetter falied")
+}
+
+//String outputs, const int brightness
+func  setBrigntnessByKwin(output string, value float64) error {
+	logger.Info("setBrigntnessByKwin")
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/Output")
+	err = sessionObj.Call("com.deepin.daemon.KWayland.Output.setBrightness", 0, output, int32(value*100)).Store()
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	return nil
 }
 
 

@@ -292,7 +292,7 @@ func (m *Manager) getBrightnessSetter() string {
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
 	isBuiltin := isBuiltinOutput(monitor.Name)
 	logger.Debugf("brightness: setMonitorBrightness for %s, setter=%s, value=%.2f, edidBase64=%s", monitor.Name, m.getBrightnessSetter(), value, monitor.edid)
-	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin, monitor.edid)
+	err := brightness.Set(monitor.uuid, value, m.getBrightnessSetter(), isBuiltin, monitor.edid)
 	return err
 	// TODO
 	//return errors.New("TODO")
