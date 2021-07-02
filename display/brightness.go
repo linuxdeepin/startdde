@@ -162,7 +162,7 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	case strings.HasPrefix(name, "edp"):
 		// eDP is for internal built-in panel connections
 		return true
-	case strings.HasPrefix(name, "dsi"):
+	case strings.HasPrefix(name, "dvi"):
 		return true
 	case name == "default":
 		return true
