@@ -151,7 +151,7 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	case strings.HasPrefix(name, "hdmi"):
 		return false
 	case strings.HasPrefix(name, "dvi"):
-		return false
+		return true
 
 	case strings.HasPrefix(name, "lvds"):
 		// Most drivers use an "LVDS" prefix
@@ -162,7 +162,7 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	case strings.HasPrefix(name, "edp"):
 		// eDP is for internal built-in panel connections
 		return true
-	case strings.HasPrefix(name, "dvi"):
+	case strings.HasPrefix(name, "dsi"):
 		return true
 	case name == "default":
 		return true
