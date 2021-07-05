@@ -266,7 +266,9 @@ func (m *Manager) listenDBusSignals() {
 		m.updateMonitorsId()
 		m.updateScreenSize()
 		// apply last saved brightness
-		go m.tryBrightnessConnection()
+		if os.Getenv("SYS_PRODUCT_NAME") != "PN-WXX" {
+			go m.tryBrightnessConnection()
+		}
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -278,7 +280,6 @@ func (m *Manager) listenDBusSignals() {
 			logger.Warning(err)
 			return
 		}
-
 		logger.Infof("display: OutputChanged %#v", kinfo)
 		kinfo.Edid = kinfo.Edid
 
@@ -299,9 +300,9 @@ func (m *Manager) listenDBusSignals() {
 			m.updateMonitorsId()
 			m.updateScreenSize()
 
-			// go func() {
-			go m.tryBrightnessConnection()
-
+			if os.Getenv("SYS_PRODUCT_NAME") != "PN-WXX" {
+			    go m.tryBrightnessConnection()
+			}
 			return
 		}
 		if m.checkKwinMonitorData(monitor, kinfo) == true {
@@ -422,9 +423,17 @@ out:
 }
 
 func (m *Manager) init() {
-	brightness.InitBacklightHelper()
-	//m.initBrightness()
-	go m.tryBrightnessConnection()
+	if m.settings.GetString(gsKeySetter) == "drm" {
+		logger.Debug("using drm for brightness", m.settings.GetString(gsKeySetter))
+		m.initBrightness()
+	} else {
+		logger.Debug("using ddcci/backlight for brightness", m.settings.GetString(gsKeySetter))
+		brightness.InitBacklightHelper()
+		m.initBrightness()
+		if m.settings.GetString(gsKeySetter) == "ddcci" {
+		    go m.tryBrightnessConnection()
+		}
+	}
 	m.applyDisplayMode()
 	m.initTouchMap()
 	m.initMiniEffect()

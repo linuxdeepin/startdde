@@ -230,6 +230,16 @@ func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	return result, nil
 }
 
+func (m *Manager) isConnected(monitorName string) bool {
+	    monitors := m.getConnectedMonitors()
+		for _, monitor := range monitors {
+			if monitor.Name == monitorName {
+				return true
+			}
+		}
+		return false
+}
+
 func (m *Manager) initBrightness() error {
 	brightnessTable, err := m.getSavedBrightnessTable()
 	if err != nil {
@@ -249,18 +259,19 @@ func (m *Manager) initBrightness() error {
 			saved = true
 		}
 	}
-
 	var lightSet = false
 	m.Brightness = brightnessTable
 	for name, v := range brightnessTable {
 		// set the saved brightness
-		err = m.doSetBrightness(v, name)
-		if err != nil {
-			logger.Warning("brightness: Failed to set default brightness:", name, err)
-			continue
-		}
-		if !lightSet {
-			lightSet = true
+		if m.isConnected(name) {
+		    err = m.doSetBrightness(v, name)
+		    if err != nil {
+			    logger.Warning("brightness: Failed to set default brightness:", name, err)
+			    continue
+		    }
+		    if !lightSet {
+			    lightSet = true
+			}
 		}
 	}
 
