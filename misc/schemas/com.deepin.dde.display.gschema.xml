@@ -83,6 +83,10 @@
             <range min="1" max="2"/>
             <summary>custom display mode</summary>
             <description>The mode of custom display</description>
+        <key type="i" name="rotate-screen-time-delay">
+            <default>500</default>
+            <range min="0" max="10000"/>
+            <summary>Rotate the screen when the delay ends</summary>
         </key>
     </schema>
 </schemalist>
