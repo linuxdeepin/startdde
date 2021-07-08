@@ -53,7 +53,8 @@ type Monitor struct {
 	RefreshRate float64
 	Brightness  float64
 
-	oldRotation uint16
+	oldRotation         uint16
+	latestRotationValue uint16
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo

@@ -69,5 +69,10 @@
 			<range min="1000" max="25000"/>
 			<summary>current color temperature when manual adjustment</summary>
 		</key>
+        <key type="i" name="rotate-screen-time-delay">
+            <default>500</default>
+            <range min="0" max="10000"/>
+            <summary>Rotate the screen when the delay ends</summary>
+        </key>
     </schema>
 </schemalist>
