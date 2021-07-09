@@ -1999,3 +1999,7 @@ func (m *Manager) handleTouchscreenChanged() {
 		}
 	}
 }
+
+func (m *Manager) initSensorListener() {
+	initSensorListener()
+}

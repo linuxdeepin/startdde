@@ -4,7 +4,9 @@ import (
 	"errors"
 	"os"
 
+	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 )
 
@@ -62,6 +64,33 @@ func StartPart2() error {
 			}
 		}
 	}
+
+	// 初始化的时候判断是否开启自动旋转
+	gs := gio.NewSettings("com.deepin.due.shell")
+	rotationIsLock := gs.GetBoolean("rotationislock")
+
+	// 监听gsetting变化
+	gsettings.ConnectChanged("com.deepin.due.shell", "rotationislock", func(key string) {
+		val := gs.GetBoolean("rotationislock")
+		if val {
+			logger.Info("----------->stopSensorListener")
+			stopSensorListener()
+		} else {
+			logger.Info("----------->startSensorListener")
+			startSensorListener()
+		}
+	})
+	m.initSensorListener()
+
+	if rotationIsLock {
+		stopSensorListener()
+	} else {
+		startSensorListener()
+	}
+
+	go func() {
+		eventLoop()
+	}()
 
 	return nil
 }
