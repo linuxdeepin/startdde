@@ -941,11 +941,11 @@ func (m *StartManager) isAutostart(filename string) bool {
 	return m.isAutostartAux(filename)
 }
 
-func (m *StartManager) getAutostartApps(dir string) []string {
+func (m *StartManager) getAutostartApps(dir string, filterAutostart func(appName string) bool) []string {
 	apps := make([]string, 0)
 
 	scanDir(dir, func(p string, info os.FileInfo) bool {
-		if !info.IsDir() {
+		if !info.IsDir() && filterAutostart(info.Name()){
 			fullpath := filepath.Join(p, info.Name())
 			if m.isAutostart(fullpath) {
 				apps = append(apps, fullpath)
@@ -992,9 +992,27 @@ func (m *StartManager) autostartDirs() []string {
 func (m *StartManager) AutostartList() ([]string, *dbus.Error) {
 	apps := make([]string, 0)
 	dirs := m.autostartDirs()
+	noNeedAutoStartApps := []string {
+		"dde-clipboard.desktop",
+		"due-im.desktop",
+	}
+	filterAutostart := func (appName string) bool {
+		if os.Getenv("XDG_SESSION_DESKTOP") != padEnv {
+			return true
+		} else {
+			for _, app := range noNeedAutoStartApps {
+				if appName == app {
+					logger.Infof("app %s should not autostart\n", appName)
+					return false
+				}
+			}
+			return true
+		}
+	}
+
 	for _, dir := range dirs {
 		if Exist(dir) {
-			list := m.getAutostartApps(dir)
+			list := m.getAutostartApps(dir, filterAutostart)
 			if len(apps) == 0 {
 				apps = append(apps, list...)
 				continue
