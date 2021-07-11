@@ -19,22 +19,36 @@
 
 package watchdog
 
-import "os"
+import (
+	"os"
+	"os/exec"
+	"strings"
+)
 
 const (
 	ddeDesktopTaskName    = "dde-desktop"
 	ddeDesktopServiceName = "com.deepin.dde.desktop"
+	ddeDesktopCommond = "/usr/bin/dde-desktop"
 )
 
 func isDdeDesktopRunning() (bool, error) {
-	return isDBusServiceExist(ddeDesktopServiceName)
+	if os.Getenv("XDG_SESSION_DESKTOP") != "deepin-tablet" {
+		return isDBusServiceExist(ddeDesktopServiceName)
+	} else {
+		// 平板环境下dde-desktop程序没有DBUS服务
+		out, err := exec.Command("/bin/sh", "-c",  "ps -ef | grep " + ddeDesktopTaskName).CombinedOutput()
+		if err != nil {
+			return false, err
+		}
+		return strings.Contains(string(out), ddeDesktopCommond), nil
+	}
 }
 
 func launchDdeDesktop() error {
 	if os.Getenv("XDG_SESSION_DESKTOP") != "deepin-tablet" {
 		return startService(ddeDesktopServiceName)
 	} else {
-		return launchCommand(ddeDesktopTaskName, []string{"--filedialog-only"}, ddeDesktopTaskName)
+		return launchCommand(ddeDesktopCommond, []string{"--filedialog-only"}, ddeDesktopTaskName)
 	}
 }
 
