@@ -53,6 +53,7 @@ type Monitor struct {
 	RefreshRate float64
 
 	oldRotation uint16
+	latestRotationValue uint16
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
@@ -66,6 +67,12 @@ type Monitor struct {
 		SetReflect     func() `in:"value"`
 		SetRotation    func() `in:"value"`
 		SetRefreshRate func() `in:"value"`
+	}
+
+	signals *struct { //nolint
+		RotateFinish struct {
+			status bool
+		}
 	}
 }
 
