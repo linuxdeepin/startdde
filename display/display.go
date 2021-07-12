@@ -73,10 +73,8 @@ func StartPart2() error {
 	gsettings.ConnectChanged("com.deepin.due.shell", "rotationislock", func(key string) {
 		val := gs.GetBoolean("rotationislock")
 		if val {
-			logger.Info("----------->stopSensorListener")
 			stopSensorListener()
 		} else {
-			logger.Info("----------->startSensorListener")
 			startSensorListener()
 		}
 	})

@@ -50,11 +50,10 @@ struct sensor_axis {
 
 int open_device();
 int close_device(int fd);
-int start_device(int fd);
-int stop_device(int fd);
 int get_input();
+void close_input(int fd);
 void read_calibration(int fd);
-void read_events(int fd);
+void read_events(int* fd);
 void process_event(int code, int value);
 int orientation_calc(struct sensor_axis axis);
 void value_changed(struct sensor_axis axis);

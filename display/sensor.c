@@ -44,32 +44,12 @@ int open_device()
     return dev_fd;
 }
 
-int close_device(int dev_fd)
+int close_device(int fd)
 {
-    stop_device(dev_fd);
-
-    if (dev_fd >= 0) {
-        close(dev_fd);
+    if (fd >= 0) {
+        close(fd);
     }
     return 0;
-}
-
-int start_device(int fd)
-{
-    int err = 0;
-    if (0 > (err = ioctl(fd, GSENSOR_IOCTL_START))) {
-        return -1;
-    }
-    return err;
-}
-
-int stop_device(int fd)
-{
-    int err = 0;
-    if (0 > (err = ioctl(fd, GSENSOR_IOCTL_CLOSE))) {
-        return -1;
-    }
-    return err;
 }
 
 int get_input()
@@ -124,6 +104,14 @@ int get_input()
     return fd;
 }
 
+void close_input(int fd)
+{
+     if (fd >= 0) {
+        close(fd);
+    }
+    return 0;
+}
+
 void read_calibration(int fd)
 {
     if (fd < 0) {
@@ -136,15 +124,11 @@ void read_calibration(int fd)
     }
 }
 
-void read_events(int fd)
+void read_events(int* fd)
 {
-    if (fd < 0) {
-        return;
-    }
-
     struct input_event event;
     while(1) {
-        if (read(fd, &event, sizeof(struct input_event)) == sizeof(struct input_event)) {
+        if (read(*fd, &event, sizeof(struct input_event)) == sizeof(struct input_event)) {
              if (event.type == EV_ABS) {
                 process_event(event.code, event.value);
                 if (doCheck) {

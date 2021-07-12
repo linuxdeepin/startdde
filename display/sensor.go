@@ -28,16 +28,18 @@ func initSensorListener() {
 }
 
 func eventLoop() {
-	if data_fd < 0 {
-		return
-	}
-	C.read_events(data_fd)
+	C.read_events(&data_fd)
 }
 
 func startSensorListener() {
-	C.start_device(dev_fd)
+	data_fd = C.get_input()
+	if data_fd < 0 {
+		fmt.Printf("Failed to get sensor input event")
+		return
+	}
 }
 
 func stopSensorListener() {
-	C.stop_device(dev_fd)
+	C.close_input(data_fd)
+	data_fd = -1
 }
