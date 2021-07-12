@@ -28,7 +28,7 @@ import (
 const (
 	ddeDesktopTaskName    = "dde-desktop"
 	ddeDesktopServiceName = "com.deepin.dde.desktop"
-	ddeDesktopCommond = "/usr/bin/dde-desktop"
+	ddeDesktopCommand = "/usr/bin/dde-desktop"
 )
 
 func isDdeDesktopRunning() (bool, error) {
@@ -40,7 +40,7 @@ func isDdeDesktopRunning() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		return strings.Contains(string(out), ddeDesktopCommond), nil
+		return strings.Contains(string(out), ddeDesktopCommand), nil
 	}
 }
 
@@ -48,7 +48,7 @@ func launchDdeDesktop() error {
 	if os.Getenv("XDG_SESSION_DESKTOP") != "deepin-tablet" {
 		return startService(ddeDesktopServiceName)
 	} else {
-		return launchCommand(ddeDesktopCommond, []string{"--filedialog-only"}, ddeDesktopTaskName)
+		return launchCommand(ddeDesktopCommand, []string{"--filedialog-only"}, ddeDesktopTaskName)
 	}
 }
 

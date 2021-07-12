@@ -995,6 +995,7 @@ func (m *StartManager) AutostartList() ([]string, *dbus.Error) {
 	noNeedAutoStartApps := []string {
 		"dde-clipboard.desktop",
 		"due-im.desktop",
+		"deepin-ab-recovery.desktop",
 	}
 	filterAutostart := func (appName string) bool {
 		if os.Getenv("XDG_SESSION_DESKTOP") != padEnv {
