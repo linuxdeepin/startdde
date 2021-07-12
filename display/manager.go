@@ -2078,6 +2078,12 @@ func (m *Manager) startRotateScreen() {
 		err := m.ApplyChanges()
 		if err != nil {
 			logger.Warning("apply changes failed:", err)
+			return
+		}
+
+		err = m.Save()
+		if err != nil {
+			logger.Warning("save rotation screen config.json failed:", err)
 		}
 
 		err1 := m.builtinMonitor.service.Emit(m.builtinMonitor, "RotateFinish", true)
