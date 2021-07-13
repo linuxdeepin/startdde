@@ -224,3 +224,4 @@ void value_changed(struct sensor_axis axis)
         }
     }
 }
+

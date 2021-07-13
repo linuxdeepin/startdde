@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"pkg.deepin.io/lib/gsettings"
 	"sort"
 	"strings"
 	"sync"
@@ -54,6 +55,7 @@ const (
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 	padEnv                  = "deepin-tablet"
+	orgFreedesktopDBus = "org.freedesktop.DBus"
 )
 
 const (
@@ -2000,6 +2002,75 @@ func (m *Manager) handleTouchscreenChanged() {
 	}
 }
 
-func (m *Manager) initSensorListener() {
+func (m *Manager) listenDBusSignals(gs *gio.Settings) error {
+	bus, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+
+	signalChan := make(chan *dbus.Signal, 10)
+	bus.Signal(signalChan)
+
+	rule := "type='signal',interface='org.freedesktop.DBus',member='NameOwnerChanged'"
+	err = bus.BusObject().Call(orgFreedesktopDBus+".AddMatch", 0, rule).Err
+	if err != nil {
+		return err
+	}
+
+	rule = "type='signal',interface='com.deepin.due.shell',member='visibleChanged'"
+	err = bus.BusObject().Call(orgFreedesktopDBus+".AddMatch", 0, rule).Err
+	if err != nil {
+		return err
+	}
+
+	updateSensorStatus := func() {
+		obj := bus.Object("com.deepin.due.shell", "/com/deepin/due/shell")
+		err = obj.Call("com.deepin.due.shell.IsVisible", 0).Store(&pulldownUIVisible)
+		if err != nil {
+			logger.Warning(err)
+		}
+
+		setSensorListenerStatus(gs.GetBoolean("rotationislock"))
+	}
+
+	go func() {
+		for signal := range signalChan {
+			if signal.Name == orgFreedesktopDBus+".NameOwnerChanged" &&
+				signal.Path == "/org/freedesktop/DBus" && len(signal.Body) == 3 {
+				name, ok := signal.Body[0].(string)
+				if !ok {
+					continue
+				}
+				newOwner, ok := signal.Body[2].(string)
+				if !ok {
+					continue
+				}
+
+				if name == "com.deepin.due.shell" && newOwner != "" {
+					updateSensorStatus()
+				}
+			} else if signal.Name == "com.deepin.due.shell.visibleChanged" &&
+				signal.Path == "/com/deepin/due/shell" && len(signal.Body) == 1{
+				updateSensorStatus()
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (m *Manager) initSensor() {
+	// 初始化的时候判断是否开启自动旋转，监听gsetting变化
+	gs := gio.NewSettings("com.deepin.due.shell")
+	gsettings.ConnectChanged("com.deepin.due.shell", "rotationislock", func(key string) {
+		setSensorListenerStatus(gs.GetBoolean("rotationislock"))
+	})
+
+	err := m.listenDBusSignals(gs)
+	if err != nil {
+		logger.Warning("listenDBusSignals err:", err)
+	}
+
 	initSensorListener()
+	setSensorListenerStatus(gs.GetBoolean("rotationislock"))
 }

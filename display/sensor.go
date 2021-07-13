@@ -11,6 +11,7 @@ import (
 
 var dev_fd C.int = -1
 var data_fd C.int = -1
+var pulldownUIVisible = false
 
 func initSensorListener() {
 	dev_fd = C.open_device()
@@ -39,4 +40,13 @@ func stopSensorListener() {
 	}
 	C.close_input(data_fd)
 	data_fd = -1
+}
+
+func setSensorListenerStatus(locked bool) {
+	logger.Debugf("sensor status locked:%t pulldownUIVisible:%t\n", locked, pulldownUIVisible)
+	if !locked && !pulldownUIVisible {
+		startSensorListener()
+	} else {
+		stopSensorListener()
+	}
 }
