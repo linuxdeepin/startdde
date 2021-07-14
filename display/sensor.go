@@ -9,8 +9,8 @@ import (
 	"fmt"
 )
 
-var dev_fd C.int
-var data_fd C.int
+var dev_fd C.int = -1
+var data_fd C.int = -1
 
 func initSensorListener() {
 	dev_fd = C.open_device()
@@ -19,16 +19,6 @@ func initSensorListener() {
 		return
 	}
 	C.read_calibration(dev_fd)
-
-	data_fd = C.get_input()
-	if data_fd < 0 {
-		fmt.Printf("Failed to get sensor input event")
-		return
-	}
-}
-
-func eventLoop() {
-	C.read_events(&data_fd)
 }
 
 func startSensorListener() {
@@ -37,9 +27,16 @@ func startSensorListener() {
 		fmt.Printf("Failed to get sensor input event")
 		return
 	}
+
+	go func() {
+		C.read_events(&data_fd)
+	}()
 }
 
 func stopSensorListener() {
+	if data_fd < 0 {
+		return
+	}
 	C.close_input(data_fd)
 	data_fd = -1
 }

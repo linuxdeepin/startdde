@@ -85,11 +85,6 @@ func StartPart2() error {
 	} else {
 		startSensorListener()
 	}
-
-	go func() {
-		eventLoop()
-	}()
-
 	return nil
 }
 

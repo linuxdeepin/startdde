@@ -106,10 +106,9 @@ int get_input()
 
 void close_input(int fd)
 {
-     if (fd >= 0) {
+    if (fd >= 0) {
         close(fd);
     }
-    return 0;
 }
 
 void read_calibration(int fd)
@@ -128,12 +127,16 @@ void read_events(int* fd)
 {
     struct input_event event;
     while(1) {
-        if (read(*fd, &event, sizeof(struct input_event)) == sizeof(struct input_event)) {
-             if (event.type == EV_ABS) {
-                process_event(event.code, event.value);
-                if (doCheck) {
-                    value_changed(axis);
-                    doCheck = false;
+        if (*fd < 0) {
+            return;
+        } else {
+            if (read(*fd, &event, sizeof(struct input_event)) == sizeof(struct input_event)) {
+                if (event.type == EV_ABS) {
+                    process_event(event.code, event.value);
+                    if (doCheck) {
+                        value_changed(axis);
+                        doCheck = false;
+                    }
                 }
             }
         }
