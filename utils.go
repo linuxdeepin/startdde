@@ -238,6 +238,9 @@ func initGSettingsConfig() {
 	if _gSettingsConfig == nil {
 		_gSettingsConfig = getGSettingsConfig()
 	}
+	if lowPowerUISetting == nil {
+		lowPowerUISetting = gio.NewSettings("com.deepin.dde.power")
+	}
 }
 
 func isOSDRunning() (bool, error) {

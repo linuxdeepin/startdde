@@ -43,6 +43,7 @@ import (
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
+	"pkg.deepin.io/gir/gio-2.0"
 )
 
 var logger = log.NewLogger("startdde")
@@ -52,6 +53,8 @@ var _options struct {
 }
 
 var _gSettingsConfig *GSettingsConfig
+
+var lowPowerUISetting *gio.Settings
 
 var globalCgExecBin string
 
@@ -123,6 +126,7 @@ const (
 	StatusDischarging
 	StatusNotCharging
 	StatusFull
+	StatusFullCharging
 )
 
 func launchCoreComponents(sm *SessionManager) {
@@ -184,14 +188,15 @@ func launchCoreComponents(sm *SessionManager) {
 		systemPower := power.NewPower(systemBus)
 		systemPower.InitSignalExt(systemSigLoop, true)
 
-		onBattery, err := systemPower.OnBattery().Get(0)
+		batteryStatus, err := systemPower.BatteryStatus().Get(0)
 		if err != nil {
 			logger.Error(err)
 		}
 
-		if onBattery && _gSettingsConfig.warnLevel == WarnLevelAction {
+		if batteryStatus != StatusCharging && batteryStatus != StatusFullCharging && _gSettingsConfig.warnLevel == WarnLevelAction {
 			go func() {
 				logger.Info("do WarnLevelAction")
+				lowPowerUISetting.SetBoolean("low-power-ui-show", true)
 				err := exec.Command(cmdDDELowPower, "--raise").Run()
 				if err != nil {
 					logger.Warning(err)
@@ -199,13 +204,14 @@ func launchCoreComponents(sm *SessionManager) {
 			}()
 		}
 
-		err = systemPower.OnBattery().ConnectChanged(func(hasValue bool, onBattery bool) {
+		err = systemPower.BatteryStatus().ConnectChanged(func(hasValue bool, batteryStatus uint32) {
 			if !hasValue {
 				return
 			}
-			if !onBattery && sm.firstOn {
+			if (batteryStatus == StatusCharging || batteryStatus == StatusFullCharging) && sm.firstOn {
 				go func() {
 					logger.Info("cancel WarnLevelAction")
+					lowPowerUISetting.SetBoolean("low-power-ui-show", false)
 					err := exec.Command(cmdDDELowPower, "--quit").Run()
 					if err != nil {
 						logger.Warning(err)
