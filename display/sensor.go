@@ -19,6 +19,12 @@ func initSensorListener() {
 		fmt.Printf("Failed to open sensor device")
 		return
 	}
+	ret := C.start_device(dev_fd);
+	if ret < 0 {
+		fmt.Printf("Failed to start sensor device")
+		return
+	}
+
 	C.read_calibration(dev_fd)
 }
 

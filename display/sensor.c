@@ -123,6 +123,19 @@ void read_calibration(int fd)
     }
 }
 
+int start_device(int fd)
+{
+    if (fd < 0) {
+        return -1;
+    }
+
+    int result = ioctl(fd, GSENSOR_IOCTL_START);
+    if (result < 0) {
+        return -1;
+    }
+    return result;
+}
+
 void read_events(int* fd)
 {
     struct input_event event;

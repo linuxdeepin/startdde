@@ -53,6 +53,7 @@ int close_device(int fd);
 int get_input();
 void close_input(int fd);
 void read_calibration(int fd);
+int start_device(int fd);
 void read_events(int* fd);
 void process_event(int code, int value);
 int orientation_calc(struct sensor_axis axis);
