@@ -84,22 +84,22 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 
 func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 	if sc.OnlyOne != nil {
-		result := make([]*MonitorConfig, 1)
-		for idx, monitor := range sc.OnlyOne.Monitors {
+		result := make([]*MonitorConfig, 0, len(sc.OnlyOne.Monitors))
+		for _, monitor := range sc.OnlyOne.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
-			result[idx] = monitor
+			result = append(result, monitor)
 		}
 		screenCfg.setModeConfigs(DisplayModeOnlyOne, m.gsColorTemperatureMode, m.gsColorTemperatureManual, result)
 	}
 
 	//默认自定义数据,自定义没数据就用复制 扩展的数据
-	if sc.Custom != nil {
-		result := make([]*MonitorConfig, 2)
-		for _, custom := range sc.Custom {
-			for idx, monitor := range custom.Monitors {
-				monitor.Brightness = m.Brightness[monitor.Name]
-				result[idx] = monitor
-			}
+	if len(sc.Custom) != 0 {
+		// 直接取最后一个
+		custom := sc.Custom[len(sc.Custom)-1]
+		result := make([]*MonitorConfig, 0, len(custom.Monitors))
+		for _, monitor := range custom.Monitors {
+			monitor.Brightness = m.Brightness[monitor.Name]
+			result = append(result, monitor)
 		}
 
 		if result[0].X == result[1].X {
@@ -123,19 +123,19 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 	}
 
 	if sc.Mirror != nil {
-		result := make([]*MonitorConfig, len(sc.Mirror.Monitors))
-		for idx, monitor := range sc.Mirror.Monitors {
+		result := make([]*MonitorConfig, 0, len(sc.Mirror.Monitors))
+		for _, monitor := range sc.Mirror.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
-			result[idx] = monitor
+			result = append(result, monitor)
 		}
 		screenCfg.setModeConfigs(DisplayModeMirror, m.gsColorTemperatureMode, m.gsColorTemperatureManual, result)
 	}
 
 	if sc.Extend != nil {
-		result := make([]*MonitorConfig, len(sc.Extend.Monitors))
-		for idx, monitor := range sc.Extend.Monitors {
+		result := make([]*MonitorConfig, 0, len(sc.Extend.Monitors))
+		for _, monitor := range sc.Extend.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
-			result[idx] = monitor
+			result = append(result, monitor)
 		}
 		screenCfg.setModeConfigs(DisplayModeExtend, m.gsColorTemperatureMode, m.gsColorTemperatureManual, result)
 	}
