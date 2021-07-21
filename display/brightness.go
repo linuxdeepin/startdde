@@ -164,9 +164,9 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 		return false
 	case strings.HasPrefix(name, "hdmi"):
 		return false
-	case strings.HasPrefix(name, "dvi"):
-		return false
 
+	case strings.HasPrefix(name, "dvi"):
+		return true
 	case strings.HasPrefix(name, "lvds"):
 		// Most drivers use an "LVDS" prefix
 		return true
