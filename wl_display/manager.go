@@ -14,9 +14,12 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	sessionmanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.sessionmanager"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/dde/startdde/wl_display/brightness"
+
+	//xsettings "pkg.deepin.io/dde/startdde/xsettings"
 	"pkg.deepin.io/gir/gio-2.0"
 	dbus "pkg.deepin.io/lib/dbus1"
 	"pkg.deepin.io/lib/dbusutil"
@@ -67,6 +70,7 @@ type Manager struct {
 	service    *dbusutil.Service
 	xConn      *x.Conn
 	management *kwayland.OutputManagement
+	xSettings  *sessionmanager.XSettings
 
 	PropsMu              sync.RWMutex
 	config               Config
@@ -241,6 +245,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	//m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	m.brightnessFailedCnt = make(map[string]int16)
+	m.xSettings = sessionmanager.NewXSettings(sessionBus)
 	return m
 }
 
@@ -390,6 +395,34 @@ func (m *Manager) updateMonitorsId() {
 	}
 }
 
+/*由高分辨率单屏变低分辨率单屏
+ *由高分辨率单屏变双屏,包含低分辨率屏幕
+ *单屏分辨率高到低切换
+ */
+func (m *Manager) checkAndUpdateScaleFactor() bool {
+	recommendedScaleFactor := 1.0
+	if os.Getenv("XDG_SESSION_TYPE") == "wayland" || os.Getenv("WAYLAND_DISPLAY") != "" {
+		recommendedScaleFactor = m.calcRecommendedScaleFactor()
+		curScale := m.primarysettings.GetDouble("scale-factor")
+		if recommendedScaleFactor != m.recommendScaleFactor {
+			m.recommendScaleFactor = recommendedScaleFactor
+		}
+		maxScaleFactor := m.calcMaxScaleFactor()
+		if curScale > maxScaleFactor {
+			m.xSettings.SetScaleFactor(dbus.FlagNoAutoStart, maxScaleFactor)
+			logger.Debug("update monitors scaleFactor to maxScale", curScale, maxScaleFactor)
+		}
+		if curScale < 1.0 {
+			m.xSettings.SetScaleFactor(dbus.FlagNoAutoStart, 1.0)
+		}
+
+		logger.Debug("current-recommend-max scaleFactor: ", curScale, recommendedScaleFactor, maxScaleFactor)
+
+	} else {
+		logger.Debug("it's xcb mode")
+	}
+	return true
+}
 func (m *Manager) applyDisplayMode() {
 	logger.Debug("applyDisplayMode")
 	monitors := m.getConnectedMonitors()
@@ -416,7 +449,11 @@ func (m *Manager) applyDisplayMode() {
 			config.RefreshRate = mode.Rate
 			config.Rotation = randr.RotationRotate0
 		}
-
+		if strings.Contains(m.systemName,"klu") || strings.Contains(m.systemName, "klv") {
+            go m.xSettings.SetScaleFactor(dbus.FlagNoAutoStart, 1.5)
+		} else {
+            go m.xSettings.SetScaleFactor(dbus.FlagNoAutoStart, 1.0)
+		}
 		err = m.applyConfigs([]*MonitorConfig{config})
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
@@ -428,7 +465,6 @@ func (m *Manager) applyDisplayMode() {
 		err = m.switchModeMirror()
 		goto out
 	}
-
 	switch m.DisplayMode {
 	case DisplayModeCustom:
 		err = m.switchModeCustom(m.CurrentCustomId)
@@ -449,6 +485,7 @@ out:
 	if err != nil {
 		logger.Warning(err)
 	}
+	go m.checkAndUpdateScaleFactor()
 }
 
 func (m *Manager) init() {
@@ -487,6 +524,31 @@ func (m *Manager) initMiniEffect() {
 	}
 }
 
+func (m *Manager) calcMaxScaleFactor() float64 {
+	maxScaleFactor := 3.0
+	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		return 1.0
+	}
+	for _, monitor := range monitors {
+		scaleFactor := calcMaxScale(float64(monitor.Width), float64(monitor.Height))
+		if scaleFactor < maxScaleFactor && scaleFactor >= 1.0 {
+			maxScaleFactor = scaleFactor
+		}
+	}
+	return maxScaleFactor
+}
+
+func calcMaxScale(widthPx, heightPx float64) float64 {
+	maxWScaleFactor := widthPx / 1024.0
+	maxHScaleFactor := heightPx / 768.0
+	max := maxWScaleFactor
+	if maxWScaleFactor > maxHScaleFactor {
+		max = maxHScaleFactor
+	}
+	return toListMaxScaleFactor(max)
+}
+
 func (m *Manager) calcRecommendedScaleFactor() float64 {
 	minScaleFactor := 3.0
 	monitors := m.getConnectedMonitors()
@@ -520,6 +582,25 @@ func calcRecommendedScaleFactor(widthPx, heightPx, widthMm, heightMm float64) fl
 	scaleFactor := (lenPx/lenMm)/(lenPxStd/lenMmStd) + fix
 
 	return toListedScaleFactor(scaleFactor)
+}
+
+func toListMaxScaleFactor(s float64) float64 {
+	const (
+		min  = 1.0
+		max  = 3.0
+		step = 0.25
+	)
+	if s <= min {
+		return min
+	} else if s >= max {
+		return max
+	}
+	for i := min; i <= s; i += step {
+		if s <= i+step {
+			return i
+		}
+	}
+	return 1.0
 }
 
 func toListedScaleFactor(s float64) float64 {
@@ -703,7 +784,7 @@ func (m *Manager) switchModeMirror() (err error) {
 	if err != nil {
 		logger.Error(err)
 	}
-
+	go m.checkAndUpdateScaleFactor()
 	err = m.apply()
 	if err != nil {
 		return
@@ -1112,6 +1193,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 	if monitor0 == nil {
 		monitor0 = getMinIDMonitor(m.getConnectedMonitors())
 	}
+	go m.checkAndUpdateScaleFactor()
 
 	err = m.apply()
 	if err != nil {
@@ -1133,7 +1215,6 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		}
 		m.setPrimarySettings(monitor0.Name)
 	}
-
 	return
 }
 

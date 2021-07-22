@@ -164,6 +164,7 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 	m.m.mutiMonitorsPos = m.m.getMonitorsPosition()
 	m.markChanged()
 	m.setModeNoProp(newMode)
+  	m.m.checkAndUpdateScaleFactor()
 	return nil
 }
 
