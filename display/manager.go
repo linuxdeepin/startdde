@@ -2555,5 +2555,11 @@ func (m *Manager) startRotateScreen() {
 			logger.Warning("call Save failed:", err)
 			return
 		}
+
+		err1 := m.builtinMonitor.service.Emit(m.builtinMonitor, "RotateFinish")
+		if err1 != nil {
+			logger.Warning("emit RotateFinish failed:", err1)
+			return
+		}
 	}
 }
