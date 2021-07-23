@@ -64,6 +64,11 @@ type Monitor struct {
 	colorTemperatureMode int32
 	// adjust color temperature by manual adjustment
 	colorTemperatureManual int32
+
+	signals *struct { //nolint
+		RotateFinish struct {
+		}
+	}
 }
 
 func (m *Monitor) String() string {
