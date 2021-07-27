@@ -132,6 +132,9 @@ type Manager struct {
 	// dbusutil-gen: equal=nil
 	TouchMap       map[string]string
 	touchscreenMap map[string]touchscreenMapValue
+	// touch.uuid -> touchScreenDialog cmd
+	touchScreenDialogMap   map[string]*exec.Cmd
+	touchScreenDialogMutex sync.RWMutex
 
 	CurrentCustomId string
 	Primary         string
@@ -1950,15 +1953,32 @@ func (m *Manager) removeTouchscreenByIdx(i int) {
 }
 
 func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
+	touchScreenUUID := ""
 	i := -1
 	for index, v := range m.Touchscreens {
 		if v.path == path {
 			i = index
+			touchScreenUUID = v.uuid
 		}
 	}
 
 	if i == -1 {
 		return
+	}
+
+	if touchScreenUUID != "" {
+		m.touchScreenDialogMutex.RLock()
+		existCmd, ok := m.touchScreenDialogMap[touchScreenUUID]
+		m.touchScreenDialogMutex.RUnlock()
+		if ok && existCmd != nil && existCmd.Process != nil {
+			if existCmd.ProcessState == nil {
+				logger.Debug("to kill process of touchScreenDialog.")
+				err := existCmd.Process.Kill()
+				if err != nil {
+					logger.Warning("failed to kill process of touchScreenDialog, error:", err)
+				}
+			}
+		}
 	}
 
 	m.removeTouchscreenByIdx(i)
@@ -2048,6 +2068,7 @@ func (m *Manager) initTouchscreens() {
 func (m *Manager) initTouchMap() {
 	m.touchscreenMap = make(map[string]touchscreenMapValue)
 	m.TouchMap = make(map[string]string)
+	m.touchScreenDialogMap = make(map[string]*exec.Cmd)
 
 	value := m.settings.GetString(gsKeyMapOutput)
 	if len(value) == 0 {
@@ -2200,7 +2221,16 @@ func (m *Manager) saveConfig() error {
 	return nil
 }
 
-func (m *Manager) showTouchscreenDialog(touchscreenSerial string) error {
+func (m *Manager) showTouchscreenDialog(touchScreenUUID, touchscreenSerial string) error {
+	m.touchScreenDialogMutex.RLock()
+	existCmd, ok := m.touchScreenDialogMap[touchScreenUUID]
+	m.touchScreenDialogMutex.RUnlock()
+	if ok && existCmd != nil {
+		// 已经存在dialog，不重复打开dialog
+		logger.Debug("showTouchscreenDialog failed, touchScreen is existed:", touchScreenUUID)
+		return nil
+	}
+
 	cmd := exec.Command(cmdTouchscreenDialogBin, touchscreenSerial)
 
 	err := cmd.Start()
@@ -2208,11 +2238,20 @@ func (m *Manager) showTouchscreenDialog(touchscreenSerial string) error {
 		return err
 	}
 
+	m.touchScreenDialogMutex.Lock()
+	m.touchScreenDialogMap[touchScreenUUID] = cmd
+	m.touchScreenDialogMutex.Unlock()
+
 	go func() {
 		err = cmd.Wait()
 		if err != nil {
 			logger.Debug(err)
 		}
+		m.touchScreenDialogMutex.Lock()
+		if _, ok := m.touchScreenDialogMap[touchScreenUUID]; ok {
+			delete(m.touchScreenDialogMap, touchScreenUUID)
+		}
+		m.touchScreenDialogMutex.Unlock()
 	}()
 	return nil
 }
@@ -2322,7 +2361,7 @@ func (m *Manager) showTouchscreenDialogs() {
 	for _, touch := range m.Touchscreens {
 		if _, ok := m.touchscreenMap[touch.uuid]; !ok {
 			logger.Debug("cannot find touchscreen", touch.uuid, "'s configure, show OSD")
-			err := m.showTouchscreenDialog(touch.Serial)
+			err := m.showTouchscreenDialog(touch.uuid, touch.Serial)
 			if err != nil {
 				logger.Warning("shotTouchscreenOSD", err)
 			}
