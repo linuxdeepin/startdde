@@ -69,7 +69,7 @@ const cfgStr0 = `{
 func TestConfig(t *testing.T) {
 	var cfg0 ConfigV3_3
 	err := json.Unmarshal([]byte(cfgStr0), &cfg0)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cfg := cfg0.toConfig()
 	assert.Len(t, cfg, 2)

@@ -37,11 +37,11 @@ func Test_loadConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := loadConfig(tt.args.filename)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 				return
 			}
 
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

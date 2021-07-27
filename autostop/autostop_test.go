@@ -51,7 +51,7 @@ func Test_doScanScripts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := doScanScripts(tt.args.dir)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			}
 
 			assert.ElementsMatch(t, tt.want, got)

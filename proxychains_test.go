@@ -27,7 +27,7 @@ import (
 func TestLoadProxyChainsConfig(t *testing.T) {
 	t.Run("Test load proxy chains config", func(t *testing.T) {
 		cfg, err := loadProxyChainsConfig("./testdata/proxy/proxychains.json")
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.NotNil(t, cfg)
 		assert.Equal(t, "v2ray", cfg.Type)
 		assert.Equal(t, "127.0.0.1", cfg.IP)

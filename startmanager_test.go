@@ -170,7 +170,7 @@ func TestStartManager_enableCpuFreqLock(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.obj.enableCpuFreqLock(tt.args.desktopFile)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 			}
 		})
 	}

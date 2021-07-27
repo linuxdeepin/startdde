@@ -8,7 +8,7 @@ import (
 
 func Test_doGetMemInfo(t *testing.T) {
 	memInfo, err := doGetMemInfo("./testdata/meminfo")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, uint64(8073588), memInfo.MemTotal)
 	assert.Equal(t, uint64(2278440), memInfo.MemFree)
 	assert.Equal(t, uint64(5929504), memInfo.MemAvailable)

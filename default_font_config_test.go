@@ -36,7 +36,7 @@ func TestFontConfig(t *testing.T) {
 		}
 
 		cfg, err := loadDefaultFontConfig("./testdata/fontconfig/fontconfig.json")
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		for k, v := range testdata {
 			assert.Equal(t, v, cfg[k])

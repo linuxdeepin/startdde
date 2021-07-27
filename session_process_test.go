@@ -29,7 +29,7 @@ func TestGenUuid(t *testing.T) {
 	t.Run("Test generate uuid", func(t *testing.T) {
 		uuid := genUuid()
 		match, err := regexp.MatchString(`^[0-9a-f]+\-[0-9a-f]+\-[0-9a-f]+\-[0-9a-f]+\-[0-9a-f]+$`, uuid)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.True(t, match)
 	})
 }
