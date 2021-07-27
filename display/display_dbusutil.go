@@ -431,6 +431,19 @@ func (v *Monitor) emitPropChangedBrightness(value float64) error {
 	return v.service.EmitPropertyChanged(v, "Brightness", value)
 }
 
+func (v *Monitor) setPropCurrentRotateMode(value uint8) (changed bool) {
+	if v.CurrentRotateMode != value {
+		v.CurrentRotateMode = value
+		v.emitPropChangedCurrentRotateMode(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedCurrentRotateMode(value uint8) error {
+	return v.service.EmitPropertyChanged(v, "CurrentRotateMode", value)
+}
+
 func (v *Monitor) setPropCurrentMode(value ModeInfo) {
 	v.CurrentMode = value
 	v.emitPropChangedCurrentMode(value)
