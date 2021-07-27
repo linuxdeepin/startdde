@@ -56,7 +56,7 @@ func Test_getPlymouthTheme(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := getPlymouthTheme(tt.args.file)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 				return
 			}
 

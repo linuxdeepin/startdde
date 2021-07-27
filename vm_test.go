@@ -34,6 +34,6 @@ func TestGetProductType(t *testing.T) {
 func TestIsInVM(t *testing.T) {
 	t.Run("Test is in VM", func(t *testing.T) {
 		_, err := isInVM()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	})
 }

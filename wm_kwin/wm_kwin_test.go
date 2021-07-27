@@ -36,7 +36,7 @@ func Test_getWMSwitchLastWm(t *testing.T) {
 
 			gotLastWm, err := getWMSwitchLastWm()
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 				return
 			}
 

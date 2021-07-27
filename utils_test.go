@@ -41,7 +41,7 @@ func TestSyncFile(t *testing.T) {
 func TestGetDelayTime(t *testing.T) {
 	t.Run("Test desktop file autostart delay time", func(t *testing.T) {
 		delay, err := getDelayTime("./testdata/desktop/dde-file-manager.desktop")
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, 10*time.Second, delay)
 	})
 }

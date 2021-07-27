@@ -27,7 +27,7 @@ import (
 func TestLaunchGroup(t *testing.T) {
 	t.Run("Test launch groups", func(t *testing.T) {
 		lg, err := doLoadGroupFile("./testdata/auto_launch/auto_launch.json")
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, 2, lg.Len())
 		assert.True(t, lg.Less(0, 1))
 		lg.Swap(0, 1)
@@ -95,7 +95,7 @@ func Test_doLoadGroupFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := doLoadGroupFile(tt.args.filename)
 			if tt.wantErr {
-				assert.NotNil(t, err)
+				assert.Error(t, err)
 				return
 			}
 

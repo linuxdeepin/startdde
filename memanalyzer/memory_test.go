@@ -8,6 +8,6 @@ import (
 
 func Test_sumMemByFile(t *testing.T) {
 	sum, err := sumMemByFile("./testdata/proc_pid_status")
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, uint64(0x7080), sum)
 }
