@@ -57,6 +57,13 @@ const (
 )
 
 const (
+	// 1：自动旋转；即未主动调用 SetRotation() 接口（由内部触发）发生的旋转操作，如根据重力传感器自动设定旋转方向
+	RotationFinishModeAuto uint8 = iota + 1
+	// 2：手动旋转；即主动调用 SetRotation() 接口完成旋转，如控制中心下拉框方式旋转屏幕
+	RotationFinishModeManual
+)
+
+const (
 	priorityEDP = iota
 	priorityDP
 	priorityHDMI
@@ -77,9 +84,9 @@ var (
 
 var (
 	rotationScreenValue = map[string]uint16{
-		"normal" :  randr.RotationRotate0,
-		"left"   :  randr.RotationRotate270, // 屏幕重力旋转左转90
-		"right"  :  randr.RotationRotate90,  // 屏幕重力旋转右转90
+		"normal": randr.RotationRotate0,
+		"left":   randr.RotationRotate270, // 屏幕重力旋转左转90
+		"right":  randr.RotationRotate90,  // 屏幕重力旋转右转90
 	}
 )
 
@@ -2086,9 +2093,6 @@ func (m *Manager) startRotateScreen() {
 			logger.Warning("save rotation screen config.json failed:", err)
 		}
 
-		err1 := m.builtinMonitor.service.Emit(m.builtinMonitor, "RotateFinish", true)
-		if err1 != nil {
-			logger.Warning("emit RotateFinish failed:", err1)
-		}
+		m.builtinMonitor.setPropCurrentRotateMode(RotationFinishModeAuto)
 	}
 }

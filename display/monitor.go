@@ -43,16 +43,17 @@ type Monitor struct {
 	MmWidth        uint32
 	MmHeight       uint32
 
-	Enabled     bool
-	X           int16
-	Y           int16
-	Width       uint16
-	Height      uint16
-	Rotation    uint16
-	Reflect     uint16
-	RefreshRate float64
+	Enabled           bool
+	X                 int16
+	Y                 int16
+	Width             uint16
+	Height            uint16
+	Rotation          uint16
+	Reflect           uint16
+	RefreshRate       float64
+	CurrentRotateMode uint8
 
-	oldRotation uint16
+	oldRotation         uint16
 	latestRotationValue uint16
 
 	// dbusutil-gen: equal=nil
@@ -67,12 +68,6 @@ type Monitor struct {
 		SetReflect     func() `in:"value"`
 		SetRotation    func() `in:"value"`
 		SetRefreshRate func() `in:"value"`
-	}
-
-	signals *struct { //nolint
-		RotateFinish struct {
-			status bool
-		}
 	}
 }
 
@@ -263,6 +258,7 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 	m.markChanged()
 	m.setRotation(value)
 	m.m.touchScreenSetRotation(value, m.Name)
+	m.setPropCurrentRotateMode(RotationFinishModeManual)
 	return nil
 }
 
