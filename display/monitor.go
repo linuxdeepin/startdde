@@ -52,6 +52,7 @@ type Monitor struct {
 	Reflect     uint16
 	RefreshRate float64
 	Brightness  float64
+	CurrentRotateMode uint8
 
 	oldRotation         uint16
 
@@ -63,11 +64,6 @@ type Monitor struct {
 	colorTemperatureMode int32
 	// adjust color temperature by manual adjustment
 	colorTemperatureManual int32
-
-	signals *struct { //nolint
-		RotateFinish struct {
-		}
-	}
 }
 
 func (m *Monitor) String() string {
@@ -258,6 +254,7 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 	m.oldRotation = m.Rotation
 	m.markChanged()
 	m.setRotation(value)
+	m.setPropCurrentRotateMode(RotationFinishModeManual)
 	return nil
 }
 
