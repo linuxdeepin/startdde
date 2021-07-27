@@ -18,5 +18,4 @@ if [ "$1" = "/usr/bin/startdde" ]; then
     export QT_LOGGING_RULES="*.debug=false"
     export KWIN_COMPOSE="O2ES"
     export QT_XCB_NO_GRAB_SERVER=1
-    export LD_LIBRARY_PATH="/usr/lib/mali/;/usr/lib/aarch64-linux-gnu/"
 fi
