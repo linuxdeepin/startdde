@@ -1227,6 +1227,7 @@ func (m *Manager) apply(optionsSlice ...applyOptions) error {
 			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
 			err := m.disableCrtc(crtc, cfgTs)
 			if err != nil {
+				m.crtcMapMu.Unlock()
 				return err
 			}
 		}
