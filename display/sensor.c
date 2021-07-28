@@ -98,7 +98,11 @@ int get_input()
     for (i = 0; i < sizeof(dev) / sizeof(dev[0]); i++) {
         if (!strncmp("gsensor", dev[i].name, sizeof(dev[i].name))) {
             fd = dev[i].fd;
-            break;
+            continue;
+        }
+
+        if (dev[i].fd > 0) {
+            close(dev[i].fd);
         }
     }
     return fd;
