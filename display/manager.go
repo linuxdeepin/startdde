@@ -2072,5 +2072,8 @@ func (m *Manager) initSensor() {
 	}
 
 	initSensorListener()
-	setSensorListenerStatus(gs.GetBoolean("rotationislock"))
+	time.AfterFunc(time.Second * 10, func() {
+		logger.Debug("first setSensorListenerStatus after show Desktop")
+		setSensorListenerStatus(gs.GetBoolean("rotationislock"))
+	})
 }
