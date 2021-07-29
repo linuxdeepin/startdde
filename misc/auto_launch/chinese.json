@@ -44,13 +44,6 @@
         "Args": [
           "-d"
         ]
-      },
-      {
-        "Command": "/usr/bin/dde-desktop",
-        "Wait": false,
-        "Args": [
-          "--filedialog-only"
-        ]
       }
     ]
   }

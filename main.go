@@ -229,11 +229,13 @@ func launchCoreComponents(sm *SessionManager) {
 		launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
 			// 防止启动阻塞
 			// 启动 due-shell
-			go sm.launchWaitAux("due-shell", cmdDueShell, nil, 0, nil)
+			go sm.launchWaitAux("due-shell", cmdDueShell, nil, 1, nil)
 			// 启动 launcher
-			go sm.launchWaitAux("due-launcher", cmdDueLauncher, nil, 0, nil)
+			go sm.launchWaitAux("due-launcher", cmdDueLauncher, nil, 1, nil)
 			// 启动软键盘
-			go sm.launchWaitAux("due-im", cmdDueIm, nil, 0, nil)
+			go sm.launchWaitAux("due-im", cmdDueIm, nil, 1, func(bool) {
+				sm.launchWaitAux("dde-desktop", cmdDdeDesktop, []string{"--filedialog-only"}, 1, nil)
+			})
 		})
 	} else {
 		// 如果是桌面环境，先启动 dde-session-daemon，再启动 dde-dock

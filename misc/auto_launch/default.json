@@ -20,13 +20,6 @@
         "Command": "dde-session-daemon-part2",
         "Wait": true,
         "Args": []
-      },
-      {
-        "Command": "/usr/bin/dde-desktop",
-        "Wait": false,
-        "Args": [
-          "--filedialog-only"
-        ]
       }
     ]
   }
