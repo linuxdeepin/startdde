@@ -54,7 +54,6 @@ type Monitor struct {
 	CurrentRotateMode uint8
 
 	oldRotation         uint16
-	latestRotationValue uint16
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
