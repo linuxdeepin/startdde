@@ -96,13 +96,13 @@ type Manager struct {
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
-	PrimaryRect     x.Rectangle
-	ScreenWidth     uint16
-	ScreenHeight    uint16
-	primarysettings *gio.Settings
-	mutiMonitorsPos uint8
-        brightnessFailedCnt     map[string]int16
-        methods *struct {
+	PrimaryRect         x.Rectangle
+	ScreenWidth         uint16
+	ScreenHeight        uint16
+	primarysettings     *gio.Settings
+	mutiMonitorsPos     uint8
+	brightnessFailedCnt map[string]int16
+	methods             *struct {
 		AssociateTouch         func() `in:"outputName,touch"`
 		ChangeBrightness       func() `in:"raised"`
 		DeleteCustomMode       func() `in:"name"`
@@ -147,6 +147,34 @@ func (infos ModeInfos) Less(i, j int) bool {
 
 func (infos ModeInfos) Swap(i, j int) {
 	infos[i], infos[j] = infos[j], infos[i]
+}
+
+func (m *Manager) setResolutionCopyMode() (err error) {
+	logger.Debug("setResolutionCopyMode")
+	monitors := m.getConnectedMonitors()
+	commonSizes := getMonitorsCommonSizes(monitors)
+	if len(commonSizes) == 0 {
+		err = errors.New("not found common size")
+		return err
+	}
+	maxSize := getMaxAreaSize(commonSizes)
+	logger.Debug("max common size:", maxSize)
+	for _, monitor := range m.monitorMap {
+		if monitor.Connected {
+			monitor.enable(true)
+			var mode ModeInfo
+			mode, _ = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
+			monitor.setMode(mode)
+			monitor.setPosition(0, 0)
+			monitor.setRotation(randr.RotationRotate0)
+			monitor.setReflect(0)
+
+		} else {
+			monitor.enable(false)
+		}
+	}
+
+	return nil
 }
 
 func newManager(service *dbusutil.Service) *Manager {
@@ -209,17 +237,17 @@ func newManager(service *dbusutil.Service) *Manager {
 	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateScreenSize()
-    //m.config = loadConfig()
+	//m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
-        m.brightnessFailedCnt = make(map[string]int16)
+	m.brightnessFailedCnt = make(map[string]int16)
 	return m
 }
 
-func (m *Manager)tryBrightnessConnection() {
+func (m *Manager) tryBrightnessConnection() {
 	var flag bool = false
-	for i:=0; i<3; i++ {
+	for i := 0; i < 3; i++ {
 		brightness.RefreshDDCCI()
-		err:= m.initBrightness()
+		err := m.initBrightness()
 		if err == nil {
 			flag = true
 			break
@@ -301,7 +329,7 @@ func (m *Manager) listenDBusSignals() {
 			m.updateScreenSize()
 
 			if os.Getenv("SYS_PRODUCT_NAME") != "PN-WXX" {
-			    go m.tryBrightnessConnection()
+				go m.tryBrightnessConnection()
 			}
 			return
 		}
@@ -431,7 +459,7 @@ func (m *Manager) init() {
 		brightness.InitBacklightHelper()
 		m.initBrightness()
 		if m.settings.GetString(gsKeySetter) == "ddcci" {
-		    go m.tryBrightnessConnection()
+			go m.tryBrightnessConnection()
 		}
 	}
 	m.applyDisplayMode()
@@ -670,32 +698,9 @@ func (m *Manager) switchModeMirror() (err error) {
 	logger.Debug("switch mode mirror")
 	// screenCfg := m.getScreenConfig()
 	// configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
-	monitors := m.getConnectedMonitors()
-	commonSizes := getMonitorsCommonSizes(monitors)
-	if len(commonSizes) == 0 {
-		err = errors.New("not found common size")
-		return
-	}
-	maxSize := getMaxAreaSize(commonSizes)
-	logger.Debug("max common size:", maxSize)
-	for _, monitor := range m.monitorMap {
-		if monitor.Connected {
-			monitor.enable(true)
-			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
-			var mode ModeInfo
-			// if cfg != nil {
-			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-			// } else {
-			mode, _ = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
-			// }
-			monitor.setMode(mode)
-			monitor.setPosition(0, 0)
-			monitor.setRotation(randr.RotationRotate0)
-			monitor.setReflect(0)
-
-		} else {
-			monitor.enable(false)
-		}
+	err = m.setResolutionCopyMode()
+	if err != nil {
+		logger.Error(err)
 	}
 
 	err = m.apply()
@@ -1301,6 +1306,10 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	} else {
 		logger.Info("GetRealDisplayMode customDisplayModeMirror")
 		m.SetCustomDisplayMode(DisplayModeMirror)
+		err := m.setResolutionCopyMode()
+		if err != nil {
+			logger.Error(err)
+		}
 	}
 
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
@@ -1312,9 +1321,9 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	}
 
 	for _, monitor := range monitors {
-        	if m.Primary == monitor.Name {
-		   m.setMonitorPrimary(monitor)
-		   break
+		if m.Primary == monitor.Name {
+			m.setMonitorPrimary(monitor)
+			break
 		}
 	}
 	m.setPropCustomIdList(m.getCustomIdList())
