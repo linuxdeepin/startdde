@@ -37,11 +37,6 @@
 
 struct input_event;
 
-struct input_dev {
-    int fd;
-    char name[80];
-};
-
 struct sensor_axis {
     float x;
     float y;

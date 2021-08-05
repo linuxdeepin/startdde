@@ -55,20 +55,11 @@ int close_device(int fd)
 int get_input()
 {
     int fd = -1;
-    unsigned i;
-    static struct input_dev dev[255];
-
     const char *dirname = "/dev/input";
     char devname[PATH_MAX];
     char *filename;
     DIR *dir;
     struct dirent *de;
-
-    for (i = 0; i < sizeof(dev) / sizeof(dev[0]); i++) {
-        dev[i].fd = -1;
-        dev[i].name[0] = '\0';
-    }
-    i = 0;
 
     dir = opendir(dirname);
     if (dir == NULL)
@@ -86,25 +77,15 @@ int get_input()
         fd = open(devname, O_RDONLY);
         if (fd >= 0) {
             char name[80];
-            if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), &name) >= 1) {
-                dev[i].fd = fd;
-                strncpy(dev[i].name, name, sizeof(dev[i].name));
+            if (ioctl(fd, EVIOCGNAME(sizeof(name) - 1), &name) >= 1 && !strncmp("gsensor", name, sizeof(name))) {
+                break;
+            } else {
+                close(fd);
             }
         }
-        i++;
     }
     closedir(dir);
 
-    for (i = 0; i < sizeof(dev) / sizeof(dev[0]); i++) {
-        if (!strncmp("gsensor", dev[i].name, sizeof(dev[i].name))) {
-            fd = dev[i].fd;
-            continue;
-        }
-
-        if (dev[i].fd > 0) {
-            close(dev[i].fd);
-        }
-    }
     return fd;
 }
 
