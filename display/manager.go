@@ -2480,6 +2480,7 @@ func (m *Manager) listenRotateSignal() {
 		logger.Fatal(err)
 	}
 
+	var rotateScreenValue string
 	err = systemBus.BusObject().AddMatchSignal(sensorProxyInterface, sensorProxySignalName,
 		dbus.WithMatchObjectPath(dbus.ObjectPath(sensorProxyPath)), dbus.WithMatchSender(sensorProxyInterface)).Err
 	if err != nil {
@@ -2493,7 +2494,6 @@ func (m *Manager) listenRotateSignal() {
 		for {
 			select {
 			case sig := <-signalCh:
-				var rotateScreenValue string
 				if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
 					continue
 				}
