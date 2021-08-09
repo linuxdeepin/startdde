@@ -16,6 +16,14 @@ func (v *Monitor) setPropID(value uint32) (changed bool) {
 	return false
 }
 
+func (v *Monitor) setID(value uint32) (changed bool) {
+	if v.ID != value {
+		v.ID = value
+		return true
+	}
+	return false
+}
+
 func (v *Monitor) emitPropChangedID(value uint32) error {
 	return v.service.EmitPropertyChanged(v, "ID", value)
 }
@@ -24,6 +32,14 @@ func (v *Monitor) setPropName(value string) (changed bool) {
 	if v.Name != value {
 		v.Name = value
 		v.emitPropChangedName(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) setName(value string) (changed bool) {
+	if v.Name != value {
+		v.Name = value
 		return true
 	}
 	return false
@@ -68,6 +84,14 @@ func (v *Monitor) setPropConnected(value bool) (changed bool) {
 	return false
 }
 
+func (v *Monitor) setConnected(value bool) (changed bool) {
+	if v.Connected != value {
+		v.Connected = value
+		return true
+	}
+	return false
+}
+
 func (v *Monitor) emitPropChangedConnected(value bool) error {
 	return v.service.EmitPropertyChanged(v, "Connected", value)
 }
@@ -75,6 +99,10 @@ func (v *Monitor) emitPropChangedConnected(value bool) error {
 func (v *Monitor) setPropRotations(value []uint16) {
 	v.Rotations = value
 	v.emitPropChangedRotations(value)
+}
+
+func (v *Monitor) setRotations(value []uint16) {
+	v.Rotations = value
 }
 
 func (v *Monitor) emitPropChangedRotations(value []uint16) error {
@@ -95,6 +123,10 @@ func (v *Monitor) setPropBestMode(value ModeInfo) {
 	v.emitPropChangedBestMode(value)
 }
 
+func (v *Monitor) setBestMode(value ModeInfo) {
+	v.BestMode = value
+}
+
 func (v *Monitor) emitPropChangedBestMode(value ModeInfo) error {
 	return v.service.EmitPropertyChanged(v, "BestMode", value)
 }
@@ -102,6 +134,10 @@ func (v *Monitor) emitPropChangedBestMode(value ModeInfo) error {
 func (v *Monitor) setPropModes(value []ModeInfo) {
 	v.Modes = value
 	v.emitPropChangedModes(value)
+}
+
+func (v *Monitor) setModes(value []ModeInfo) {
+	v.Modes = value
 }
 
 func (v *Monitor) emitPropChangedModes(value []ModeInfo) error {
@@ -113,14 +149,23 @@ func (v *Monitor) setPropPreferredModes(value []ModeInfo) {
 	v.emitPropChangedPreferredModes(value)
 }
 
+func (v *Monitor) setPreferredModes(value []ModeInfo) {
+	v.PreferredModes = value
+}
+
 func (v *Monitor) emitPropChangedPreferredModes(value []ModeInfo) error {
 	return v.service.EmitPropertyChanged(v, "PreferredModes", value)
 }
 
 func (v *Monitor) setPropMmWidth(value uint32) (changed bool) {
+	v.MmWidth = value
+	v.emitPropChangedMmWidth(value)
+	return true
+}
+
+func (v *Monitor) setMmWidth(value uint32) (changed bool) {
 	if v.MmWidth != value {
 		v.MmWidth = value
-		v.emitPropChangedMmWidth(value)
 		return true
 	}
 	return false
@@ -131,9 +176,14 @@ func (v *Monitor) emitPropChangedMmWidth(value uint32) error {
 }
 
 func (v *Monitor) setPropMmHeight(value uint32) (changed bool) {
+	v.MmHeight = value
+	v.emitPropChangedMmHeight(value)
+	return true
+}
+
+func (v *Monitor) setMmHeight(value uint32) (changed bool) {
 	if v.MmHeight != value {
 		v.MmHeight = value
-		v.emitPropChangedMmHeight(value)
 		return true
 	}
 	return false
@@ -152,14 +202,27 @@ func (v *Monitor) setPropEnabled(value bool) (changed bool) {
 	return false
 }
 
+func (v *Monitor) setEnabled(value bool) (changed bool) {
+	if v.Enabled != value {
+		v.Enabled = value
+		return true
+	}
+	return false
+}
+
 func (v *Monitor) emitPropChangedEnabled(value bool) error {
 	return v.service.EmitPropertyChanged(v, "Enabled", value)
 }
 
 func (v *Monitor) setPropX(value int16) (changed bool) {
+	v.X = value
+	v.emitPropChangedX(value)
+	return true
+}
+
+func (v *Monitor) setX(value int16) (changed bool) {
 	if v.X != value {
 		v.X = value
-		v.emitPropChangedX(value)
 		return true
 	}
 	return false
@@ -169,39 +232,54 @@ func (v *Monitor) emitPropChangedX(value int16) error {
 	return v.service.EmitPropertyChanged(v, "X", value)
 }
 
-func (v *Monitor) setPropY(value int16) (changed bool) {
+func (v *Monitor) setY(value int16) (changed bool) {
 	if v.Y != value {
 		v.Y = value
-		v.emitPropChangedY(value)
 		return true
 	}
 	return false
+}
+
+func (v *Monitor) setPropY(value int16) (changed bool) {
+	v.Y = value
+	v.emitPropChangedY(value)
+	return true
 }
 
 func (v *Monitor) emitPropChangedY(value int16) error {
 	return v.service.EmitPropertyChanged(v, "Y", value)
 }
 
-func (v *Monitor) setPropWidth(value uint16) (changed bool) {
+func (v *Monitor) setWidth(value uint16) (changed bool) {
 	if v.Width != value {
 		v.Width = value
-		v.emitPropChangedWidth(value)
 		return true
 	}
 	return false
+}
+
+func (v *Monitor) setPropWidth(value uint16) (changed bool) {
+	v.Width = value
+	v.emitPropChangedWidth(value)
+	return true
 }
 
 func (v *Monitor) emitPropChangedWidth(value uint16) error {
 	return v.service.EmitPropertyChanged(v, "Width", value)
 }
 
-func (v *Monitor) setPropHeight(value uint16) (changed bool) {
+func (v *Monitor) setHeight(value uint16) (changed bool) {
 	if v.Height != value {
 		v.Height = value
-		v.emitPropChangedHeight(value)
 		return true
 	}
 	return false
+}
+
+func (v *Monitor) setPropHeight(value uint16) (changed bool) {
+	v.Height = value
+	v.emitPropChangedHeight(value)
+	return true
 }
 
 func (v *Monitor) emitPropChangedHeight(value uint16) error {
@@ -209,9 +287,14 @@ func (v *Monitor) emitPropChangedHeight(value uint16) error {
 }
 
 func (v *Monitor) setPropRotation(value uint16) (changed bool) {
+	v.Rotation = value
+	v.emitPropChangedRotation(value)
+	return true
+}
+
+func (v *Monitor) setRotationOnly(value uint16) (changed bool) {
 	if v.Rotation != value {
 		v.Rotation = value
-		v.emitPropChangedRotation(value)
 		return true
 	}
 	return false
@@ -243,6 +326,14 @@ func (v *Monitor) setPropRefreshRate(value float64) (changed bool) {
 	return false
 }
 
+func (v *Monitor) setRefreshRate(value float64) (changed bool) {
+	if v.RefreshRate != value {
+		v.RefreshRate = value
+		return true
+	}
+	return false
+}
+
 func (v *Monitor) emitPropChangedRefreshRate(value float64) error {
 	return v.service.EmitPropertyChanged(v, "RefreshRate", value)
 }
@@ -250,6 +341,10 @@ func (v *Monitor) emitPropChangedRefreshRate(value float64) error {
 func (v *Monitor) setPropCurrentMode(value ModeInfo) {
 	v.CurrentMode = value
 	v.emitPropChangedCurrentMode(value)
+}
+
+func (v *Monitor) setCurrentMode(value ModeInfo) {
+	v.CurrentMode = value
 }
 
 func (v *Monitor) emitPropChangedCurrentMode(value ModeInfo) error {
@@ -261,6 +356,10 @@ func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
 	v.emitPropChangedMonitors(value)
 }
 
+func (v *Manager) setMonitors(value []dbus.ObjectPath) {
+	v.Monitors = value
+}
+
 func (v *Manager) emitPropChangedMonitors(value []dbus.ObjectPath) error {
 	return v.service.EmitPropertyChanged(v, "Monitors", value)
 }
@@ -268,6 +367,10 @@ func (v *Manager) emitPropChangedMonitors(value []dbus.ObjectPath) error {
 func (v *Manager) setPropCustomIdList(value []string) {
 	v.CustomIdList = value
 	v.emitPropChangedCustomIdList(value)
+}
+
+func (v *Manager) setCustomIdList(value []string) {
+	v.CustomIdList = value
 }
 
 func (v *Manager) emitPropChangedCustomIdList(value []string) error {
@@ -283,14 +386,27 @@ func (v *Manager) setPropHasChanged(value bool) (changed bool) {
 	return false
 }
 
+func (v *Manager) setHasChanged(value bool) (changed bool) {
+	if v.HasChanged != value {
+		v.HasChanged = value
+		return true
+	}
+	return false
+}
+
 func (v *Manager) emitPropChangedHasChanged(value bool) error {
 	return v.service.EmitPropertyChanged(v, "HasChanged", value)
 }
 
 func (v *Manager) setPropDisplayMode(value byte) (changed bool) {
+	v.DisplayMode = value
+	v.emitPropChangedDisplayMode(value)
+	return true
+}
+
+func (v *Manager) setDisplayModeNoProp(value byte) (changed bool) {
 	if v.DisplayMode != value {
 		v.DisplayMode = value
-		v.emitPropChangedDisplayMode(value)
 		return true
 	}
 	return false
@@ -305,11 +421,20 @@ func (v *Manager) setPropBrightness(value map[string]float64) {
 	v.emitPropChangedBrightness(value)
 }
 
+func (v *Manager) setBrightness(value map[string]float64) {
+	v.Brightness = value
+}
+
 func (v *Manager) emitPropChangedBrightness(value map[string]float64) error {
 	return v.service.EmitPropertyChanged(v, "Brightness", value)
 }
 
 func (v *Manager) setPropTouchMap(value map[string]string) {
+	v.TouchMap = value
+	v.emitPropChangedTouchMap(value)
+}
+
+func (v *Manager) setTouchMap(value map[string]string) {
 	v.TouchMap = value
 	v.emitPropChangedTouchMap(value)
 }
@@ -332,9 +457,14 @@ func (v *Manager) emitPropChangedCurrentCustomId(value string) error {
 }
 
 func (v *Manager) setPropPrimary(value string) (changed bool) {
+	v.Primary = value
+	v.emitPropChangedPrimary(value)
+	return true
+}
+
+func (v *Manager) setPrimaryNoProp(value string) (changed bool) {
 	if v.Primary != value {
 		v.Primary = value
-		v.emitPropChangedPrimary(value)
 		return true
 	}
 	return false
@@ -349,14 +479,24 @@ func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
 	v.emitPropChangedPrimaryRect(value)
 }
 
+
+func (v *Manager) setPrimaryRectNoProp(value x.Rectangle) {
+	v.PrimaryRect = value
+}
+
 func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
 	return v.service.EmitPropertyChanged(v, "PrimaryRect", value)
 }
 
 func (v *Manager) setPropScreenWidth(value uint16) (changed bool) {
+	v.ScreenWidth = value
+	v.emitPropChangedScreenWidth(value)
+	return true
+}
+
+func (v *Manager) setScreenWidth(value uint16) (changed bool) {
 	if v.ScreenWidth != value {
 		v.ScreenWidth = value
-		v.emitPropChangedScreenWidth(value)
 		return true
 	}
 	return false
@@ -367,9 +507,14 @@ func (v *Manager) emitPropChangedScreenWidth(value uint16) error {
 }
 
 func (v *Manager) setPropScreenHeight(value uint16) (changed bool) {
+	v.ScreenHeight = value
+	v.emitPropChangedScreenHeight(value)
+	return true
+}
+
+func (v *Manager) setScreenHeight(value uint16) (changed bool) {
 	if v.ScreenHeight != value {
 		v.ScreenHeight = value
-		v.emitPropChangedScreenHeight(value)
 		return true
 	}
 	return false

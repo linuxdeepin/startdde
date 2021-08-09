@@ -1,10 +1,12 @@
 package display
 
 import (
+	"fmt"
 	"os"
 
 	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/strv"
 )
 
 func (m *Manager) GetInterfaceName() string {
@@ -41,6 +43,10 @@ func (m *Manager) SwitchMode(mode byte, name string) *dbus.Error {
 	if !m.canSwitchMode() {
 		logger.Info("Forbidden to switch mode")
 		return dbusutil.MakeError(m, "Forbidden to switch mode")
+	}
+
+	if len(m.getConnectedMonitors()) < 2 {
+		return dbusutil.MakeError(m, "no enough connected monitors for switch mode")
 	}
 
 	err := m.switchMode(mode, name)
@@ -141,4 +147,53 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 
 func (m *Manager) CanSwitchMode() (bool, *dbus.Error) {
 	return m.canSwitchMode(), nil
+}
+
+func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
+	monitors := m.getConnectedMonitors()
+
+	mode := DisplayModeUnknow
+	var pairs strv.Strv
+	for _, m := range monitors {
+		if !m.Enabled {
+			continue
+		}
+
+		pair := fmt.Sprintf("%d,%d", m.X, m.Y)
+
+		// 左上角座标相同，是复制
+		if pairs.Contains(pair) {
+			mode = DisplayModeMirror
+		}
+
+		pairs = append(pairs, pair)
+	}
+
+	if mode == DisplayModeUnknow && len(pairs) != 0 {
+		if len(pairs) == 1 {
+			mode = DisplayModeOnlyOne
+		} else {
+			mode = DisplayModeExtend
+		}
+	}
+
+	return mode, nil
+}
+
+func (m *Manager) GetCustomDisplayMode() (uint8, *dbus.Error) {
+	realMode, _ :=  m.GetRealDisplayMode()
+	mode := m.customDisplayMode
+	if realMode != DisplayModeOnlyOne {
+		if realMode != mode {
+			mode = realMode
+		}
+	}
+	return mode, nil
+}
+
+func (m *Manager) SetCustomDisplayMode(mode uint8) *dbus.Error {
+	m.customDisplayMode = mode
+	m.settings.SetInt("custom-display-mode", int32(mode))
+	logger.Debug("custom display mode ", m.customDisplayMode)
+	return nil
 }

@@ -294,6 +294,11 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeInt,
 		xsKey:  "DTK/WindowRadius",
 	},
+	{
+		gsKey:  "primary-monitor-name",
+		gsType: gsKeyTypeString,
+		xsKey:  "Gdk/PrimaryMonitorName",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
