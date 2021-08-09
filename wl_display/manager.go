@@ -28,7 +28,16 @@ const (
 	DisplayModeMirror
 	DisplayModeExtend
 	DisplayModeOnlyOne
+	DisplayModeMirrorOnlyOne
+	DisplayModeExtendOnlyOne
 	DisplayModeUnknow
+)
+
+const (
+	MonitorsLeftRight uint8 = iota
+	MonitorsUpDown
+	MonitorsDiagonal
+	MonitorsUnknow
 )
 
 const (
@@ -42,6 +51,15 @@ const (
 
 	customModeDelim     = "+"
 	monitorsIdDelimiter = ","
+)
+
+const (
+	gsSchemaxsettings = "com.deepin.xsettings" //"com.deepin.xsettings"
+)
+
+const (
+	gsSchemaClCenter = "com.deepin.dde.control-center"
+	gsKeyClCenter    = "effect-load"
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
@@ -58,10 +76,13 @@ type Manager struct {
 	monitorMap           map[uint32]*Monitor
 	monitorMapMu         sync.Mutex
 	settings             *gio.Settings
+	cSettings            *gio.Settings
 	monitorsId           string
 	mig                  *monitorIdGenerator
+	systemName           string
 
 	sessionSigLoop *dbusutil.SignalLoop
+	systemSigLoop  *dbusutil.SignalLoop
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -69,6 +90,7 @@ type Manager struct {
 	CustomIdList []string
 	HasChanged   bool
 	DisplayMode  byte
+	customDisplayMode uint8
 	// dbusutil-gen: equal=nil
 	Brightness map[string]float64
 	// dbusutil-gen: equal=nil
@@ -79,6 +101,27 @@ type Manager struct {
 	PrimaryRect  x.Rectangle
 	ScreenWidth  uint16
 	ScreenHeight uint16
+	primarysettings *gio.Settings
+	mutiMonitorsPos uint8
+
+	methods *struct {
+		AssociateTouch         func() `in:"outputName,touch"`
+		ChangeBrightness       func() `in:"raised"`
+		DeleteCustomMode       func() `in:"name"`
+		GetBrightness          func() `out:"values"`
+		ListOutputNames        func() `out:"names"`
+		ListOutputsCommonModes func() `out:"modes"`
+		ModifyConfigName       func() `in:"name,newName"`
+		SetAndSaveBrightness   func() `in:"outputName,value"`
+		SetBrightness          func() `in:"outputName,value"`
+		SetPrimary             func() `in:"outputName"`
+		SwitchMode             func() `in:"mode,name"`
+		CanRotate              func() `out:"can"`
+		CanSwitchMode          func() `out:"can"`
+		GetRealDisplayMode     func() `out:"mode"`
+		GetCustomDisplayMode   func() `out:"mode"`
+		SetCustomDisplayMode   func() `in:"mode"`
+	}
 }
 
 type ModeInfo struct {
@@ -120,15 +163,20 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 
 	m.settings = gio.NewSettings(gsSchemaDisplay)
+	m.primarysettings = gio.NewSettings(gsSchemaxsettings)
 	m.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
 	if m.DisplayMode == DisplayModeUnknow {
 		m.DisplayMode = DisplayModeMirror
 	}
+
+	m.customDisplayMode = uint8(m.settings.GetInt("custom-display-mode"))
 	m.CurrentCustomId = m.settings.GetString(gsKeyCustomMode)
 
+	m.config = loadConfig()
 	sessionBus := service.Conn()
 	m.management = kwayland.NewOutputManagement(sessionBus)
 	m.mig = newMonitorIdGenerator()
+	m.mutiMonitorsPos = MonitorsUnknow
 
 	outputInfos, err := m.listOutput()
 	if err != nil {
@@ -143,18 +191,39 @@ func newManager(service *dbusutil.Service) *Manager {
 		m.updatePropMonitors()
 	}
 
+	m.initPrimary()
 	m.sessionSigLoop = dbusutil.NewSignalLoop(sessionBus, 10)
 	m.sessionSigLoop.Start()
 	m.listenDBusSignals()
+
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		return nil
+	}
+	m.systemSigLoop = dbusutil.NewSignalLoop(sysBus, 10)
+	m.systemSigLoop.Start()
+	m.systemName = m.getSystemInfo(sysBus)
 
 	m.monitorsId = m.getMonitorsId()
 	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
 	m.recommendScaleFactor = m.calcRecommendedScaleFactor()
 	m.updateScreenSize()
 
-	m.config = loadConfig()
+	//m.config = loadConfig()
 	m.CustomIdList = m.getCustomIdList()
 	return m
+}
+
+func (m *Manager) getSystemInfo(systemBus *dbus.Conn) string {
+	var productName string
+	obj := systemBus.Object("com.deepin.system.SystemInfo", "/com/deepin/system/SystemInfo")
+	err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.deepin.system.SystemInfo",
+		"ProductName").Store(&productName)
+	if err != nil {
+		logger.Warning(err)
+		return ""
+	}
+	return productName
 }
 
 func (m *Manager) listenDBusSignals() {
@@ -184,26 +253,19 @@ func (m *Manager) listenDBusSignals() {
 	}
 
 	_, err = m.management.ConnectOutputChanged(func(output string) {
-		outputInfo, err := unmarshalOutputInfo(output)
+		kinfo, err := unmarshalOutputInfo(output)
 		if err != nil {
 			logger.Warning(err)
 			return
 		}
 
-		// somethimes the wloutput data unready, so sleep 800ms
-		// TODO(jouyouyun): remove in future if dde-wloutput-daemon work fine.
-		time.Sleep(time.Millisecond * 800)
-
-		// Workaround, because sometimes the output changed info not contains all props value.
-		// TODO: Remove in future
-		kinfo, err := newKOutputInfoByUUID(outputInfo.Uuid)
-		if err != nil {
-			logger.Info("Failed to make KOutputInfo:", outputInfo.Uuid)
-			return
-		}
-		logger.Debugf("OutputChanged %#v", kinfo)
+		logger.Infof("display: OutputChanged %#v", kinfo)
+		kinfo.Edid = kinfo.Edid
 
 		monitorId := m.mig.getId(kinfo.Uuid)
+		if needSwapWidthHeight(kinfo.rotation()) {
+			kinfo.Width, kinfo.Height = kinfo.Height, kinfo.Width
+		}
 
 		monitor := m.monitorMap[monitorId]
 		if monitor == nil {
@@ -219,8 +281,9 @@ func (m *Manager) listenDBusSignals() {
 			m.updateScreenSize()
 			return
 		}
-
-		m.updateMonitor(monitor, kinfo)
+		if m.checkKwinMonitorData(monitor, kinfo) == true {
+			m.updateMonitor(monitor, kinfo)
+		}
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -251,6 +314,18 @@ func (m *Manager) listenDBusSignals() {
 	}
 }
 
+func (m *Manager) checkKwinMonitorData(monitor *Monitor, outputInfo *KOutputInfo) bool {
+	if monitor.Enabled == false || (monitor.X == int16(outputInfo.X) && monitor.Y == int16(outputInfo.Y) &&
+		monitor.Width == uint16(outputInfo.Width) && monitor.Height == uint16(outputInfo.Height)) {
+		return true
+	} else {
+		logger.Warning("kwin data error [monitor uuid]: ", outputInfo.Uuid)
+		m.apply()
+	}
+
+	return false
+}
+
 func (m *Manager) updateMonitorsId() {
 	oldMonitorsId := m.monitorsId
 	newMonitorsId := m.getMonitorsId()
@@ -265,6 +340,10 @@ func (m *Manager) updateMonitorsId() {
 func (m *Manager) applyDisplayMode() {
 	logger.Debug("applyDisplayMode")
 	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		logger.Warning("no monitors apply")
+		return
+	}
 	var err error
 	if len(monitors) == 1 {
 		// 单屏
@@ -307,6 +386,11 @@ func (m *Manager) applyDisplayMode() {
 	case DisplayModeOnlyOne:
 		err = m.switchModeOnlyOne("")
 	}
+	if err == nil {
+		m.setDisplayMode(m.DisplayMode)
+	} else {
+		logger.Warningf("failed to switch mode %v %v", m.DisplayMode, err)
+	}
 
 out:
 	if err != nil {
@@ -321,6 +405,25 @@ func (m *Manager) init() {
 	m.initTouchMap()
 
 	m.addSleepMonitor()
+}
+
+func (m *Manager) initMiniEffect() {
+	isMagic := m.cSettings.GetBoolean(gsKeyClCenter)
+	logger.Debug("+++++ initMiniEffect Get Key effect-load:", isMagic)
+	if isMagic {
+		effbus, err := dbus.SessionBus()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		effObj := effbus.Object("org.kde.KWin", "/Effects")
+		var effectReturn bool
+		err = effObj.Call("org.kde.kwin.Effects.loadEffect", 0, "magiclamp").Store(&effectReturn)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+	}
 }
 
 func (m *Manager) addSleepMonitor() {
@@ -600,6 +703,9 @@ func (m *Manager) switchModeMirror() (err error) {
 			return
 		}
 	}
+
+	//save config
+	m.setPrimarySettings(monitor0.Name)
 	return
 }
 
@@ -635,7 +741,7 @@ func (m *Manager) switchModeMirror() (err error) {
 //}
 
 func (m *Manager) apply() error {
-	// TODO: remove in future
+	m.AdjustPositonAfterSetMode()
 	return m.applyByWLOutput()
 
 	// var outputInfos []*KOutputInfo
@@ -792,12 +898,22 @@ func (m *Manager) apply() error {
 //}
 
 func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
-	logger.Debug("[setMonitorPrimary] will set primary:", monitor.Name)
 	rect := monitor.getRect()
 	m.PropsMu.Lock()
 	m.setPropPrimary(monitor.Name)
 	m.setPropPrimaryRect(rect)
 	m.PropsMu.Unlock()
+	m.setPrimarySettings(monitor.Name)
+	return nil
+}
+
+func (m *Manager) setMonitorPrimaryNoProp(monitor *Monitor) error {
+	rect := monitor.getRect()
+	m.PropsMu.Lock()
+	m.setPrimaryNoProp(monitor.Name)
+	m.setPrimaryRectNoProp(rect)
+	m.PropsMu.Unlock()
+	m.setPrimarySettings(monitor.Name)
 	return nil
 }
 
@@ -915,6 +1031,7 @@ func (m *Manager) setPrimary(name string) error {
 		if err != nil {
 			return err
 		}
+		m.setPrimarySettings(monitor0.Name)
 
 	default:
 		return fmt.Errorf("invalid display mode %v", m.DisplayMode)
@@ -929,36 +1046,43 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		monitors = append(monitors, monitor)
 	}
 	sortMonitorsByID(monitors)
-	// screenCfg := m.getScreenConfig()
-	// configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
+	screenCfg := m.getScreenConfig()
+	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
 
-	var xOffset int
+	var xOffset int = 0
 	var monitor0 *Monitor
 	for _, monitor := range monitors {
 		if monitor.Connected {
 			monitor.enable(true)
 
-			// cfg := getMonitorConfigByUuid(configs, monitor.uuid)
-			// if cfg != nil {
-			// mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
-			// if monitor0 == nil && cfg.Primary {
-			// monitor0 = monitor
-			// }
+			cfg := getMonitorConfigByUuid(configs, monitor.uuid)
+			var mode ModeInfo
+			if cfg != nil {
+				mode = monitor.selectMode(cfg.Width, cfg.Height, cfg.RefreshRate)
+				if monitor0 == nil && cfg.Primary {
+					monitor0 = monitor
+				}
 
-			// } else {
-			mode := monitor.BestMode
-			// }
+			} else {
+				mode = monitor.BestMode
+			}
 
 			monitor.setMode(mode)
 
-			if xOffset > math.MaxInt16 {
-				xOffset = math.MaxInt16
+			if cfg != nil {
+				monitor.setPosition(cfg.X, 0)
+				logger.Debug("setPosition from config ", cfg.X)
+			} else {
+				if xOffset > math.MaxInt16 {
+					xOffset = math.MaxInt16
+				}
+				logger.Debug("setPosition ---- sxOffset", xOffset)
+				monitor.setPosition(int16(xOffset), 0)
+				xOffset += int(monitor.Width)
 			}
-			monitor.setPosition(int16(xOffset), 0)
 			monitor.setRotation(randr.RotationRotate0)
 			monitor.setReflect(0)
 
-			xOffset += int(monitor.Width)
 		} else {
 			monitor.enable(false)
 		}
@@ -986,6 +1110,7 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		if err != nil {
 			return
 		}
+		m.setPrimarySettings(monitor0.Name)
 	}
 
 	return
@@ -1114,7 +1239,18 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
 	if len(configs) > 0 {
+		// switch monitor should reset displaymode for centercontrl
 		err = m.applyConfigs(configs)
+		realMode, _ := m.GetRealDisplayMode()
+		if realMode == DisplayModeExtend {
+			logger.Info("applyConfigs GetRealDisplayMode DisplayModeExtend")
+			m.SetCustomDisplayMode(DisplayModeExtend)
+		} else if realMode == DisplayModeOnlyOne {
+			logger.Info("GetRealDisplayMode DisplayModeOnlyOne")
+		} else {
+			logger.Info("applyConfigs GetRealDisplayMode DisplayModeMirror")
+			m.SetCustomDisplayMode(DisplayModeMirror)
+		}
 		return
 	}
 
@@ -1141,6 +1277,17 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		}
 	}
 
+	realMode, _ := m.GetRealDisplayMode()
+	if realMode == DisplayModeExtend {
+		logger.Info("GetRealDisplayMode custormDisplayModeExtend")
+		m.SetCustomDisplayMode(DisplayModeExtend)
+	} else if realMode == DisplayModeOnlyOne {
+		logger.Info("GetRealDisplayMode DisplayModeOnlyOne")
+	} else {
+		logger.Info("GetRealDisplayMode customDisplayModeMirror")
+		m.SetCustomDisplayMode(DisplayModeMirror)
+	}
+
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
 		toMonitorConfigs(m.getConnectedMonitors(), m.Primary))
 
@@ -1148,11 +1295,20 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	if err != nil {
 		return
 	}
+	m.setPrimarySettings(m.Primary)
 	m.setPropCustomIdList(m.getCustomIdList())
 	return
 }
 
 func (m *Manager) switchMode(mode byte, name string) (err error) {
+	if mode == m.DisplayMode {
+		return
+	}
+
+	if len(m.getConnectedMonitors()) < 2 {
+		return errors.New("no enough connected monitors for switch mode")
+	}
+
 	switch mode {
 	case DisplayModeMirror:
 		err = m.switchModeMirror()
@@ -1174,7 +1330,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	} else {
 		logger.Warningf("failed to switch mode %v %v: %v", mode, name, err)
 	}
-	return
+	return err
 }
 
 func (m *Manager) setDisplayMode(mode byte) {
@@ -1277,6 +1433,8 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 	if err != nil {
 		return err
 	}
+	//save primary to config
+	m.setPrimarySettings(primaryMonitor.Name)
 	return nil
 }
 
@@ -1532,4 +1690,182 @@ func (m *Manager) canSwitchMode() bool {
 
 func isInSwitchModeBlacklist(manu, model string) bool {
 	return strings.Contains(manu, "HAT") && strings.Contains(model, "Kamvas")
+}
+
+func (m *Manager) setPrimarySettings(name string) error {
+	if name == m.primarysettings.GetString("primary-monitor-name") {
+		logger.Debug("primary-monitor-name:", name)
+		return nil
+	}
+
+	m.primarysettings.SetString("primary-monitor-name", name)
+	return nil
+}
+
+//update Monitors and monitorMap
+func (m *Manager) AdjustPositonAfterSetMode() Monitors {
+	monitors := m.getConnectedMonitors()
+	var SecondRect x.Rectangle
+	var PrimaryRect x.Rectangle = m.PrimaryRect
+	//two screen enable
+	if m.DisplayMode != DisplayModeCustom {
+		logger.Debug("it's no DisplayModeCustom mode.")
+		return nil
+	}
+	//one screen enable
+	if m.DisplayMode == DisplayModeCustom {
+		mode, _ := m.GetRealDisplayMode()
+		if mode != DisplayModeExtend {
+			return nil
+		}
+	}
+	// set two monitor's x,y,width,heigth then to adjust
+	for _, t := range monitors {
+		logger.Debug("monitor name:", t.Name)
+		if t.Name == m.Primary {
+			PrimaryRect.X = t.X
+			PrimaryRect.Y = t.Y
+			PrimaryRect.Width = t.CurrentMode.Width
+			PrimaryRect.Height = t.CurrentMode.Height
+
+			if needSwapWidthHeight(t.Rotation) {
+				PrimaryRect.Width, PrimaryRect.Height = PrimaryRect.Height, PrimaryRect.Width
+				logger.Debug("setRotationNoProp 90/270", PrimaryRect.Width, PrimaryRect.Height)
+			}
+			logger.Debug("[AdjustPositonAfterSetMode before] PrimaryRect:", PrimaryRect.X, PrimaryRect.Y, PrimaryRect.Width, PrimaryRect.Height)
+		} else {
+			SecondRect.X = t.X
+			SecondRect.Y = t.Y
+			SecondRect.Width = t.CurrentMode.Width
+			SecondRect.Height = t.CurrentMode.Height
+			if needSwapWidthHeight(t.Rotation) {
+				SecondRect.Width, SecondRect.Height = SecondRect.Height, SecondRect.Width
+				logger.Debug("setRotationNoProp 90/270", SecondRect.Width, SecondRect.Height)
+			}
+			logger.Debug("[AdjustPositonAfterSetMode before] SecondRect:", SecondRect.X, SecondRect.Y, SecondRect.Width, SecondRect.Height)
+
+		}
+	}
+
+	rectP, rectS, err := m.bestMovePosition(PrimaryRect, SecondRect)
+	if err != nil {
+		logger.Debug("[bestMovePosition] error!")
+	}
+
+	//save to monitormap
+	for _, t := range monitors {
+		if t.Name == m.Primary {
+			t.PropsMu.Lock()
+			t.X = int16(rectP.X)
+			t.Y = int16(rectP.Y)
+			t.Width = uint16(rectP.Width)
+			t.Height = uint16(rectP.Height)
+			logger.Debug("PrimaryScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		} else {
+			t.PropsMu.Lock()
+			t.X = int16(rectS.X)
+			t.Y = int16(rectS.Y)
+			t.Width = uint16(rectS.Width)
+			t.Height = uint16(rectS.Height)
+			logger.Debug("SecondScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		}
+		logger.Debug("monitor:", t)
+	}
+
+	for _, t := range m.monitorMap {
+		if t.Name == m.Primary {
+			t.PropsMu.Lock()
+			t.X = int16(rectP.X)
+			t.Y = int16(rectP.Y)
+			t.Width = uint16(rectP.Width)
+			t.Height = uint16(rectP.Height)
+			logger.Debug("PrimaryScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		} else {
+			t.PropsMu.Lock()
+			t.X = int16(rectS.X)
+			t.Y = int16(rectS.Y)
+			t.Width = uint16(rectS.Width)
+			t.Height = uint16(rectS.Height)
+			logger.Debug("SecondScreen Position:", t.X, t.Y, t.Width, t.Height)
+			t.PropsMu.Unlock()
+		}
+		logger.Debug("monitorMap:", t)
+	}
+	return monitors
+
+}
+
+func (m *Manager) initPrimary() {
+	logger.Info("initPrimary-get mode", m.DisplayMode)
+	var find bool = false
+	var defaultName string = ""
+	var builtInName string = ""
+	var vgaName string = ""
+	var hdmiName string = ""
+	m.Primary = m.primarysettings.GetString("primary-monitor-name")
+	logger.Debug("primary==>", m.Primary)
+	monitors := m.getConnectedMonitors()
+	for _, monitor := range monitors {
+		if monitor.Name == m.Primary {
+			find = true
+			logger.Debug("primary==>same", m.Primary)
+			break
+		}
+		name := strings.ToLower(monitor.Name)
+		if strings.HasPrefix(name, "hdmi") {
+			hdmiName = monitor.Name
+		} else if strings.HasPrefix(name, "vga") {
+			vgaName = monitor.Name
+		} else if strings.HasPrefix(name, "edp") {
+			builtInName = monitor.Name
+		} else {
+			defaultName = monitor.Name
+		}
+	}
+	if find == false {
+		if builtInName != "" {
+			m.Primary = defaultName
+		} else if hdmiName != "" {
+			m.Primary = hdmiName
+		} else if vgaName != "" {
+			m.Primary = vgaName
+		} else {
+			m.Primary = defaultName
+		}
+		logger.Debug("PrimaryName==>", m.Primary)
+	}
+	return
+}
+
+func (m *Manager) getMonitorsPosition() uint8 {
+	monitors := m.getConnectedMonitors()
+	pos := MonitorsLeftRight
+	var secondRec, firstRec x.Rectangle
+	//暂不考虑仅单屏的形式
+	for i, t := range monitors {
+		if i == 0 {
+			firstRec.X = t.X
+			firstRec.Y = t.Y
+			firstRec.Width = t.Width
+			firstRec.Height = t.Height
+
+		} else {
+			secondRec.X = t.X
+			secondRec.Y = t.Y
+			secondRec.Width = t.Width
+			secondRec.Height = t.Height
+		}
+	}
+	if firstRec.Y == secondRec.Y || firstRec.Y+int16(firstRec.Height) == secondRec.Y+int16(secondRec.Height) { //上对齐和下对齐
+		pos = MonitorsLeftRight
+	} else if firstRec.X == secondRec.X || firstRec.X+int16(firstRec.Width) == secondRec.X+int16(secondRec.Width) { //左对齐和右对齐
+		pos = MonitorsUpDown
+	} else {
+		pos = MonitorsDiagonal
+	}
+	logger.Debug("========position is======= :", pos)
+	return pos
 }

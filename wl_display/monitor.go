@@ -22,6 +22,7 @@ type Monitor struct {
 	service *dbusutil.Service
 	//crtc    randr.Crtc
 	uuid    string
+	edid    string //base64编码
 	PropsMu sync.RWMutex
 
 	ID           uint32
@@ -54,6 +55,7 @@ type Monitor struct {
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
+	modeSetFlag  uint8 // 自定义单屏模式保存
 
 	model        string
 	manufacturer string
@@ -97,6 +99,32 @@ func (m *Monitor) Enable(enabled bool) *dbus.Error {
 	}
 
 	m.markChanged()
+	if enabled == true {
+		if m.modeSetFlag == DisplayModeExtendOnlyOne {
+			m.modeSetFlag = DisplayModeCustom
+			logger.Debug("Enable DisplayModeExtendOnlyOne->DisplayModeCustom ", m.modeSetFlag)
+
+		}
+		if m.modeSetFlag == DisplayModeMirrorOnlyOne {
+			m.modeSetFlag = DisplayModeCustom
+			logger.Debug("Enable DisplayModeMirrorOnlyOne->DisplayModeCustom ", m.modeSetFlag)
+		}
+
+	}
+	if enabled == false {
+
+		if m.m.DisplayMode == DisplayModeCustom {
+			a, _ := m.m.GetRealDisplayMode()
+			if a == DisplayModeExtend {
+				m.modeSetFlag = DisplayModeExtendOnlyOne
+				logger.Debug("Disable DisplayModeCustom->DisplayModeExtendOnlyOne ", m.modeSetFlag)
+			}
+			if a == DisplayModeMirror {
+				m.modeSetFlag = DisplayModeMirrorOnlyOne
+				logger.Debug("Disable DisplayModeCustom->DisplayModeMirrorOnlyOne ", m.modeSetFlag)
+			}
+		}
+	}
 	m.enable(enabled)
 	return nil
 }
@@ -124,9 +152,28 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 		return dbusutil.ToError(fmt.Errorf("invalid mode id %d", mode))
 	}
 
+	m.m.mutiMonitorsPos = m.m.getMonitorsPosition()
 	m.markChanged()
-	m.setMode(newMode)
+	m.setModeNoProp(newMode)
 	return nil
+}
+
+
+func (m *Monitor) setModeNoProp(mode ModeInfo) {
+	m.PropsMu.Lock()
+	m.setCurrentMode(mode)
+
+	width := mode.Width
+	height := mode.Height
+
+	if needSwapWidthHeight(m.Rotation) {
+		width, height = height, width
+	}
+
+	m.setWidth(width)
+	m.setHeight(height)
+	m.setRefreshRate(mode.Rate)
+	m.PropsMu.Unlock()
 }
 
 func (m *Monitor) setMode(mode ModeInfo) {
@@ -212,7 +259,22 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	}
 
 	m.markChanged()
-	m.setPosition(X, y)
+	m.PropsMu.Lock()
+	m.setX(X)
+	m.setY(y)
+	m.PropsMu.Unlock()
+	mode, _ := m.m.GetRealDisplayMode()
+	if mode == DisplayModeOnlyOne {
+		if X == 0 && y == 0 {
+			m.modeSetFlag = DisplayModeMirrorOnlyOne
+		} else {
+			m.modeSetFlag = DisplayModeExtendOnlyOne
+		}
+
+	}
+	m.m.mutiMonitorsPos = MonitorsUnknow
+
+	//m.setPosition(X, y)
 	return nil
 }
 
@@ -243,8 +305,31 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 		return nil
 	}
 	m.markChanged()
-	m.setRotation(value)
+	m.setRotationNoProp(value)
 	return nil
+}
+
+func (m *Monitor) setRotationNoProp(value uint16) {
+	m.PropsMu.Lock()
+	width := m.CurrentMode.Width
+	height := m.CurrentMode.Height
+
+	if needSwapWidthHeight(value) {
+		width, height = height, width
+		for _, t := range m.m.monitorMap {
+			if t.Name == m.Name {
+				t.Width = uint16(width)
+				t.Height = uint16(height)
+				logger.Debug("setRotationNoProp 90/270", t.Width, t.Height)
+
+			}
+		}
+	}
+
+	m.setRotationOnly(value)
+	m.setWidth(width)
+	m.setHeight(height)
+	m.PropsMu.Unlock()
 }
 
 func (m *Monitor) setRotation(value uint16) {
