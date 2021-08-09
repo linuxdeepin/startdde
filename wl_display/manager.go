@@ -72,6 +72,7 @@ type Manager struct {
 	config               Config
 	recommendScaleFactor float64
 	monitorMap           map[uint32]*Monitor
+	brightnessMapMu      sync.Mutex
 	monitorMapMu         sync.Mutex
 	settings             *gio.Settings
 	cSettings            *gio.Settings

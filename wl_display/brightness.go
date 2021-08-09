@@ -44,8 +44,9 @@ func (m *Manager) saveBrightness() {
 		logger.Info("[saveBrightness] object invalid, not save...")
 		return
 	}
-
+	m.brightnessMapMu.Lock()
 	jsonStr := jsonMarshal(m.Brightness)
+	m.brightnessMapMu.Unlock()
 	logger.Info("[saveBrightness] gsettings set:", m.settings, gsKeyBrightness, jsonStr)
 	m.settings.SetString(gsKeyBrightness, jsonStr)
 }
@@ -79,7 +80,10 @@ func (m *Manager) changeBrightness(raised bool) error {
                 if monitor.Enabled == false {
 		    continue
 		} 
+		m.brightnessMapMu.Lock()
 		v, ok := m.Brightness[monitor.Name]
+		m.brightnessMapMu.Unlock()
+
 		if !ok {
 			v = 1.0
 		}
@@ -202,14 +206,19 @@ func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name 
 	}
 
 	value = br
+	m.brightnessMapMu.Lock()
 	oldValue := m.Brightness[name]
+	m.brightnessMapMu.Unlock()
 	if oldValue == value {
 		return nil
 	}
 
 	// update brightness of the output
+	m.brightnessMapMu.Lock()
 	m.Brightness[name] = value
 	err := m.emitPropChangedBrightness(m.Brightness)
+	m.brightnessMapMu.Unlock()
+
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -260,7 +269,10 @@ func (m *Manager) initBrightness() error {
 		}
 	}
 	var lightSet = false
+	m.brightnessMapMu.Lock()
 	m.Brightness = brightnessTable
+	m.brightnessMapMu.Unlock()
+
 	for name, v := range brightnessTable {
 		// set the saved brightness
 		if m.isConnected(name) {
@@ -327,8 +339,9 @@ func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) erro
 			return err
 		}
 	}
-
 	// update brightness of the output
+	m.brightnessMapMu.Lock()
+	defer m.brightnessMapMu.Unlock()
 	m.Brightness[name] = value
 	err := m.emitPropChangedBrightness(m.Brightness)
 	if err != nil {

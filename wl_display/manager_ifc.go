@@ -68,6 +68,8 @@ func (m *Manager) ChangeBrightness(raised bool) *dbus.Error {
 }
 
 func (m *Manager) GetBrightness() (map[string]float64, *dbus.Error) {
+	m.brightnessMapMu.Lock()
+        defer m.brightnessMapMu.Unlock()
 	return m.Brightness, nil
 }
 
@@ -105,6 +107,7 @@ func (m *Manager) DeleteCustomMode(name string) *dbus.Error {
 }
 
 func (m *Manager) RefreshBrightness() *dbus.Error {
+  //TODO  为保持代码逻辑，此处的亮度暂不加锁
 	for k, v := range m.Brightness {
 		err := m.doSetBrightness(v, k)
 		if err != nil {
@@ -133,7 +136,9 @@ func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.E
 	var br float64
 	var err error
 	//规避klu上rt背光芯片在低亮度下设置出现频闪问题,将调节步长设置为0.004,并在0.1 -0.3亮度区间采用多次调节
+	m.brightnessMapMu.Lock()
 	v, ok := m.Brightness[outputName]
+	m.brightnessMapMu.Unlock()
 	if !ok {
 		v = 1.0
 	}
