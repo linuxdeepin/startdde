@@ -7,10 +7,8 @@ export GO111MODULE=off
 all: build
 
 prepare:
-	@if [ ! -d ${GOPATH_DIR}/src/${GOPKG_PREFIX} ]; then \
-		mkdir -p ${GOPATH_DIR}/src/$(dir ${GOPKG_PREFIX}); \
-		ln -sf ../../../.. ${GOPATH_DIR}/src/${GOPKG_PREFIX}; \
-		fi
+	@mkdir -p ${GOPATH_DIR}/src/$(dir ${GOPKG_PREFIX});
+	@ln -snf ../../../.. ${GOPATH_DIR}/src/${GOPKG_PREFIX};
 
 auto_launch_json:
 ifdef AUTO_LAUNCH_CHINESE
