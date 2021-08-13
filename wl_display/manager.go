@@ -1311,6 +1311,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 		if err != nil {
 			logger.Error(err)
 		}
+		m.apply()
 	}
 
 	screenCfg.setMonitorConfigs(DisplayModeCustom, name,
