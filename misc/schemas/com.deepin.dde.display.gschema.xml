@@ -40,6 +40,15 @@
             <summary>Map output to monitor</summary>
             <description>Output monitor map</description>
         </key>
+        <key type="s" name="rate-filter">
+            <default>'{"1002:6611": {"1920*1080": [59.94, 30, 29.97, 25, 24, 23.98],"1680*945": [60.02]},"1002:6779": {"1920*1080": [30,29.97,25,24,23.98]}}'</default>
+            <summary>Screen refresh rate filter</summary>
+            <description>
+                Screen refresh rate filter in JSON.
+                You could config this conveniently by
+                https://gitlabwh.uniontech.com/ut001384/display-rate-filter
+            </description>
+        </key>
         <key type="s" name="primary">
             <default>''</default>
             <summary>the primary output</summary>

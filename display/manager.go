@@ -1,6 +1,7 @@
 package display
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -62,15 +63,16 @@ const (
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
+	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
-	gsKeyCustomMode             = "current-custom-mode"
-	gsKeyColorTemperatureMode   = "color-temperature-mode"
-	gsKeyColorTemperatureManual = "color-temperature-manual"
-	gsKeyRotateScreenTimeDelay  = "rotate-screen-time-delay"
-	customModeDelim             = "+"
-	monitorsIdDelimiter         = ","
-	defaultTemperatureMode      = ColorTemperatureModeNormal
-	defaultTemperatureManual    = 6500
+	gsKeyCustomMode              = "current-custom-mode"
+	gsKeyColorTemperatureMode    = "color-temperature-mode"
+	gsKeyColorTemperatureManual  = "color-temperature-manual"
+	gsKeyRotateScreenTimeDelay   = "rotate-screen-time-delay"
+	customModeDelim              = "+"
+	monitorsIdDelimiter          = ","
+	defaultTemperatureMode       = ColorTemperatureModeNormal
+	defaultTemperatureManual     = 6500
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
@@ -107,6 +109,9 @@ type touchscreenMapValue struct {
 	OutputName string
 	Auto       bool
 }
+
+// return pciId => (size => rates)
+type RateFilterMap map[string]map[string][]float64
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 //go:generate dbusutil-gen em -type Manager,Monitor
@@ -562,7 +567,7 @@ func (m *Manager) init() {
 	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
-		m.listenRotateSignal() // 监听屏幕旋转信号
+		m.listenRotateSignal()    // 监听屏幕旋转信号
 	} else {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
@@ -735,7 +740,7 @@ func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
 			result = append(result, modeInfo)
 		}
 	}
-	result = filterModeInfosByRefreshRate(filterModeInfos(result))
+	result = filterModeInfosByRefreshRate(filterModeInfos(result), m.getRateFilter())
 	return result
 }
 
@@ -2567,4 +2572,15 @@ func (m *Manager) listenSettingsChanged() {
 			return
 		}
 	})
+}
+func (m *Manager) getRateFilter() RateFilterMap {
+	var data RateFilterMap = make(RateFilterMap)
+	jsonStr := m.settings.GetString(gsKeyRateFilter)
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	if err != nil {
+		logger.Warning(err)
+		return data
+	}
+
+	return data
 }
