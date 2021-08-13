@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -438,20 +439,17 @@ func getFilterRefreshRateMap(pciId string) map[string]string {
 	return filterRefreshRateMap
 }
 
-func containsRate(src, target string) bool {
-	// delete space character in src
-	src = strings.Replace(src, " ", "", -1)
-
-	arr := strings.Split(src, ",")
-	for _, s := range arr {
-		if target == s {
+func hasRate(rates []float64, rate float64) bool {
+	for _, r := range rates {
+		if math.Abs(r-rate) < 0.005 {
 			return true
 		}
 	}
+
 	return false
 }
 
-func filterModeInfosByRefreshRate(modes []ModeInfo) []ModeInfo {
+func filterModeInfosByRefreshRate(modes []ModeInfo, filter RateFilterMap) []ModeInfo {
 	var reservedModes []ModeInfo
 
 	pciId := getGraphicsCardPciId()
@@ -461,7 +459,7 @@ func filterModeInfosByRefreshRate(modes []ModeInfo) []ModeInfo {
 	}
 
 	// no refresh rate need to be filtered, directly return
-	filterRefreshRateMap := getFilterRefreshRateMap(pciId)
+	filterRefreshRateMap := filter[pciId]
 	if len(filterRefreshRateMap) == 0 {
 		return modes
 	}
@@ -470,11 +468,8 @@ func filterModeInfosByRefreshRate(modes []ModeInfo) []ModeInfo {
 		resolution := strconv.FormatUint(uint64(modeInfo.Width), 10) + "*" + strconv.FormatUint(uint64(modeInfo.Height), 10)
 
 		// refresh rates need to be filtered at this resolution
-		if value, ok := filterRefreshRateMap[resolution]; ok {
-			rate := fmt.Sprintf("%.2f", modeInfo.Rate)
-			if containsRate(value, rate) {
-				continue
-			} else {
+		if filterRates, ok := filterRefreshRateMap[resolution]; ok {
+			if !hasRate(filterRates, modeInfo.Rate) {
 				reservedModes = append(reservedModes, modeInfo)
 			}
 		} else {

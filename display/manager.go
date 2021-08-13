@@ -1,6 +1,7 @@
 package display
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -54,6 +55,7 @@ const (
 	gsKeyBrightness  = "brightness"
 	gsKeySetter      = "brightness-setter"
 	gsKeyMapOutput   = "map-output"
+	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
 	gsKeyCustomMode             = "current-custom-mode"
 	gsKeyColorTemperatureMode   = "color-temperature-mode"
@@ -89,6 +91,9 @@ type touchscreenMapValue struct {
 	OutputName string
 	Auto       bool
 }
+
+// return pciId => (size => rates)
+type RateFilterMap map[string]map[string][]float64
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go
 //go:generate dbusutil-gen em -type Manager,Monitor
@@ -704,7 +709,7 @@ func (m *Manager) getModeInfos(modes []randr.Mode) []ModeInfo {
 			result = append(result, modeInfo)
 		}
 	}
-	result = filterModeInfosByRefreshRate(filterModeInfos(result))
+	result = filterModeInfosByRefreshRate(filterModeInfos(result), m.getRateFilter())
 	return result
 }
 
@@ -2397,4 +2402,16 @@ func (m *Manager) setAndSaveConnectInfo(connected bool, outputInfo *randr.GetOut
 			logger.Warning("doSaveCache failed", err)
 		}
 	}
+}
+
+func (m *Manager) getRateFilter() RateFilterMap {
+	var data RateFilterMap = make(RateFilterMap)
+	jsonStr := m.settings.GetString(gsKeyRateFilter)
+	err := json.Unmarshal([]byte(jsonStr), &data)
+	if err != nil {
+		logger.Warning(err)
+		return data
+	}
+
+	return data
 }
