@@ -91,6 +91,13 @@ const (
 	SessionStageAppsEnd
 )
 
+const (
+	dpmsStateOn int32 = iota
+	dpmsStateStandBy
+	dpmsStateSuspend
+	dpmsStateOff
+)
+
 var (
 	objLogin            *login1.Manager
 	objLoginSessionSelf *login1.Session
@@ -1066,9 +1073,11 @@ func setDPMSMode(on bool) {
 	var err error
 	if globalUseWayland {
 		if !on {
-			_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
+			//_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
+			setDpmsModeByKwin(dpmsStateOff)
 		} else {
-			_, err = exec.Command("dde_wldpms", "-s", "On").Output()
+			//_, err = exec.Command("dde_wldpms", "-s", "On").Output()
+			setDpmsModeByKwin(dpmsStateOn)
 		}
 	} else {
 		var mode = uint16(dpms.DPMSModeOn)
@@ -1126,4 +1135,39 @@ func quitAtSpiService() {
 	} else {
 		logger.Debugf("%s is stopped, err: %v", AtSpiService, err)
 	}
+}
+
+func setDpmsModeByKwin(mode int32) bool {
+	logger.Info("[startdde] Set DPMS State", mode)
+	var useWayland bool
+	if len(os.Getenv("WAYLAND_DISPLAY")) != 0 {
+		useWayland = true
+	} else {
+		useWayland = false
+	}
+	if useWayland {
+		sessionBus, err := dbus.SessionBus()
+		if err != nil {
+			logger.Warning(err)
+			return false
+		}
+		sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/DpmsManager")
+		var ret []dbus.Variant
+		err = sessionObj.Call("com.deepin.daemon.KWayland.DpmsManager.dpmsList", 0).Store(&ret)
+		if err != nil {
+			logger.Warning(err)
+			return false
+		}
+
+		for i := 0; i < len(ret); i++ {
+			v := ret[i].Value().(string)
+			sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", dbus.ObjectPath(v))
+			err = sessionObj.Call("com.deepin.daemon.KWayland.Dpms.setDpmsMode", 0, int32(mode)).Err
+			if err != nil {
+				logger.Warning(err)
+				return false
+			}
+		}
+	}
+	return true
 }
