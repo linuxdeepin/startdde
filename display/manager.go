@@ -65,14 +65,14 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
-	gsKeyCustomMode             = "current-custom-mode"
-	gsKeyColorTemperatureMode   = "color-temperature-mode"
-	gsKeyColorTemperatureManual = "color-temperature-manual"
-	gsKeyRotateScreenTimeDelay  = "rotate-screen-time-delay"
-	customModeDelim             = "+"
-	monitorsIdDelimiter         = ","
-	defaultTemperatureMode      = ColorTemperatureModeNormal
-	defaultTemperatureManual    = 6500
+	gsKeyCustomMode              = "current-custom-mode"
+	gsKeyColorTemperatureMode    = "color-temperature-mode"
+	gsKeyColorTemperatureManual  = "color-temperature-manual"
+	gsKeyRotateScreenTimeDelay   = "rotate-screen-time-delay"
+	customModeDelim              = "+"
+	monitorsIdDelimiter          = ","
+	defaultTemperatureMode       = ColorTemperatureModeNormal
+	defaultTemperatureManual     = 6500
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
@@ -139,8 +139,6 @@ type Manager struct {
 	monitorsId               string
 	modeChanged              bool
 	info                     ConnectInfo
-	rotationFinishChanged    bool
-	rotationScreenTimer      *time.Timer
 	hasBuiltinMonitor        bool
 	rotateScreenTimeDelay    int32
 
@@ -568,7 +566,7 @@ func (m *Manager) init() {
 	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
-		m.listenRotateSignal() // 监听屏幕旋转信号
+		m.listenRotateSignal()    // 监听屏幕旋转信号
 	} else {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
@@ -2502,40 +2500,39 @@ func (m *Manager) listenRotateSignal() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	var rotateScreenValue string
 	err = systemBus.BusObject().AddMatchSignal(sensorProxyInterface, sensorProxySignalName,
 		dbus.WithMatchObjectPath(dbus.ObjectPath(sensorProxyPath)), dbus.WithMatchSender(sensorProxyInterface)).Err
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	m.rotationFinishChanged = true
 	signalCh := make(chan *dbus.Signal, 10)
 	systemBus.Signal(signalCh)
 	go func() {
+		var rotationScreenTimer *time.Timer
+		var startBuildInScreenRotationMutex sync.Mutex
+		rotateScreenValue := "normal"
 		for {
 			select {
 			case sig := <-signalCh:
 				if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
 					continue
 				}
-
 				err = dbus.Store(sig.Body, &rotateScreenValue)
 				if err != nil {
 					logger.Warning("call dbus.Store err:", err)
 					continue
 				}
-
-				if m.rotationFinishChanged {
-					m.rotationFinishChanged = false
-					m.rotationScreenTimer = time.AfterFunc(
-						time.Millisecond*time.Duration(m.rotateScreenTimeDelay), func() {
-							m.startBuildInScreenRotation(rotationScreenValue[rotateScreenValue])
-							m.rotationFinishChanged = true
-						})
+				if rotationScreenTimer == nil {
+					rotationScreenTimer = time.AfterFunc(time.Millisecond*time.Duration(m.rotateScreenTimeDelay), func() {
+						startBuildInScreenRotationMutex.Lock()
+						defer startBuildInScreenRotationMutex.Unlock()
+						rotationRotate, ok := rotationScreenValue[strings.TrimSpace(rotateScreenValue)]
+						if ok {
+							m.startBuildInScreenRotation(rotationRotate)
+						}
+					})
 				} else {
-					m.rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.rotateScreenTimeDelay))
+					rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.rotateScreenTimeDelay))
 				}
 			}
 		}
