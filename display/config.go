@@ -37,6 +37,15 @@ func init() {
 
 type Config map[string]*ScreenConfig
 
+type ConfigV6 struct {
+	ConfigV5 Config
+	FillMode *FillModeConfigs
+}
+
+type FillModeConfigs struct {
+	FillModeMap map[string]string
+}
+
 type ScreenConfig struct {
 	Mirror  *ModeConfigs      `json:",omitempty"`
 	Extend  *ModeConfigs      `json:",omitempty"`
@@ -230,6 +239,35 @@ func loadConfigV5(filename string) (Config, error) {
 	return c, nil
 }
 
+func loadConfigV6(filename string) (ConfigV6, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return ConfigV6{}, err
+	}
+
+	var c ConfigV6
+	err = json.Unmarshal(data, &c)
+	if err != nil {
+		return ConfigV6{}, err
+	}
+
+	if c.FillMode == nil {
+		c.FillMode = &FillModeConfigs{}
+	}
+
+	// 存在，没有V6的情况，只有V5,将此时数据读取存到V6
+	if c.ConfigV5 == nil {
+		var configV5 Config
+		err = json.Unmarshal(data, &configV5)
+		if err != nil {
+			return ConfigV6{}, err
+		}
+
+		c.ConfigV5 = configV5
+	}
+	return c, nil
+}
+
 func loadConfig(m *Manager) (config Config) {
 	cfgVer, err := getConfigVersion(configVersionFile)
 	if err == nil {
@@ -254,8 +292,9 @@ func loadConfig(m *Manager) (config Config) {
 	}
 
 	if len(config) == 0 {
-		config, err = loadConfigV5(configFile_v5)
+		configV6, err := loadConfigV6(configFile_v5)
 		if err != nil {
+			// 加载 v5 和 v6 配置文件都失败
 			config = make(Config)
 			//配置文件为空，且当前模式为自定义，则设置当前模式为复制模式
 			if m.DisplayMode == DisplayModeCustom {
@@ -264,16 +303,31 @@ func loadConfig(m *Manager) (config Config) {
 			if !os.IsNotExist(err) {
 				logger.Warning(err)
 			}
+			m.configV6.ConfigV5 = config
+			m.configV6.FillMode = &FillModeConfigs{}
+		} else {
+			// 加载 v5 或 v6 配置文件成功
+			config = configV6.ConfigV5
+			m.configV6.FillMode = configV6.FillMode
+		}
+		if m.configV6.FillMode.FillModeMap == nil {
+			m.configV6.FillMode.FillModeMap = make(map[string]string)
+		}
+	} else {
+		// 加载 v5 之前配置文件成功
+		m.configV6.FillMode = &FillModeConfigs{
+			FillModeMap: make(map[string]string),
 		}
 	}
 
 	if logger.GetLogLevel() == log.LevelDebug {
 		logger.Debug("load config:", spew.Sdump(config))
 	}
+	logger.Debugf("loadConfig fillMode: %#v", m.configV6.FillMode)
 	return
 }
 
-func (c Config) save(filename string) error {
+func (c ConfigV6) save(filename string) error {
 	var data []byte
 	var err error
 	if logger.GetLogLevel() == log.LevelDebug {

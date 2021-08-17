@@ -65,14 +65,14 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
-	gsKeyCustomMode             = "current-custom-mode"
-	gsKeyColorTemperatureMode   = "color-temperature-mode"
-	gsKeyColorTemperatureManual = "color-temperature-manual"
-	gsKeyRotateScreenTimeDelay  = "rotate-screen-time-delay"
-	customModeDelim             = "+"
-	monitorsIdDelimiter         = ","
-	defaultTemperatureMode      = ColorTemperatureModeNormal
-	defaultTemperatureManual    = 6500
+	gsKeyCustomMode              = "current-custom-mode"
+	gsKeyColorTemperatureMode    = "color-temperature-mode"
+	gsKeyColorTemperatureManual  = "color-temperature-manual"
+	gsKeyRotateScreenTimeDelay   = "rotate-screen-time-delay"
+	customModeDelim              = "+"
+	monitorsIdDelimiter          = ","
+	defaultTemperatureMode       = ColorTemperatureModeNormal
+	defaultTemperatureManual     = 6500
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
@@ -123,27 +123,27 @@ type Manager struct {
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
 	config                   Config
+	configV6                 ConfigV6
 	recommendScaleFactor     float64
 	modes                    []randr.ModeInfo
 	builtinMonitor           *Monitor
 	builtinMonitorMu         sync.Mutex
 	candidateBuiltinMonitors []*Monitor // 候补的
-	monitorMap               map[randr.Output]*Monitor
-	monitorMapMu             sync.Mutex
-	crtcMap                  map[randr.Crtc]*randr.GetCrtcInfoReply
-	crtcMapMu                sync.Mutex
-	outputMap                map[randr.Output]*randr.GetOutputInfoReply
-	outputMapMu              sync.Mutex
-	configTimestamp          x.Timestamp
-	settings                 *gio.Settings
-	monitorsId               string
-	modeChanged              bool
-	screenChanged            bool
-	info                     ConnectInfo
-	rotationFinishChanged    bool
-	rotationScreenTimer      *time.Timer
-	hasBuiltinMonitor        bool
-	rotateScreenTimeDelay    int32
+
+	monitorMap              map[randr.Output]*Monitor
+	monitorMapMu            sync.Mutex
+	crtcMap                 map[randr.Crtc]*randr.GetCrtcInfoReply
+	crtcMapMu               sync.Mutex
+	outputMap               map[randr.Output]*randr.GetOutputInfoReply
+	outputMapMu             sync.Mutex
+	configTimestamp         x.Timestamp
+	settings                *gio.Settings
+	monitorsId              string
+	modeChanged             bool
+	info                    ConnectInfo
+	hasBuiltinMonitor       bool
+	rotateScreenTimeDelay   int32
+	setCurrentFillModeMutex sync.Mutex
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -162,9 +162,8 @@ type Manager struct {
 	touchScreenDialogMap   map[string]*exec.Cmd
 	touchScreenDialogMutex sync.RWMutex
 
-	CurrentCustomId string
-	Primary         string
-	// dbusutil-gen: equal=nil
+	CurrentCustomId        string
+	Primary                string
 	PrimaryRect            x.Rectangle
 	ScreenWidth            uint16
 	ScreenHeight           uint16
@@ -488,12 +487,17 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 	return result
 }
 
-func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
+func (m *Manager) applyDisplayMode(needInitColorTemperature bool, options applyOptions) {
 	// 对于 randr 版本低于 1.2 时，不做操作
 	if !_hasRandr1d2 {
 		return
 	}
 	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		// 拔掉所有显示器
+		logger.Debug("applyDisplayMode without any monitor，return")
+		return
+	}
 	var err error
 	if len(monitors) == 1 {
 		// 单屏情况
@@ -521,7 +525,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 		}
 
 		// 应用单屏配置
-		err = m.applySingleConfigs(config)
+		err = m.applySingleConfigs(config, options)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 		}
@@ -541,11 +545,11 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	// 多屏情况
 	switch m.DisplayMode {
 	case DisplayModeMirror:
-		err = m.switchModeMirror()
+		err = m.switchModeMirror(options)
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend(options)
 	case DisplayModeOnlyOne:
-		err = m.switchModeOnlyOne("")
+		err = m.switchModeOnlyOne("", options)
 	}
 
 	if err != nil {
@@ -558,21 +562,67 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	m.syncBrightness()
 }
 
+func (m *Manager) initFillModes() {
+	for output, monitor := range m.monitorMap {
+		xrandrProp, _ := randr.ListOutputProperties(_xConn, output).Reply(_xConn)
+		for _, atom := range xrandrProp.Atoms {
+			atomName, _ := _xConn.GetAtomName(atom)
+
+			if atomName == "scaling mode" {
+				outputProp, _ := randr.QueryOutputProperty(_xConn, output, atom).Reply(_xConn)
+				var availableFillmode []string
+				for _, prop := range outputProp.ValidValues {
+					propAtom, _ := _xConn.GetAtomName(x.Atom(prop))
+					if propAtom != "None" {
+						availableFillmode = append(availableFillmode, propAtom)
+					}
+				}
+				monitor.setPropAvailableFillModes(availableFillmode)
+				break
+			}
+		}
+	}
+}
+
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
 	// 在获取屏幕亮度之后再加载配置文件，版本迭代时把上次的亮度值写入配置文件。
 	m.config = loadConfig(m)
 	// 重启 startdde 读取上一次设置，不需要重置色温。
-	m.applyDisplayMode(false)
+	m.initFillModes()
+	m.applyDisplayMode(false, nil)
 	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
-		m.listenRotateSignal() // 监听屏幕旋转信号
+		m.listenRotateSignal()    // 监听屏幕旋转信号
 	} else {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
 	}
+}
+
+func (m *Manager) setFillMode(monitor *Monitor) {
+	if len(monitor.AvailableFillModes) == 0 {
+		logger.Warning("monitor fillmode invalid")
+		return
+	}
+
+	fillModeKey := monitor.generateFillModeKey()
+
+	if fillMode, ok := m.configV6.FillMode.FillModeMap[fillModeKey]; ok {
+		err := monitor.setXrandrScalingMode(fillMode)
+		if err != nil {
+			logger.Warning("call setXrandrScalingMode err:", err)
+		}
+	} else {
+		err := monitor.setXrandrScalingMode(fillModeDefault)
+		if err != nil {
+			logger.Warning("call setXrandrScalingMode err:", err)
+		}
+	}
+
+	return
 }
 
 // initColorTemperature 初始化色温设置，名字不太好，不在初始化时，也调用了。
@@ -883,6 +933,17 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	m.monitorMapMu.Lock()
 	m.monitorMap[output] = monitor
 	m.monitorMapMu.Unlock()
+
+	monitor.output = output
+
+	monitorObj := m.service.GetServerObject(monitor)
+	err = monitorObj.SetWriteCallback(monitor, "CurrentFillMode",
+		monitor.setCurrentFillMode)
+	if err != nil {
+		logger.Warning("call SetWriteCallback err:", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -1031,12 +1092,12 @@ func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 	return
 }
 
-func (m *Manager) switchModeMirror() (err error) {
+func (m *Manager) switchModeMirror(options applyOptions) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getModeConfigs(DisplayModeMirror)
 	logger.Debug("switchModeMirror")
 	if len(configs.Monitors) > 0 {
-		err = m.applyConfigs(configs)
+		err = m.applyConfigs(configs, options)
 		return
 	}
 
@@ -1089,8 +1150,22 @@ type crtcConfig struct {
 	mode     randr.Mode
 }
 
-func (m *Manager) apply() error {
+type applyOptions map[string]interface{}
+
+const (
+	optionDisableCrtc = "disableCrtc"
+)
+
+func (m *Manager) apply(optionsSlice ...applyOptions) error {
 	logger.Debug("call apply")
+
+	optDisableCrtc := false
+	if len(optionsSlice) > 0 {
+		// optionsSlice 应该最多只有一个元素
+		options := optionsSlice[0]
+		optDisableCrtc, _ = options[optionDisableCrtc].(bool)
+	}
+
 	x.GrabServer(m.xConn)
 	defer func() {
 		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
@@ -1135,6 +1210,8 @@ func (m *Manager) apply() error {
 
 	m.PropsMu.RLock()
 	cfgTs := m.configTimestamp
+	// 当前的屏幕大小
+	prevScreenSize := screenSize{width: m.ScreenWidth, height: m.ScreenHeight}
 	m.PropsMu.RUnlock()
 
 	// 未来的，apply 之后的屏幕所需尺寸
@@ -1150,9 +1227,15 @@ func (m *Manager) apply() error {
 		// 是否考虑临时禁用 crtc
 		shouldDisable := false
 
-		if m.modeChanged || m.screenChanged {
+		if m.modeChanged {
 			// 显示模式切换了或屏幕变了
 			logger.Debugf("should disable crtc %v because of mode changed or screen changed", crtc)
+			shouldDisable = true
+		} else if optDisableCrtc {
+			// NOTE: 如果接入了双屏，断开一个屏幕，让另外的屏幕都暂时禁用，来避免桌面壁纸的闪烁问题（突然黑一下，然后很快恢复），
+			// 这么做是为了兼顾修复 pms bug 83875 和 94116。
+			// 但是对于 bug 94116，依然保留问题：先断开再连接显示器，桌面壁纸依然有闪烁问题。
+			logger.Debugf("should disable crtc %v because of optDisableCrtc is true", crtc)
 			shouldDisable = true
 		} else if int(rect.X)+int(rect.Width) > int(screenSize.width) ||
 			int(rect.Y)+int(rect.Height) > int(screenSize.height) {
@@ -1183,7 +1266,6 @@ func (m *Manager) apply() error {
 	}
 	m.crtcMapMu.Unlock()
 	m.modeChanged = false
-	m.screenChanged = false
 
 	err := m.setScreenSize(screenSize)
 	if err != nil {
@@ -1226,12 +1308,35 @@ func (m *Manager) apply() error {
 					logger.Warningf("failed to set brightness for %s: %v", mon.Name, err)
 				}
 			}(monitor) // 用局部变量作闭包上值
+
+			// 切换分辨率、开机、插拔，将当前的分辨率保存的fillMode设置
+			m.setFillMode(monitor)
 		}
 		err = monitor.emitPropChangedBrightness(monitor.Brightness)
 		if err != nil {
 			logger.Error("emitPropChangedBrightness failed")
 		}
 	}
+
+	// NOTE: 为配合文件管理器修一个 bug：
+	// 双屏左右摆放，两屏幕有相同最大分辨率，设置左屏为主屏，自定义模式下两屏合并、拆分循环切换，此时如果不发送 PrimaryRect 属性
+	// 改变信号，将在从合并切换到拆分时，右屏的桌面壁纸没有绘制，是全黑的。可能是所有显示器的分辨率都没有改变，桌面 dde-desktop
+	// 程序收不到相关信号。
+	// 此时屏幕尺寸被改变是很好的特征，发送一个 PrimaryRect 属性改变通知桌面 dde-desktop 程序让它重新绘制桌面壁纸，以消除 bug。
+	// TODO: 这不是一个很好的方案，后续可与桌面程序方面沟通改善方案。
+	if prevScreenSize.width != screenSize.width || prevScreenSize.height != screenSize.height {
+		// screen size changed
+		// NOTE: 不能直接用 prevScreenSize != screenSize 进行比较，因为 screenSize 类型不止 width 和 height 字段。
+		logger.Debug("[apply] screen size changed, force emit prop changed for PrimaryRect")
+		m.PropsMu.RLock()
+		rect := m.PrimaryRect
+		m.PropsMu.RUnlock()
+		err := m.emitPropChangedPrimaryRect(rect)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
 	return nil
 }
 
@@ -1316,7 +1421,7 @@ func (m *Manager) setPrimary(name string) error {
 		return errors.New("not allow set primary in mirror mode")
 
 	case DisplayModeOnlyOne:
-		return m.switchModeOnlyOne(name)
+		return m.switchModeOnlyOne(name, nil)
 
 	case DisplayModeExtend:
 		screenCfg := m.getScreenConfig()
@@ -1366,13 +1471,13 @@ func (m *Manager) setPrimary(name string) error {
 	return nil
 }
 
-func (m *Manager) switchModeExtend() (err error) {
+func (m *Manager) switchModeExtend(options applyOptions) (err error) {
 	logger.Debug("switch mode extend")
 	screenCfg := m.getScreenConfig()
 	modeConfigs := screenCfg.getModeConfigs(DisplayModeExtend)
 
 	if len(modeConfigs.Monitors) > 0 {
-		err = m.applyConfigs(modeConfigs)
+		err = m.applyConfigs(modeConfigs, options)
 		return
 	}
 
@@ -1411,7 +1516,7 @@ func (m *Manager) switchModeExtend() (err error) {
 	m.ColorTemperatureMode = defaultTemperatureMode
 	m.ColorTemperatureManual = defaultTemperatureManual
 
-	err = m.apply()
+	err = m.apply(options)
 	if err != nil {
 		return
 	}
@@ -1447,7 +1552,7 @@ func (m *Manager) getScreenConfig() *ScreenConfig {
 	return screenCfg
 }
 
-func (m *Manager) switchModeOnlyOne(name string) (err error) {
+func (m *Manager) switchModeOnlyOne(name string, options applyOptions) (err error) {
 	logger.Debug("switch mode only one", name)
 
 	screenCfg := m.getScreenConfig()
@@ -1565,7 +1670,7 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		}
 	}
 
-	err = m.apply()
+	err = m.apply(options)
 	if err != nil {
 		return
 	}
@@ -1588,11 +1693,11 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 func (m *Manager) switchMode(mode byte, name string) (err error) {
 	switch mode {
 	case DisplayModeMirror:
-		err = m.switchModeMirror()
+		err = m.switchModeMirror(nil)
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend(nil)
 	case DisplayModeOnlyOne:
-		err = m.switchModeOnlyOne(name)
+		err = m.switchModeOnlyOne(name, nil)
 	default:
 		err = errors.New("invalid mode")
 	}
@@ -1689,8 +1794,8 @@ func (m *Manager) getConnectedMonitors() Monitors {
 }
 
 // 复制和扩展时触发
-func (m *Manager) applyConfigs(configs *ModeConfigs) error {
-	logger.Debug("applyConfigs", spew.Sdump(configs))
+func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error {
+	logger.Debug("applyConfigs", spew.Sdump(configs), options)
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs.Monitors, monitor.uuid)
@@ -1725,7 +1830,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
 
-	err := m.apply()
+	err := m.apply(options)
 	if err != nil {
 		return err
 	}
@@ -1740,8 +1845,8 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	return nil
 }
 
-func (m *Manager) applySingleConfigs(config *SingleModeConfig) error {
-	logger.Debug("applyConfigs", spew.Sdump(config))
+func (m *Manager) applySingleConfigs(config *SingleModeConfig, options applyOptions) error {
+	logger.Debug("applyConfigs", spew.Sdump(config), options)
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid([]*MonitorConfig{config.Monitor}, monitor.uuid)
@@ -1774,7 +1879,7 @@ func (m *Manager) applySingleConfigs(config *SingleModeConfig) error {
 	m.ColorTemperatureMode = config.ColorTemperatureMode
 	m.ColorTemperatureManual = config.ColorTemperatureManual
 
-	err := m.apply()
+	err := m.apply(options)
 	if err != nil {
 		return err
 	}
@@ -2247,7 +2352,8 @@ func (m *Manager) saveConfig() error {
 		return err
 	}
 
-	err = m.config.save(configFile_v5)
+	m.configV6.ConfigV5 = m.config
+	err = m.configV6.save(configFile_v5)
 	if err != nil {
 		return err
 	}
@@ -2498,40 +2604,39 @@ func (m *Manager) listenRotateSignal() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	var rotateScreenValue string
 	err = systemBus.BusObject().AddMatchSignal(sensorProxyInterface, sensorProxySignalName,
 		dbus.WithMatchObjectPath(dbus.ObjectPath(sensorProxyPath)), dbus.WithMatchSender(sensorProxyInterface)).Err
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	m.rotationFinishChanged = true
 	signalCh := make(chan *dbus.Signal, 10)
 	systemBus.Signal(signalCh)
 	go func() {
+		var rotationScreenTimer *time.Timer
+		var startBuildInScreenRotationMutex sync.Mutex
+		rotateScreenValue := "normal"
 		for {
 			select {
 			case sig := <-signalCh:
 				if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
 					continue
 				}
-
 				err = dbus.Store(sig.Body, &rotateScreenValue)
 				if err != nil {
 					logger.Warning("call dbus.Store err:", err)
 					continue
 				}
-
-				if m.rotationFinishChanged {
-					m.rotationFinishChanged = false
-					m.rotationScreenTimer = time.AfterFunc(
-						time.Millisecond*time.Duration(m.rotateScreenTimeDelay), func() {
-							m.startBuildInScreenRotation(rotationScreenValue[rotateScreenValue])
-							m.rotationFinishChanged = true
-						})
+				if rotationScreenTimer == nil {
+					rotationScreenTimer = time.AfterFunc(time.Millisecond*time.Duration(m.rotateScreenTimeDelay), func() {
+						startBuildInScreenRotationMutex.Lock()
+						defer startBuildInScreenRotationMutex.Unlock()
+						rotationRotate, ok := rotationScreenValue[strings.TrimSpace(rotateScreenValue)]
+						if ok {
+							m.startBuildInScreenRotation(rotationRotate)
+						}
+					})
 				} else {
-					m.rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.rotateScreenTimeDelay))
+					rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.rotateScreenTimeDelay))
 				}
 			}
 		}

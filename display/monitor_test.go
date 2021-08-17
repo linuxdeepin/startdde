@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"pkg.deepin.io/lib/dbusutil"
 )
 
 func Test_getFirstModeBySize(t *testing.T) {
@@ -32,4 +33,42 @@ func Test_getRandrStatusStr(t *testing.T) {
 	assert.Equal(t, getRandrStatusStr(status[2]), statusstr[2])
 	assert.Equal(t, getRandrStatusStr(status[3]), statusstr[3])
 	assert.Equal(t, getRandrStatusStr(status[4]), statusstr[4])
+}
+
+func Test_setXrandrScalingMode(t *testing.T) {
+	var fillMode = "None"
+	m := Monitor{}
+	err := m.setXrandrScalingMode(fillMode)
+	assert.NotNil(t, err)
+}
+
+func Test_generateFillModeKey(t *testing.T) {
+	m := Monitor{}
+	m.uuid = "VGA-16813e57c97781347115de0e64f8277ec"
+	m.Height = 1080
+	m.Width = 1920
+	assert.Equal(t, "VGA-16813e57c97781347115de0e64f8277ec:1920x1080",
+		m.generateFillModeKey())
+
+	m.Rotation = 2
+	assert.Equal(t, "VGA-16813e57c97781347115de0e64f8277ec:1080x1920",
+		m.generateFillModeKey())
+}
+
+func Test_setCurrentFillMode(t *testing.T) {
+	m := Monitor{}
+	write := &dbusutil.PropertyWrite{
+		Value: "None",
+	}
+
+	m.m = &Manager{
+		configV6: ConfigV6{
+			FillMode: &FillModeConfigs{
+				FillModeMap: make(map[string]string),
+			},
+		},
+	}
+
+	err := m.setCurrentFillMode(write)
+	assert.NotNil(t, err)
 }

@@ -20,6 +20,14 @@ func (m *Manager) GetInterfaceName() string {
 	return dbusInterface
 }
 
+func (m *Manager) applyChanges() error {
+	if !m.HasChanged {
+		return nil
+	}
+	err := m.apply()
+	return err
+}
+
 func (m *Manager) ApplyChanges() *dbus.Error {
 	if !m.HasChanged {
 		return nil

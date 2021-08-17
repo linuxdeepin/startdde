@@ -20,6 +20,7 @@
 package autostop
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,44 +29,47 @@ import (
 	"pkg.deepin.io/lib/log"
 )
 
-type Manager struct {
-	logger *log.Logger
-}
+var logger *log.Logger
 
-func LaunchAutostopScripts(logger *log.Logger) error {
-	if logger == nil {
+func LaunchAutostopScripts(log *log.Logger) error {
+	if log == nil {
 		return fmt.Errorf("Logger is nil")
 	}
 
-	var m = Manager{
-		logger: logger,
-	}
+	logger = log
 
-	m.launchScripts(m.getAutostopScripts())
-	return nil
-}
-
-func (m *Manager) launchScripts(scripts []string) {
-	for _, script := range scripts {
-		m.logger.Info("[Autostop] will launch:", script)
-		out, err := exec.Command(script).CombinedOutput()
-		if err != nil {
-			m.logger.Warningf("[Autostop] failed to launch %s: %v, %v",
-				script, string(out), err)
-		}
-	}
-}
-
-func (m *Manager) getAutostopScripts() []string {
 	var dirs = []string{
 		path.Join(os.Getenv("HOME"), ".config", "autostop"),
 		"/etc/xdg/autostop",
 	}
+
+	errs := launchScripts(getScripts(dirs))
+	for _, err := range errs {
+		logger.Warning(err)
+	}
+
+	return nil
+}
+
+func launchScripts(scripts []string) []error {
+	errs := []error{}
+	for _, script := range scripts {
+		logger.Info("[Autostop] will launch:", script)
+		out, err := exec.Command(script).CombinedOutput()
+		if err != nil {
+			errs = append(errs, errors.New(fmt.Sprintf("[Autostop] failed to launch %s: %v, %v",
+				script, string(out), err)))
+		}
+	}
+	return errs
+}
+
+func getScripts(dirs []string) []string {
 	var scripts []string
 	for _, dir := range dirs {
 		tmp, err := doScanScripts(dir)
 		if err != nil {
-			m.logger.Warning("[Autostop] failed to scan dir:", dir, err)
+			logger.Warning("[Autostop] failed to scan dir:", dir, err)
 			continue
 		}
 		scripts = append(scripts, tmp...)

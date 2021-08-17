@@ -33,3 +33,4 @@ cmake_install.cmake
 install_manifest.txt
 
 coverage.csv
+cover_report

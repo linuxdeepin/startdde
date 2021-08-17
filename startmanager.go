@@ -478,38 +478,21 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
-	// check if need ignore use proxy
-	if !shouldUseNewProxy() {
-		if ignoreUseProxy(id) {
-			return false
-		}
-	}
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
 		return false
 	}
 	m.mu.Unlock()
-	if shouldUseNewProxy() {
-		msg, err := m.appProxy.GetProxy(0)
-		if err != nil {
-			return false
-		}
-		if msg == "" {
-			return false
-		}
-	} else {
-		if _, err := os.Stat(m.proxyChainsConfFile); err != nil {
-			return false
-		}
 
-		if m.proxyChainsBin == "" {
-			// try get proxyChainsBin again
-			m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
-			if m.proxyChainsBin == "" {
-				return false
-			}
-		}
+	msg, err := m.appProxy.GetProxy(0)
+	if err != nil {
+		logger.Warningf("cant get proxy, err: %v", err)
+		return false
+	}
+	if msg == "" {
+		logger.Debug("dont have proxy settings, will not use proxy")
+		return false
 	}
 
 	return true
@@ -539,7 +522,6 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
-	var cmdSuffixes []string
 	var uiApp *swapsched.UIApp
 
 	err = m.enableCpuFreqLock(desktopFile)
@@ -570,22 +552,6 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	appId := m.getAppIdByFilePath(desktopFile)
 	if appId != "" {
-		if !shouldUseNewProxy() {
-			logger.Debugf("appId is %v", appId)
-			if m.shouldUseProxy(appId) {
-				logger.Debug("launch: use proxy")
-				if supportProxyServerOption(appId) {
-					proxyServerUrl, err := getProxyServerUrl()
-					if err == nil {
-						cmdSuffixes = append(cmdSuffixes, "--proxy-server="+proxyServerUrl)
-					} else {
-						logger.Warning("failed to get google chrome proxy server url:", err)
-					}
-				} else {
-					cmdPrefixes = append(cmdPrefixes, m.proxyChainsBin, "-f", m.proxyChainsConfFile)
-				}
-			}
-		}
 		if m.shouldDisableScaling(appId) {
 			logger.Debug("launch: disable scaling")
 			gs := gio.NewSettings("com.deepin.xsettings")
@@ -606,10 +572,6 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	if len(cmdPrefixes) > 0 {
 		logger.Debug("cmd prefixes:", cmdPrefixes)
 		ctx.SetCmdPrefixes(cmdPrefixes)
-	}
-	if len(cmdSuffixes) > 0 {
-		logger.Debug("cmd suffixes:", cmdSuffixes)
-		ctx.SetCmdSuffixes(cmdSuffixes)
 	}
 
 	if appInfo.IsDesktopOverrideExecSet() {
@@ -743,18 +705,16 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 
 	go func() {
 		// check if should use new proxy
-		if shouldUseNewProxy() {
-			// check if app info is empty
-			if appInfo != nil {
-				appId := appInfo.GetId()
-				logger.Info(appId)
-				if m.shouldUseProxy(appId) {
-					pid := cmd.Process.Pid
-					logger.Infof("should use proxy, %v", pid)
-					err = m.appProxy.AddProc(0, int32(pid))
-					if err != nil {
-						logger.Warningf("add proc failed, err: %v", err)
-					}
+		// check if app info is empty
+		if appInfo != nil {
+			appId := appInfo.GetId()
+			logger.Infof("current appId is %s", appId)
+			if m.shouldUseProxy(appId) {
+				pid := cmd.Process.Pid
+				logger.Infof("should use proxy, %v", pid)
+				err = m.appProxy.AddProc(0, int32(pid))
+				if err != nil {
+					logger.Warningf("add proc failed, err: %v", err)
 				}
 			}
 		}
@@ -1156,14 +1116,6 @@ func isAppInList(app string, apps []string) bool {
 		if filepath.Base(app) == filepath.Base(v) {
 			return true
 		}
-	}
-	return false
-}
-
-func ignoreUseProxy(id string) bool {
-	// deepin-app-store and deepin-manual implement proxy themselves, should be ignored
-	if id == "deepin-app-store" || id == "deepin-manual" {
-		return true
 	}
 	return false
 }

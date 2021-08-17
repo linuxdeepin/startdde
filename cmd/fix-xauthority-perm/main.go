@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
 )
 
 func init() {
@@ -38,8 +38,10 @@ func fix(conn *dbus.Conn, userPath string) error {
 	if err != nil {
 		return err
 	}
-
-	xAuthFile := filepath.Join(homeDir, ".Xauthority")
+	xAuthFile := os.Getenv("XAUTHORITY")
+	if len(xAuthFile) == 0 {
+		xAuthFile = filepath.Join(homeDir, ".Xauthority")
+	}
 	fileInfo, err := os.Stat(xAuthFile)
 	if err != nil {
 		if os.IsNotExist(err) {

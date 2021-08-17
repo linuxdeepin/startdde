@@ -104,9 +104,13 @@ func (v *Manager) emitPropChangedPrimary(value string) error {
 	return v.service.EmitPropertyChanged(v, "Primary", value)
 }
 
-func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
-	v.PrimaryRect = value
-	v.emitPropChangedPrimaryRect(value)
+func (v *Manager) setPropPrimaryRect(value x.Rectangle) (changed bool) {
+	if v.PrimaryRect != value {
+		v.PrimaryRect = value
+		v.emitPropChangedPrimaryRect(value)
+		return true
+	}
+	return false
 }
 
 func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
@@ -451,4 +455,26 @@ func (v *Monitor) setPropCurrentMode(value ModeInfo) {
 
 func (v *Monitor) emitPropChangedCurrentMode(value ModeInfo) error {
 	return v.service.EmitPropertyChanged(v, "CurrentMode", value)
+}
+
+func (v *Monitor) setPropCurrentFillMode(value string) (changed bool) {
+	if v.CurrentFillMode != value {
+		v.CurrentFillMode = value
+		v.emitPropChangedCurrentFillMode(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedCurrentFillMode(value string) error {
+	return v.service.EmitPropertyChanged(v, "CurrentFillMode", value)
+}
+
+func (v *Monitor) setPropAvailableFillModes(value []string) {
+	v.AvailableFillModes = value
+	v.emitPropChangedAvailableFillModes(value)
+}
+
+func (v *Monitor) emitPropChangedAvailableFillModes(value []string) error {
+	return v.service.EmitPropertyChanged(v, "AvailableFillModes", value)
 }

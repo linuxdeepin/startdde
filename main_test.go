@@ -22,12 +22,18 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"pkg.deepin.io/lib/log"
 )
 
-func TestShouldUseDDEKWin(t *testing.T) {
+func Test_ShouldUseDDEKWin(t *testing.T) {
 	t.Run("Test is should use DDE KWin", func(t *testing.T) {
 		should := shouldUseDDEKWin()
 		exist := Exist("/usr/bin/kwin_no_scale")
 		assert.Equal(t, exist, should)
 	})
+}
+
+func Test_doSetLogLevel(t *testing.T) {
+	doSetLogLevel(log.LevelDebug)
+	assert.Equal(t, log.LevelDebug, logger.GetLogLevel())
 }
