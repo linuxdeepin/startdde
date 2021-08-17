@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+
 	"pkg.deepin.io/lib/dbusutil/gsprop"
 
 	"github.com/davecgh/go-spew/spew"
@@ -344,7 +346,58 @@ func newManager(service *dbusutil.Service) *Manager {
 		logger.Warning(err)
 	}
 
+	err = m.handleSessionChange()
+	if err != nil {
+		logger.Warningf("handle session change failed! %v", err)
+	}
+
 	return m
+}
+
+func (m *Manager) handleSessionChange() error {
+	sigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
+	sigLoop.Start()
+
+	selfObj, err := login1.NewSession(m.sysBus, "/org/freedesktop/login1/session/self")
+	if err != nil {
+		logger.Warningf("connect login1 self sesion failed! %v", err)
+		return err
+	}
+	id, err := selfObj.Id().Get(0)
+	if err != nil {
+		logger.Warningf("get self session id failed! %v", err)
+		return err
+	}
+	managerObj := login1.NewManager(m.sysBus)
+	path, err := managerObj.GetSession(0, id)
+	if err != nil {
+		logger.Warningf("get session path %s failed! %v", id, err)
+		return err
+	}
+	sessionObj, err := login1.NewSession(m.sysBus, path)
+	if err != nil {
+		logger.Warningf("connect login1 sesion %s failed! %v", path, err)
+		return err
+	}
+
+	// 监听用户的session Active属性改变信号，当切换到当前已经登录的用户时
+	// 需要从内核重新获取当前屏幕的状态，将锁屏界面旋转到对应方向
+	sessionObj.InitSignalExt(sigLoop, true)
+	err = sessionObj.Active().ConnectChanged(func(hasValue, value bool) {
+		if !hasValue || !value {
+			return
+		}
+
+		if m.builtinMonitor != nil {
+			m.initScreenRotation()
+		}
+	})
+
+	if err != nil {
+		logger.Warningf("prop active ConnectChanged failed! %v", err)
+	}
+
+	return err
 }
 
 func (m *Manager) initBuiltinMonitor() {

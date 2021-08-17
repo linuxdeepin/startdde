@@ -1,0 +1,7 @@
+#!/bin/bash
+
+greeter_rotation_daemon="/usr/lib/deepin-daemon/greeter-rotation-daemon"
+if [ -x $greeter_rotation_daemon ]; then
+    $greeter_rotation_daemon &
+fi
+

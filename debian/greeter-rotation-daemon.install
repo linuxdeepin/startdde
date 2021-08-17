@@ -1,0 +1,3 @@
+/etc/deepin/greeters.d
+/var/lib/deepin/greeter-rotation-time
+/usr/lib/deepin-daemon/greeter-rotation-daemon

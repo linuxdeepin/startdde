@@ -53,3 +53,12 @@ Breaks:
  startdde(<= 2.91.1),
 Description: start deepin desktop environment
  starter of deepin desktop environment.
+
+Package: greeter-rotation-daemon
+Architecture: any
+Depends:
+ x11-xserver-utils,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: Supports gravity rotation on the greeter
+ Supports gravity rotation of the Great Wall all-in-one machine login interface.

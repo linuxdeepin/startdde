@@ -1,0 +1,6 @@
+etc/X11/Xsession.d
+etc/profile.d
+usr/share
+usr/bin
+usr/sbin
+usr/lib/deepin-daemon/greeter-display-daemon

@@ -30,7 +30,10 @@ fix-xauthority-perm:
 greeter-display-daemon:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o greeter-display-daemon ${GOPKG_PREFIX}/cmd/greeter-display-daemon
 
-build: prepare startdde auto_launch_json fix-xauthority-perm greeter-display-daemon
+greeter-rotation-daemon:
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o greeter-rotation-daemon ${GOPKG_PREFIX}/cmd/greeter-rotation-daemon
+
+build: prepare startdde auto_launch_json fix-xauthority-perm greeter-display-daemon greeter-rotation-daemon
 
 test: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
@@ -41,7 +44,7 @@ test-coverage: prepare
 print_gopath: prepare
 	GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}"
 
-install:
+install-startdde:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
 	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
 	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
@@ -57,11 +60,21 @@ install:
 	mkdir -p ${DESTDIR}/etc/profile.d/
 	cp -f misc/profile.d/* ${DESTDIR}/etc/profile.d/
 
+install-greeter-rotation-daemon:
+	install -Dm755 greeter-rotation-daemon ${DESTDIR}${PREFIX}/lib/deepin-daemon/greeter-rotation-daemon
+	mkdir -p ${DESTDIR}/etc/deepin/greeters.d/
+	cp misc/greeters.d/* ${DESTDIR}/etc/deepin/greeters.d/
+	mkdir -p ${DESTDIR}/var/lib/deepin/greeter-rotation-time/
+	cp misc/greeter-rotation-time/* ${DESTDIR}/var/lib/deepin/greeter-rotation-time/
+
+install: install-startdde install-greeter-rotation-daemon
+
 clean:
 	rm -rf ${GOPATH_DIR}
 	rm -f startdde
 	rm -f fix-xauthority-perm
 	rm -f greeter-display-daemon
+	rm -f greeter-rotation-daemon
 
 rebuild: clean build
 
