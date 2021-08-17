@@ -114,8 +114,6 @@ type Manager struct {
 	isLaptop                 bool
 	modeChanged              bool
 	hasBuiltinMonitor        bool
-	rotationFinishChanged    bool
-	rotationScreenTimer      *time.Timer
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -2046,14 +2044,15 @@ func (m *Manager) listenRotateSignal() {
 		logger.Fatal(err)
 	}
 
-	m.rotationFinishChanged = true
 	signalCh := make(chan *dbus.Signal, 10)
 	systemBus.Signal(signalCh)
 	go func() {
+		var rotationScreenTimer *time.Timer
+		var startBuildInScreenRotationMutex sync.Mutex
+		rotateScreenValue := "normal"
+
 		for {
-			select {
-			case sig := <-signalCh:
-				var rotateScreenValue string
+			for sig := range signalCh {
 				if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
 					continue
 				}
@@ -2064,15 +2063,17 @@ func (m *Manager) listenRotateSignal() {
 					continue
 				}
 
-				if m.rotationFinishChanged {
-					m.rotationFinishChanged = false
-					m.rotationScreenTimer = time.AfterFunc(
-						time.Millisecond*time.Duration(m.gsRotateScreenTimeDelay.Get()), func() {
-							m.startBuildInScreenRotation(rotationScreenValue[rotateScreenValue])
-							m.rotationFinishChanged = true
-						})
+				if rotationScreenTimer == nil {
+					rotationScreenTimer = time.AfterFunc(time.Millisecond*time.Duration(m.gsRotateScreenTimeDelay.Get()), func() {
+						startBuildInScreenRotationMutex.Lock()
+						defer startBuildInScreenRotationMutex.Unlock()
+						rotationRotate, ok := rotationScreenValue[strings.TrimSpace(rotateScreenValue)]
+						if ok {
+							m.startBuildInScreenRotation(rotationRotate)
+						}
+					})
 				} else {
-					m.rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.gsRotateScreenTimeDelay.Get()))
+					rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.gsRotateScreenTimeDelay.Get()))
 				}
 			}
 		}
