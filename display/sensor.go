@@ -29,6 +29,10 @@ func initSensorListener() {
 }
 
 func startSensorListener() {
+	if data_fd > 0 {
+		return
+	}
+
 	data_fd = C.get_input()
 	if data_fd < 0 {
 		fmt.Printf("Failed to get sensor input event")
