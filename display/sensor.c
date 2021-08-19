@@ -219,6 +219,12 @@ int orientation_calc(struct sensor_axis axis)
 
 void value_changed(struct sensor_axis axis)
 {
+    // 陀螺仪厂商规定重力加速度为10, 因此x,y,z三个方向的重力加速度的矢量和应该是小于等于10的, 数据可能存在一定误差,这里取10.5,
+    // 所以三个方向重力加速度的模的平方和应该是小于10.5的平方
+    if (pow(axis.x, 2) + pow(axis.y, 2) + pow(axis.z, 2) > pow(10.5, 2)) {
+        return;
+    }
+
     int ret = orientation_calc(axis);
     if (ret >= 0) {
         char command[256];

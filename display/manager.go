@@ -55,7 +55,7 @@ const (
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 	padEnv                  = "deepin-tablet"
-	orgFreedesktopDBus = "org.freedesktop.DBus"
+	orgFreedesktopDBus      = "org.freedesktop.DBus"
 )
 
 const (
@@ -2050,7 +2050,7 @@ func (m *Manager) listenDBusSignals(gs *gio.Settings) error {
 					updateSensorStatus()
 				}
 			} else if signal.Name == "com.deepin.due.shell.visibleChanged" &&
-				signal.Path == "/com/deepin/due/shell" && len(signal.Body) == 1{
+				signal.Path == "/com/deepin/due/shell" && len(signal.Body) == 1 {
 				updateSensorStatus()
 			}
 		}
@@ -2060,8 +2060,10 @@ func (m *Manager) listenDBusSignals(gs *gio.Settings) error {
 }
 
 func (m *Manager) initSensor() {
+	initSensorListener()
 	// 初始化的时候判断是否开启自动旋转，监听gsetting变化
 	gs := gio.NewSettings("com.deepin.due.shell")
+	setSensorListenerStatus(gs.GetBoolean("rotationislock"))
 	gsettings.ConnectChanged("com.deepin.due.shell", "rotationislock", func(key string) {
 		setSensorListenerStatus(gs.GetBoolean("rotationislock"))
 	})
@@ -2070,10 +2072,4 @@ func (m *Manager) initSensor() {
 	if err != nil {
 		logger.Warning("listenDBusSignals err:", err)
 	}
-
-	initSensorListener()
-	time.AfterFunc(time.Second * 10, func() {
-		logger.Debug("first setSensorListenerStatus after show Desktop")
-		setSensorListenerStatus(gs.GetBoolean("rotationislock"))
-	})
 }
