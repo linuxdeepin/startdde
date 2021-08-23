@@ -72,6 +72,14 @@ const (
 	priorityOther
 )
 
+const (
+	sensorProxyInterface       = "com.deepin.SensorProxy"
+	sensorProxyPath            = "/com/deepin/SensorProxy"
+	sensorProxySignalName      = "RotationValueChanged"
+	sensorProxySignal          = "com.deepin.SensorProxy.RotationValueChanged"
+	sensorProxyGetScreenStatus = "com.deepin.SensorProxy.GetScreenStatus"
+)
+
 var (
 	monitorPriority = map[string]int{
 		"edp":  priorityEDP,
@@ -83,7 +91,8 @@ var (
 )
 
 var (
-	rotationScreenValue = map[string]uint16{
+	startBuildInScreenRotationMutex sync.Mutex
+	rotationScreenValue             = map[string]uint16{
 		"normal": randr.RotationRotate0,
 		"left":   randr.RotationRotate270, // 屏幕重力旋转左转90
 		"right":  randr.RotationRotate90,  // 屏幕重力旋转右转90
@@ -94,6 +103,8 @@ var (
 
 type Manager struct {
 	service                  *dbusutil.Service
+	sysBus                   *dbus.Conn
+	sensorProxy              dbus.BusObject
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
 	config                   Config
@@ -328,6 +339,11 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.CustomIdList = m.getCustomIdList()
 	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 
+	m.sysBus, err = dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+	}
+
 	return m
 }
 
@@ -470,6 +486,7 @@ func (m *Manager) init() {
 	m.applyDisplayMode()
 	m.listenEvent() //等待applyDisplayMode执行完成再开启监听X事件
 	if m.builtinMonitor != nil {
+		m.initScreenRotation() // 获取初始屏幕的状态（屏幕方向）
 		m.listenRotateSignal() // 监听屏幕旋转信号
 	} else {
 		// 没有内建屏,不监听内核信号
@@ -2025,56 +2042,83 @@ func (m *Manager) handleTouchscreenChanged() {
 	}
 }
 
-func (m *Manager) listenRotateSignal() {
-	const (
-		sensorProxyInterface  = "com.deepin.SensorProxy"
-		sensorProxyPath       = "/com/deepin/SensorProxy"
-		sensorProxySignalName = "RotationValueChanged"
-		sensorProxySignal     = "com.deepin.SensorProxy.RotationValueChanged"
-	)
-
-	systemBus, err := dbus.SystemBus()
-	if err != nil {
-		logger.Fatal(err)
+func (m *Manager) getSensorProxyDBus() (dbus.BusObject, error) {
+	if m.sensorProxy != nil {
+		return m.sensorProxy, nil
 	}
 
-	err = systemBus.BusObject().AddMatchSignal(sensorProxyInterface, sensorProxySignalName,
+	m.sensorProxy = m.sysBus.Object(sensorProxyInterface, sensorProxyPath)
+	return m.sensorProxy, nil
+}
+
+func (m *Manager) getScreenRatationStatus() (string, error) {
+	obj, err := m.getSensorProxyDBus()
+	if err != nil {
+		return "", err
+	}
+
+	var status string
+	err = obj.Call(sensorProxyGetScreenStatus, 0).Store(&status)
+	if err != nil {
+		return "", err
+	}
+
+	return status, nil
+}
+
+/* 根据从内核获取的屏幕的初始状态(屏幕的方向)，旋转桌面到对应的方向 */
+func (m *Manager) initScreenRotation() {
+	screenRatationStatus := "normal"
+	screenRatationStatus, err := m.getScreenRatationStatus()
+	logger.Debug("init screen rotation status:", screenRatationStatus)
+	if err != nil {
+		logger.Warning("failed to get screen rotation status")
+		return
+	}
+
+	startBuildInScreenRotationMutex.Lock()
+	defer startBuildInScreenRotationMutex.Unlock()
+	rotationRotate, ok := rotationScreenValue[strings.TrimSpace(screenRatationStatus)]
+	if ok {
+		m.startBuildInScreenRotation(rotationRotate)
+	}
+}
+
+func (m *Manager) listenRotateSignal() {
+	err := m.sysBus.BusObject().AddMatchSignal(sensorProxyInterface, sensorProxySignalName,
 		dbus.WithMatchObjectPath(dbus.ObjectPath(sensorProxyPath)), dbus.WithMatchSender(sensorProxyInterface)).Err
 	if err != nil {
 		logger.Fatal(err)
 	}
 
 	signalCh := make(chan *dbus.Signal, 10)
-	systemBus.Signal(signalCh)
+	m.sysBus.Signal(signalCh)
 	go func() {
 		var rotationScreenTimer *time.Timer
-		var startBuildInScreenRotationMutex sync.Mutex
 		rotateScreenValue := "normal"
 
-		for {
-			for sig := range signalCh {
-				if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
-					continue
-				}
+		for sig := range signalCh {
+			if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
+				continue
+			}
 
-				err = dbus.Store(sig.Body, &rotateScreenValue)
-				if err != nil {
-					logger.Warning("call dbus.Store err:", err)
-					continue
-				}
+			err = dbus.Store(sig.Body, &rotateScreenValue)
+			if err != nil {
+				logger.Warning("call dbus.Store err:", err)
+				continue
+			}
 
-				if rotationScreenTimer == nil {
-					rotationScreenTimer = time.AfterFunc(time.Millisecond*time.Duration(m.gsRotateScreenTimeDelay.Get()), func() {
-						startBuildInScreenRotationMutex.Lock()
-						defer startBuildInScreenRotationMutex.Unlock()
-						rotationRotate, ok := rotationScreenValue[strings.TrimSpace(rotateScreenValue)]
-						if ok {
-							m.startBuildInScreenRotation(rotationRotate)
-						}
-					})
-				} else {
-					rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.gsRotateScreenTimeDelay.Get()))
-				}
+			if rotationScreenTimer == nil {
+				rotationScreenTimer = time.AfterFunc(time.Millisecond*time.Duration(m.gsRotateScreenTimeDelay.Get()), func() {
+					startBuildInScreenRotationMutex.Lock()
+					defer startBuildInScreenRotationMutex.Unlock()
+					rotationRotate, ok := rotationScreenValue[strings.TrimSpace(rotateScreenValue)]
+					if ok {
+						m.startBuildInScreenRotation(rotationRotate)
+					}
+				})
+			} else {
+				rotationScreenTimer.Reset(time.Millisecond * time.Duration(m.gsRotateScreenTimeDelay.Get()))
 			}
 		}
 	}()
