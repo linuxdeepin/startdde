@@ -37,3 +37,24 @@ func Test_doSetLogLevel(t *testing.T) {
 	doSetLogLevel(log.LevelDebug)
 	assert.Equal(t, log.LevelDebug, logger.GetLogLevel())
 }
+
+func Test_loginReminder(t *testing.T) {
+	tests := []struct {
+		name            string
+		gsLoginReminder bool
+	}{
+		{
+			name:            "loginReminder disabled",
+			gsLoginReminder: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_gSettingsConfig = &GSettingsConfig{
+				loginReminder: tt.gsLoginReminder,
+			}
+
+			loginReminder()
+		})
+	}
+}

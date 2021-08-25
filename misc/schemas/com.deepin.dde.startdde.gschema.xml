@@ -42,5 +42,10 @@
             <summary>whether set DPMS after suspend and hibernate</summary>
             <description></description>
         </key>
+        <key type="b" name="login-reminder">
+            <default>false</default>
+            <summary>show login reminder</summary>
+            <description></description>
+        </key>
     </schema>
 </schemalist>
