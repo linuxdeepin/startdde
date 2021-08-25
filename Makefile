@@ -4,6 +4,8 @@ GOPKG_PREFIX = pkg.deepin.io/dde/startdde
 GOBUILD = go build -v $(GO_BUILD_FLAGS)
 export GO111MODULE=off
 
+LANGUAGES = $(basename $(notdir $(wildcard misc/po/*.po)))
+
 all: build
 
 prepare:
@@ -30,7 +32,16 @@ fix-xauthority-perm:
 greeter-display-daemon:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o greeter-display-daemon ${GOPKG_PREFIX}/cmd/greeter-display-daemon
 
-build: prepare startdde auto_launch_json fix-xauthority-perm greeter-display-daemon
+out/locale/%/LC_MESSAGES/startdde.mo: misc/po/%.po
+	mkdir -p $(@D)
+	msgfmt -o $@ $<
+
+translate: $(addsuffix /LC_MESSAGES/startdde.mo, $(addprefix out/locale/, ${LANGUAGES}))
+
+pot:
+	deepin-update-pot misc/po/locale_config.ini
+
+build: prepare startdde auto_launch_json fix-xauthority-perm greeter-display-daemon translate
 
 test: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
@@ -58,6 +69,10 @@ install:
 	install -v -m0644 misc/profile.d/* ${DESTDIR}/etc/profile.d/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas
 	install -v -m0644 misc/schemas/*.xml $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas/
+
+	mkdir -pv ${DESTDIR}${PREFIX}/share/locale
+	cp -r out/locale/* ${DESTDIR}${PREFIX}/share/locale
+
 
 clean:
 	rm -rf ${GOPATH_DIR}
