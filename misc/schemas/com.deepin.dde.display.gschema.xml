@@ -21,7 +21,7 @@
     </enum>
     <schema path="/com/deepin/dde/display/" id="com.deepin.dde.display">
         <key name="brightness-setter" enum="com.deepin.dde.display.BrightnessSetter">
-            <default>'auto'</default>
+            <default>'backlight'</default>
             <summary>the method for setting brightness</summary>
             <description>the method for setting brightness.</description>
         </key>
@@ -69,5 +69,11 @@
 			<range min="1000" max="25000"/>
 			<summary>current color temperature when manual adjustment</summary>
 		</key>
+        <key type="i" name="custom-display-mode">
+            <default>1</default>
+            <range min="1" max="2"/>
+            <summary>custom display mode</summary>
+            <description>The mode of custom display</description>
+        </key>
     </schema>
 </schemalist>
