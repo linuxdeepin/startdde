@@ -2002,7 +2002,8 @@ func (m *Manager) handleTouchscreenChanged() {
 	}
 }
 
-func (m *Manager) listenDBusSignals(gs *gio.Settings) error {
+
+func (m *Manager)listenDBusSignals(gs *gio.Settings) error {
 	bus, err := dbus.SessionBus()
 	if err != nil {
 		return err
@@ -2059,7 +2060,7 @@ func (m *Manager) listenDBusSignals(gs *gio.Settings) error {
 	return nil
 }
 
-func (m *Manager) initSensor() {
+func (m *Manager)initSensor() {
 	initSensorListener()
 	// 初始化的时候判断是否开启自动旋转，监听gsetting变化
 	gs := gio.NewSettings("com.deepin.due.shell")
