@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -81,8 +82,10 @@ func newManager(service *dbusutil.Service) *Manager {
 /* 根据从内核获取的显示屏幕的初始状态(屏幕旋转的方向)，旋转登录界面到对应的方向 */
 func (m *Manager) initScreenRotation() {
 	screenRatationStatus := "normal"
+
 	screenRatationStatus, err := m.getScreenRatationStatus()
-	logger.Debug("init screen rotation status:", screenRatationStatus)
+	logger.Info("init screen rotation status:", screenRatationStatus)
+
 	if err != nil {
 		logger.Warning("failed to get screen rotation status")
 		return
@@ -96,7 +99,6 @@ func (m *Manager) initScreenRotation() {
 	}
 }
 
-/* 监听内核屏幕旋转的信号，旋转登录界面显示到对应方向 */
 func (m *Manager) listenRotateSignal() {
 	err := m.sysBus.BusObject().AddMatchSignal(sensorProxyServiceName, sensorProxySignalName,
 		dbus.WithMatchObjectPath(dbus.ObjectPath(sensorProxyPath)), dbus.WithMatchSender(sensorProxyServiceName)).Err
@@ -112,6 +114,7 @@ func (m *Manager) listenRotateSignal() {
 		rotateScreenValue := "normal"
 
 		for sig := range signalCh {
+			// 监听内核屏幕旋转的信号，旋转登录界面显示到对应方向
 			if sig.Path != sensorProxyPath || sig.Name != sensorProxySignal {
 				continue
 			}
@@ -136,6 +139,51 @@ func (m *Manager) listenRotateSignal() {
 			}
 		}
 	}()
+}
+
+/* 监听用户的session Active属性改变信号，当切换到当前用户时, 需要重新获取当前屏幕的状态， 旋转登录界面到对应方向*/
+func (m *Manager) handleSessionChange() error {
+	sigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
+	sigLoop.Start()
+
+	selfObj, err := login1.NewSession(m.sysBus, "/org/freedesktop/login1/session/self")
+	if err != nil {
+		logger.Warningf("connect login1 self sesion failed! %v", err)
+		return err
+	}
+	id, err := selfObj.Id().Get(0)
+	if err != nil {
+		logger.Warningf("get self session id failed! %v", err)
+		return err
+	}
+	managerObj := login1.NewManager(m.sysBus)
+	path, err := managerObj.GetSession(0, id)
+	if err != nil {
+		logger.Warningf("get session path %s failed! %v", id, err)
+		return err
+	}
+	sessionObj, err := login1.NewSession(m.sysBus, path)
+	if err != nil {
+		logger.Warningf("connect login1 sesion %s failed! %v", path, err)
+		return err
+	}
+
+	sessionObj.InitSignalExt(sigLoop, true)
+	err = sessionObj.Active().ConnectChanged(func(hasValue, value bool) {
+		logger.Infof("session change hasValue： %v, value: %v", hasValue, value)
+
+		if !hasValue {
+			return
+		}
+
+		m.initScreenRotation()
+	})
+
+	if err != nil {
+		logger.Warningf("prop active ConnectChanged failed! %v", err)
+	}
+
+	return err
 }
 
 /* 收到内核旋转屏幕的信号后，调用xrandr命令将登录界面旋转到对应方向 */
@@ -173,6 +221,23 @@ func (m *Manager) getScreenRatationStatus() (string, error) {
 	return status, nil
 }
 
+/* 当系统从待机或者休眠状态唤醒时，需要重新获取当前屏幕的状态 */
+func (m *Manager) handleSystemWakeup() {
+	loginObj := login1.NewManager(m.sysBus)
+	sigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
+	sigLoop.Start()
+	loginObj.InitSignalExt(sigLoop, true)
+	_, err := loginObj.ConnectPrepareForSleep(func(isSleep bool) {
+		if !isSleep {
+			logger.Info("system Wakeup, need reacquire screen status", isSleep)
+			m.initScreenRotation()
+		}
+	})
+	if err != nil {
+		logger.Warning("failed to connect signal PrepareForSleep:", err)
+	}
+}
+
 func main() {
 	service, err := dbusutil.NewSystemService()
 	if err != nil {
@@ -182,6 +247,11 @@ func main() {
 	m := newManager(service)
 	if err != nil {
 		logger.Fatal("failed to new manager:", err)
+	}
+
+	m.handleSystemWakeup()
+	if err := m.handleSessionChange(); err != nil {
+		logger.Warningf("failed to handle session changer error: %v", err)
 	}
 
 	m.listenRotateSignal()
