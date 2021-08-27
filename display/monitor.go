@@ -53,7 +53,7 @@ type Monitor struct {
 	RefreshRate       float64
 	CurrentRotateMode uint8
 
-	oldRotation         uint16
+	oldRotation uint16
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
@@ -256,7 +256,11 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 	m.oldRotation = m.Rotation
 	m.markChanged()
 	m.setRotation(value)
-	m.m.touchScreenSetRotation(value, m.Name)
+
+	if len(m.m.Touchscreens) > 0 {
+		m.m.touchScreenSetRotation(value, m.Name)
+	}
+
 	m.setPropCurrentRotateMode(RotationFinishModeManual)
 	return nil
 }
