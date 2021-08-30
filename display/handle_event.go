@@ -178,6 +178,5 @@ func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent) {
 		m.updateOutputPrimary()
 	}
 
-	logger.Info("redo map touch screen")
 	m.doMapTouches()
 }

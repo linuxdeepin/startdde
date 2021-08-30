@@ -1970,6 +1970,8 @@ func (m *Manager) initTouchMap() {
 func (m *Manager) doMapTouches() {
 	go func() {
 		for touchSerial, output := range m.TouchMap {
+			logger.Infof("redo map touch screen, touchSerial:%s, output:%s", touchSerial, output)
+
 			err := m.doSetTouchMap(output, touchSerial)
 			if err != nil {
 				logger.Warningf("failed to map touch: %s", err)
