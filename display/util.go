@@ -253,7 +253,7 @@ func getOutputUUID(name string, edid []byte) string {
 	if id == "" {
 		return name
 	}
-	return numReg.ReplaceAllString(name, "") + id
+	return name + id
 }
 
 func sortMonitorsByID(monitors []*Monitor) {
