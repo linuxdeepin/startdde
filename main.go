@@ -391,10 +391,15 @@ func loginReminder() {
 
 	body := fmt.Sprintf("%s %s %s", res.Username, res.CurrentLogin.Address, tm.Format("2006-01-02 15:04:05"))
 
-	if res.Spent.Expire != -1 {
+	// pam_unix/passverify.c
+	if res.Spent.Max != -1 && res.Spent.Warn != -1 {
 		curDays := int(time.Now().Unix() / secondsPerDay)
-		body += " " + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), res.Spent.Expire-curDays)
+		if curDays-res.Spent.LastChange > res.Spent.Max-res.Spent.Warn {
+			daysLeft := res.Spent.LastChange + res.Spent.Max - curDays
+			body += " " + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft)
+		}
 	}
+
 	body += "\n" + fmt.Sprintf(gettext.Tr("%d login failures since the last successful login"), res.FailCountSinceLastLogin)
 
 	bus, _ := dbus.SessionBus()
