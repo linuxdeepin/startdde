@@ -103,7 +103,7 @@ const (
 	cmdDdeDesktop          = "/usr/bin/dde-desktop"
 	cmdLoginReminderHelper = "/usr/libexec/deepin/login-reminder-helper"
 
-	loginRemiderTimeout = 5000
+	loginRemiderTimeout = 5 * time.Second
 )
 
 func launchCoreComponents(sm *SessionManager) {
@@ -405,8 +405,13 @@ func loginReminder() {
 	bus, _ := dbus.SessionBus()
 	notifi := notifications.NewNotifications(bus)
 	// TODO: icon
-	_, err = notifi.Notify(0, "dde-control-center", 0, "preferences-system", gettext.Tr("Login Reminder"), body, nil, nil, loginRemiderTimeout)
+	notifyId, err := notifi.Notify(0, "dde-control-center", 0, "preferences-system", gettext.Tr("Login Reminder"), body, nil, nil, 0)
 	if err != nil {
 		logger.Warningf("failed to send notify: %s", err)
 	}
+
+	// 通知不显示在通知中心面板，故在时间到了后，关闭通知
+	time.AfterFunc(loginRemiderTimeout, func() {
+		notifi.CloseNotification(0, notifyId)
+	})
 }
