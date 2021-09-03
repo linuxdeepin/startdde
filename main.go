@@ -145,7 +145,6 @@ func launchCoreComponents(sm *SessionManager) {
 				handleKWinReady(sm)
 			})
 		} else {
-			initGSettingsConfig()
 			wmCmd := _gSettingsConfig.wmCmd
 			if wmCmd == "" {
 				wmCmd = "x-window-manager"
@@ -212,6 +211,8 @@ func logInfoAfter(msg string) {
 }
 
 func main() {
+	initGSettingsConfig()
+
 	_mainBeginTime = time.Now()
 	flag.Parse()
 
@@ -294,7 +295,6 @@ func main() {
 		}()
 	}
 
-	initGSettingsConfig()
 	go func() {
 		initSoundThemePlayer()
 		playLoginSound()
