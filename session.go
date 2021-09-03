@@ -686,6 +686,12 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		dbusDaemon:          dbusDaemon,
 		daemon:              daemon.NewDaemon(sysBus),
 	}
+
+	// 此处将init的操作提前，避免SessionManager对象被创建了，相关属性值还没有被初始化
+	// 如果其它进程读取了非法的属性值， dbus连接会被关闭，导致startdde启动失败
+	m.initSession()
+	m.init()
+
 	return m
 }
 
@@ -1065,8 +1071,7 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 			return
 		}
 	}()
-	m.initSession()
-	m.init()
+
 	if _options.noXSessionScripts {
 		runScript01DeepinProfileFaster()
 		runScript30X11CommonXResourcesFaster()
