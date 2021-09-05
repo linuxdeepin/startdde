@@ -74,6 +74,7 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	m.updateMonitor(ev.Output, outputInfo)
 	m.updatePropMonitors()
 
+	m.initFillModes()
 	oldMonitorsID := m.monitorsId
 	newMonitorsID := m.getMonitorsId()
 	if newMonitorsID != oldMonitorsID && newMonitorsID != "" {

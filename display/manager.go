@@ -65,14 +65,14 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
-	gsKeyCustomMode             = "current-custom-mode"
-	gsKeyColorTemperatureMode   = "color-temperature-mode"
-	gsKeyColorTemperatureManual = "color-temperature-manual"
-	gsKeyRotateScreenTimeDelay  = "rotate-screen-time-delay"
-	customModeDelim             = "+"
-	monitorsIdDelimiter         = ","
-	defaultTemperatureMode      = ColorTemperatureModeNormal
-	defaultTemperatureManual    = 6500
+	gsKeyCustomMode              = "current-custom-mode"
+	gsKeyColorTemperatureMode    = "color-temperature-mode"
+	gsKeyColorTemperatureManual  = "color-temperature-manual"
+	gsKeyRotateScreenTimeDelay   = "rotate-screen-time-delay"
+	customModeDelim              = "+"
+	monitorsIdDelimiter          = ","
+	defaultTemperatureMode       = ColorTemperatureModeNormal
+	defaultTemperatureManual     = 6500
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
@@ -123,25 +123,28 @@ type Manager struct {
 	xConn                    *x.Conn
 	PropsMu                  sync.RWMutex
 	config                   Config
+	configV6                 ConfigV6
 	recommendScaleFactor     float64
 	modes                    []randr.ModeInfo
 	builtinMonitor           *Monitor
 	builtinMonitorMu         sync.Mutex
 	candidateBuiltinMonitors []*Monitor // 候补的
-	monitorMap               map[randr.Output]*Monitor
-	monitorMapMu             sync.Mutex
-	crtcMap                  map[randr.Crtc]*randr.GetCrtcInfoReply
-	crtcMapMu                sync.Mutex
-	outputMap                map[randr.Output]*randr.GetOutputInfoReply
-	outputMapMu              sync.Mutex
-	configTimestamp          x.Timestamp
-	settings                 *gio.Settings
-	monitorsId               string
-	modeChanged              bool
-	screenChanged            bool
-	info                     ConnectInfo
-	hasBuiltinMonitor        bool
-	rotateScreenTimeDelay    int32
+
+	monitorMap              map[randr.Output]*Monitor
+	monitorMapMu            sync.Mutex
+	crtcMap                 map[randr.Crtc]*randr.GetCrtcInfoReply
+	crtcMapMu               sync.Mutex
+	outputMap               map[randr.Output]*randr.GetOutputInfoReply
+	outputMapMu             sync.Mutex
+	configTimestamp         x.Timestamp
+	settings                *gio.Settings
+	monitorsId              string
+	modeChanged             bool
+	screenChanged           bool
+	info                    ConnectInfo
+	hasBuiltinMonitor       bool
+	rotateScreenTimeDelay   int32
+	setCurrentFillModeMutex sync.Mutex
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -556,21 +559,79 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	m.syncBrightness()
 }
 
+func (m *Manager) initFillModes() {
+	if m.configV6.FillMode == nil {
+		m.configV6.FillMode = &FillModeConfigs{}
+		m.configV6.FillMode.FillModeMap = make(map[string]string)
+	}
+
+	for output, monitor := range m.monitorMap {
+		xrandrProp, _ := randr.ListOutputProperties(_xConn, output).Reply(_xConn)
+		for _, atom := range xrandrProp.Atoms {
+			atomName, _ := _xConn.GetAtomName(atom)
+
+			if atomName == "scaling mode" {
+				outputProp, _ := randr.QueryOutputProperty(_xConn, output, atom).Reply(_xConn)
+				var availableFillmode []string
+				for _, prop := range outputProp.ValidValues {
+					propAtom, _ := _xConn.GetAtomName(x.Atom(prop))
+					if propAtom != "None" {
+						availableFillmode = append(availableFillmode, propAtom)
+					}
+				}
+				monitor.setPropAvailableFillModes(availableFillmode)
+				break
+			}
+		}
+	}
+}
+
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
 	// 在获取屏幕亮度之后再加载配置文件，版本迭代时把上次的亮度值写入配置文件。
 	m.config = loadConfig(m)
 	// 重启 startdde 读取上一次设置，不需要重置色温。
+	m.initFillModes()
 	m.applyDisplayMode(false)
 	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
-		m.listenRotateSignal() // 监听屏幕旋转信号
+		m.listenRotateSignal()    // 监听屏幕旋转信号
 	} else {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
 	}
+}
+
+func (m *Manager) setFillMode(monitor *Monitor) {
+	if len(monitor.AvailableFillModes) == 0 {
+		logger.Warning("monitor fillmode invalid")
+		return
+	}
+
+	if m.config[monitor.uuid] == nil {
+		logger.Warning("m.config[monitor.uuid] nil")
+		return
+	}
+
+	fillModeKey := monitor.generateFillModeKey()
+
+	if fillMode, ok := m.configV6.FillMode.FillModeMap[fillModeKey]; ok {
+		err := monitor.setXrandrScalingMode(fillMode)
+		if err != nil {
+			logger.Warning("call setXrandrScalingMode err:", err)
+		}
+		return
+	} else {
+		err := monitor.setXrandrScalingMode(fillModeDefault)
+		if err != nil {
+			logger.Warning("call setXrandrScalingMode err:", err)
+		}
+		return
+	}
+
+	return
 }
 
 // initColorTemperature 初始化色温设置，名字不太好，不在初始化时，也调用了。
@@ -881,6 +942,17 @@ func (m *Manager) addMonitor(output randr.Output, outputInfo *randr.GetOutputInf
 	m.monitorMapMu.Lock()
 	m.monitorMap[output] = monitor
 	m.monitorMapMu.Unlock()
+
+	monitor.output = output
+
+	monitorObj := m.service.GetServerObject(monitor)
+	err = monitorObj.SetWriteCallback(monitor, "CurrentFillMode",
+		monitor.setCurrentFillMode)
+	if err != nil {
+		logger.Warning("call SetWriteCallback err:", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -1224,6 +1296,9 @@ func (m *Manager) apply() error {
 					logger.Warningf("failed to set brightness for %s: %v", mon.Name, err)
 				}
 			}(monitor) // 用局部变量作闭包上值
+
+			// 切换分辨率、开机、插拔，将当前的分辨率保存的fillMode设置
+			m.setFillMode(monitor)
 		}
 		err = monitor.emitPropChangedBrightness(monitor.Brightness)
 		if err != nil {
@@ -2245,7 +2320,8 @@ func (m *Manager) saveConfig() error {
 		return err
 	}
 
-	err = m.config.save(configFile_v5)
+	m.configV6.ConfigV5 = m.config
+	err = m.configV6.save(configFile_v5)
 	if err != nil {
 		return err
 	}

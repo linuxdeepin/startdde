@@ -37,6 +37,15 @@ func init() {
 
 type Config map[string]*ScreenConfig
 
+type ConfigV6 struct {
+	ConfigV5 Config
+	FillMode *FillModeConfigs
+}
+
+type FillModeConfigs struct {
+	FillModeMap map[string]string
+}
+
 type ScreenConfig struct {
 	Mirror  *ModeConfigs      `json:",omitempty"`
 	Extend  *ModeConfigs      `json:",omitempty"`
@@ -230,6 +239,31 @@ func loadConfigV5(filename string) (Config, error) {
 	return c, nil
 }
 
+func loadConfigV6(filename string) (ConfigV6, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return ConfigV6{}, err
+	}
+
+	var c ConfigV6
+	err = json.Unmarshal(data, &c)
+	if err != nil {
+		return ConfigV6{}, err
+	}
+
+	// 存在，没有V6的情况，只有V5,将此时数据读取存到V6
+	if c.ConfigV5 == nil {
+		var configV5 Config
+		err = json.Unmarshal(data, &configV5)
+		if err != nil {
+			return ConfigV6{}, err
+		}
+
+		c.ConfigV5 = configV5
+	}
+	return c, nil
+}
+
 func loadConfig(m *Manager) (config Config) {
 	cfgVer, err := getConfigVersion(configVersionFile)
 	if err == nil {
@@ -254,7 +288,7 @@ func loadConfig(m *Manager) (config Config) {
 	}
 
 	if len(config) == 0 {
-		config, err = loadConfigV5(configFile_v5)
+		configV6, err := loadConfigV6(configFile_v5)
 		if err != nil {
 			config = make(Config)
 			//配置文件为空，且当前模式为自定义，则设置当前模式为复制模式
@@ -264,7 +298,11 @@ func loadConfig(m *Manager) (config Config) {
 			if !os.IsNotExist(err) {
 				logger.Warning(err)
 			}
+			m.configV6.FillMode = &FillModeConfigs{}
 		}
+
+		config = configV6.ConfigV5
+		m.configV6.FillMode = configV6.FillMode
 	}
 
 	if logger.GetLogLevel() == log.LevelDebug {
@@ -273,7 +311,7 @@ func loadConfig(m *Manager) (config Config) {
 	return
 }
 
-func (c Config) save(filename string) error {
+func (c ConfigV6) save(filename string) error {
 	var data []byte
 	var err error
 	if logger.GetLogLevel() == log.LevelDebug {

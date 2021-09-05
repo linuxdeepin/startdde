@@ -452,3 +452,25 @@ func (v *Monitor) setPropCurrentMode(value ModeInfo) {
 func (v *Monitor) emitPropChangedCurrentMode(value ModeInfo) error {
 	return v.service.EmitPropertyChanged(v, "CurrentMode", value)
 }
+
+func (v *Monitor) setPropCurrentFillMode(value string) (changed bool) {
+	if v.CurrentFillMode != value {
+		v.CurrentFillMode = value
+		v.emitPropChangedCurrentFillMode(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedCurrentFillMode(value string) error {
+	return v.service.EmitPropertyChanged(v, "CurrentFillMode", value)
+}
+
+func (v *Monitor) setPropAvailableFillModes(value []string) {
+	v.AvailableFillModes = value
+	v.emitPropChangedAvailableFillModes(value)
+}
+
+func (v *Monitor) emitPropChangedAvailableFillModes(value []string) error {
+	return v.service.EmitPropertyChanged(v, "AvailableFillModes", value)
+}

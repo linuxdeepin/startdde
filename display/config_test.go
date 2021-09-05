@@ -42,9 +42,6 @@ func TestConfig(t *testing.T) {
 	primarymonitor = getMonitorConfigPrimary(monitors)
 	require.Equal(t, primarymonitor.UUID, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
 
-	err = config.save(configPath_v5)
-	require.Nil(t, err)
-
 	_, err = loadBuiltinMonitorConfig(builtinMonitorCfg)
 	require.Nil(t, err)
 

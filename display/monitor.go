@@ -9,6 +9,7 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 )
@@ -17,10 +18,17 @@ const (
 	dbusInterfaceMonitor = dbusInterface + ".Monitor"
 )
 
+const (
+	fillModeDefault string = "Full aspect"
+	fillModeCenter  string = "Center"
+	fillModeFull    string = "Full"
+)
+
 type Monitor struct {
 	m                 *Manager
 	service           *dbusutil.Service
 	crtc              randr.Crtc
+	output            randr.Output
 	uuid              string
 	PropsMu           sync.RWMutex
 	lastConnectedTime time.Time
@@ -43,21 +51,24 @@ type Monitor struct {
 	MmWidth        uint32
 	MmHeight       uint32
 
-	Enabled     bool
-	X           int16
-	Y           int16
-	Width       uint16
-	Height      uint16
-	Rotation    uint16
-	Reflect     uint16
-	RefreshRate float64
-	Brightness  float64
+	Enabled           bool
+	X                 int16
+	Y                 int16
+	Width             uint16
+	Height            uint16
+	Rotation          uint16
+	Reflect           uint16
+	RefreshRate       float64
+	Brightness        float64
 	CurrentRotateMode uint8
 
-	oldRotation         uint16
+	oldRotation uint16
 
 	// dbusutil-gen: equal=nil
-	CurrentMode ModeInfo
+	CurrentMode     ModeInfo
+	CurrentFillMode string `prop:"access:rw"`
+	// dbusutil-gen: equal=nil
+	AvailableFillModes []string
 
 	backup *MonitorBackup
 
@@ -405,5 +416,86 @@ func (monitors Monitors) GetByCrtc(crtc randr.Crtc) *Monitor {
 			return monitor
 		}
 	}
+	return nil
+}
+
+func (m *Monitor) setXrandrScalingMode(fillMode string) error {
+	if fillMode != fillModeDefault &&
+		fillMode != fillModeCenter &&
+		fillMode != fillModeFull {
+		logger.Warning("setXrandrScalingMode fillMode invalid:", fillMode)
+		return nil
+	}
+
+	fillModeU32, _ := _xConn.GetAtom(fillMode)
+	name, _ := _xConn.GetAtom("scaling mode")
+
+	outputPropReply, err := randr.GetOutputProperty(_xConn, m.output, name, 0, 0,
+		100, false, false).Reply(_xConn)
+	if err != nil {
+		logger.Warning("call GetOutputProperty reply err:", err)
+		return err
+	}
+
+	w := x.NewWriter()
+	w.Write4b(uint32(fillModeU32))
+	fillModeByte := w.Bytes()
+	err = randr.ChangeOutputPropertyChecked(_xConn, m.output, name,
+		outputPropReply.Type, outputPropReply.Format, 0, fillModeByte).Check(_xConn)
+	if err != nil {
+		logger.Warning("err:", err)
+		return err
+	}
+
+	m.setPropCurrentFillMode(fillMode)
+	return nil
+}
+
+func (m *Monitor) generateFillModeKey() string {
+	if needSwapWidthHeight(m.Rotation) {
+		return fmt.Sprintf("%s:%dx%d", m.uuid, m.Height, m.Width)
+	}
+
+	return fmt.Sprintf("%s:%dx%d", m.uuid, m.Width, m.Height)
+}
+
+func (m *Monitor) setCurrentFillMode(write *dbusutil.PropertyWrite) *dbus.Error {
+	value, _ := write.Value.(string)
+	var fillModeKey = ""
+	m.m.setCurrentFillModeMutex.Lock()
+
+	var currentFillMode string
+	if value == "" {
+		// 填充模式为空时，从display.config获取结构体当前分辨率的铺满方式
+		currentFillMode = fillModeDefault
+		fillModeKey = m.generateFillModeKey()
+		if fillMode, ok := m.m.configV6.FillMode.FillModeMap[fillModeKey]; ok {
+			currentFillMode = fillMode
+		}
+	} else {
+		// 填充模式不为空时，获取当前屏幕的分辨率信息
+		fillModeKey = m.generateFillModeKey()
+		currentFillMode = value
+	}
+
+	m.m.configV6.FillMode.FillModeMap[fillModeKey] = currentFillMode
+	err := m.setXrandrScalingMode(currentFillMode)
+	if err != nil {
+		logger.Warning("call setXrandrScalingMode err:", err)
+		return dbusutil.ToError(err)
+	}
+
+	err = m.m.applyChanges()
+	if err != nil {
+		logger.Warning("call applyChanges err:", err)
+		return dbusutil.ToError(err)
+	}
+
+	err = m.m.save()
+	if err != nil {
+		logger.Warning("call save err:", err)
+		return dbusutil.ToError(err)
+	}
+	m.m.setCurrentFillModeMutex.Unlock()
 	return nil
 }
