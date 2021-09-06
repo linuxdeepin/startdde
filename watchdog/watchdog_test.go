@@ -20,12 +20,45 @@
 package watchdog
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"pkg.deepin.io/lib/log"
 )
 
-func TestDBusExists(t *testing.T) {
+func isUseKwin() bool {
+	_, err := os.Stat("/usr/bin/kwin_no_scale")
+	return err == nil
+}
+
+func Test_Start(t *testing.T) {
+	assert.NotPanics(t, func() {
+		SetLogLevel(log.LevelDebug)
+
+		_manager = newManager()
+
+		_manager.AddTimedTask(newDdeDesktopTask())
+		_manager.AddTimedTask(newDdePolkitAgent())
+		_manager.AddDBusTask(ddeDockServiceName, newDdeDockTask())
+		_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
+		_manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
+		if isUseKwin() {
+			_manager.AddDBusTask(kWinServiceName, newDdeKWinTask())
+		} else {
+			_manager.AddDBusTask(wmServiceName, newWMTask())
+		}
+
+		manager := GetManager()
+		assert.Equal(t, manager, _manager)
+		assert.NotNil(t, manager.quit)
+
+		manager.QuitLoop()
+		assert.Nil(t, manager.quit)
+	})
+}
+
+func Test_isDBusServiceExist(t *testing.T) {
 	t.Run("Test dbus whether exists", func(t *testing.T) {
 		err := initDBusObject()
 		if err != nil {
@@ -41,7 +74,7 @@ func TestDBusExists(t *testing.T) {
 	})
 }
 
-func TestStrInList(t *testing.T) {
+func Test_isItemInList(t *testing.T) {
 	t.Run("Test item whether in list", func(t *testing.T) {
 		var list = []string{
 			"abc",
@@ -53,7 +86,7 @@ func TestStrInList(t *testing.T) {
 	})
 }
 
-func TestTaskInfo(t *testing.T) {
+func Test_newTaskInfo(t *testing.T) {
 	t.Run("Test task create", func(t *testing.T) {
 		assert.Nil(t, newTaskInfo("test1", nil, nil))
 		assert.NotNil(t, newTaskInfo("test1",
