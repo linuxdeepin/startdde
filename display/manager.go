@@ -622,13 +622,11 @@ func (m *Manager) setFillMode(monitor *Monitor) {
 		if err != nil {
 			logger.Warning("call setXrandrScalingMode err:", err)
 		}
-		return
 	} else {
 		err := monitor.setXrandrScalingMode(fillModeDefault)
 		if err != nil {
 			logger.Warning("call setXrandrScalingMode err:", err)
 		}
-		return
 	}
 
 	return

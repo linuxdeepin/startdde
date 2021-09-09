@@ -424,7 +424,7 @@ func (m *Monitor) setXrandrScalingMode(fillMode string) error {
 		fillMode != fillModeCenter &&
 		fillMode != fillModeFull {
 		logger.Warning("setXrandrScalingMode fillMode invalid:", fillMode)
-		return nil
+		return errors.New("setXrandrScalingMode fillMode invalid")
 	}
 
 	fillModeU32, _ := _xConn.GetAtom(fillMode)

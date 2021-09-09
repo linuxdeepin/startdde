@@ -298,11 +298,13 @@ func loadConfig(m *Manager) (config Config) {
 			if !os.IsNotExist(err) {
 				logger.Warning(err)
 			}
+			m.configV6.ConfigV5 = config
 			m.configV6.FillMode = &FillModeConfigs{}
+		} else {
+			config = configV6.ConfigV5
+			m.configV6.FillMode = configV6.FillMode
 		}
-
-		config = configV6.ConfigV5
-		m.configV6.FillMode = configV6.FillMode
+		m.configV6.FillMode.FillModeMap = make(map[string]string)
 	}
 
 	if logger.GetLogLevel() == log.LevelDebug {
