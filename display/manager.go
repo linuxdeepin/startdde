@@ -140,7 +140,6 @@ type Manager struct {
 	settings                *gio.Settings
 	monitorsId              string
 	modeChanged             bool
-	screenChanged           bool
 	info                    ConnectInfo
 	hasBuiltinMonitor       bool
 	rotateScreenTimeDelay   int32
@@ -489,12 +488,17 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 	return result
 }
 
-func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
+func (m *Manager) applyDisplayMode(needInitColorTemperature bool, options applyOptions) {
 	// 对于 randr 版本低于 1.2 时，不做操作
 	if !_hasRandr1d2 {
 		return
 	}
 	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		// 拔掉所有显示器
+		logger.Debug("applyDisplayMode without any monitor，return")
+		return
+	}
 	var err error
 	if len(monitors) == 1 {
 		// 单屏情况
@@ -522,7 +526,7 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 		}
 
 		// 应用单屏配置
-		err = m.applySingleConfigs(config)
+		err = m.applySingleConfigs(config, options)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 		}
@@ -542,11 +546,11 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 	// 多屏情况
 	switch m.DisplayMode {
 	case DisplayModeMirror:
-		err = m.switchModeMirror()
+		err = m.switchModeMirror(options)
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend(options)
 	case DisplayModeOnlyOne:
-		err = m.switchModeOnlyOne("")
+		err = m.switchModeOnlyOne("", options)
 	}
 
 	if err != nil {
@@ -588,7 +592,7 @@ func (m *Manager) init() {
 	m.config = loadConfig(m)
 	// 重启 startdde 读取上一次设置，不需要重置色温。
 	m.initFillModes()
-	m.applyDisplayMode(false)
+	m.applyDisplayMode(false, nil)
 	m.listenEvent() // 等待 applyDisplayMode 执行完成再开启监听 X 事件
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
@@ -1089,12 +1093,12 @@ func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 	return
 }
 
-func (m *Manager) switchModeMirror() (err error) {
+func (m *Manager) switchModeMirror(options applyOptions) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getModeConfigs(DisplayModeMirror)
 	logger.Debug("switchModeMirror")
 	if len(configs.Monitors) > 0 {
-		err = m.applyConfigs(configs)
+		err = m.applyConfigs(configs, options)
 		return
 	}
 
@@ -1147,8 +1151,22 @@ type crtcConfig struct {
 	mode     randr.Mode
 }
 
-func (m *Manager) apply() error {
+type applyOptions map[string]interface{}
+
+const (
+	optionDisableCrtc = "disableCrtc"
+)
+
+func (m *Manager) apply(optionsSlice ...applyOptions) error {
 	logger.Debug("call apply")
+
+	optDisableCrtc := false
+	if len(optionsSlice) > 0 {
+		// optionsSlice 应该最多只有一个元素
+		options := optionsSlice[0]
+		optDisableCrtc, _ = options[optionDisableCrtc].(bool)
+	}
+
 	x.GrabServer(m.xConn)
 	defer func() {
 		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
@@ -1208,9 +1226,15 @@ func (m *Manager) apply() error {
 		// 是否考虑临时禁用 crtc
 		shouldDisable := false
 
-		if m.modeChanged || m.screenChanged {
+		if m.modeChanged {
 			// 显示模式切换了或屏幕变了
 			logger.Debugf("should disable crtc %v because of mode changed or screen changed", crtc)
+			shouldDisable = true
+		} else if optDisableCrtc {
+			// NOTE: 如果接入了双屏，断开一个屏幕，让另外的屏幕都暂时禁用，来避免桌面壁纸的闪烁问题（突然黑一下，然后很快恢复），
+			// 这么做是为了兼顾修复 pms bug 83875 和 94116。
+			// 但是对于 bug 94116，依然保留问题：先断开再连接显示器，桌面壁纸依然有闪烁问题。
+			logger.Debugf("should disable crtc %v because of optDisableCrtc is true", crtc)
 			shouldDisable = true
 		} else if int(rect.X)+int(rect.Width) > int(screenSize.width) ||
 			int(rect.Y)+int(rect.Height) > int(screenSize.height) {
@@ -1241,7 +1265,6 @@ func (m *Manager) apply() error {
 	}
 	m.crtcMapMu.Unlock()
 	m.modeChanged = false
-	m.screenChanged = false
 
 	err := m.setScreenSize(screenSize)
 	if err != nil {
@@ -1377,7 +1400,7 @@ func (m *Manager) setPrimary(name string) error {
 		return errors.New("not allow set primary in mirror mode")
 
 	case DisplayModeOnlyOne:
-		return m.switchModeOnlyOne(name)
+		return m.switchModeOnlyOne(name, nil)
 
 	case DisplayModeExtend:
 		screenCfg := m.getScreenConfig()
@@ -1427,13 +1450,13 @@ func (m *Manager) setPrimary(name string) error {
 	return nil
 }
 
-func (m *Manager) switchModeExtend() (err error) {
+func (m *Manager) switchModeExtend(options applyOptions) (err error) {
 	logger.Debug("switch mode extend")
 	screenCfg := m.getScreenConfig()
 	modeConfigs := screenCfg.getModeConfigs(DisplayModeExtend)
 
 	if len(modeConfigs.Monitors) > 0 {
-		err = m.applyConfigs(modeConfigs)
+		err = m.applyConfigs(modeConfigs, options)
 		return
 	}
 
@@ -1472,7 +1495,7 @@ func (m *Manager) switchModeExtend() (err error) {
 	m.ColorTemperatureMode = defaultTemperatureMode
 	m.ColorTemperatureManual = defaultTemperatureManual
 
-	err = m.apply()
+	err = m.apply(options)
 	if err != nil {
 		return
 	}
@@ -1508,7 +1531,7 @@ func (m *Manager) getScreenConfig() *ScreenConfig {
 	return screenCfg
 }
 
-func (m *Manager) switchModeOnlyOne(name string) (err error) {
+func (m *Manager) switchModeOnlyOne(name string, options applyOptions) (err error) {
 	logger.Debug("switch mode only one", name)
 
 	screenCfg := m.getScreenConfig()
@@ -1626,7 +1649,7 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 		}
 	}
 
-	err = m.apply()
+	err = m.apply(options)
 	if err != nil {
 		return
 	}
@@ -1649,11 +1672,11 @@ func (m *Manager) switchModeOnlyOne(name string) (err error) {
 func (m *Manager) switchMode(mode byte, name string) (err error) {
 	switch mode {
 	case DisplayModeMirror:
-		err = m.switchModeMirror()
+		err = m.switchModeMirror(nil)
 	case DisplayModeExtend:
-		err = m.switchModeExtend()
+		err = m.switchModeExtend(nil)
 	case DisplayModeOnlyOne:
-		err = m.switchModeOnlyOne(name)
+		err = m.switchModeOnlyOne(name, nil)
 	default:
 		err = errors.New("invalid mode")
 	}
@@ -1750,8 +1773,8 @@ func (m *Manager) getConnectedMonitors() Monitors {
 }
 
 // 复制和扩展时触发
-func (m *Manager) applyConfigs(configs *ModeConfigs) error {
-	logger.Debug("applyConfigs", spew.Sdump(configs))
+func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error {
+	logger.Debug("applyConfigs", spew.Sdump(configs), options)
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs.Monitors, monitor.uuid)
@@ -1786,7 +1809,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 
 	logger.Debug("ColorTemperatureMode = ,ColorTemperatureManual = ", m.ColorTemperatureMode, m.ColorTemperatureManual)
 
-	err := m.apply()
+	err := m.apply(options)
 	if err != nil {
 		return err
 	}
@@ -1801,8 +1824,8 @@ func (m *Manager) applyConfigs(configs *ModeConfigs) error {
 	return nil
 }
 
-func (m *Manager) applySingleConfigs(config *SingleModeConfig) error {
-	logger.Debug("applyConfigs", spew.Sdump(config))
+func (m *Manager) applySingleConfigs(config *SingleModeConfig, options applyOptions) error {
+	logger.Debug("applyConfigs", spew.Sdump(config), options)
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid([]*MonitorConfig{config.Monitor}, monitor.uuid)
@@ -1835,7 +1858,7 @@ func (m *Manager) applySingleConfigs(config *SingleModeConfig) error {
 	m.ColorTemperatureMode = config.ColorTemperatureMode
 	m.ColorTemperatureManual = config.ColorTemperatureManual
 
-	err := m.apply()
+	err := m.apply(options)
 	if err != nil {
 		return err
 	}
