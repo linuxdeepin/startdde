@@ -251,6 +251,10 @@ func loadConfigV6(filename string) (ConfigV6, error) {
 		return ConfigV6{}, err
 	}
 
+	if c.FillMode == nil {
+		c.FillMode = &FillModeConfigs{}
+	}
+
 	// 存在，没有V6的情况，只有V5,将此时数据读取存到V6
 	if c.ConfigV5 == nil {
 		var configV5 Config

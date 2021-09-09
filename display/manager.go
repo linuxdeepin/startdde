@@ -560,11 +560,6 @@ func (m *Manager) applyDisplayMode(needInitColorTemperature bool) {
 }
 
 func (m *Manager) initFillModes() {
-	if m.configV6.FillMode == nil {
-		m.configV6.FillMode = &FillModeConfigs{}
-		m.configV6.FillMode.FillModeMap = make(map[string]string)
-	}
-
 	for output, monitor := range m.monitorMap {
 		xrandrProp, _ := randr.ListOutputProperties(_xConn, output).Reply(_xConn)
 		for _, atom := range xrandrProp.Atoms {
@@ -607,11 +602,6 @@ func (m *Manager) init() {
 func (m *Manager) setFillMode(monitor *Monitor) {
 	if len(monitor.AvailableFillModes) == 0 {
 		logger.Warning("monitor fillmode invalid")
-		return
-	}
-
-	if m.config[monitor.uuid] == nil {
-		logger.Warning("m.config[monitor.uuid] nil")
 		return
 	}
 
