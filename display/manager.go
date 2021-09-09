@@ -97,7 +97,6 @@ type Manager struct {
 	monitorsId               string
 	isLaptop                 bool
 	modeChanged              bool
-	screenChanged            bool
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -395,13 +394,18 @@ func monitorsRemove(monitors []*Monitor, id uint32) []*Monitor {
 	return result
 }
 
-func (m *Manager) applyDisplayMode() {
+func (m *Manager) applyDisplayMode(options applyOptions) {
 	// TODO 实现功能
 	if !_hasRandr1d2 {
 		return
 	}
 	logger.Debug("applyDisplayMode")
 	monitors := m.getConnectedMonitors()
+	if len(monitors) == 0 {
+		// 拔掉所有显示器
+		logger.Debug("applyDisplayMode without any monitor，return")
+		return
+	}
 	var err error
 	if len(monitors) == 1 {
 		// 单屏
@@ -422,7 +426,7 @@ func (m *Manager) applyDisplayMode() {
 			config.Rotation = randr.RotationRotate0
 		}
 
-		err = m.applyConfigs([]*MonitorConfig{config})
+		err = m.applyConfigs([]*MonitorConfig{config}, options)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 		}
@@ -448,7 +452,7 @@ func (m *Manager) applyDisplayMode() {
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
 	m.initBrightness()
-	m.applyDisplayMode()
+	m.applyDisplayMode(nil)
 	m.listenEvent() //等待applyDisplayMode执行完成再开启监听X事件
 }
 
@@ -969,8 +973,22 @@ type crtcConfig struct {
 	mode     randr.Mode
 }
 
-func (m *Manager) apply() error {
+type applyOptions map[string]interface{}
+
+const (
+	optionDisableCrtc = "disableCrtc"
+)
+
+func (m *Manager) apply(optionsSlice ...applyOptions) error {
 	logger.Debug("call apply")
+
+	optDisableCrtc := false
+	if len(optionsSlice) > 0 {
+		// optionsSlice 应该最多只有一个元素
+		options := optionsSlice[0]
+		optDisableCrtc, _ = options[optionDisableCrtc].(bool)
+	}
+
 	x.GrabServer(m.xConn)
 	defer func() {
 		err := x.UngrabServerChecked(m.xConn).Check(m.xConn)
@@ -1030,9 +1048,15 @@ func (m *Manager) apply() error {
 		// 是否考虑临时禁用 crtc
 		shouldDisable := false
 
-		if m.modeChanged || m.screenChanged {
+		if m.modeChanged {
 			// 显示模式切换了
 			logger.Debugf("should disable crtc %v because of mode changed", crtc)
+			shouldDisable = true
+		} else if optDisableCrtc {
+			// NOTE: 如果接入了双屏，断开一个屏幕，让另外的屏幕都暂时禁用，来避免桌面壁纸的闪烁问题（突然黑一下，然后很快恢复），
+			// 这么做是为了兼顾修复 pms bug 83875 和 94116。
+			// 但是对于 bug 94116，依然保留问题：先断开再连接显示器，桌面壁纸依然有闪烁问题。
+			logger.Debugf("should disable crtc %v because of optDisableCrtc is true", crtc)
 			shouldDisable = true
 		} else if int(rect.X)+int(rect.Width) > int(screenSize.width) ||
 			int(rect.Y)+int(rect.Height) > int(screenSize.height) {
@@ -1063,7 +1087,6 @@ func (m *Manager) apply() error {
 	}
 	m.crtcMapMu.Unlock()
 	m.modeChanged = false
-	m.screenChanged = false
 
 	err := m.setScreenSize(screenSize)
 	if err != nil {
@@ -1449,7 +1472,7 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	screenCfg := m.getScreenConfig()
 	configs := screenCfg.getMonitorConfigs(DisplayModeCustom, name)
 	if len(configs) > 0 {
-		err = m.applyConfigs(configs)
+		err = m.applyConfigs(configs, nil)
 		return
 	}
 
@@ -1574,8 +1597,8 @@ func (m *Manager) setCurrentCustomId(name string) {
 	m.settings.SetString(gsKeyCustomMode, name)
 }
 
-func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
-	logger.Debug("applyConfigs", spew.Sdump(configs))
+func (m *Manager) applyConfigs(configs []*MonitorConfig, options applyOptions) error {
+	logger.Debug("applyConfigs", spew.Sdump(configs), options)
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs, monitor.uuid)
@@ -1599,7 +1622,7 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 			monitor.setMode(mode)
 		}
 	}
-	err := m.apply()
+	err := m.apply(options)
 	if err != nil {
 		return err
 	}
