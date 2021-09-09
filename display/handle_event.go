@@ -72,15 +72,28 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 	}
 
 	m.updateMonitor(ev.Output, outputInfo)
+	prevNumMonitors := len(m.Monitors)
 	m.updatePropMonitors()
+	currentNumMonitors := len(m.Monitors)
+
+	logger.Debugf("prevNumMonitors: %v, currentNumMonitors: %v", prevNumMonitors, currentNumMonitors)
+	var options applyOptions
+	if currentNumMonitors < prevNumMonitors && currentNumMonitors >= 1 {
+		// 连接状态的显示器数量减少了，并且现存一个及以上连接状态的显示器。
+		logger.Debug("should disable crtc in apply")
+		if options == nil {
+			options = applyOptions{}
+		}
+		options[optionDisableCrtc] = true
+	}
 
 	oldMonitorsID := m.monitorsId
 	newMonitorsID := m.getMonitorsId()
 	if newMonitorsID != oldMonitorsID && newMonitorsID != "" {
 		logger.Debug("new monitors id:", newMonitorsID)
 		m.markClean()
-		//接入新屏幕点亮屏幕
-		m.applyDisplayMode(true)
+		// 接入新屏幕点亮屏幕
+		m.applyDisplayMode(true, options)
 		m.monitorsId = newMonitorsID
 	}
 }
