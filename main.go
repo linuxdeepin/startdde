@@ -24,9 +24,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -389,7 +391,13 @@ func loginReminder() {
 		logger.Warning("wrong time format:", err)
 	}
 
-	body := fmt.Sprintf("%s %s %s", res.Username, res.CurrentLogin.Address, tm.Format("2006-01-02 15:04:05"))
+	address := res.CurrentLogin.Address
+	if address == "0.0.0.0" {
+		// 若 IP 是「0.0.0.0」，获取当前设备的 IP
+		address = getFirstIPAddress()
+	}
+
+	body := fmt.Sprintf("%s %s %s", res.Username, address, tm.Format("2006-01-02 15:04:05"))
 
 	// pam_unix/passverify.c
 	if res.Spent.Max != -1 && res.Spent.Warn != -1 {
@@ -414,4 +422,30 @@ func loginReminder() {
 	time.AfterFunc(loginRemiderTimeout, func() {
 		notifi.CloseNotification(0, notifyId)
 	})
+}
+
+func getFirstIPAddress() string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, iface := range ifaces {
+		if iface.Name == "lo" {
+			continue
+		}
+
+		addrs, err := iface.Addrs()
+		if err != nil {
+			logger.Warningf("failed to get address of %s: %s", iface.Name, err)
+			continue
+		}
+
+		for _, addr := range addrs {
+			// remove the netmask
+			return strings.Split(addr.String(), "/")[0]
+		}
+	}
+
+	return "127.0.0.1"
 }
