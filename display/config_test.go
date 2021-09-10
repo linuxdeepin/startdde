@@ -10,6 +10,7 @@ var (
 	configPath_v3     = "./testdata/display_v3.json"
 	configPath_v4     = "./testdata/display_v4.json"
 	configPath_v5     = "./testdata/display_v5.json"
+	configPath_tmp    = "./testdata/display_tmp.json"
 	builtinMonitorCfg = "./testdata/builtin-monitor"
 )
 
@@ -41,6 +42,12 @@ func TestConfig(t *testing.T) {
 	setMonitorConfigsPrimary(monitors, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
 	primarymonitor = getMonitorConfigPrimary(monitors)
 	require.Equal(t, primarymonitor.UUID, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
+
+	configV6, err := loadConfigV6(configPath_v5)
+	require.Nil(t, err)
+
+	err = configV6.save(configPath_tmp)
+	require.Nil(t, err)
 
 	_, err = loadBuiltinMonitorConfig(builtinMonitorCfg)
 	require.Nil(t, err)
