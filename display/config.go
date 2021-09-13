@@ -294,6 +294,7 @@ func loadConfig(m *Manager) (config Config) {
 	if len(config) == 0 {
 		configV6, err := loadConfigV6(configFile_v5)
 		if err != nil {
+			// 加载 v5 和 v6 配置文件都失败
 			config = make(Config)
 			//配置文件为空，且当前模式为自定义，则设置当前模式为复制模式
 			if m.DisplayMode == DisplayModeCustom {
@@ -305,15 +306,24 @@ func loadConfig(m *Manager) (config Config) {
 			m.configV6.ConfigV5 = config
 			m.configV6.FillMode = &FillModeConfigs{}
 		} else {
+			// 加载 v5 或 v6 配置文件成功
 			config = configV6.ConfigV5
 			m.configV6.FillMode = configV6.FillMode
 		}
-		m.configV6.FillMode.FillModeMap = make(map[string]string)
+		if m.configV6.FillMode.FillModeMap == nil {
+			m.configV6.FillMode.FillModeMap = make(map[string]string)
+		}
+	} else {
+		// 加载 v5 之前配置文件成功
+		m.configV6.FillMode = &FillModeConfigs{
+			FillModeMap: make(map[string]string),
+		}
 	}
 
 	if logger.GetLogLevel() == log.LevelDebug {
 		logger.Debug("load config:", spew.Sdump(config))
 	}
+	logger.Debugf("loadConfig fillMode: %#v", m.configV6.FillMode)
 	return
 }
 
