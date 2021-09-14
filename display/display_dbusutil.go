@@ -104,9 +104,13 @@ func (v *Manager) emitPropChangedPrimary(value string) error {
 	return v.service.EmitPropertyChanged(v, "Primary", value)
 }
 
-func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
-	v.PrimaryRect = value
-	v.emitPropChangedPrimaryRect(value)
+func (v *Manager) setPropPrimaryRect(value x.Rectangle) (changed bool) {
+	if v.PrimaryRect != value {
+		v.PrimaryRect = value
+		v.emitPropChangedPrimaryRect(value)
+		return true
+	}
+	return false
 }
 
 func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
