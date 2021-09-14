@@ -159,9 +159,8 @@ type Manager struct {
 	touchScreenDialogMap   map[string]*exec.Cmd
 	touchScreenDialogMutex sync.RWMutex
 
-	CurrentCustomId string
-	Primary         string
-	// dbusutil-gen: equal=nil
+	CurrentCustomId        string
+	Primary                string
 	PrimaryRect            x.Rectangle
 	ScreenWidth            uint16
 	ScreenHeight           uint16
@@ -1151,6 +1150,8 @@ func (m *Manager) apply(optionsSlice ...applyOptions) error {
 
 	m.PropsMu.RLock()
 	cfgTs := m.configTimestamp
+	// 当前的屏幕大小
+	prevScreenSize := screenSize{width: m.ScreenWidth, height: m.ScreenHeight}
 	m.PropsMu.RUnlock()
 
 	// 未来的，apply 之后的屏幕所需尺寸
@@ -1253,6 +1254,26 @@ func (m *Manager) apply(optionsSlice ...applyOptions) error {
 			logger.Error("emitPropChangedBrightness failed")
 		}
 	}
+
+	// NOTE: 为配合文件管理器修一个 bug：
+	// 双屏左右摆放，两屏幕有相同最大分辨率，设置左屏为主屏，自定义模式下两屏合并、拆分循环切换，此时如果不发送 PrimaryRect 属性
+	// 改变信号，将在从合并切换到拆分时，右屏的桌面壁纸没有绘制，是全黑的。可能是所有显示器的分辨率都没有改变，桌面 dde-desktop
+	// 程序收不到相关信号。
+	// 此时屏幕尺寸被改变是很好的特征，发送一个 PrimaryRect 属性改变通知桌面 dde-desktop 程序让它重新绘制桌面壁纸，以消除 bug。
+	// TODO: 这不是一个很好的方案，后续可与桌面程序方面沟通改善方案。
+	if prevScreenSize.width != screenSize.width || prevScreenSize.height != screenSize.height {
+		// screen size changed
+		// NOTE: 不能直接用 prevScreenSize != screenSize 进行比较，因为 screenSize 类型不止 width 和 height 字段。
+		logger.Debug("[apply] screen size changed, force emit prop changed for PrimaryRect")
+		m.PropsMu.RLock()
+		rect := m.PrimaryRect
+		m.PropsMu.RUnlock()
+		err := m.emitPropChangedPrimaryRect(rect)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
 	return nil
 }
 
