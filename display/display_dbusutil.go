@@ -3,8 +3,9 @@
 package display
 
 import (
-	"github.com/linuxdeepin/go-x11-client"
 	"github.com/godbus/dbus"
+	x "github.com/linuxdeepin/go-x11-client"
+	"pkg.deepin.io/lib/dbusutil/gsprop"
 )
 
 func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
@@ -104,9 +105,13 @@ func (v *Manager) emitPropChangedPrimary(value string) error {
 	return v.service.EmitPropertyChanged(v, "Primary", value)
 }
 
-func (v *Manager) setPropPrimaryRect(value x.Rectangle) {
-	v.PrimaryRect = value
-	v.emitPropChangedPrimaryRect(value)
+func (v *Manager) setPropPrimaryRect(value x.Rectangle) (changed bool) {
+	if v.PrimaryRect != value {
+		v.PrimaryRect = value
+		v.emitPropChangedPrimaryRect(value)
+		return true
+	}
+	return false
 }
 
 func (v *Manager) emitPropChangedPrimaryRect(value x.Rectangle) error {
@@ -152,6 +157,24 @@ func (v *Manager) emitPropChangedMaxBacklightBrightness(value uint32) error {
 	return v.service.EmitPropertyChanged(v, "MaxBacklightBrightness", value)
 }
 
+func (v *Manager) setPropColorTemperatureMode(value gsprop.Enum) {
+	v.ColorTemperatureMode = value
+	v.emitPropChangedColorTemperatureMode(value)
+}
+
+func (v *Manager) emitPropChangedColorTemperatureMode(value gsprop.Enum) error {
+	return v.service.EmitPropertyChanged(v, "ColorTemperatureMode", value)
+}
+
+func (v *Manager) setPropColorTemperatureManual(value gsprop.Int) {
+	v.ColorTemperatureManual = value
+	v.emitPropChangedColorTemperatureManual(value)
+}
+
+func (v *Manager) emitPropChangedColorTemperatureManual(value gsprop.Int) error {
+	return v.service.EmitPropertyChanged(v, "ColorTemperatureManual", value)
+}
+
 func (v *Monitor) setPropID(value uint32) (changed bool) {
 	if v.ID != value {
 		v.ID = value
@@ -187,20 +210,34 @@ func (v *Monitor) setPropConnected(value bool) (changed bool) {
 	return false
 }
 
-func (v *Monitor) setPropManufacturer(value string) {
-	if v.Manufacturer != value {
-		v.Manufacturer = value
-	}
-}
-
-func (v *Monitor) setPropModel(value string) {
-	if v.Model != value {
-		v.Model = value
-	}
-}
-
 func (v *Monitor) emitPropChangedConnected(value bool) error {
 	return v.service.EmitPropertyChanged(v, "Connected", value)
+}
+
+func (v *Monitor) setPropManufacturer(value string) (changed bool) {
+	if v.Manufacturer != value {
+		v.Manufacturer = value
+		v.emitPropChangedManufacturer(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedManufacturer(value string) error {
+	return v.service.EmitPropertyChanged(v, "Manufacturer", value)
+}
+
+func (v *Monitor) setPropModel(value string) (changed bool) {
+	if v.Model != value {
+		v.Model = value
+		v.emitPropChangedModel(value)
+		return true
+	}
+	return false
+}
+
+func (v *Monitor) emitPropChangedModel(value string) error {
+	return v.service.EmitPropertyChanged(v, "Model", value)
 }
 
 func (v *Monitor) setPropRotations(value []uint16) {
