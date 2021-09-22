@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strconv"
 	"strings"
@@ -49,9 +50,6 @@ import (
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/proxy"
 )
-
-const secondsPerDay = 60 * 60 * 24
-const accountUserPath = "/com/deepin/daemon/Accounts/User"
 
 var logger = log.NewLogger("startdde")
 
@@ -104,8 +102,12 @@ const (
 	cmdDdeDock             = "/usr/bin/dde-dock"
 	cmdDdeDesktop          = "/usr/bin/dde-desktop"
 	cmdLoginReminderHelper = "/usr/libexec/deepin/login-reminder-helper"
+	cmdDdeHintsDialog      = "/usr/bin/dde-hints-dialog"
 
-	loginRemiderTimeout = 5 * time.Second
+	loginReminderTimeout    = 5 * time.Second
+	loginReminderTimeFormat = "2006-01-02 15:04:05"
+	secondsPerDay           = 60 * 60 * 24
+	accountUserPath         = "/com/deepin/daemon/Accounts/User"
 )
 
 func launchCoreComponents(sm *SessionManager) {
@@ -386,10 +388,11 @@ func loginReminder() {
 		logger.Warning("failed to get reminder info:", err)
 	}
 
-	tm, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", res.CurrentLogin.Time)
+	currentLoginTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", res.CurrentLogin.Time)
 	if err != nil {
 		logger.Warning("wrong time format:", err)
 	}
+	currentLoginTimeStr := currentLoginTime.Format(loginReminderTimeFormat)
 
 	address := res.CurrentLogin.Address
 	if address == "0.0.0.0" {
@@ -397,13 +400,13 @@ func loginReminder() {
 		address = getFirstIPAddress()
 	}
 
-	body := fmt.Sprintf("%s %s %s", res.Username, address, tm.Format("2006-01-02 15:04:05"))
+	body := fmt.Sprintf("%s %s %s", res.Username, address, currentLoginTimeStr)
 
 	// pam_unix/passverify.c
+	curDays := int(time.Now().Unix() / secondsPerDay)
+	daysLeft := res.Spent.LastChange + res.Spent.Max - curDays
 	if res.Spent.Max != -1 && res.Spent.Warn != -1 {
-		curDays := int(time.Now().Unix() / secondsPerDay)
-		if curDays-res.Spent.LastChange > res.Spent.Max-res.Spent.Warn {
-			daysLeft := res.Spent.LastChange + res.Spent.Max - curDays
+		if res.Spent.Warn > daysLeft {
 			body += " " + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft)
 		}
 	}
@@ -412,15 +415,64 @@ func loginReminder() {
 
 	bus, _ := dbus.SessionBus()
 	notifi := notifications.NewNotifications(bus)
+	sigLoop := dbusutil.NewSignalLoop(bus, 10)
+	sigLoop.Start()
+	notifi.InitSignalExt(sigLoop, true)
+
 	// TODO: icon
-	notifyId, err := notifi.Notify(0, "dde-control-center", 0, "preferences-system", gettext.Tr("Login Reminder"), body, nil, nil, 0)
+	title := gettext.Tr("Login Reminder")
+	actions := []string{"details", gettext.Tr("Details")}
+	notifyId, err := notifi.Notify(0, "dde-control-center", 0, "preferences-system", title, body, actions, nil, 0)
 	if err != nil {
 		logger.Warningf("failed to send notify: %s", err)
+		return
+	}
+
+	_, err = notifi.ConnectActionInvoked(func(id uint32, actionKey string) {
+		if id != notifyId || actionKey != "details" {
+			return
+		}
+
+		lastLoginTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", res.LastLogin.Time)
+		if err != nil {
+			logger.Warning("wrong time format:", err)
+		}
+		lastLoginTimeStr := lastLoginTime.Format(loginReminderTimeFormat)
+
+		content := fmt.Sprintf("<p>%s</p>", res.Username)
+		content += fmt.Sprintf("<p>%s</p>", address)
+		content += "<p>" + gettext.Tr("Login time:") + currentLoginTimeStr + "</p>"
+		content += "<p>" + gettext.Tr("Last login:") + lastLoginTimeStr + "</p>"
+		content += "<p><b>" + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft) + "</b></p>"
+		content += "<br>"
+		content += "<p>" + fmt.Sprintf(gettext.Tr("%d login failures since the last successful login"), res.FailCountSinceLastLogin) + "</p>"
+
+		cmd := exec.Command(cmdDdeHintsDialog, title, content)
+		err = cmd.Start()
+		if err != nil {
+			logger.Warning("failed to start dde-hints-dialog:", err)
+			return
+		}
+
+		go func() {
+			err = cmd.Wait()
+			if err != nil {
+				logger.Warning("failed to run dde-hints-dialog", err)
+				return
+			}
+		}()
+	})
+	if err != nil {
+		logger.Warning("connect to ActionInvoked failed:", err)
 	}
 
 	// 通知不显示在通知中心面板，故在时间到了后，关闭通知
-	time.AfterFunc(loginRemiderTimeout, func() {
+	time.AfterFunc(loginReminderTimeout, func() {
 		notifi.CloseNotification(0, notifyId)
+
+		notifi.RemoveAllHandlers()
+
+		sigLoop.Stop()
 	})
 }
 
