@@ -11,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-08-30 17:26+0800\n"
+"POT-Creation-Date: 2021-09-23 13:33+0800\n"
 "PO-Revision-Date: 2021-08-31 07:06+0000\n"
 "Last-Translator: Cindy0514, 2021\n"
 "Language-Team: Chinese (Hong Kong) (https://www.transifex.com/linuxdeepin/teams/3617/zh_HK/)\n"
@@ -21,16 +21,28 @@ msgstr ""
 "Language: zh_HK\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ../../main.go:391
+#: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
 msgstr "密碼將於%d天後過期"
 
-#: ../../main.go:393
+#: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
 msgstr "距離上次成功登錄，中間共計%d次登錄失敗"
 
-#: ../../main.go:398
+#: ../../main.go:423
 msgid "Login Reminder"
 msgstr "登錄提醒"
+
+#: ../../main.go:424
+msgid "Details"
+msgstr "詳情"
+
+#: ../../main.go:444
+msgid "Login time:"
+msgstr "本次登錄時間："
+
+#: ../../main.go:445
+msgid "Last login:"
+msgstr "上次登錄時間："

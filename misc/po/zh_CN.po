@@ -5,15 +5,16 @@
 # 
 # Translators:
 # Cindy0514, 2021
+# Maggie Liu <maggie.liufei@gmail.com>, 2021
 # 
 #, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-08-30 17:26+0800\n"
+"POT-Creation-Date: 2021-09-23 13:33+0800\n"
 "PO-Revision-Date: 2021-08-31 07:06+0000\n"
-"Last-Translator: Cindy0514, 2021\n"
+"Last-Translator: Maggie Liu <maggie.liufei@gmail.com>, 2021\n"
 "Language-Team: Chinese (China) (https://www.transifex.com/linuxdeepin/teams/3617/zh_CN/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -21,16 +22,28 @@ msgstr ""
 "Language: zh_CN\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ../../main.go:391
+#: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
 msgstr "密码将于%d天后过期"
 
-#: ../../main.go:393
+#: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
 msgstr "距离上次成功登录，中间共计%d次登录失败"
 
-#: ../../main.go:398
+#: ../../main.go:423
 msgid "Login Reminder"
 msgstr "登录提醒"
+
+#: ../../main.go:424
+msgid "Details"
+msgstr "详情"
+
+#: ../../main.go:444
+msgid "Login time:"
+msgstr "本次登录时间："
+
+#: ../../main.go:445
+msgid "Last login:"
+msgstr "上次登录时间："

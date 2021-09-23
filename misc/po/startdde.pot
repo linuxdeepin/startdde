@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-08-30 17:26+0800\n"
+"POT-Creation-Date: 2021-09-23 13:33+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,16 +17,28 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Language: \n"
 
-#: ../../main.go:391
+#: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
 msgstr "Your password will expire in %d days"
 
-#: ../../main.go:393
+#: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
 msgstr "%d login failures since the last successful login"
 
-#: ../../main.go:398
+#: ../../main.go:423
 msgid "Login Reminder"
 msgstr "Login Reminder"
+
+#: ../../main.go:424
+msgid "Details"
+msgstr "Details"
+
+#: ../../main.go:444
+msgid "Login time:"
+msgstr "Login time:"
+
+#: ../../main.go:445
+msgid "Last login:"
+msgstr "Last login:"
