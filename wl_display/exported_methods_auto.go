@@ -23,6 +23,12 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 			OutArgs: []string{"outArg0"},
 		},
 		{
+			Name:    "CanSetBrightness",
+			Fn:      v.CanSetBrightness,
+			InArgs:  []string{"outputName"},
+			OutArgs: []string{"outArg0"},
+		},
+		{
 			Name:    "CanSwitchMode",
 			Fn:      v.CanSwitchMode,
 			OutArgs: []string{"outArg0"},
@@ -40,6 +46,16 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 		{
 			Name:    "GetBrightness",
 			Fn:      v.GetBrightness,
+			OutArgs: []string{"outArg0"},
+		},
+		{
+			Name:    "GetCustomDisplayMode",
+			Fn:      v.GetCustomDisplayMode,
+			OutArgs: []string{"outArg0"},
+		},
+		{
+			Name:    "GetRealDisplayMode",
+			Fn:      v.GetRealDisplayMode,
 			OutArgs: []string{"outArg0"},
 		},
 		{
@@ -82,6 +98,11 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 			Name:   "SetBrightness",
 			Fn:     v.SetBrightness,
 			InArgs: []string{"outputName", "value"},
+		},
+		{
+			Name:   "SetCustomDisplayMode",
+			Fn:     v.SetCustomDisplayMode,
+			InArgs: []string{"mode"},
 		},
 		{
 			Name:   "SetPrimary",

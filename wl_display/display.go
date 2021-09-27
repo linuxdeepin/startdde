@@ -6,7 +6,7 @@ import (
 	"pkg.deepin.io/lib/log"
 )
 
-var logger = log.NewLogger("daemon/display")
+var logger = log.NewLogger("daemon/wl_display")
 
 const (
 	dbusServiceName = "com.deepin.daemon.Display"

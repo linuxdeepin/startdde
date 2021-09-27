@@ -28,15 +28,20 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "pkg.deepin.io/lib/backlight/display"
+	"pkg.deepin.io/lib/log"
 )
 
 const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
+	SetterDDCCI     = "ddcci"
+	SetterDRM       = "drm"
 )
 
+var logger = log.NewLogger("daemon/wl_display/brightness")
 var helper backlight.Backlight
+var ddcciHelper backlight.DDCCI
 
 func InitBacklightHelper() {
 	var err error
@@ -45,6 +50,17 @@ func InitBacklightHelper() {
 		return
 	}
 	helper = backlight.NewBacklight(sysBus)
+	ddcciHelper = backlight.NewDDCCI(sysBus)
+	RefreshDDCCI()
+}
+
+func RefreshDDCCI() {
+	if ddcciHelper != nil {
+		logger.Infof("brightness: call RefreshDisplays")
+		ddcciHelper.RefreshDisplays(0)
+	} else {
+		logger.Warningf("brightness: failed call RefreshDisplays, helper is null")
+	}
 }
 
 func getHelper() backlight.Backlight {
@@ -55,27 +71,86 @@ func getHelper() backlight.Backlight {
 	return helper
 }
 
-func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
+func Set(uuid string, value float64, setter string, isBuiltin bool, edidBase64 string) error {
 	if value < 0 {
 		value = 0
 	} else if value > 1 {
 		value = 1
 	}
-
-	output := randr.Output(outputId)
 	switch setter {
 	case SetterBacklight:
-		return setBacklightOnlyOne(value)
-	case SetterGamma:
-		return setOutputCrtcGamma(value, output, conn)
+		//avoid to set builtin display twice to causing brightness abnormal when press F1 set brughtness
+		if isBuiltin {
+			return setBacklightOnlyOne(value)
+		}
+		return errors.New("brightness: only buildin display support BacklightSetter")
+	case SetterDDCCI:
+		err := setDDCCIBrightness(value, edidBase64)
+		return err
+	case SetterDRM:
+		err := setBrigntnessByKwin(uuid, value)
+		return err
 	}
 	// case SetterAuto
 	if isBuiltin {
-		if supportBacklight(output, conn) {
-			return setBacklight(value, output, conn)
+		return setBacklightOnlyOne(value)
+	}
+
+	if supportDDCCIBrightness(edidBase64) {
+		err := setDDCCIBrightness(value, edidBase64)
+		if err == nil {
+			return nil
 		}
 	}
-	return setOutputCrtcGamma(value, output, conn)
+
+	err := setBrigntnessByKwin(uuid, value)
+	if err == nil {
+		logger.Debug("brightness: setBrigntnessByKwin ok")
+		return nil
+	}
+	return errors.New("brightness: AutoSetter falied")
+}
+
+//String outputs, const int brightness
+func setBrigntnessByKwin(output string, value float64) error {
+	logger.Info("setBrigntnessByKwin")
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/Output")
+	err = sessionObj.Call("com.deepin.daemon.KWayland.Output.setBrightness", 0, output, int32(value*100)).Store()
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	return nil
+}
+
+func supportDDCCIBrightness(edidBase64 string) bool {
+	res, err := ddcciHelper.CheckSupport(0, edidBase64)
+	logger.Info("supportDDCCIBrightness", res, err)
+	if err != nil {
+		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
+		return false
+	}
+
+	return res
+}
+
+func setDDCCIBrightness(value float64, edidBase64 string) error {
+	percent := int32(value * 100)
+	logger.Debugf("brightness: ddcci set brightness %d", percent)
+	return ddcciHelper.SetBrightness(0, edidBase64, percent)
+}
+
+func getDDCCIBrightness(edidBase64 string) (float64, error) {
+	br, err := ddcciHelper.GetBrightness(0, edidBase64)
+	if err != nil {
+		return 1, err
+	} else {
+		return (float64(br) / 100.0), err
+	}
 }
 
 // unused function

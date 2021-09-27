@@ -18,7 +18,7 @@ import (
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/startdde/display/brightness"
+	"pkg.deepin.io/dde/startdde/wl_display/brightness"
 	"pkg.deepin.io/gir/gio-2.0"
 	"pkg.deepin.io/lib/dbusutil"
 )
@@ -75,11 +75,11 @@ type Manager struct {
 	recommendScaleFactor float64
 	monitorMap           map[uint32]*Monitor
 	monitorMapMu         sync.Mutex
+	brightnessMapMu      sync.Mutex
 	settings             *gio.Settings
 	cSettings            *gio.Settings
 	monitorsId           string
 	mig                  *monitorIdGenerator
-	systemName           string
 
 	sessionSigLoop *dbusutil.SignalLoop
 	systemSigLoop  *dbusutil.SignalLoop
@@ -87,9 +87,9 @@ type Manager struct {
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
 	// dbusutil-gen: equal=nil
-	CustomIdList []string
-	HasChanged   bool
-	DisplayMode  byte
+	CustomIdList      []string
+	HasChanged        bool
+	DisplayMode       byte
 	customDisplayMode uint8
 	// dbusutil-gen: equal=nil
 	Brightness map[string]float64
@@ -98,9 +98,9 @@ type Manager struct {
 	CurrentCustomId string
 	Primary         string
 	// dbusutil-gen: equal=nil
-	PrimaryRect  x.Rectangle
-	ScreenWidth  uint16
-	ScreenHeight uint16
+	PrimaryRect     x.Rectangle
+	ScreenWidth     uint16
+	ScreenHeight    uint16
 	primarysettings *gio.Settings
 	mutiMonitorsPos uint8
 
@@ -117,6 +117,7 @@ type Manager struct {
 		SetPrimary             func() `in:"outputName"`
 		SwitchMode             func() `in:"mode,name"`
 		CanRotate              func() `out:"can"`
+		CanSetBrightness       func() `in:"outputName"`
 		CanSwitchMode          func() `out:"can"`
 		GetRealDisplayMode     func() `out:"mode"`
 		GetCustomDisplayMode   func() `out:"mode"`
@@ -202,7 +203,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	}
 	m.systemSigLoop = dbusutil.NewSignalLoop(sysBus, 10)
 	m.systemSigLoop.Start()
-	m.systemName = m.getSystemInfo(sysBus)
 
 	m.monitorsId = m.getMonitorsId()
 	logger.Debugf("monitorsId: %q, monitorMap: %v", m.monitorsId, m.monitorMap)
@@ -214,16 +214,22 @@ func newManager(service *dbusutil.Service) *Manager {
 	return m
 }
 
-func (m *Manager) getSystemInfo(systemBus *dbus.Conn) string {
-	var productName string
-	obj := systemBus.Object("com.deepin.system.SystemInfo", "/com/deepin/system/SystemInfo")
-	err := obj.Call("org.freedesktop.DBus.Properties.Get", 0, "com.deepin.system.SystemInfo",
-		"ProductName").Store(&productName)
-	if err != nil {
-		logger.Warning(err)
-		return ""
+func (m *Manager) tryBrightnessConnection() {
+	var flag bool = false
+	for i := 0; i < 3; i++ {
+		brightness.RefreshDDCCI()
+		err := m.initBrightness()
+		if err == nil {
+			flag = true
+			break
+		} else {
+			logger.Warning("RefreshDDCCI again")
+			time.Sleep(time.Second * 3)
+		}
 	}
-	return productName
+	if !flag {
+		logger.Warning("RefreshDDCCI 3 times failed")
+	}
 }
 
 func (m *Manager) listenDBusSignals() {
@@ -246,7 +252,10 @@ func (m *Manager) listenDBusSignals() {
 		m.updateMonitorsId()
 		m.updateScreenSize()
 		// apply last saved brightness
-		m.initBrightness()
+		err = m.initBrightness()
+		if err != nil {
+			logger.Warning(err)
+		}
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -320,7 +329,10 @@ func (m *Manager) checkKwinMonitorData(monitor *Monitor, outputInfo *KOutputInfo
 		return true
 	} else {
 		logger.Warning("kwin data error [monitor uuid]: ", outputInfo.Uuid)
-		m.apply()
+		err := m.apply()
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
 
 	return false
@@ -399,12 +411,28 @@ out:
 }
 
 func (m *Manager) init() {
-	brightness.InitBacklightHelper()
-	m.initBrightness()
+	if m.settings.GetString(gsKeySetter) == "drm" {
+		logger.Debug("using drm for brightness", m.settings.GetString(gsKeySetter))
+		err := m.initBrightness()
+		if err != nil {
+			logger.Warning(err)
+		}
+	} else {
+		logger.Debug("using ddcci/backlight for brightness", m.settings.GetString(gsKeySetter))
+		brightness.InitBacklightHelper()
+		err := m.initBrightness()
+		if err != nil {
+			logger.Warning(err)
+		}
+
+		if m.settings.GetString(gsKeySetter) == "ddcci" {
+			go m.tryBrightnessConnection()
+		}
+	}
+
 	m.applyDisplayMode()
 	m.initTouchMap()
-
-	m.addSleepMonitor()
+	m.initMiniEffect()
 }
 
 func (m *Manager) initMiniEffect() {
@@ -546,6 +574,7 @@ func (m *Manager) addMonitor(outputInfo *KOutputInfo) error {
 	}
 	monitor.ID = m.mig.getId(outputInfo.Uuid)
 	monitor.uuid = outputInfo.Uuid
+	monitor.edid = outputInfo.Edid
 	monitor.Enabled = outputInfo.getEnabled()
 	monitor.X = int16(outputInfo.X)
 	monitor.Y = int16(outputInfo.Y)
@@ -705,7 +734,10 @@ func (m *Manager) switchModeMirror() (err error) {
 	}
 
 	//save config
-	m.setPrimarySettings(monitor0.Name)
+	err = m.setPrimarySettings(monitor0.Name)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return
 }
 
@@ -903,7 +935,10 @@ func (m *Manager) setMonitorPrimary(monitor *Monitor) error {
 	m.setPropPrimary(monitor.Name)
 	m.setPropPrimaryRect(rect)
 	m.PropsMu.Unlock()
-	m.setPrimarySettings(monitor.Name)
+	err := m.setPrimarySettings(monitor.Name)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return nil
 }
 
@@ -913,7 +948,10 @@ func (m *Manager) setMonitorPrimaryNoProp(monitor *Monitor) error {
 	m.setPrimaryNoProp(monitor.Name)
 	m.setPrimaryRectNoProp(rect)
 	m.PropsMu.Unlock()
-	m.setPrimarySettings(monitor.Name)
+	err := m.setPrimarySettings(monitor.Name)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return nil
 }
 
@@ -1031,7 +1069,11 @@ func (m *Manager) setPrimary(name string) error {
 		if err != nil {
 			return err
 		}
-		m.setPrimarySettings(monitor0.Name)
+
+		err = m.setPrimarySettings(monitor0.Name)
+		if err != nil {
+			return err
+		}
 
 	default:
 		return fmt.Errorf("invalid display mode %v", m.DisplayMode)
@@ -1110,7 +1152,11 @@ func (m *Manager) switchModeExtend(primary string) (err error) {
 		if err != nil {
 			return
 		}
-		m.setPrimarySettings(monitor0.Name)
+
+		err = m.setPrimarySettings(monitor0.Name)
+		if err != nil {
+			return
+		}
 	}
 
 	return
@@ -1295,7 +1341,12 @@ func (m *Manager) switchModeCustom(name string) (err error) {
 	if err != nil {
 		return
 	}
-	m.setPrimarySettings(m.Primary)
+
+	err = m.setPrimarySettings(m.Primary)
+	if err != nil {
+		return
+	}
+
 	m.setPropCustomIdList(m.getCustomIdList())
 	return
 }
@@ -1433,8 +1484,12 @@ func (m *Manager) applyConfigs(configs []*MonitorConfig) error {
 	if err != nil {
 		return err
 	}
+
 	//save primary to config
-	m.setPrimarySettings(primaryMonitor.Name)
+	err = m.setPrimarySettings(primaryMonitor.Name)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return nil
 }
 
@@ -1659,11 +1714,13 @@ func (m *Manager) associateTouch(outputName, touch string) error {
 func (m *Manager) saveConfig() error {
 	logger.Debug("save config")
 	dir := filepath.Dir(configFile)
+	// #nosec G301
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		return err
 	}
 
+	// #nosec G306
 	err = ioutil.WriteFile(configVersionFile, []byte(configVersion), 0644)
 	if err != nil {
 		return err
