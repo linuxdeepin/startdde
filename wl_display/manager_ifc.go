@@ -1,7 +1,9 @@
 package display
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"os"
 
 	dbus "github.com/godbus/dbus"
@@ -121,11 +123,58 @@ func (m *Manager) Reset() *dbus.Error {
 }
 
 func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.Error {
-	err := m.doSetBrightness(value, outputName)
-	if err == nil {
-		m.saveBrightness()
+	if m.getBrightnessSetter() != "backlight" {
+		err := m.doSetBrightness(value, outputName)
+		if err == nil {
+			m.saveBrightness()
+		}
+		return dbusutil.ToError(err)
 	}
-	return dbusutil.ToError(err)
+
+	var step float64 = 0.004
+	var times float64
+	var br float64
+	var err error
+	//　规避rt背光芯片在低亮度下设置出现频闪问题,将调节步长设置为0.004,并在0.1 -0.3亮度区间采用多次调节
+	m.brightnessMapMu.Lock()
+	v, ok := m.Brightness[outputName]
+	m.brightnessMapMu.Unlock()
+	if !ok {
+		v = 1.0
+	}
+
+	if v > value {
+		step = -step
+	}
+
+	times = math.Abs((v - value) / step)
+	if times == 0 {
+		return nil
+	}
+	if v <= 0.3 && value <= 0.3 {
+		for i := 1; i <= int(times); i++ {
+			br = v + step*float64(i)
+			if br > 1.0 {
+				br = 1.0
+			}
+			if br < 0.1 {
+				br = 0.1
+			}
+			logger.Info("[changeBrightness] will set to:", outputName, br)
+			err = m.doSetBrightness(br, outputName)
+			if err == nil {
+				m.saveBrightness()
+			} else {
+				return dbusutil.ToError(err)
+			}
+		}
+	} else {
+		err = m.doSetBrightness(value, outputName)
+		if err == nil {
+			m.saveBrightness()
+		}
+	}
+	return nil
 }
 
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
@@ -142,6 +191,20 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 	if os.Getenv("DEEPIN_DISPLAY_DISABLE_ROTATE") == "1" {
 		return false, nil
 	}
+	return true, nil
+}
+
+func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
+	if outputName == "" {
+		return false, dbusutil.ToError(errors.New("monitor Name is err"))
+	}
+
+	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
+	// if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
+	// 	if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
+	// 		return false, nil
+	// 	}
+	// }
 	return true, nil
 }
 
@@ -181,7 +244,7 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 }
 
 func (m *Manager) GetCustomDisplayMode() (uint8, *dbus.Error) {
-	realMode, _ :=  m.GetRealDisplayMode()
+	realMode, _ := m.GetRealDisplayMode()
 	mode := m.customDisplayMode
 	if realMode != DisplayModeOnlyOne {
 		if realMode != mode {

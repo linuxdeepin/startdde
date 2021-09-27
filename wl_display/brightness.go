@@ -21,11 +21,11 @@ package display
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"pkg.deepin.io/dde/startdde/wl_display/brightness"
 )
@@ -149,11 +149,6 @@ func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name 
 			times = 1
 		}
 
-		if strings.Contains(m.systemName, "PGUV-") {
-			step = 0.05
-			times = 1
-		}
-
 		if !isRaised {
 			step = -step
 		}
@@ -173,7 +168,7 @@ func (m *Manager) doSetBrightnessAuxForBacklight(fake bool, value float64, name 
 			}
 
 			// 防止出现多次调节亮度值不变的情况
-			if math.Abs(br - 0.1) < 1e-5 || math.Abs(br - 1.0) < 1e-5 {
+			if math.Abs(br-0.1) < 1e-5 || math.Abs(br-1.0) < 1e-5 {
 				break
 			}
 		}
@@ -208,7 +203,7 @@ func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	return result, nil
 }
 
-func (m *Manager) initBrightness() {
+func (m *Manager) initBrightness() error {
 	brightnessTable, err := m.getSavedBrightnessTable()
 	if err != nil {
 		logger.Warning(err)
@@ -228,21 +223,35 @@ func (m *Manager) initBrightness() {
 		}
 	}
 
+	var lightSet = false
+	m.brightnessMapMu.Lock()
 	m.Brightness = brightnessTable
+	m.brightnessMapMu.Unlock()
+
 	for name, v := range brightnessTable {
 		// set the saved brightness
-		err = m.doSetBrightness(v, name)
-		if err != nil {
-			logger.Warning("Failed to set default brightness:", name, err)
-			continue
+		if m.isConnected(name) {
+			err = m.doSetBrightness(v, name)
+			if err != nil {
+				logger.Warning("Failed to set default brightness:", name, err)
+				continue
+			}
+			if !lightSet {
+				lightSet = true
+			}
 		}
 	}
 
 	if saved {
 		logger.Info("Init default output brightness")
 		// In huawei KelvinU sometimes crash because of GObject assert failure in GSettings
-		//m.saveBrightness()
+		m.saveBrightness()
 	}
+
+	if !lightSet {
+		return errors.New("Init default output brightness failed!")
+	}
+	return nil
 }
 
 func (m *Manager) getBrightnessSetter() string {
@@ -261,11 +270,9 @@ func (m *Manager) getBrightnessSetter() string {
 
 func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
 	isBuiltin := isBuiltinOutput(monitor.Name)
-	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
-		monitor.ID, m.xConn)
+	logger.Debugf("brightness: setMonitorBrightness for %s, setter=%s, value=%.2f, edidBase64=%s", monitor.Name, m.getBrightnessSetter(), value, monitor.edid)
+	err := brightness.Set(monitor.uuid, value, m.getBrightnessSetter(), isBuiltin, monitor.edid)
 	return err
-	// TODO
-	//return errors.New("TODO")
 }
 
 func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
@@ -303,4 +310,14 @@ func (m *Manager) doSetBrightness(value float64, name string) error {
 
 func (m *Manager) doSetBrightnessFake(value float64, name string) error {
 	return m.doSetBrightnessAux(true, value, name)
+}
+
+func (m *Manager) isConnected(monitorName string) bool {
+	monitors := m.getConnectedMonitors()
+	for _, monitor := range monitors {
+		if monitor.Name == monitorName {
+			return true
+		}
+	}
+	return false
 }
