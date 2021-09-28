@@ -441,8 +441,8 @@ func loginReminder() {
 
 		content := fmt.Sprintf("<p>%s</p>", res.Username)
 		content += fmt.Sprintf("<p>%s</p>", address)
-		content += "<p>" + gettext.Tr("Login time:") + currentLoginTimeStr + "</p>"
-		content += "<p>" + gettext.Tr("Last login:") + lastLoginTimeStr + "</p>"
+		content += "<p>" + fmt.Sprintf(gettext.Tr("Login time: %s"), currentLoginTimeStr) + "</p>"
+		content += "<p>" + fmt.Sprintf(gettext.Tr("Last login: %s"), lastLoginTimeStr) + "</p>"
 		content += "<p><b>" + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft) + "</b></p>"
 		content += "<br>"
 		content += "<p>" + fmt.Sprintf(gettext.Tr("%d login failures since the last successful login"), res.FailCountSinceLastLogin) + "</p>"
