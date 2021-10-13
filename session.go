@@ -262,7 +262,7 @@ func killSogouImeWatchdog() {
 
 func (m *SessionManager) RequestShutdown() *dbus.Error {
 	logger.Info("RequestShutdown")
-	m.shutdown(false)
+	m.RequestSuspend()
 	return nil
 }
 
