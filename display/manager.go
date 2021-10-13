@@ -399,6 +399,12 @@ func newManager(service *dbusutil.Service) *Manager {
 		}
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
+
+		// xrandr --output --set设置之后,对所有用户生效,因此在切换用户后,
+		// 需要手动调整FillMode
+		for _, monitor := range m.monitorMap {
+			m.setFillMode(monitor)
+		}
 	})
 	if err != nil {
 		logger.Warningf("prop active ConnectChanged failed! %v", err)
