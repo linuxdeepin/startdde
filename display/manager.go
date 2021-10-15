@@ -381,6 +381,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		return m
 	}
 	managerObj := login1.NewManager(m.sysBus)
+	managerObj.InitSignalExt(sigLoop, true)
 	path, err := managerObj.GetSession(0, id)
 	if err != nil {
 		logger.Warningf("get session path %s failed! %v", id, err)
@@ -400,14 +401,27 @@ func newManager(service *dbusutil.Service) *Manager {
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 
-		// xrandr --output --set设置之后,对所有用户生效,因此在切换用户后,
-		// 需要手动调整FillMode
-		for _, monitor := range m.monitorMap {
-			m.setFillMode(monitor)
+		// 监听用户的session Active属性改变信号，当切换到当前已经登录的用户时
+		// 需要从内核重新获取当前屏幕的状态，将锁屏界面旋转到对应方向
+		if m.builtinMonitor != nil {
+			m.initScreenRotation()
 		}
 	})
+
 	if err != nil {
 		logger.Warningf("prop active ConnectChanged failed! %v", err)
+	}
+
+	/* 当系统从待机或者休眠状态唤醒时，需要重新获取当前屏幕的状态 */
+	_, err = managerObj.ConnectPrepareForSleep(func(isSleep bool) {
+		if !isSleep {
+			logger.Info("system Wakeup, need reacquire screen status", isSleep)
+			m.initScreenRotation()
+		}
+	})
+
+	if err != nil {
+		logger.Warning("failed to connect signal PrepareForSleep:", err)
 	}
 
 	return m
