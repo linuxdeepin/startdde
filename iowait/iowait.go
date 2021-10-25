@@ -32,6 +32,7 @@ import (
 
 // #cgo pkg-config: x11 xcursor xfixes gio-2.0
 // #cgo LDFLAGS: -lm
+// #cgo CFLAGS: -fstack-protector-strong -D_FORTITY_SOURCE=1 -fPIC
 // #include "xcursor_remap.h"
 import "C"
 

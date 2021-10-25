@@ -19,7 +19,7 @@
 
 package keyring
 
-// #cgo CFLAGS: -DSECRET_API_SUBJECT_TO_CHANGE
+// #cgo CFLAGS: -DSECRET_API_SUBJECT_TO_CHANGE -fstack-protector-strong -D_FORTITY_SOURCE=1 -fPIC
 // #cgo pkg-config: libsecret-unstable
 // #include "keyring.h"
 import "C"
