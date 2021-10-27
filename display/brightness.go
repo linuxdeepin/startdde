@@ -38,27 +38,32 @@ func (err InvalidOutputNameError) Error() string {
 	return fmt.Sprintf("invalid output name %q", err.Name)
 }
 
-func (m *Manager) saveBrightness(outputName string, value float64) {
-	monitors := m.getConnectedMonitors()
-	screenCfg := m.getScreenConfig()
-	if len(monitors) == 1 {
-		screenCfg.Single.Monitor = monitors[0].toConfig()
-		if screenCfg.Single.Monitor.Name == outputName {
-			screenCfg.Single.Monitor.Brightness = value
-		}
-	} else {
-		configs := screenCfg.getMonitorConfigs(m.DisplayMode)
-		for _, mc := range configs {
-			if mc.Name == outputName {
-				mc.Brightness = value
-				break
+func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
+	if len(valueMap) == 0 {
+		return nil
+	}
+	changed := false
+	m.modifySuitableSysMonitorConfigs(func(configs SysMonitorConfigs) SysMonitorConfigs {
+		for _, config := range configs {
+			v, ok := valueMap[config.Name]
+			if ok {
+				config.Brightness = v
+				changed = true
 			}
 		}
+		return configs
+	})
+
+	if !changed {
+		return nil
 	}
+
+	err := m.saveSysConfig()
+	return err
 }
 
 func (m *Manager) changeBrightness(raised bool) error {
-	var step float64 = 0.05
+	var step = 0.05
 	if m.MaxBacklightBrightness < 100 && m.MaxBacklightBrightness != 0 {
 		step = 1 / float64(m.MaxBacklightBrightness)
 	}
@@ -68,6 +73,7 @@ func (m *Manager) changeBrightness(raised bool) error {
 
 	monitors := m.getConnectedMonitors()
 
+	successMap := make(map[string]float64)
 	for _, monitor := range monitors {
 		v, ok := m.Brightness[monitor.Name]
 		if !ok {
@@ -83,15 +89,17 @@ func (m *Manager) changeBrightness(raised bool) error {
 			br = 0.0
 		}
 		logger.Debug("[changeBrightness] will set to:", monitor.Name, br)
-		err := m.doSetBrightness(br, monitor.Name)
+		err := m.setBrightnessAndSync(monitor.Name, br)
 		if err != nil {
-			return err
+			logger.Warning(err)
+			continue
 		}
-		m.saveBrightness(monitor.Name, br)
+		successMap[monitor.Name] = br
 	}
-	m.syncBrightness()
-	m.save()
-
+	err := m.saveBrightnessInCfg(successMap)
+	if err != nil {
+		logger.Warning(err)
+	}
 	return nil
 }
 
@@ -177,37 +185,39 @@ func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
 	return err
 }
 
-func (m *Manager) doSetBrightnessAux(fake bool, value float64, name string) error {
+func (m *Manager) setBrightnessAux(fake bool, name string, value float64) error {
 	monitors := m.getConnectedMonitors()
-	monitor0 := monitors.GetByName(name)
-	if monitor0 == nil {
+	monitor := monitors.GetByName(name)
+	if monitor == nil {
 		return InvalidOutputNameError{Name: name}
 	}
 
-	monitor0.PropsMu.RLock()
-	enabled := monitor0.Enabled
-	monitor0.PropsMu.RUnlock()
+	monitor.PropsMu.RLock()
+	enabled := monitor.Enabled
+	monitor.PropsMu.RUnlock()
 
 	value = math.Round(value*1000) / 1000 // 通过该方法，用来对亮度值(亮度值范围为0-1)四舍五入保留小数点后三位有效数字
 	if !fake && enabled {
-		err := m.setMonitorBrightness(monitor0, value)
+		err := m.setMonitorBrightness(monitor, value)
 		if err != nil {
 			logger.Warningf("failed to set brightness for %s: %v", name, err)
 			return err
 		}
 	}
 
-	oldValue := monitor0.Brightness
-	if oldValue == value {
-		return nil
-	}
-
-	// update brightness of the output
-	monitor0.setBrightness(value)
+	monitor.setPropBrightnessWithLock(value)
 
 	return nil
 }
 
-func (m *Manager) doSetBrightness(value float64, name string) error {
-	return m.doSetBrightnessAux(false, value, name)
+func (m *Manager) setBrightness(name string, value float64) error {
+	return m.setBrightnessAux(false, name, value)
+}
+
+func (m *Manager) setBrightnessAndSync(name string, value float64) error {
+	err := m.setBrightness(name, value)
+	if err == nil {
+		m.syncPropBrightness()
+	}
+	return err
 }

@@ -13,8 +13,8 @@ type ScreenConfigV3_3 struct {
 	BaseInfos []*MonitorConfiV3_3
 }
 
-func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
-	result := make([]*MonitorConfig, len(sc.BaseInfos))
+func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfigV5 {
+	result := make([]*MonitorConfigV5, len(sc.BaseInfos))
 	var brightness float64
 	for idx, bi := range sc.BaseInfos {
 		for brightnessName, value := range m.Brightness {
@@ -23,7 +23,7 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 			}
 		}
 		primary := bi.Name == sc.Primary
-		result[idx] = &MonitorConfig{
+		result[idx] = &MonitorConfigV5{
 			UUID:        bi.UUID,
 			Name:        bi.Name,
 			Enabled:     bi.Enabled,
@@ -41,8 +41,8 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfig {
 	return result
 }
 
-func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfig {
-	result := make([]*MonitorConfig, len(sc.BaseInfos))
+func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfigV5 {
+	result := make([]*MonitorConfigV5, len(sc.BaseInfos))
 	var brightness float64
 	for idx, bi := range sc.BaseInfos {
 		for brightnessName, value := range m.Brightness {
@@ -51,7 +51,7 @@ func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfig {
 			}
 		}
 		primary := bi.Name == sc.Primary
-		result[idx] = &MonitorConfig{
+		result[idx] = &MonitorConfigV5{
 			UUID:        bi.UUID,
 			Name:        bi.Name,
 			Enabled:     bi.Enabled,
@@ -99,8 +99,8 @@ func loadConfigV3_3(filename string) (ConfigV3_3, error) {
 	return c, nil
 }
 
-func (c ConfigV3_3) toConfig(m *Manager) Config {
-	newConfig := make(Config)
+func (c ConfigV3_3) toConfig(m *Manager) ConfigV5 {
+	newConfig := make(ConfigV5)
 	var brightness float64
 	for id, sc := range c {
 		cfgKey := parseConfigKey(id)
@@ -118,12 +118,12 @@ func (c ConfigV3_3) toConfig(m *Manager) Config {
 						}
 					}
 
-					newConfig[jId] = &ScreenConfig{
+					newConfig[jId] = &ScreenConfigV5{
 						Mirror:  nil,
 						Extend:  nil,
 						OnlyOne: nil,
 						Single: &SingleModeConfig{
-							Monitor: &MonitorConfig{
+							Monitor: &MonitorConfigV5{
 								UUID:        bi.UUID,
 								Name:        bi.Name,
 								Enabled:     bi.Enabled,
@@ -146,7 +146,7 @@ func (c ConfigV3_3) toConfig(m *Manager) Config {
 		} else {
 			screenCfg := newConfig[jId]
 			if screenCfg == nil {
-				screenCfg = &ScreenConfig{}
+				screenCfg = &ScreenConfigV5{}
 				newConfig[jId] = screenCfg
 			}
 

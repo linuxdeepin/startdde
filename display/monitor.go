@@ -3,15 +3,14 @@ package display
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"sync"
 	"time"
 
-	dbus "github.com/godbus/dbus"
-	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/strv"
 )
 
 const (
@@ -27,8 +26,6 @@ const (
 type Monitor struct {
 	m                 *Manager
 	service           *dbusutil.Service
-	crtc              randr.Crtc
-	output            randr.Output
 	uuid              string
 	PropsMu           sync.RWMutex
 	lastConnectedTime time.Time
@@ -38,15 +35,14 @@ type Monitor struct {
 	Connected    bool
 	Manufacturer string
 	Model        string
-	// dbusutil-gen: equal=nil
+	// dbusutil-gen: equal=uint16SliceEqual
 	Rotations []uint16
-	// dbusutil-gen: equal=nil
+	// dbusutil-gen: equal=uint16SliceEqual
 	Reflects []uint16
-	// dbusutil-gen: equal=nil
 	BestMode ModeInfo
-	// dbusutil-gen: equal=nil
+	// dbusutil-gen: equal=modeInfosEqual
 	Modes []ModeInfo
-	// dbusutil-gen: equal=nil
+	// dbusutil-gen: equal=modeInfosEqual
 	PreferredModes []ModeInfo
 	MmWidth        uint32
 	MmHeight       uint32
@@ -64,17 +60,12 @@ type Monitor struct {
 
 	oldRotation uint16
 
-	// dbusutil-gen: equal=nil
 	CurrentMode     ModeInfo
 	CurrentFillMode string `prop:"access:rw"`
-	// dbusutil-gen: equal=nil
-	AvailableFillModes []string
+	// dbusutil-gen: equal=method:Equal
+	AvailableFillModes strv.Strv
 
 	backup *MonitorBackup
-
-	colorTemperatureMode int32
-	// adjust color temperature by manual adjustment
-	colorTemperatureManual int32
 }
 
 func (m *Monitor) String() string {
@@ -114,6 +105,7 @@ func (m *Monitor) markChanged() {
 }
 
 func (m *Monitor) Enable(enabled bool) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call Enable %v", m.ID, m.Name, enabled)
 	if m.Enabled == enabled {
 		return nil
 	}
@@ -128,18 +120,12 @@ func (m *Monitor) enable(enabled bool) {
 }
 
 func (m *Monitor) SetMode(mode uint32) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetMode %v", m.ID, m.Name, mode)
 	if m.CurrentMode.Id == mode {
 		return nil
 	}
 
-	var newMode ModeInfo
-	for _, modeInfo := range m.Modes {
-		if modeInfo.Id == mode {
-			newMode = modeInfo
-			break
-		}
-	}
-
+	newMode := findMode(m.Modes, mode)
 	if newMode.Id == 0 {
 		return dbusutil.ToError(errors.New("invalid mode"))
 	}
@@ -166,16 +152,6 @@ func (m *Monitor) setMode(mode ModeInfo) {
 	m.PropsMu.Unlock()
 }
 
-func (m *Monitor) getBestMode(manager *Manager, outputInfo *randr.GetOutputInfoReply) ModeInfo {
-	mode := manager.getModeInfo(outputInfo.GetPreferredMode())
-	if mode.Id == 0 && len(m.Modes) > 0 {
-		mode = m.Modes[0]
-	} else if mode.Id != 0 {
-		mode = getFirstModeBySize(m.Modes, mode.Width, mode.Height)
-	}
-	return mode
-}
-
 func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
 	mode := getFirstModeBySizeRate(m.Modes, width, height, rate)
 	if mode.Id != 0 {
@@ -189,6 +165,7 @@ func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
 }
 
 func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetModeBySize %v %v", m.ID, m.Name, width, height)
 	mode := getFirstModeBySize(m.Modes, width, height)
 	if mode.Id == 0 {
 		return dbusutil.ToError(errors.New("not found match mode"))
@@ -197,6 +174,7 @@ func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
 }
 
 func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetRefreshRate %v", m.ID, m.Name, value)
 	if m.Width == 0 || m.Height == 0 {
 		return dbusutil.ToError(errors.New("width or height is 0"))
 	}
@@ -207,26 +185,8 @@ func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
 	return m.SetMode(mode.Id)
 }
 
-func getFirstModeBySize(modes []ModeInfo, width, height uint16) ModeInfo {
-	for _, modeInfo := range modes {
-		if modeInfo.Width == width && modeInfo.Height == height {
-			return modeInfo
-		}
-	}
-	return ModeInfo{}
-}
-
-func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) ModeInfo {
-	for _, modeInfo := range modes {
-		if modeInfo.Width == width && modeInfo.Height == height &&
-			math.Abs(modeInfo.Rate-rate) <= 0.01 {
-			return modeInfo
-		}
-	}
-	return ModeInfo{}
-}
-
 func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetPosition %v %v", m.ID, m.Name, X, y)
 	if m.X == X && m.Y == y {
 		return nil
 	}
@@ -244,6 +204,7 @@ func (m *Monitor) setPosition(X, y int16) {
 }
 
 func (m *Monitor) SetReflect(value uint16) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetReflect %v", m.ID, m.Name, value)
 	if m.Reflect == value {
 		return nil
 	}
@@ -259,6 +220,7 @@ func (m *Monitor) setReflect(value uint16) {
 }
 
 func (m *Monitor) SetRotation(value uint16) *dbus.Error {
+	logger.Debugf("monitor %v %v dbus call SetRotation %v", m.ID, m.Name, value)
 	if m.Rotation == value {
 		return nil
 	}
@@ -284,7 +246,7 @@ func (m *Monitor) setRotation(value uint16) {
 	m.PropsMu.Unlock()
 }
 
-func (m *Monitor) setBrightness(value float64) {
+func (m *Monitor) setPropBrightnessWithLock(value float64) {
 	m.PropsMu.Lock()
 	m.setPropBrightness(value)
 	m.PropsMu.Unlock()
@@ -327,36 +289,9 @@ func getRandrStatusStr(status uint8) string {
 	}
 }
 
-func (m *Monitor) applyConfig(cfg crtcConfig) error {
-	m.PropsMu.RLock()
-	name := m.Name
-	m.PropsMu.RUnlock()
-	logger.Debugf("applyConfig output: %v %v", m.ID, name)
-
-	m.m.PropsMu.RLock()
-	cfgTs := m.m.configTimestamp
-	m.m.PropsMu.RUnlock()
-
-	logger.Debugf("setCrtcConfig crtc: %v, cfgTs: %v, x: %v, y: %v,"+
-		" mode: %v, rotation|reflect: %v, outputs: %v",
-		cfg.crtc, cfgTs, cfg.x, cfg.y, cfg.mode, cfg.rotation, cfg.outputs)
-	setCfg, err := randr.SetCrtcConfig(m.m.xConn, cfg.crtc, 0, cfgTs,
-		cfg.x, cfg.y, cfg.mode, cfg.rotation,
-		cfg.outputs).Reply(m.m.xConn)
-	if err != nil {
-		return err
-	}
-	if setCfg.Status != randr.SetConfigSuccess {
-		err = fmt.Errorf("failed to configure crtc %v: %v",
-			cfg.crtc, getRandrStatusStr(setCfg.Status))
-		return err
-	}
-	return nil
-}
-
-func toMonitorConfigs(monitors []*Monitor, primary string) []*MonitorConfig {
+func toMonitorConfigs(monitors []*Monitor, primary string) SysMonitorConfigs {
 	found := false
-	result := make([]*MonitorConfig, len(monitors))
+	result := make(SysMonitorConfigs, len(monitors))
 	for i, m := range monitors {
 		cfg := m.toConfig()
 		if !found && m.Name == primary {
@@ -368,36 +303,38 @@ func toMonitorConfigs(monitors []*Monitor, primary string) []*MonitorConfig {
 	return result
 }
 
-func (m *Monitor) toConfig() *MonitorConfig {
-	return &MonitorConfig{
-		UUID:                   m.uuid,
-		Name:                   m.Name,
-		Enabled:                m.Enabled,
-		X:                      m.X,
-		Y:                      m.Y,
-		Width:                  m.Width,
-		Height:                 m.Height,
-		Rotation:               m.Rotation,
-		Reflect:                m.Reflect,
-		RefreshRate:            m.RefreshRate,
-		Brightness:             m.Brightness,
-		ColorTemperatureMode:   m.colorTemperatureMode,
-		ColorTemperatureManual: m.colorTemperatureManual,
+func (m *Monitor) toBasicConfig() *SysMonitorConfig {
+	return &SysMonitorConfig{
+		UUID: m.uuid,
+		Name: m.Name,
+	}
+}
+
+func (m *Monitor) toConfig() *SysMonitorConfig {
+	return &SysMonitorConfig{
+		UUID:        m.uuid,
+		Name:        m.Name,
+		Enabled:     m.Enabled,
+		X:           m.X,
+		Y:           m.Y,
+		Width:       m.Width,
+		Height:      m.Height,
+		Rotation:    m.Rotation,
+		Reflect:     m.Reflect,
+		RefreshRate: m.RefreshRate,
+		Brightness:  m.Brightness,
 	}
 }
 
 func (m *Monitor) dumpInfoForDebug() {
-	logger.Debugf("monitor %v, uuid: %v, id: %v, crtc: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v,colorTemperatureMode: %v,colorTemperatureManual: %v",
+	logger.Debugf("dump info monitor %v, uuid: %v, id: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
 		m.Name,
 		m.uuid,
 		m.ID,
-		m.crtc,
 		m.X, m.Y, m.Width, m.Height,
 		m.Enabled,
 		m.Rotation, m.Reflect,
-		m.CurrentMode,
-		m.colorTemperatureMode,
-		m.colorTemperatureManual)
+		m.CurrentMode)
 }
 
 type Monitors []*Monitor
@@ -410,44 +347,13 @@ func (monitors Monitors) GetByName(name string) *Monitor {
 	}
 	return nil
 }
-func (monitors Monitors) GetByCrtc(crtc randr.Crtc) *Monitor {
+
+func (monitors Monitors) GetByID(id uint32) *Monitor {
 	for _, monitor := range monitors {
-		if monitor.crtc == crtc {
+		if monitor.ID == id {
 			return monitor
 		}
 	}
-	return nil
-}
-
-func (m *Monitor) setXrandrScalingMode(fillMode string) error {
-	if fillMode != fillModeDefault &&
-		fillMode != fillModeCenter &&
-		fillMode != fillModeFull {
-		logger.Warning("setXrandrScalingMode fillMode invalid:", fillMode)
-		return errors.New("setXrandrScalingMode fillMode invalid")
-	}
-
-	fillModeU32, _ := _xConn.GetAtom(fillMode)
-	name, _ := _xConn.GetAtom("scaling mode")
-
-	outputPropReply, err := randr.GetOutputProperty(_xConn, m.output, name, 0, 0,
-		100, false, false).Reply(_xConn)
-	if err != nil {
-		logger.Warning("call GetOutputProperty reply err:", err)
-		return err
-	}
-
-	w := x.NewWriter()
-	w.Write4b(uint32(fillModeU32))
-	fillModeByte := w.Bytes()
-	err = randr.ChangeOutputPropertyChecked(_xConn, m.output, name,
-		outputPropReply.Type, outputPropReply.Format, 0, fillModeByte).Check(_xConn)
-	if err != nil {
-		logger.Warning("err:", err)
-		return err
-	}
-
-	m.setPropCurrentFillMode(fillMode)
 	return nil
 }
 
@@ -461,41 +367,10 @@ func (m *Monitor) generateFillModeKey() string {
 
 func (m *Monitor) setCurrentFillMode(write *dbusutil.PropertyWrite) *dbus.Error {
 	value, _ := write.Value.(string)
-	var fillModeKey = ""
-	m.m.setCurrentFillModeMutex.Lock()
-
-	var currentFillMode string
-	if value == "" {
-		// 填充模式为空时，从display.config获取结构体当前分辨率的铺满方式
-		currentFillMode = fillModeDefault
-		fillModeKey = m.generateFillModeKey()
-		if fillMode, ok := m.m.configV6.FillMode.FillModeMap[fillModeKey]; ok {
-			currentFillMode = fillMode
-		}
-	} else {
-		// 填充模式不为空时，获取当前屏幕的分辨率信息
-		fillModeKey = m.generateFillModeKey()
-		currentFillMode = value
-	}
-
-	m.m.configV6.FillMode.FillModeMap[fillModeKey] = currentFillMode
-	err := m.setXrandrScalingMode(currentFillMode)
+	logger.Debugf("dbus call %v setCurrentFillMode %v", m, value)
+	err := m.m.setMonitorFillMode(m, value)
 	if err != nil {
-		logger.Warning("call setXrandrScalingMode err:", err)
-		return dbusutil.ToError(err)
+		logger.Warning(err)
 	}
-
-	err = m.m.applyChanges()
-	if err != nil {
-		logger.Warning("call applyChanges err:", err)
-		return dbusutil.ToError(err)
-	}
-
-	err = m.m.save()
-	if err != nil {
-		logger.Warning("call save err:", err)
-		return dbusutil.ToError(err)
-	}
-	m.m.setCurrentFillModeMutex.Unlock()
-	return nil
+	return dbusutil.ToError(err)
 }

@@ -12,24 +12,24 @@ type ScreenConfig_V4 struct {
 	Mirror  *MirrorModeConfig   `json:",omitempty"`
 	Extend  *ExtendModeConfig   `json:",omitempty"`
 	OnlyOne *OnlyOneModeConfig  `json:",omitempty"`
-	Single  *MonitorConfig      `json:",omitempty"`
+	Single  *MonitorConfigV5    `json:",omitempty"`
 }
 
 type CustomModeConfig struct {
 	Name     string
-	Monitors []*MonitorConfig
+	Monitors []*MonitorConfigV5
 }
 
 type MirrorModeConfig struct {
-	Monitors []*MonitorConfig
+	Monitors []*MonitorConfigV5
 }
 
 type ExtendModeConfig struct {
-	Monitors []*MonitorConfig
+	Monitors []*MonitorConfigV5
 }
 
 type OnlyOneModeConfig struct {
-	Monitors []*MonitorConfig
+	Monitors []*MonitorConfigV5
 }
 
 func loadConfigV4(filename string) (ConfigV4, error) {
@@ -47,8 +47,8 @@ func loadConfigV4(filename string) (ConfigV4, error) {
 	return c, nil
 }
 
-func (c ConfigV4) toConfig(m *Manager) Config {
-	newConfig := make(Config)
+func (c ConfigV4) toConfig(m *Manager) ConfigV5 {
+	newConfig := make(ConfigV5)
 
 	for id, sc := range c {
 		cfgKey := parseConfigKey(id)
@@ -59,7 +59,7 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 			if sc.Single != nil {
 				//把亮度,色温写入配置文件
 				sc.Single.Brightness = m.Brightness[sc.Single.Name]
-				newConfig[jId] = &ScreenConfig{
+				newConfig[jId] = &ScreenConfigV5{
 					Mirror:  nil,
 					Extend:  nil,
 					OnlyOne: nil,
@@ -73,7 +73,7 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 		} else {
 			screenCfg := newConfig[id]
 			if screenCfg == nil {
-				screenCfg = &ScreenConfig{}
+				screenCfg = &ScreenConfigV5{}
 				newConfig[id] = screenCfg
 			}
 			sc.toModeConfigs(screenCfg, m)
@@ -82,9 +82,9 @@ func (c ConfigV4) toConfig(m *Manager) Config {
 	return newConfig
 }
 
-func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
+func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfigV5, m *Manager) {
 	if sc.OnlyOne != nil {
-		result := make([]*MonitorConfig, 0, len(sc.OnlyOne.Monitors))
+		result := make([]*MonitorConfigV5, 0, len(sc.OnlyOne.Monitors))
 		for _, monitor := range sc.OnlyOne.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
 			result = append(result, monitor)
@@ -96,7 +96,7 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 	if len(sc.Custom) != 0 {
 		// 直接取最后一个
 		custom := sc.Custom[len(sc.Custom)-1]
-		result := make([]*MonitorConfig, 0, len(custom.Monitors))
+		result := make([]*MonitorConfigV5, 0, len(custom.Monitors))
 		for _, monitor := range custom.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
 			result = append(result, monitor)
@@ -123,7 +123,7 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 	}
 
 	if sc.Mirror != nil {
-		result := make([]*MonitorConfig, 0, len(sc.Mirror.Monitors))
+		result := make([]*MonitorConfigV5, 0, len(sc.Mirror.Monitors))
 		for _, monitor := range sc.Mirror.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
 			result = append(result, monitor)
@@ -132,7 +132,7 @@ func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfig, m *Manager) {
 	}
 
 	if sc.Extend != nil {
-		result := make([]*MonitorConfig, 0, len(sc.Extend.Monitors))
+		result := make([]*MonitorConfigV5, 0, len(sc.Extend.Monitors))
 		for _, monitor := range sc.Extend.Monitors {
 			monitor.Brightness = m.Brightness[monitor.Name]
 			result = append(result, monitor)

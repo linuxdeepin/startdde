@@ -3,17 +3,11 @@ package display
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
 
-	dbus "github.com/godbus/dbus"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"github.com/godbus/dbus"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/strv"
-	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 func (m *Manager) GetInterfaceName() string {
@@ -24,19 +18,18 @@ func (m *Manager) applyChanges() error {
 	if !m.HasChanged {
 		return nil
 	}
-	err := m.apply()
+	err := m.apply(nil)
 	return err
 }
 
 func (m *Manager) ApplyChanges() *dbus.Error {
-	if !m.HasChanged {
-		return nil
-	}
-	err := m.apply()
+	logger.Debug("dbus call ApplyChanges")
+	err := m.applyChanges()
 	return dbusutil.ToError(err)
 }
 
 func (m *Manager) ResetChanges() *dbus.Error {
+	logger.Debug("dbus call ResetChanges")
 	if !m.HasChanged {
 		return nil
 	}
@@ -45,7 +38,7 @@ func (m *Manager) ResetChanges() *dbus.Error {
 		monitor.resetChanges()
 	}
 
-	err := m.apply()
+	err := m.apply(nil)
 	if err != nil {
 		return dbusutil.ToError(err)
 	}
@@ -55,11 +48,13 @@ func (m *Manager) ResetChanges() *dbus.Error {
 }
 
 func (m *Manager) SwitchMode(mode byte, name string) *dbus.Error {
+	logger.Debug("dbus call SwitchMode", mode, name)
 	err := m.switchMode(mode, name)
 	return dbusutil.ToError(err)
 }
 
 func (m *Manager) Save() *dbus.Error {
+	logger.Debug("dbus call Save")
 	err := m.save()
 	return dbusutil.ToError(err)
 }
@@ -86,16 +81,21 @@ func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
+// ChangeBrightness 通过键盘控制所有显示器一起亮度加或减，保存配置。
 func (m *Manager) ChangeBrightness(raised bool) *dbus.Error {
+	logger.Debug("dbus call ChangeBrightness", raised)
 	err := m.changeBrightness(raised)
 	return dbusutil.ToError(err)
 }
 
 func (m *Manager) GetBrightness() (map[string]float64, *dbus.Error) {
+	m.PropsMu.RLock()
+	defer m.PropsMu.RUnlock()
 	return m.Brightness, nil
 }
 
 func (m *Manager) ListOutputNames() ([]string, *dbus.Error) {
+	logger.Debug("dbus call ListOutputNames")
 	var names []string
 	monitors := m.getConnectedMonitors()
 	for _, monitor := range monitors {
@@ -105,6 +105,7 @@ func (m *Manager) ListOutputNames() ([]string, *dbus.Error) {
 }
 
 func (m *Manager) ListOutputsCommonModes() ([]ModeInfo, *dbus.Error) {
+	logger.Debug("dbus call ListOutputsCommonModes")
 	monitors := m.getConnectedMonitors()
 	if len(monitors) == 0 {
 		return nil, nil
@@ -127,13 +128,19 @@ func (m *Manager) DeleteCustomMode(name string) *dbus.Error {
 	return dbusutil.ToError(errors.New("obsoleted interface"))
 }
 
+// RefreshBrightness 重置亮度，主要被 session/power 模块调用。从配置恢复亮度。
 func (m *Manager) RefreshBrightness() *dbus.Error {
-	for k, v := range m.Brightness {
-		err := m.doSetBrightness(v, k)
-		if err != nil {
-			logger.Warning(err)
+	logger.Debug("dbus call RefreshBrightness")
+	configs := m.getSuitableSysMonitorConfigs()
+	for _, config := range configs {
+		if config.Enabled {
+			err := m.setBrightness(config.Name, config.Brightness)
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 	}
+	m.syncPropBrightness()
 	return nil
 }
 
@@ -142,33 +149,47 @@ func (m *Manager) Reset() *dbus.Error {
 	return nil
 }
 
+// SetAndSaveBrightness 设置并保持亮度
 func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.Error {
+	logger.Debug("dbus call SetAndSaveBrightness", outputName, value)
 	can, _ := m.CanSetBrightness(outputName)
 	if !can {
 		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
 	}
-	err := m.doSetBrightness(value, outputName)
-	if err == nil {
-		m.saveBrightness(outputName, value)
-		//保存到配置文件
-		err = m.saveConfig()
-		m.syncBrightness()
+	err := m.setBrightnessAndSync(outputName, value)
+	if err != nil {
+		logger.Warning(err)
+		return dbusutil.ToError(err)
 	}
-	return dbusutil.ToError(err)
+
+	err = m.saveBrightnessInCfg(map[string]float64{
+		outputName: value,
+	})
+	if err != nil {
+		logger.Warning(err)
+		return dbusutil.ToError(err)
+	}
+	return nil
 }
 
+// SetBrightness 设置亮度但是不保存, 主要被 session/power 模块调用。
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
+	logger.Debug("dbus call SetBrightness", outputName, value)
 	can, _ := m.CanSetBrightness(outputName)
 	if !can {
 		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
 	}
 
-	err := m.doSetBrightness(value, outputName)
-	m.syncBrightness()
-	return dbusutil.ToError(err)
+	err := m.setBrightnessAndSync(outputName, value)
+	if err != nil {
+		logger.Warning(err)
+		return dbusutil.ToError(err)
+	}
+	return nil
 }
 
 func (m *Manager) SetPrimary(outputName string) *dbus.Error {
+	logger.Debug("dbus call SetPrimary", outputName)
 	err := m.setPrimary(outputName)
 	return dbusutil.ToError(err)
 }
@@ -207,7 +228,7 @@ func (m *Manager) GetBuiltinMonitor() (string, dbus.ObjectPath, *dbus.Error) {
 	}
 
 	m.monitorMapMu.Lock()
-	_, ok := m.monitorMap[randr.Output(builtinMonitor.ID)]
+	_, ok := m.monitorMap[builtinMonitor.ID]
 	m.monitorMapMu.Unlock()
 	if !ok {
 		return "", "/", dbusutil.ToError(fmt.Errorf("not found monitor %d", builtinMonitor.ID))
@@ -217,61 +238,19 @@ func (m *Manager) GetBuiltinMonitor() (string, dbus.ObjectPath, *dbus.Error) {
 }
 
 func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
-	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
-		return dbusutil.ToError(errors.New("adjustMethod type out of range, not 0 or 1 or 2"))
-	}
-	m.setPropColorTemperatureMode(adjustMethod)
-	m.saveColorTemperatureModeToConfigs(adjustMethod)
-	switch adjustMethod {
-	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
-		controlRedshift("stop") // 停止服务
-		resetColorTemp()        // 色温重置
-	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
-		resetColorTemp()
-		controlRedshift("start") // 开启服务
-	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
-		controlRedshift("stop") // 停止服务
-		lastManualCCT := m.ColorTemperatureManual
-		err := m.SetColorTemperature(lastManualCCT)
-		if err != nil {
-			return err
-		}
-	}
-
-	err := m.saveConfig()
-	if err != nil {
-		return dbusutil.ToError(err)
-	}
-	return nil
+	err := m.setColorTempMode(adjustMethod)
+	return dbusutil.ToError(err)
 }
 
 func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
-	if m.ColorTemperatureMode != ColorTemperatureModeManual {
-		return dbusutil.ToError(errors.New("current not manual mode, can not adjust CCT by manual"))
-	}
-	if value < 1000 || value > 25000 {
-		return dbusutil.ToError(errors.New("value out of range"))
-	}
-	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
-	m.ColorTemperatureManual = value
-	err := m.emitPropChangedColorTemperatureManual(value)
-	if err != nil {
-		return dbusutil.ToError(errors.New("emitPropChangedColorTemperatureManual failed"))
-	}
-
-	m.saveColorTemperatureToConfigs(value)
-
-	err = m.saveConfig()
-	if err != nil {
-		return dbusutil.ToError(err)
-	}
-	return nil
+	err := m.setColorTempValue(value)
+	return dbusutil.ToError(err)
 }
 
 func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 	monitors := m.getConnectedMonitors()
 
-	mode := DisplayModeUnknow
+	mode := DisplayModeUnknown
 	var pairs strv.Strv
 	for _, m := range monitors {
 		if !m.Enabled {
@@ -288,7 +267,7 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 		pairs = append(pairs, pair)
 	}
 
-	if mode == DisplayModeUnknow && len(pairs) != 0 {
+	if mode == DisplayModeUnknown && len(pairs) != 0 {
 		if len(pairs) == 1 {
 			mode = DisplayModeOnlyOne
 		} else {
@@ -299,108 +278,19 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 	return mode, nil
 }
 
-// saveColorTemperatureToConfigs 保存手动色温值到配置文件，但这里并未保存到文件。
-func (m *Manager) saveColorTemperatureToConfigs(colorTemperatureManual int32) {
-	monitors := m.getConnectedMonitors()
-	screenCfg := m.getScreenConfig()
-	if len(monitors) == 1 {
-		screenCfg.Single.Monitor = monitors[0].toConfig()
-		screenCfg.Single.ColorTemperatureManual = colorTemperatureManual
-	} else {
-		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		for _, monitorConfig := range configs.Monitors {
-			if monitorConfig.Enabled {
-				monitorConfig.ColorTemperatureManual = colorTemperatureManual
-			}
-		}
-		for _, monitor := range monitors {
-			if monitor.Enabled {
-				monitor.colorTemperatureManual = colorTemperatureManual
-			}
-		}
-	}
-}
-
-// saveColorTemperatureModeToConfigs 保存色温模式到配置文件，但这里并未保存到文件。
-func (m *Manager) saveColorTemperatureModeToConfigs(colorTemperatureMode int32) {
-	monitors := m.getConnectedMonitors()
-	screenCfg := m.getScreenConfig()
-	if len(monitors) == 1 {
-		screenCfg.Single.Monitor = monitors[0].toConfig()
-		screenCfg.Single.ColorTemperatureMode = colorTemperatureMode
-	} else {
-		configs := screenCfg.getModeConfigs(m.DisplayMode)
-		for _, monitorConfig := range configs.Monitors {
-			if monitorConfig.Enabled {
-				monitorConfig.ColorTemperatureMode = colorTemperatureMode
-			}
-		}
-		for _, monitor := range monitors {
-			if monitor.Enabled {
-				monitor.colorTemperatureMode = colorTemperatureMode
-			}
-		}
-	}
-}
-
-func controlRedshift(action string) {
-	_, err := exec.Command("systemctl", "--user", action, "redshift.service").Output()
-	if err != nil {
-		logger.Warning("failed to ", action, " redshift.service:", err)
-	} else {
-		logger.Info("success to ", action, " redshift.service")
-	}
-}
-
-// setColorTempOneShot 调用 redshift 命令设置一次色温
-func setColorTempOneShot(colorTemp string) {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp, "-P").Output()
-	if err != nil {
-		logger.Warning("failed to set current ColorTemperature by redshift.service: ", err)
-	} else {
-		logger.Info("success to to set current ColorTemperature by redshift.service")
-	}
-}
-
-// resetColorTemp 调用 redshift 命令重置色温，即删除色温设置。
-func resetColorTemp() {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-x").Output()
-	if err != nil {
-		logger.Warning("failed to reset ColorTemperature ", err)
-	} else {
-		logger.Info("success to reset ColorTemperature")
-	}
-}
-
-// generateRedshiftConfFile 用来生成 redshift 的配置文件，路径为“~/.config/redshift/redshift.conf”。
-// 如果配置文件已经存在，则不生成。
-func generateRedshiftConfFile() error {
-	controlRedshift("disable")
-	configFilePath := basedir.GetUserConfigDir() + "/redshift/redshift.conf"
-	_, err := os.Stat(configFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			dir := filepath.Dir(configFilePath)
-			err := os.MkdirAll(dir, 0755)
-			if err != nil {
-				return err
-			}
-			content := []byte("[redshift]\n" +
-				"temp-day=6500\n" + // 自动模式下，白天的色温
-				"temp-night=3500\n" + // 自动模式下，夜晚的色温
-				"transition=1\n" +
-				"gamma=1\n" +
-				"location-provider=geoclue2\n" +
-				"adjustment-method=vidmode\n" +
-				"[vidmode]\n" +
-				"screen=0")
-			err = ioutil.WriteFile(configFilePath, content, 0644)
-			return err
-		} else {
-			return err
-		}
-	} else {
-		logger.Debug("redshift.conf file exist , don't need create config file")
-	}
-	return nil
-}
+//func (m *Manager) SetConfig(cfgStr string) *dbus.Error {
+//	err := m.setConfig(cfgStr)
+//	return dbusutil.ToError(err)
+//}
+//
+//// 应用系统级的配置
+//func (m *Manager) setConfig(cfgStr string) error {
+//	var cfg SysRootConfig
+//	err := jsonUnmarshal(cfgStr, &cfg)
+//	if err != nil {
+//		return err
+//	}
+//
+//	m.sysConfig = cfg
+//	return nil
+//}

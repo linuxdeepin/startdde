@@ -35,12 +35,12 @@ func Test_getRandrStatusStr(t *testing.T) {
 	assert.Equal(t, getRandrStatusStr(status[4]), statusstr[4])
 }
 
-func Test_setXrandrScalingMode(t *testing.T) {
-	var fillMode = "None"
-	m := Monitor{}
-	err := m.setXrandrScalingMode(fillMode)
-	assert.NotNil(t, err)
-}
+//func Test_setXrandrScalingMode(t *testing.T) {
+//	var fillMode = "None"
+//	m := Monitor{}
+//	err := m.setScalingMode(fillMode)
+//	assert.NotNil(t, err)
+//}
 
 func Test_generateFillModeKey(t *testing.T) {
 	m := Monitor{}

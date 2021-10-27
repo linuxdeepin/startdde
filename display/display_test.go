@@ -54,7 +54,32 @@ func Test_filterModeInfos(t *testing.T) {
 			Height: 768,
 			Rate:   60.1,
 		},
-	}, filterModeInfos(modes))
+	}, filterModeInfos(modes, ModeInfo{}))
+
+	// --------------------------
+	modes = []ModeInfo{
+		{
+			Id:     1,
+			name:   "1024x768",
+			Width:  1024,
+			Height: 768,
+			Rate:   60.1,
+		},
+		{
+			Id:     2,
+			name:   "1024x768i",
+			Width:  1024,
+			Height: 768,
+			Rate:   60.1,
+		},
+	}
+	assert.Equal(t, modes, filterModeInfos(modes,
+		ModeInfo{Id: 2,
+			name:   "1024x768i",
+			Width:  1024,
+			Height: 768,
+			Rate:   60.1,
+		}))
 
 	// --------------------------
 	modes = []ModeInfo{
@@ -95,7 +120,7 @@ func Test_filterModeInfos(t *testing.T) {
 			Height: 768,
 			Rate:   60.3,
 		},
-	}, filterModeInfos(modes))
+	}, filterModeInfos(modes, ModeInfo{}))
 
 	// --------------------------
 	// 混合
@@ -151,7 +176,7 @@ func Test_filterModeInfos(t *testing.T) {
 			Height: 768,
 			Rate:   60.3,
 		},
-	}, filterModeInfos(modes))
+	}, filterModeInfos(modes, ModeInfo{}))
 }
 
 func TestCalcRecommendedScaleFactor(t *testing.T) {

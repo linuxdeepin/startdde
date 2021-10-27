@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/log"
 	"pkg.deepin.io/lib/xdg/basedir"
 )
@@ -25,6 +24,7 @@ var (
 	configVersionFile string
 	// 内置显示器配置文件，~/.config/deepin/startdde/builtin-monitor
 	builtinMonitorConfigFile string
+	userConfigFile           string
 )
 
 func init() {
@@ -33,12 +33,13 @@ func init() {
 	configFile_v5 = filepath.Join(cfgDir, "display_v5.json")
 	configVersionFile = filepath.Join(cfgDir, "config.version")
 	builtinMonitorConfigFile = filepath.Join(cfgDir, "builtin-monitor")
+	userConfigFile = filepath.Join(cfgDir, "display-user.json")
 }
 
-type Config map[string]*ScreenConfig
+type ConfigV5 map[string]*ScreenConfigV5
 
 type ConfigV6 struct {
-	ConfigV5 Config
+	ConfigV5 ConfigV5
 	FillMode *FillModeConfigs
 }
 
@@ -46,25 +47,25 @@ type FillModeConfigs struct {
 	FillModeMap map[string]string
 }
 
-type ScreenConfig struct {
-	Mirror  *ModeConfigs      `json:",omitempty"`
-	Extend  *ModeConfigs      `json:",omitempty"`
-	OnlyOne *ModeConfigs      `json:",omitempty"`
+type ScreenConfigV5 struct {
+	Mirror  *ModeConfigsV5    `json:",omitempty"`
+	Extend  *ModeConfigsV5    `json:",omitempty"`
+	OnlyOne *ModeConfigsV5    `json:",omitempty"`
 	Single  *SingleModeConfig `json:",omitempty"`
 }
 
-type ModeConfigs struct {
-	Monitors []*MonitorConfig
+type ModeConfigsV5 struct {
+	Monitors []*MonitorConfigV5
 }
 
 type SingleModeConfig struct {
 	// 这里其实不能用 Monitors，因为是单数
-	Monitor                *MonitorConfig `json:"Monitors"` // 单屏时,该配置文件中色温相关数据未生效;增加json的tag是为了兼容之前配置文件
+	Monitor                *MonitorConfigV5 `json:"Monitors"` // 单屏时,该配置文件中色温相关数据未生效;增加json的tag是为了兼容之前配置文件
 	ColorTemperatureMode   int32
 	ColorTemperatureManual int32
 }
 
-func (s *ScreenConfig) getMonitorConfigs(mode uint8) []*MonitorConfig {
+func (s *ScreenConfigV5) getMonitorConfigs(mode uint8) []*MonitorConfigV5 {
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
@@ -88,23 +89,23 @@ func (s *ScreenConfig) getMonitorConfigs(mode uint8) []*MonitorConfig {
 	return nil
 }
 
-func (s *ScreenConfig) getModeConfigs(mode uint8) *ModeConfigs {
+func (s *ScreenConfigV5) getModeConfigs(mode uint8) *ModeConfigsV5 {
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
-			s.Mirror = &ModeConfigs{}
+			s.Mirror = &ModeConfigsV5{}
 		}
 		return s.Mirror
 
 	case DisplayModeExtend:
 		if s.Extend == nil {
-			s.Extend = &ModeConfigs{}
+			s.Extend = &ModeConfigsV5{}
 		}
 		return s.Extend
 
 	case DisplayModeOnlyOne:
 		if s.OnlyOne == nil {
-			s.OnlyOne = &ModeConfigs{}
+			s.OnlyOne = &ModeConfigsV5{}
 		}
 		return s.OnlyOne
 	}
@@ -112,7 +113,7 @@ func (s *ScreenConfig) getModeConfigs(mode uint8) *ModeConfigs {
 	return nil
 }
 
-func getMonitorConfigByUuid(configs []*MonitorConfig, uuid string) *MonitorConfig {
+func getMonitorConfigByUuid(configs []*MonitorConfigV5, uuid string) *MonitorConfigV5 {
 	for _, mc := range configs {
 		if mc.UUID == uuid {
 			return mc
@@ -121,16 +122,16 @@ func getMonitorConfigByUuid(configs []*MonitorConfig, uuid string) *MonitorConfi
 	return nil
 }
 
-func getMonitorConfigPrimary(configs []*MonitorConfig) *MonitorConfig { //unused
+func getMonitorConfigPrimary(configs []*MonitorConfigV5) *MonitorConfigV5 { //unused
 	for _, mc := range configs {
 		if mc.Primary {
 			return mc
 		}
 	}
-	return &MonitorConfig{}
+	return &MonitorConfigV5{}
 }
 
-func setMonitorConfigsPrimary(configs []*MonitorConfig, uuid string) {
+func setMonitorConfigsPrimary(configs []*MonitorConfigV5, uuid string) {
 	for _, mc := range configs {
 		if mc.UUID == uuid {
 			mc.Primary = true
@@ -140,7 +141,7 @@ func setMonitorConfigsPrimary(configs []*MonitorConfig, uuid string) {
 	}
 }
 
-func updateMonitorConfigsName(configs []*MonitorConfig, monitorMap map[randr.Output]*Monitor) {
+func updateMonitorConfigsName(configs SysMonitorConfigs, monitorMap map[uint32]*Monitor) {
 	for _, mc := range configs {
 		for _, m := range monitorMap {
 			if mc.UUID == m.uuid {
@@ -151,17 +152,17 @@ func updateMonitorConfigsName(configs []*MonitorConfig, monitorMap map[randr.Out
 	}
 }
 
-func (s *ScreenConfig) setMonitorConfigs(mode uint8, configs []*MonitorConfig) {
+func (s *ScreenConfigV5) setMonitorConfigs(mode uint8, configs []*MonitorConfigV5) {
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
-			s.Mirror = &ModeConfigs{}
+			s.Mirror = &ModeConfigsV5{}
 		}
 		s.Mirror.Monitors = configs
 
 	case DisplayModeExtend:
 		if s.Extend == nil {
-			s.Extend = &ModeConfigs{}
+			s.Extend = &ModeConfigsV5{}
 		}
 		s.Extend.Monitors = configs
 
@@ -170,7 +171,7 @@ func (s *ScreenConfig) setMonitorConfigs(mode uint8, configs []*MonitorConfig) {
 	}
 }
 
-func (s *ScreenConfig) setModeConfigs(mode uint8, colorTemperatureMode int32, colorTemperatureManual int32, monitorConfig []*MonitorConfig) {
+func (s *ScreenConfigV5) setModeConfigs(mode uint8, colorTemperatureMode int32, colorTemperatureManual int32, monitorConfig []*MonitorConfigV5) {
 	s.setMonitorConfigs(mode, monitorConfig)
 	cfg := s.getModeConfigs(mode)
 	for _, monitorConfig := range cfg.Monitors {
@@ -181,12 +182,12 @@ func (s *ScreenConfig) setModeConfigs(mode uint8, colorTemperatureMode int32, co
 	}
 }
 
-func (s *ScreenConfig) setMonitorConfigsOnlyOne(configs []*MonitorConfig) {
+func (s *ScreenConfigV5) setMonitorConfigsOnlyOne(configs []*MonitorConfigV5) {
 	if s.OnlyOne == nil {
-		s.OnlyOne = &ModeConfigs{}
+		s.OnlyOne = &ModeConfigsV5{}
 	}
 	oldConfigs := s.OnlyOne.Monitors
-	var newConfigs []*MonitorConfig
+	var newConfigs []*MonitorConfigV5
 	for _, cfg := range configs {
 		if !cfg.Enabled {
 			oldCfg := getMonitorConfigByUuid(oldConfigs, cfg.UUID)
@@ -206,7 +207,7 @@ func (s *ScreenConfig) setMonitorConfigsOnlyOne(configs []*MonitorConfig) {
 	s.OnlyOne.Monitors = newConfigs
 }
 
-type MonitorConfig struct {
+type MonitorConfigV5 struct {
 	UUID        string
 	Name        string
 	Enabled     bool
@@ -224,13 +225,13 @@ type MonitorConfig struct {
 	ColorTemperatureManual int32
 }
 
-func loadConfigV5(filename string) (Config, error) {
+func loadConfigV5(filename string) (ConfigV5, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var c Config
+	var c ConfigV5
 	err = json.Unmarshal(data, &c)
 	if err != nil {
 		return nil, err
@@ -257,7 +258,7 @@ func loadConfigV6(filename string) (ConfigV6, error) {
 
 	// 存在，没有V6的情况，只有V5,将此时数据读取存到V6
 	if c.ConfigV5 == nil {
-		var configV5 Config
+		var configV5 ConfigV5
 		err = json.Unmarshal(data, &configV5)
 		if err != nil {
 			return ConfigV6{}, err
@@ -268,7 +269,8 @@ func loadConfigV6(filename string) (ConfigV6, error) {
 	return c, nil
 }
 
-func loadConfig(m *Manager) (config Config) {
+// 从文件加载配置
+func loadConfig(m *Manager) (config ConfigV5) {
 	cfgVer, err := getConfigVersion(configVersionFile)
 	if err == nil {
 		//3.3配置文件转换
@@ -295,7 +297,7 @@ func loadConfig(m *Manager) (config Config) {
 		configV6, err := loadConfigV6(configFile_v5)
 		if err != nil {
 			// 加载 v5 和 v6 配置文件都失败
-			config = make(Config)
+			config = make(ConfigV5)
 			//配置文件为空，且当前模式为自定义，则设置当前模式为复制模式
 			if m.DisplayMode == DisplayModeCustom {
 				m.DisplayMode = DisplayModeMirror

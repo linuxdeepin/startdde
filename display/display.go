@@ -43,7 +43,7 @@ func StartPart2() error {
 	if err != nil {
 		logger.Warning(err)
 	}
-	m.initColorTemperature()
+	m.applyColorTempConfig(m.DisplayMode)
 
 	return nil
 }
