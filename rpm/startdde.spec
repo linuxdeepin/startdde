@@ -43,8 +43,6 @@ Recommends:     dde-qt5integration
 %prep
 %autosetup -n %{name}-%{version}
 patch Makefile < rpm/Makefile.patch
-patch misc/auto_launch/chinese.json < rpm/chinese.json.patch
-patch misc/auto_launch/default.json < rpm/default.json.patch
 patch main.go < rpm/main.go.patch
 
 %build
