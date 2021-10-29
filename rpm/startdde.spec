@@ -26,6 +26,9 @@ BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  libgnome-keyring-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  pkgconfig(gudev-1.0)
+BuildRequires:  golang-github-linuxdeepin-go-x11-client-devel
+BuildRequires:  golang-github-linuxdeepin-go-dbus-factory-devel
+BuildRequires:  go-lib-devel
 
 Provides:       x-session-manager
 Requires:       dde-daemon
