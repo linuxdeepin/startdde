@@ -7,12 +7,12 @@
 %endif
 
 Name:           startdde
-Version:        5.6.0.7
+Version:        5.8.32
 Release:        %{specrelease}
 Summary:        Starter of deepin desktop environment
 License:        GPLv3
 URL:            https://github.com/linuxdeepin/startdde
-Source0:        %{name}-%{version}.tar.xz
+Source0:        %{name}-%{version}.orig.tar.xz
 
 BuildRequires:  golang
 BuildRequires:  jq
@@ -26,9 +26,12 @@ BuildRequires:  pulseaudio-libs-devel
 BuildRequires:  libgnome-keyring-devel
 BuildRequires:  alsa-lib-devel
 BuildRequires:  pkgconfig(gudev-1.0)
+BuildRequires:  pkgconfig(libsecret-unstable)
 BuildRequires:  golang-github-linuxdeepin-go-x11-client-devel
 BuildRequires:  golang-github-linuxdeepin-go-dbus-factory-devel
 BuildRequires:  go-lib-devel
+BuildRequires:  go-gir-generator
+BuildRequires:  dde-api-devel
 
 Provides:       x-session-manager
 Requires:       dde-daemon
@@ -82,6 +85,8 @@ fi
 %{_datadir}/lightdm/lightdm.conf.d/60-deepin.conf
 %{_datadir}/%{name}/auto_launch.json
 %{_datadir}/%{name}/memchecker.json
+%{_datadir}/glib-2.0/schemas/*
+%{_datadir}/startdde/*
 /usr/lib/deepin-daemon/greeter-display-daemon
 
 %changelog
