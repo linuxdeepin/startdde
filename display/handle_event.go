@@ -55,6 +55,8 @@ func (m *Manager) handleOutputChanged(ev *randr.OutputChangeNotifyEvent) {
 		logger.Warning(err)
 	}
 
+	logger.Debug("outputInfo.Connection", outputInfo.Connection)
+
 	if outputInfo.Connection != randr.ConnectionConnected &&
 		outputInfo.Name == m.Primary {
 

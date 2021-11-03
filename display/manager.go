@@ -785,7 +785,7 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	}
 
 	connected := outputInfo.Connection == randr.ConnectionConnected
-	enabled := outputInfo.Crtc != 0
+	var enabled bool
 	var err error
 	var crtcInfo *randr.GetCrtcInfoReply
 	if outputInfo.Crtc != 0 {
@@ -804,6 +804,7 @@ func (m *Manager) updateMonitor(output randr.Output, outputInfo *randr.GetOutput
 	var edid []byte
 	var lastConnectedTime time.Time
 	if connected {
+		enabled = connected && outputInfo.Crtc != 0
 		edid, err = utils.GetOutputEDID(m.xConn, output)
 		if err != nil {
 			logger.Warning(err)
