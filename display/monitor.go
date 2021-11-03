@@ -289,11 +289,11 @@ func getRandrStatusStr(status uint8) string {
 	}
 }
 
-func toMonitorConfigs(monitors []*Monitor, primary string) SysMonitorConfigs {
+func toSysMonitorConfigs(monitors []*Monitor, primary string) SysMonitorConfigs {
 	found := false
 	result := make(SysMonitorConfigs, len(monitors))
 	for i, m := range monitors {
-		cfg := m.toConfig()
+		cfg := m.toSysConfig()
 		if !found && m.Name == primary {
 			cfg.Primary = true
 			found = true
@@ -303,14 +303,14 @@ func toMonitorConfigs(monitors []*Monitor, primary string) SysMonitorConfigs {
 	return result
 }
 
-func (m *Monitor) toBasicConfig() *SysMonitorConfig {
+func (m *Monitor) toBasicSysConfig() *SysMonitorConfig {
 	return &SysMonitorConfig{
 		UUID: m.uuid,
 		Name: m.Name,
 	}
 }
 
-func (m *Monitor) toConfig() *SysMonitorConfig {
+func (m *Monitor) toSysConfig() *SysMonitorConfig {
 	return &SysMonitorConfig{
 		UUID:        m.uuid,
 		Name:        m.Name,
@@ -348,9 +348,18 @@ func (monitors Monitors) GetByName(name string) *Monitor {
 	return nil
 }
 
-func (monitors Monitors) GetByID(id uint32) *Monitor {
+func (monitors Monitors) GetById(id uint32) *Monitor {
 	for _, monitor := range monitors {
 		if monitor.ID == id {
+			return monitor
+		}
+	}
+	return nil
+}
+
+func (monitors Monitors) GetByUuid(uuid string) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.uuid == uuid {
 			return monitor
 		}
 	}

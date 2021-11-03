@@ -236,6 +236,21 @@ func (m *XSManager) setScaleFactorWithoutNotify(scale float64) error {
 	return err
 }
 
+type SetScaleFactorsFn func(factors map[string]float64) error
+
+var _displayScaleFactorsSetter SetScaleFactorsFn
+
+func SetDisplayScaleFactorsSetter(fn SetScaleFactorsFn) {
+	_displayScaleFactorsSetter = fn
+}
+
+func saveScaleFactorsToDisplaySysCfg(factors map[string]float64) error {
+	if _displayScaleFactorsSetter == nil {
+		return errors.New("_displayScaleFactorsSetter is nil")
+	}
+	return _displayScaleFactorsSetter(factors)
+}
+
 func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal bool) error {
 	logger.Debug("setScreenScaleFactors", factors)
 	for _, f := range factors {
@@ -254,6 +269,12 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 	} else {
 		logger.Warning("not found value for primary", primary)
 	}
+
+	err = saveScaleFactorsToDisplaySysCfg(factors)
+	if err != nil {
+		logger.Warning(err)
+	}
+
 	m.setScaleFactor(primaryFactor, emitSignal)
 
 	factorsJoined := joinScreenScaleFactors(factors)

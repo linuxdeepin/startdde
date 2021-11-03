@@ -2,8 +2,11 @@ package display
 
 import (
 	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/input"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
+
+const evMaskForHideCursor uint32 = input.XIEventMaskRawMotion | input.XIEventMaskRawTouchBegin
 
 func (m *Manager) listenXEvents() {
 	eventChan := m.xConn.MakeAndAddEventChan(50)
@@ -15,6 +18,16 @@ func (m *Manager) listenXEvents() {
 	if err != nil {
 		logger.Warning("failed to select randr event:", err)
 		return
+	}
+
+	var inputExtData *x.QueryExtensionReply
+	if _greeterMode {
+		// 仅 greeter 需要
+		err = m.doXISelectEvents(evMaskForHideCursor)
+		if err != nil {
+			logger.Warning(err)
+		}
+		inputExtData = m.xConn.GetExtensionData(input.Ext())
 	}
 
 	rrExtData := m.xConn.GetExtensionData(randr.Ext())
@@ -43,6 +56,22 @@ func (m *Manager) listenXEvents() {
 				event, _ := randr.NewScreenChangeNotifyEvent(ev)
 				cfgTsChanged := m.srm.HandleScreenChanged(event)
 				m.handleScreenChanged(event, cfgTsChanged)
+
+			case x.GeGenericEventCode:
+				if !_greeterMode {
+					continue
+				}
+				// 仅 greeter 处理这个事件
+				geEvent, _ := x.NewGeGenericEvent(ev)
+				if geEvent.Extension == inputExtData.MajorOpcode {
+					switch geEvent.EventType {
+					case input.RawMotionEventCode:
+						m.beginMoveMouse()
+
+					case input.RawTouchBeginEventCode:
+						m.beginTouch()
+					}
+				}
 			}
 		}
 	}()

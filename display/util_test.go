@@ -201,7 +201,7 @@ func Test_isDigit(t *testing.T) {
 	}
 }
 
-func Test_parseEDID(t *testing.T) {
+func Test_parseEdid(t *testing.T) {
 	testdata := []struct {
 		edid         []byte
 		manufacturer string
@@ -232,7 +232,7 @@ func Test_parseEDID(t *testing.T) {
 	}
 
 	for _, v := range testdata {
-		manufacturer, model := parseEDID(v.edid)
+		manufacturer, model := parseEdid(v.edid)
 		assert.Equal(t, manufacturer, v.manufacturer)
 		assert.Equal(t, model, v.model)
 	}

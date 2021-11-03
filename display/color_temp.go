@@ -23,6 +23,9 @@ func (m *Manager) setColorTempMode(mode int32) error {
 }
 
 func (m *Manager) setColorTempModeReal(mode int32) {
+	if _greeterMode {
+		return
+	}
 	switch mode {
 	case ColorTemperatureModeNone: // 不调节色温，关闭redshift服务
 		controlRedshift("stop") // 停止服务

@@ -1,17 +1,36 @@
 package display
 
+import (
+	"reflect"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+)
+
+const (
+	sysConfigVersion  = "1.0"
+	userConfigVersion = "1.0"
+)
+
 type SysRootConfig struct {
+	mu       sync.Mutex
 	Version  string
 	Config   SysConfig
 	UpdateAt string
 }
 
 type SysConfig struct {
+	DisplayMode  byte
+	Screens      map[string]*SysScreenConfig
+	ScaleFactors map[string]float64 // 缩放比例
+	FillModes    map[string]string  // key 是特殊的 fillMode Key
+	Cache        SysCache
+}
+
+type SysCache struct {
 	BuiltinMonitor string
-	DisplayMode    byte
-	Screens        map[string]*SysScreenConfig
-	ScaleFactors   map[string]float64 // 缩放比例
-	FillModes      map[string]string  // key 是特殊的 fillMode Key
+	ConnectTime    map[string]time.Time
 }
 
 type UserConfig struct {
@@ -78,12 +97,14 @@ func (usc UserScreenConfig) setMonitorModeConfig(mode byte, uuid string, cfg *Us
 	}
 }
 
+// SysScreenConfig 系统级屏幕配置
+// NOTE: Single 可以看作是特殊的显示模式，和 Mirror,Extend 等模式共用 SysMonitorModeConfig 结构可以保持设计上的统一，不必在乎里面有 Monitors
 type SysScreenConfig struct {
-	Mirror  *SysMonitorModeConfig `json:",omitempty"`
-	Extend  *SysMonitorModeConfig `json:",omitempty"`
-	OnlyOne *SysMonitorModeConfig `json:",omitempty"`
-	// NOTE: Single 可以看作是特殊的显示模式，共用结构可以保持设计上的统一，不必在乎里面有 Monitors
-	Single *SysMonitorModeConfig `json:",omitempty"`
+	Mirror      *SysMonitorModeConfig            `json:",omitempty"`
+	Extend      *SysMonitorModeConfig            `json:",omitempty"`
+	Single      *SysMonitorModeConfig            `json:",omitempty"`
+	OnlyOneMap  map[string]*SysMonitorModeConfig `json:",omitempty"`
+	OnlyOneUuid string                           `json:",omitempty"`
 }
 
 type SysMonitorModeConfig struct {
@@ -114,7 +135,7 @@ func (s *SysScreenConfig) getSingleMonitorConfigs() SysMonitorConfigs {
 	return s.Single.Monitors
 }
 
-func (s *SysScreenConfig) getMonitorConfigs(mode uint8) SysMonitorConfigs {
+func (s *SysScreenConfig) getMonitorConfigs(mode uint8, uuid string) SysMonitorConfigs {
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
@@ -129,10 +150,13 @@ func (s *SysScreenConfig) getMonitorConfigs(mode uint8) SysMonitorConfigs {
 		return s.Extend.Monitors
 
 	case DisplayModeOnlyOne:
-		if s.OnlyOne == nil {
+		if uuid == "" {
 			return nil
 		}
-		return s.OnlyOne.Monitors
+		if s.OnlyOneMap[uuid] == nil {
+			return nil
+		}
+		return s.OnlyOneMap[uuid].Monitors
 	}
 
 	return nil
@@ -145,7 +169,7 @@ func (s *SysScreenConfig) setSingleMonitorConfigs(configs SysMonitorConfigs) {
 	s.Single.Monitors = configs
 }
 
-func (s *SysScreenConfig) setMonitorConfigs(mode uint8, configs SysMonitorConfigs) {
+func (s *SysScreenConfig) setMonitorConfigs(mode uint8, uuid string, configs SysMonitorConfigs) {
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
@@ -160,32 +184,37 @@ func (s *SysScreenConfig) setMonitorConfigs(mode uint8, configs SysMonitorConfig
 		s.Extend.Monitors = configs
 
 	case DisplayModeOnlyOne:
-		s.setMonitorConfigsOnlyOne(configs)
+		s.setMonitorConfigsOnlyOne(uuid, configs)
 	}
 }
 
-func (s *SysScreenConfig) setMonitorConfigsOnlyOne(configs SysMonitorConfigs) {
-	if s.OnlyOne == nil {
-		s.OnlyOne = &SysMonitorModeConfig{}
+func (s *SysScreenConfig) setMonitorConfigsOnlyOne(uuid string, configs SysMonitorConfigs) {
+	if uuid == "" {
+		return
 	}
-	oldConfigs := s.OnlyOne.Monitors
-	var newConfigs SysMonitorConfigs
-	for _, cfg := range configs {
-		if !cfg.Enabled {
-			oldCfg := oldConfigs.getByUuid(cfg.UUID)
-			if oldCfg != nil {
-				// 不设置 X,Y 是因为它们总是 0
-				cfg.Width = oldCfg.Width
-				cfg.Height = oldCfg.Height
-				cfg.RefreshRate = oldCfg.RefreshRate
-				cfg.Rotation = oldCfg.Rotation
-				cfg.Reflect = oldCfg.Reflect
-				cfg.Brightness = oldCfg.Brightness
+	if s.OnlyOneMap == nil {
+		s.OnlyOneMap = make(map[string]*SysMonitorModeConfig)
+	}
+
+	if s.OnlyOneMap[uuid] == nil {
+		s.OnlyOneMap[uuid] = &SysMonitorModeConfig{}
+	}
+
+	if len(configs) > 1 {
+		// 去除非使能的 monitor
+		var tmpCfg *SysMonitorConfig
+		for _, config := range configs {
+			if config.Enabled {
+				tmpCfg = config
+				break
 			}
 		}
-		newConfigs = append(newConfigs, cfg)
+		if tmpCfg != nil {
+			configs = SysMonitorConfigs{tmpCfg}
+		}
 	}
-	s.OnlyOne.Monitors = newConfigs
+
+	s.OnlyOneMap[uuid].Monitors = configs
 }
 
 func (cfgs SysMonitorConfigs) getByUuid(uuid string) *SysMonitorConfig {
@@ -205,4 +234,37 @@ func (cfgs SysMonitorConfigs) setPrimary(uuid string) {
 			mc.Primary = false
 		}
 	}
+}
+
+// cfgs 和 otherCfgs 之间是否仅亮度不同
+// 前置条件：cfgs 和 otherCfgs 不相同
+func (cfgs SysMonitorConfigs) onlyBrNotEq(otherCfgs SysMonitorConfigs) bool {
+	if len(cfgs) != len(otherCfgs) {
+		return false
+	}
+	// 除了亮度设置为 0， 其他字段都复制
+	partCpCfgs := func(cfgs SysMonitorConfigs) SysMonitorConfigs {
+		copyCfgs := make(SysMonitorConfigs, len(cfgs))
+		for i, cfg := range cfgs {
+			cpCfg := &SysMonitorConfig{}
+			*cpCfg = *cfg
+			cpCfg.Brightness = 0
+			copyCfgs[i] = cpCfg
+		}
+		return copyCfgs
+	}
+
+	c1 := partCpCfgs(cfgs)
+	c2 := partCpCfgs(otherCfgs)
+	// 把亮度都安全的设置为0, 如果 c1 和 c2 是相同的，则可以说明是仅亮度不同。
+	if reflect.DeepEqual(c1, c2) {
+		return true
+	}
+	return false
+}
+
+func (cfgs SysMonitorConfigs) sort() {
+	sort.Slice(cfgs, func(i, j int) bool {
+		return strings.Compare(cfgs[i].UUID, cfgs[j].UUID) < 0
+	})
 }

@@ -143,7 +143,7 @@ func getMaxAreaSize(sizes []Size) Size {
 	return maxS
 }
 
-func parseEDID(edid []byte) (string, string) {
+func parseEdid(edid []byte) (string, string) {
 	if len(edid) < 16 {
 		return "DEFAULT", ""
 	}
@@ -187,7 +187,7 @@ func parseEDID(edid []byte) (string, string) {
 	return string(maInf), string(moInf)
 }
 
-func getOutputUUID(name string, edid []byte) string {
+func getOutputUuid(name string, edid []byte) string {
 	if len(edid) < 128 {
 		return name
 	}
@@ -199,7 +199,7 @@ func getOutputUUID(name string, edid []byte) string {
 	return name + id
 }
 
-func sortMonitorsByPrimaryAndID(monitors []*Monitor, primary *Monitor) {
+func sortMonitorsByPrimaryAndId(monitors []*Monitor, primary *Monitor) {
 	sort.Slice(monitors, func(i, j int) bool {
 		if primary == nil {
 			return monitors[i].ID < monitors[j].ID
@@ -213,7 +213,7 @@ func sortMonitorsByPrimaryAndID(monitors []*Monitor, primary *Monitor) {
 	})
 }
 
-func getMinIDMonitor(monitors []*Monitor) *Monitor {
+func getMinIdMonitor(monitors []*Monitor) *Monitor {
 	if len(monitors) == 0 {
 		return nil
 	}
@@ -221,21 +221,6 @@ func getMinIDMonitor(monitors []*Monitor) *Monitor {
 	minMonitor := monitors[0]
 	for _, monitor := range monitors[1:] {
 		if minMonitor.ID > monitor.ID {
-			minMonitor = monitor
-		}
-	}
-	return minMonitor
-}
-
-// 获取最早连接的显示器
-func (m *Manager) getMinLastConnectedTimeMonitor(monitors []*Monitor) *Monitor {
-	if len(monitors) == 0 {
-		return nil
-	}
-	minMonitor := monitors[0]
-	for _, monitor := range monitors[1:] {
-		if m.info.LastConnectedTimes[minMonitor.Name].After(m.info.LastConnectedTimes[monitor.Name]) {
-			// minMonitor > monitor
 			minMonitor = monitor
 		}
 	}

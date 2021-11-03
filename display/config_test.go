@@ -7,11 +7,10 @@ import (
 )
 
 var (
-	configPath_v3     = "./testdata/display_v3.json"
-	configPath_v4     = "./testdata/display_v4.json"
-	configPath_v5     = "./testdata/display_v5.json"
-	configPath_tmp    = "./testdata/display_tmp.json"
-	builtinMonitorCfg = "./testdata/builtin-monitor"
+	configPath_v3  = "./testdata/display_v3.json"
+	configPath_v4  = "./testdata/display_v4.json"
+	configPath_v5  = "./testdata/display_v5.json"
+	configPath_tmp = "./testdata/display_tmp.json"
 )
 
 func TestConfig(t *testing.T) {
@@ -47,11 +46,5 @@ func TestConfig(t *testing.T) {
 	require.Nil(t, err)
 
 	err = configV6.save(configPath_tmp)
-	require.Nil(t, err)
-
-	_, err = loadBuiltinMonitorConfig(builtinMonitorCfg)
-	require.Nil(t, err)
-
-	err = saveBuiltinMonitorConfig(builtinMonitorCfg, "eDP-1")
 	require.Nil(t, err)
 }

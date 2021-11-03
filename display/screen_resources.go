@@ -31,7 +31,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/input"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"github.com/linuxdeepin/go-x11-client/ext/xfixes"
 )
 
 var _xConn *x.Conn
@@ -50,6 +52,20 @@ func Init(xConn *x.Conn) {
 			_hasRandr1d2 = true
 		}
 		logger.Debug("has randr1.2:", _hasRandr1d2)
+	}
+
+	if _greeterMode {
+		// 仅 greeter 需要
+		_, err = xfixes.QueryVersion(xConn, xfixes.MajorVersion, xfixes.MinorVersion).Reply(xConn)
+		if err != nil {
+			logger.Warning(err)
+		}
+
+		_, err = input.XIQueryVersion(xConn, input.MajorVersion, input.MinorVersion).Reply(xConn)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
 	}
 }
 
@@ -383,11 +399,11 @@ func (srm *screenResourcesManager) refreshMonitorsCache() {
 		}
 		monitor.PreferredMode = getPreferredMode(monitor.Modes, uint32(outputInfo.PreferredMode()))
 		var err error
-		monitor.EDID, err = srm.getOutputEDID(outputId)
+		monitor.EDID, err = srm.getOutputEdid(outputId)
 		if err != nil {
 			logger.Warningf("get output %d edid failed: %v", outputId, err)
 		}
-		monitor.Manufacturer, monitor.Model = parseEDID(monitor.EDID)
+		monitor.Manufacturer, monitor.Model = parseEdid(monitor.EDID)
 
 		availFillModes, err := srm.getOutputAvailableFillModes(outputId)
 		if err != nil {
@@ -553,7 +569,7 @@ func (srm *screenResourcesManager) apply(monitorMap map[uint32]*Monitor, prevScr
 		} else {
 			output := findOutputInMonitorCrtcCfgMap(monitorCrtcCfgMap, crtc)
 			if output != 0 {
-				monitor := monitors.GetByID(uint32(output))
+				monitor := monitors.GetById(uint32(output))
 				if monitor != nil && monitor.Enabled {
 					if rect.X != monitor.X || rect.Y != monitor.Y ||
 						rect.Width != monitor.Width || rect.Height != monitor.Height ||
@@ -590,23 +606,7 @@ func (srm *screenResourcesManager) apply(monitorMap map[uint32]*Monitor, prevScr
 		if err != nil {
 			return err
 		}
-
-		if monitor.Enabled {
-			fillMode := fillModes[monitor.generateFillModeKey()]
-			if len(monitor.AvailableFillModes) > 0 {
-				if fillMode == "" {
-					fillMode = fillModeDefault
-				}
-				err = srm.setOutputScalingMode(randr.Output(output), fillMode)
-				if err != nil {
-					logger.Warning(err)
-				} else {
-					// TODO 后续可以根据 output 属性改变来处理
-					monitor.setPropCurrentFillMode(fillMode)
-				}
-			}
-
-		}
+		srm.setMonitorFileMode(monitor, fillModes)
 	}
 
 	ungrabServer()
@@ -647,6 +647,26 @@ func (srm *screenResourcesManager) apply(monitorMap map[uint32]*Monitor, prevScr
 	}
 
 	return nil
+}
+
+func (srm *screenResourcesManager) setMonitorFileMode(monitor *Monitor, fillModes map[string]string) {
+	if !monitor.Enabled {
+		return
+	}
+	fillMode := fillModes[monitor.generateFillModeKey()]
+	if len(monitor.AvailableFillModes) > 0 {
+		if fillMode == "" {
+			fillMode = fillModeDefault
+		}
+
+		err := srm.setOutputScalingMode(randr.Output(monitor.ID), fillMode)
+		if err != nil {
+			logger.Warning(err)
+		} else {
+			// TODO 后续可以根据 output 属性改变来处理
+			monitor.setPropCurrentFillMode(fillMode)
+		}
+	}
 }
 
 func getConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
@@ -914,7 +934,7 @@ func (srm *screenResourcesManager) getOutputInfo(outputId randr.Output) (*randr.
 	return outputInfo, err
 }
 
-func (srm *screenResourcesManager) getOutputEDID(output randr.Output) ([]byte, error) {
+func (srm *screenResourcesManager) getOutputEdid(output randr.Output) ([]byte, error) {
 	atomEDID, err := srm.xConn.GetAtom("EDID")
 	if err != nil {
 		return nil, err
@@ -1046,12 +1066,16 @@ func (srm *screenResourcesManager) handleScreenChanged(e *randr.ScreenChangeNoti
 	return
 }
 
-func (srm *screenResourcesManager) getNumConnectedMonitors() (n int) {
-	monitors := srm.getMonitors()
-	for _, monitor := range monitors {
-		if monitor.Connected {
-			n++
-		}
+func (srm *screenResourcesManager) showCursor(show bool) error {
+	rootWin := srm.xConn.GetDefaultScreen().Root
+	var cookie x.VoidCookie
+	if show {
+		logger.Debug("xfixes show cursor")
+		cookie = xfixes.ShowCursorChecked(srm.xConn, rootWin)
+	} else {
+		logger.Debug("xfixes hide cursor")
+		cookie = xfixes.HideCursorChecked(srm.xConn, rootWin)
 	}
-	return n
+	err := cookie.Check(srm.xConn)
+	return err
 }

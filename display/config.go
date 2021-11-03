@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 	"pkg.deepin.io/lib/log"
@@ -22,9 +21,7 @@ var (
 	configFile_v5 string
 	// ~/.config/deepin/startdde/config.version
 	configVersionFile string
-	// 内置显示器配置文件，~/.config/deepin/startdde/builtin-monitor
-	builtinMonitorConfigFile string
-	userConfigFile           string
+	userConfigFile    string
 )
 
 func init() {
@@ -32,7 +29,6 @@ func init() {
 	configFile = filepath.Join(cfgDir, "display.json")
 	configFile_v5 = filepath.Join(cfgDir, "display_v5.json")
 	configVersionFile = filepath.Join(cfgDir, "config.version")
-	builtinMonitorConfigFile = filepath.Join(cfgDir, "builtin-monitor")
 	userConfigFile = filepath.Join(cfgDir, "display-user.json")
 }
 
@@ -141,7 +137,7 @@ func setMonitorConfigsPrimary(configs []*MonitorConfigV5, uuid string) {
 	}
 }
 
-func updateMonitorConfigsName(configs SysMonitorConfigs, monitorMap map[uint32]*Monitor) {
+func updateSysMonitorConfigsName(configs SysMonitorConfigs, monitorMap map[uint32]*Monitor) {
 	for _, mc := range configs {
 		for _, m := range monitorMap {
 			if mc.UUID == m.uuid {
@@ -351,23 +347,12 @@ func (c ConfigV6) save(filename string) error {
 	return nil
 }
 
-func loadBuiltinMonitorConfig(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(content)), nil
-}
+func (m *Manager) saveBuiltinMonitorConfig(name string) (err error) {
+	m.sysConfig.mu.Lock()
 
-func saveBuiltinMonitorConfig(filename, name string) error {
-	dir := filepath.Dir(filename)
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(filename, []byte(name), 0644)
-	if err != nil {
-		return err
-	}
-	return nil
+	m.sysConfig.Config.Cache.BuiltinMonitor = name
+	err = m.saveSysConfigNoLock()
+
+	m.sysConfig.mu.Unlock()
+	return
 }

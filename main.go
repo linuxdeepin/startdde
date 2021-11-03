@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -214,11 +215,42 @@ func logInfoAfter(msg string) {
 	logger.Infof("after %s, %s", elapsed, msg)
 }
 
+func greeterDisplayMain() {
+	display.SetGreeterMode(true)
+	// init x conn
+	xConn, err := x.NewConn()
+	if err != nil {
+		logger.Warning(err)
+		os.Exit(1)
+	}
+	display.Init(xConn)
+	logger.Debug("greeter mode")
+	service, err := dbusutil.NewSessionService()
+	if err != nil {
+		logger.Warning(err)
+	}
+	err = display.Start(service)
+	if err != nil {
+		logger.Warning(err)
+	}
+	err = display.StartPart2()
+	if err != nil {
+		logger.Warning(err)
+	}
+	service.Wait()
+}
+
 func main() {
+	flag.Parse()
+	if len(os.Args) > 0 && strings.HasPrefix(filepath.Base(os.Args[0]), "greeter") {
+		// os.Args[0] 应该一般是 greeter-display-daemon
+		greeterDisplayMain()
+		return
+	}
+
 	initGSettingsConfig()
 
 	_mainBeginTime = time.Now()
-	flag.Parse()
 
 	gettext.InitI18n()
 	gettext.BindTextdomainCodeset("startdde", "UTF-8")
@@ -260,6 +292,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	// NOTE: 需要在 xsettings.Start 之前设置好
+	xsettings.SetDisplayScaleFactorsSetter(display.SetScaleFactors)
 	xsManager, err := xsettings.Start(xConn, logger, recommendedScaleFactor, service)
 	if err != nil {
 		logger.Warning(err)

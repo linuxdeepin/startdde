@@ -116,24 +116,26 @@ func (m *Manager) getSavedBrightnessTable() (map[string]float64, error) {
 	return result, nil
 }
 
-func (m *Manager) initBrightness() {
-	brightnessTable, err := m.getSavedBrightnessTable()
-	if err != nil {
-		logger.Warning(err)
-	}
-	if brightnessTable == nil {
-		brightnessTable = make(map[string]float64)
-	}
-
-	monitors := m.getConnectedMonitors()
-	for _, monitor := range monitors {
-		if _, ok := brightnessTable[monitor.Name]; ok {
-			continue
-		}
-		brightnessTable[monitor.Name] = 1
-	}
-	m.Brightness = brightnessTable
-}
+// TODO 废弃
+//func (m *Manager) initBrightness() {
+//brightnessTable, err := m.getSavedBrightnessTable()
+//if err != nil {
+//	logger.Warning(err)
+//}
+//if brightnessTable == nil {
+//	brightnessTable = make(map[string]float64)
+//}
+//
+//monitors := m.getConnectedMonitors()
+//for _, monitor := range monitors {
+//	if _, ok := brightnessTable[monitor.Name]; ok {
+//		continue
+//	}
+//	brightnessTable[monitor.Name] = 1
+//}
+// 在 applyDisplayConfig 中会设置亮度
+//m.Brightness = make(map[string]float64)
+//}
 
 func (m *Manager) getBrightnessSetter() string {
 	// NOTE: 特殊处理龙芯笔记本亮度设置问题
