@@ -292,9 +292,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// NOTE: 需要在 xsettings.Start 之前设置好
-	xsettings.SetDisplayScaleFactorsSetter(display.SetScaleFactors)
-	xsManager, err := xsettings.Start(xConn, logger, recommendedScaleFactor, service)
+	xsManager, err := xsettings.Start(xConn, recommendedScaleFactor, service, &display.ScaleFactorsHelper)
 	if err != nil {
 		logger.Warning(err)
 	} else {

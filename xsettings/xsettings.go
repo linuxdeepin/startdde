@@ -22,6 +22,7 @@ package xsettings
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"sync"
 
 	dbus "github.com/godbus/dbus"
@@ -44,7 +45,13 @@ const (
 	xsDBusIFC  = "com.deepin.XSettings"
 )
 
-var logger *log.Logger
+type displayScaleFactorsHelper interface {
+	SetScaleFactors(factors map[string]float64) error
+	GetScaleFactors() (map[string]float64, error)
+	SetChangedCb(fn func(factors map[string]float64) error)
+}
+
+var logger = log.NewLogger("xsettings")
 
 // XSManager xsettings manager
 type XSManager struct {
@@ -64,6 +71,7 @@ type XSManager struct {
 
 	// locker for xsettings prop read and write
 	settingsLocker sync.RWMutex
+	dsfHelper      displayScaleFactorsHelper
 
 	//nolint
 	signals *struct {
@@ -77,11 +85,12 @@ type xsSetting struct {
 	value interface{} // int32, string, [4]uint16
 }
 
-func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusutil.Service) (*XSManager, error) {
+func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusutil.Service, helper displayScaleFactorsHelper) (*XSManager, error) {
 	var m = &XSManager{
-		conn:    conn,
-		service: service,
-		gs:      _gs,
+		conn:      conn,
+		service:   service,
+		gs:        _gs,
+		dsfHelper: helper,
 	}
 
 	var err error
@@ -103,6 +112,7 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusuti
 	m.greeter = greeter.NewGreeter(systemBus)
 	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
 
+	m.handleLocalCenterSF()
 	m.adjustScaleFactor(recommendedScaleFactor)
 	err = m.setSettings(m.getSettingsInSchema())
 	if err != nil {
@@ -125,6 +135,60 @@ func GetScaleFactor() float64 {
 func getScaleFactor() float64 {
 	scale := _gs.GetDouble(gsKeyScaleFactor)
 	return scale
+}
+
+// 处理本地和中心的 scale factors 设置同步
+func (m *XSManager) handleLocalCenterSF() {
+	m.dsfHelper.SetChangedCb(func(factors map[string]float64) error {
+		// 其他用户改变了 scale factors
+		err := m.setScreenScaleFactors(factors, false)
+		if err != nil {
+			logger.Warning(err)
+		}
+		return err
+	})
+
+	// 中心设置，显示系统级设置
+	centerSF, err := m.dsfHelper.GetScaleFactors()
+	if err != nil {
+		logger.Warning(err)
+	}
+	hasCenterSF := len(centerSF) > 0
+
+	// 本地设置
+	localSF := m.getScreenScaleFactors()
+	hasLocalSF := len(localSF) > 0
+	logger.Debugf("centerSF: %v, localSF:%v", centerSF, localSF)
+
+	if hasCenterSF {
+		needSetLocal := false
+		if hasLocalSF {
+			if !reflect.DeepEqual(centerSF, localSF) {
+				// 本地和中心的不一致
+				needSetLocal = true
+			}
+		} else {
+			// 本地缺少，中心有
+			needSetLocal = true
+		}
+
+		if needSetLocal {
+			err = m.setScreenScaleFactors(centerSF, false)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+
+	} else {
+		if hasLocalSF {
+			// 中心缺少，本地有
+			err = m.dsfHelper.SetScaleFactors(localSF)
+			if err != nil {
+				logger.Warning(err)
+			}
+		}
+		// else 本地和中心都没有，交给之后的程序。
+	}
 }
 
 func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
@@ -279,10 +343,9 @@ func (m *XSManager) handleGSettingsChanged() {
 }
 
 // Start load xsettings module
-func Start(conn *x.Conn, l *log.Logger, recommendedScaleFactor float64, service *dbusutil.Service) (*XSManager, error) {
+func Start(conn *x.Conn, recommendedScaleFactor float64, service *dbusutil.Service, helper displayScaleFactorsHelper) (*XSManager, error) {
 	_gs = gio.NewSettings(xsSchema)
-	logger = l
-	m, err := NewXSManager(conn, recommendedScaleFactor, service)
+	m, err := NewXSManager(conn, recommendedScaleFactor, service, helper)
 	if err != nil {
 		logger.Error("Start xsettings failed:", err)
 		return nil, err

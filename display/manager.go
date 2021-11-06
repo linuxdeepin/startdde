@@ -356,7 +356,7 @@ func (m *Manager) initDisplayCfg() {
 func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 	logger.Debug("handleSysConfigUpdated")
 	setCfg := func() {
-		m.sysConfig = *newSysConfig
+		m.sysConfig.copyFrom(newSysConfig)
 	}
 
 	currentCfg := &m.sysConfig.Config
@@ -371,8 +371,7 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 
 	fillModesEq := reflect.DeepEqual(currentCfg.FillModes, newCfg.FillModes)
 	displayModeEq := currentCfg.DisplayMode == newCfg.DisplayMode
-	// TODO  处理 scale factor
-	//scaleFactorsEq := reflect.DeepEqual(currentCfg.ScaleFactors, newCfg.ScaleFactors)
+	scaleFactorsEq := reflect.DeepEqual(currentCfg.ScaleFactors, newCfg.ScaleFactors)
 	monitorsId := m.getMonitorsId()
 	currentMonitorCfgs := currentCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode)
 	currentMonitorCfgs.sort()
@@ -381,6 +380,21 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 	monitorCfgsEq := reflect.DeepEqual(currentMonitorCfgs, newMonitorCfgs)
 
 	setCfg()
+
+	if !scaleFactorsEq {
+		// scale factors 改变了
+		logger.Debug("scaleFactors changed")
+		if ScaleFactorsHelper.changedCb != nil {
+			go func() {
+				err := ScaleFactorsHelper.changedCb(newCfg.ScaleFactors)
+				if err != nil {
+					logger.Warning("scale factors changed cb err:", err)
+				}
+			}()
+		} else {
+			logger.Warning("scale factors changed cb is nil")
+		}
+	}
 
 	if !displayModeEq {
 		// displayMode 改变了
@@ -617,11 +631,12 @@ func (m *Manager) init() {
 		// TODO 系统配置为空，需要迁移旧配置
 	}
 
-	if _factors != nil {
-		err := m.setScaleFactors(_factors)
+	if _scaleFactors != nil {
+		err := m.setScaleFactors(_scaleFactors)
 		if err != nil {
 			logger.Warning(err)
 		}
+		_scaleFactors = nil
 	}
 
 	if _hasRandr1d2 {
@@ -974,9 +989,9 @@ func (m *Manager) updateMonitor(xOutputInfo *XOutputInfo) {
 
 	monitor.setPropReflects(getReflects(xOutputInfo.Rotations))
 	monitor.setPropRotations(getRotations(xOutputInfo.Rotations))
-	rotation, reflect := parseCrtcRotation(xOutputInfo.Rotation)
+	rotation, reflectProp := parseCrtcRotation(xOutputInfo.Rotation)
 	monitor.setPropRotation(rotation)
-	monitor.setPropReflect(reflect)
+	monitor.setPropReflect(reflectProp)
 
 	monitor.setPropCurrentMode(xOutputInfo.CurrentMode)
 	monitor.setPropRefreshRate(xOutputInfo.CurrentMode.Rate)

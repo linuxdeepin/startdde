@@ -53,6 +53,7 @@ const (
 	qtThemeKeyScaleLogicalDpi    = "ScaleLogicalDpi"
 )
 
+// 设置单个缩放值的关键方法
 func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	logger.Debug("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
@@ -226,31 +227,33 @@ func getPrimaryScreenFromBus() (string, error) {
 	return primary, nil
 }
 
+// 不发送通知版本, 设置流程会转到 setScreenScaleFactors
 func (m *XSManager) setScaleFactorWithoutNotify(scale float64) error {
-	primary, err := getPrimaryScreenName(m.conn)
-	if err != nil {
-		return err
-	}
-
-	err = m.setScreenScaleFactors(map[string]float64{primary: scale}, false)
+	err := m.setScreenScaleFactors(singleToMapSF(scale), false)
 	return err
 }
 
-type SetScaleFactorsFn func(factors map[string]float64) error
-
-var _displayScaleFactorsSetter SetScaleFactorsFn
-
-func SetDisplayScaleFactorsSetter(fn SetScaleFactorsFn) {
-	_displayScaleFactorsSetter = fn
-}
-
-func saveScaleFactorsToDisplaySysCfg(factors map[string]float64) error {
-	if _displayScaleFactorsSetter == nil {
-		return errors.New("_displayScaleFactorsSetter is nil")
+func getSingleScaleFactor(factors map[string]float64) float64 {
+	if len(factors) == 0 {
+		return 1
 	}
-	return _displayScaleFactorsSetter(factors)
+	if len(factors) == 1 {
+		return getMapFirstValueSF(factors)
+	}
+	v, ok := factors["ALL"]
+	if ok {
+		return v
+	}
+	return 1
 }
 
+func singleToMapSF(value float64) map[string]float64 {
+	return map[string]float64{
+		"ALL": value,
+	}
+}
+
+// 设置多屏的缩放比例的关键方法，factors 中必须含有主屏的数据。
 func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal bool) error {
 	logger.Debug("setScreenScaleFactors", factors)
 	for _, f := range factors {
@@ -258,25 +261,20 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 			return errors.New("invalid value")
 		}
 	}
-
-	primary, err := getPrimaryScreenName(m.conn)
-	if err != nil {
-		return err
-	}
-	primaryFactor := 1.0
-	if v, ok := factors[primary]; ok {
-		primaryFactor = v
-	} else {
-		logger.Warning("not found value for primary", primary)
+	if len(factors) == 0 {
+		return errors.New("factors is empty")
 	}
 
-	err = saveScaleFactorsToDisplaySysCfg(factors)
+	err := m.dsfHelper.SetScaleFactors(factors)
 	if err != nil {
 		logger.Warning(err)
 	}
 
-	m.setScaleFactor(primaryFactor, emitSignal)
+	// 同时要设置单值的
+	singleFactor := getSingleScaleFactor(factors)
+	m.setScaleFactor(singleFactor, emitSignal)
 
+	// 关键保存位置
 	factorsJoined := joinScreenScaleFactors(factors)
 	m.gs.SetString(gsKeyIndividualScaling, factorsJoined)
 

@@ -20,6 +20,16 @@ type SysRootConfig struct {
 	UpdateAt string
 }
 
+func (c *SysRootConfig) copyFrom(newSysConfig *SysRootConfig) {
+	c.mu.Lock()
+
+	c.Version = newSysConfig.Version
+	c.Config = newSysConfig.Config
+	c.UpdateAt = newSysConfig.UpdateAt
+
+	c.mu.Unlock()
+}
+
 type SysConfig struct {
 	DisplayMode  byte
 	Screens      map[string]*SysScreenConfig

@@ -188,12 +188,7 @@ func (m *XSManager) GetScaleFactor() (float64, *dbus.Error) {
 }
 
 func (m *XSManager) SetScaleFactor(scale float64) *dbus.Error {
-	primary, err := getPrimaryScreenName(m.conn)
-	if err != nil {
-		return dbusutil.ToError(err)
-	}
-
-	err = m.setScreenScaleFactors(map[string]float64{primary: scale}, true)
+	err := m.setScreenScaleFactors(singleToMapSF(scale), true)
 	return dbusutil.ToError(err)
 }
 

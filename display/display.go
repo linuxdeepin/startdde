@@ -2,7 +2,10 @@ package display
 
 import (
 	"errors"
+	"reflect"
 
+	"github.com/godbus/dbus"
+	displaycfg "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.displaycfg"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -23,21 +26,58 @@ func SetGreeterMode(val bool) {
 	_greeterMode = val
 }
 
-// 用于在 display.Start 还没被调用时，先调用了 SetScaleFactors, 缓存数据。
-var _factors map[string]float64
+type scaleFactorsHelper struct {
+	changedCb func(factors map[string]float64) error
+}
 
-func SetScaleFactors(factors map[string]float64) error {
+// ScaleFactorsHelper 全局的 scale factors 相关 helper，要传给 xsettings 模块。
+var ScaleFactorsHelper scaleFactorsHelper
+
+// 用于在 display.Start 还没被调用时，先由 xsettings.Start 调用了 ScaleFactorsHelper.SetScaleFactors, 缓存数据。
+var _scaleFactors map[string]float64
+
+func (h *scaleFactorsHelper) SetScaleFactors(factors map[string]float64) error {
 	if _dpy == nil {
-		_factors = factors
+		_scaleFactors = factors
 		return nil
 	}
 	return _dpy.setScaleFactors(factors)
 }
 
+func (h *scaleFactorsHelper) GetScaleFactors() (map[string]float64, error) {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		return nil, err
+	}
+	displayCfgService := displaycfg.NewDisplayCfg(sysBus)
+	cfgJson, err := displayCfgService.Get(0)
+	if err != nil {
+		return nil, err
+	}
+	var rootCfg struct {
+		Config struct {
+			ScaleFactors map[string]float64
+		}
+	}
+	err = jsonUnmarshal(cfgJson, &rootCfg)
+	if err != nil {
+		return nil, err
+	}
+	return rootCfg.Config.ScaleFactors, nil
+}
+
+func (h *scaleFactorsHelper) SetChangedCb(fn func(factors map[string]float64) error) {
+	h.changedCb = fn
+}
+
 func (m *Manager) setScaleFactors(factors map[string]float64) error {
+	logger.Debug("setScaleFactors", factors)
 	m.sysConfig.mu.Lock()
 	defer m.sysConfig.mu.Unlock()
 
+	if reflect.DeepEqual(m.sysConfig.Config.ScaleFactors, factors) {
+		return nil
+	}
 	m.sysConfig.Config.ScaleFactors = factors
 	err := m.saveSysConfigNoLock()
 	if err != nil {
