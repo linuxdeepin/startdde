@@ -1398,12 +1398,22 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 		// 替代之前的 modeChanged
 		optionDisableCrtc: true,
 	}
+	oldMode := m.DisplayMode
+	// NOTE: 前端控制中心要求先有DisplayMode改变信号，再有主屏改变信号。
+	m.setDisplayMode(mode)
 	err = m.applyDisplayConfig(mode, true, options)
 	if err != nil {
 		logger.Warning(err)
+
+		// 模式切换失败，回退到之前的模式
+		err1 := m.applyDisplayConfig(oldMode, true, options)
+		if err1 != nil {
+			logger.Warning(err1)
+		}
+		m.setDisplayMode(oldMode)
+
 		return err
 	}
-	m.setDisplayMode(mode)
 	err = m.saveSysConfig()
 	if err != nil {
 		logger.Warning(err)
