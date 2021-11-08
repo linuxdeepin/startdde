@@ -61,14 +61,7 @@ func Test_setCurrentFillMode(t *testing.T) {
 		Value: "None",
 	}
 
-	m.m = &Manager{
-		configV6: ConfigV6{
-			FillMode: &FillModeConfigs{
-				FillModeMap: make(map[string]string),
-			},
-		},
-	}
-
+	m.m = &Manager{}
 	err := m.setCurrentFillMode(write)
 	assert.NotNil(t, err)
 }

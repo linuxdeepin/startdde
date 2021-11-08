@@ -119,13 +119,14 @@ func (m *Manager) ListOutputsCommonModes() ([]ModeInfo, *dbus.Error) {
 	return result, nil
 }
 
+// ModifyConfigName 废弃方法
 func (m *Manager) ModifyConfigName(name, newName string) *dbus.Error {
-	err := m.modifyConfigName(name, newName)
-	return dbusutil.ToError(err)
+	return dbusutil.ToError(errors.New("obsoleted method"))
 }
 
+// DeleteCustomMode 废弃方法
 func (m *Manager) DeleteCustomMode(name string) *dbus.Error {
-	return dbusutil.ToError(errors.New("obsoleted interface"))
+	return dbusutil.ToError(errors.New("obsoleted method"))
 }
 
 // RefreshBrightness 重置亮度，主要被 session/power 模块调用。从配置恢复亮度。
@@ -277,20 +278,3 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 
 	return mode, nil
 }
-
-//func (m *Manager) SetConfig(cfgStr string) *dbus.Error {
-//	err := m.setConfig(cfgStr)
-//	return dbusutil.ToError(err)
-//}
-//
-//// 应用系统级的配置
-//func (m *Manager) setConfig(cfgStr string) error {
-//	var cfg SysRootConfig
-//	err := jsonUnmarshal(cfgStr, &cfg)
-//	if err != nil {
-//		return err
-//	}
-//
-//	m.sysConfig = cfg
-//	return nil
-//}

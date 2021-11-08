@@ -7,13 +7,13 @@ import (
 	"strings"
 )
 
-type ScreenConfigV3_3 struct {
+type ScreenConfigV3D3 struct {
 	Name      string
 	Primary   string
-	BaseInfos []*MonitorConfiV3_3
+	BaseInfos []*MonitorConfigV3D3
 }
 
-func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfigV5 {
+func (sc *ScreenConfigV3D3) toMonitorConfigs(m *Manager) []*MonitorConfigV5 {
 	result := make([]*MonitorConfigV5, len(sc.BaseInfos))
 	var brightness float64
 	for idx, bi := range sc.BaseInfos {
@@ -41,7 +41,7 @@ func (sc *ScreenConfigV3_3) toMonitorConfigs(m *Manager) []*MonitorConfigV5 {
 	return result
 }
 
-func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfigV5 {
+func (sc *ScreenConfigV3D3) toOtherConfigs(m *Manager) []*MonitorConfigV5 {
 	result := make([]*MonitorConfigV5, len(sc.BaseInfos))
 	var brightness float64
 	for idx, bi := range sc.BaseInfos {
@@ -69,7 +69,7 @@ func (sc *ScreenConfigV3_3) toOtherConfigs(m *Manager) []*MonitorConfigV5 {
 	return result
 }
 
-type MonitorConfiV3_3 struct {
+type MonitorConfigV3D3 struct {
 	UUID        string // sum md5 of name and modes, for config
 	Name        string
 	Enabled     bool
@@ -82,15 +82,16 @@ type MonitorConfiV3_3 struct {
 	RefreshRate float64
 }
 
-type ConfigV3_3 map[string]*ScreenConfigV3_3
+type ConfigV3D3 map[string]*ScreenConfigV3D3
 
-func loadConfigV3_3(filename string) (ConfigV3_3, error) {
+func loadConfigV3D3(filename string) (ConfigV3D3, error) {
+	// #nosec G304
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	var c ConfigV3_3
+	var c ConfigV3D3
 	err = json.Unmarshal(data, &c)
 	if err != nil {
 		return nil, err
@@ -99,7 +100,9 @@ func loadConfigV3_3(filename string) (ConfigV3_3, error) {
 	return c, nil
 }
 
-func (c ConfigV3_3) toConfig(m *Manager) ConfigV5 {
+// 需要 Manager 的 Brightness，gsColorTemperatureMode, gsColorTemperatureManual
+// 还会影响 Manager 的 DisplayMode
+func (c ConfigV3D3) toConfig(m *Manager) ConfigV5 {
 	newConfig := make(ConfigV5)
 	var brightness float64
 	for id, sc := range c {
@@ -122,7 +125,7 @@ func (c ConfigV3_3) toConfig(m *Manager) ConfigV5 {
 						Mirror:  nil,
 						Extend:  nil,
 						OnlyOne: nil,
-						Single: &SingleModeConfig{
+						Single: &SingleModeConfigV5{
 							Monitor: &MonitorConfigV5{
 								UUID:        bi.UUID,
 								Name:        bi.Name,

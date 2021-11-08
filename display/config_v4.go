@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 )
 
-type ConfigV4 map[string]*ScreenConfig_V4
+type ConfigV4 map[string]*ScreenConfigV4
 
-type ScreenConfig_V4 struct {
+type ScreenConfigV4 struct {
 	Custom  []*CustomModeConfig `json:",omitempty"`
 	Mirror  *MirrorModeConfig   `json:",omitempty"`
 	Extend  *ExtendModeConfig   `json:",omitempty"`
@@ -33,6 +33,7 @@ type OnlyOneModeConfig struct {
 }
 
 func loadConfigV4(filename string) (ConfigV4, error) {
+	// #nosec G304
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -47,6 +48,8 @@ func loadConfigV4(filename string) (ConfigV4, error) {
 	return c, nil
 }
 
+// 需要 Manager 的 Brightness，gsColorTemperatureMode, gsColorTemperatureManual
+// 还会影响 Manager 的 DisplayMode
 func (c ConfigV4) toConfig(m *Manager) ConfigV5 {
 	newConfig := make(ConfigV5)
 
@@ -63,7 +66,7 @@ func (c ConfigV4) toConfig(m *Manager) ConfigV5 {
 					Mirror:  nil,
 					Extend:  nil,
 					OnlyOne: nil,
-					Single: &SingleModeConfig{
+					Single: &SingleModeConfigV5{
 						Monitor:                sc.Single,
 						ColorTemperatureMode:   m.gsColorTemperatureMode,
 						ColorTemperatureManual: m.gsColorTemperatureManual,
@@ -82,7 +85,7 @@ func (c ConfigV4) toConfig(m *Manager) ConfigV5 {
 	return newConfig
 }
 
-func (sc *ScreenConfig_V4) toModeConfigs(screenCfg *ScreenConfigV5, m *Manager) {
+func (sc *ScreenConfigV4) toModeConfigs(screenCfg *ScreenConfigV5, m *Manager) {
 	if sc.OnlyOne != nil {
 		result := make([]*MonitorConfigV5, 0, len(sc.OnlyOne.Monitors))
 		for _, monitor := range sc.OnlyOne.Monitors {

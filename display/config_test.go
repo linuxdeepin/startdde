@@ -14,37 +14,34 @@ var (
 )
 
 func TestConfig(t *testing.T) {
-	_, err := loadConfigV3_3(configPath_v3)
+	_, err := loadConfigV3D3(configPath_v3)
 	require.Nil(t, err)
 
 	_, err = loadConfigV4(configPath_v4)
 	require.Nil(t, err)
 
-	config, err := loadConfigV5(configPath_v5)
+	config, err := loadConfigV5V6(configPath_v5)
 	require.Nil(t, err)
 
-	screenconfig := config["HDMI-1bc06f293ee6bfb16fd813648741f8ac3,eDP-12fd580d2dc41168dce2efb1bf19adb54"]
-	require.NotNil(t, screenconfig)
+	screenConfig := config.ConfigV5["HDMI-1bc06f293ee6bfb16fd813648741f8ac3,eDP-12fd580d2dc41168dce2efb1bf19adb54"]
+	require.NotNil(t, screenConfig)
 
-	modeconfig := screenconfig.getModeConfigs(DisplayModeExtend)
-	require.NotNil(t, modeconfig)
+	modeConfig := screenConfig.getModeConfigs(DisplayModeExtend)
+	require.NotNil(t, modeConfig)
 
-	monitors := modeconfig.Monitors
+	monitors := modeConfig.Monitors
 	require.NotEqual(t, len(monitors), 0)
 
-	monitorconfig := getMonitorConfigByUuid(monitors, "eDP-12fd580d2dc41168dce2efb1bf19adb54")
-	require.NotNil(t, monitorconfig)
+	monitorConfig := getMonitorConfigByUuid(monitors, "eDP-12fd580d2dc41168dce2efb1bf19adb54")
+	require.NotNil(t, monitorConfig)
 
-	primarymonitor := getMonitorConfigPrimary(monitors)
-	require.Equal(t, primarymonitor.UUID, monitorconfig.UUID)
+	primaryMonitor := getMonitorConfigPrimary(monitors)
+	require.Equal(t, primaryMonitor.UUID, monitorConfig.UUID)
 
 	setMonitorConfigsPrimary(monitors, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
-	primarymonitor = getMonitorConfigPrimary(monitors)
-	require.Equal(t, primarymonitor.UUID, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
+	primaryMonitor = getMonitorConfigPrimary(monitors)
+	require.Equal(t, primaryMonitor.UUID, "HDMI-1bc06f293ee6bfb16fd813648741f8ac3")
 
-	configV6, err := loadConfigV6(configPath_v5)
-	require.Nil(t, err)
-
-	err = configV6.save(configPath_tmp)
+	_, err = loadConfigV5V6(configPath_v5)
 	require.Nil(t, err)
 }

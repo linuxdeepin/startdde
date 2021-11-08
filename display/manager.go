@@ -32,6 +32,7 @@ import (
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/gsettings"
 	"pkg.deepin.io/lib/log"
+	"pkg.deepin.io/lib/xdg/basedir"
 )
 
 const (
@@ -40,15 +41,6 @@ const (
 	DisplayModeExtend
 	DisplayModeOnlyOne
 	DisplayModeUnknown
-)
-
-const (
-	// 不调整色温
-	ColorTemperatureModeNone int32 = iota
-	// 自动调整色温
-	ColorTemperatureModeAuto
-	// 手动调整色温
-	ColorTemperatureModeManual
 )
 
 const (
@@ -132,13 +124,13 @@ type Manager struct {
 	sensorProxy  dbus.BusObject
 	inputDevices inputdevices.InputDevices
 	// 系统级 displayCfg 服务
-	displayCfgService        displaycfg.DisplayCfg
-	xConn                    *x.Conn
-	PropsMu                  sync.RWMutex
-	sysConfig                SysRootConfig
-	userConfig               UserConfig
-	config                   ConfigV5
-	configV6                 ConfigV6
+	displayCfgService displaycfg.DisplayCfg
+	xConn             *x.Conn
+	PropsMu           sync.RWMutex
+	sysConfig         SysRootConfig
+	userConfig        UserConfig
+	userCfgMu         sync.Mutex
+
 	recommendScaleFactor     float64
 	builtinMonitor           *Monitor
 	builtinMonitorMu         sync.Mutex
@@ -623,12 +615,83 @@ func (m *Manager) applyDisplayConfig(mode byte, setColorTemp bool, options apply
 	return nil
 }
 
+func (m *Manager) migrateOldConfig() {
+	if _greeterMode {
+		return
+	}
+	logger.Debug("migrateOldConfig")
+
+	// NOTE: 在设置 m.DisplayMode, m.Brightness, m.gsColorTemperatureMode, m.gsColorTemperatureManual 之后
+	// 再加载配置文件并迁移，主要原因是 loadOldConfig 中的 ConfigV3D3.toConfig 和 ConfigV4.toConfig 需要。
+	m.DisplayMode = byte(m.settings.GetEnum(gsKeyDisplayMode))
+	m.gsColorTemperatureMode = m.settings.GetInt(gsKeyColorTemperatureMode)
+	m.gsColorTemperatureManual = m.settings.GetInt(gsKeyColorTemperatureManual)
+	m.initBrightness()
+	configV6, err := loadOldConfig(m)
+	if err != nil {
+		// 旧配置加载失败
+		if !os.IsNotExist(err) {
+			logger.Warning(err)
+		}
+	} else {
+		// 旧配置加载成功
+		if logger.GetLogLevel() == log.LevelDebug {
+			logger.Debug("migrateOldConfig configV6:", spew.Sdump(configV6))
+		}
+		sysCfg := configV6.toSysConfigV1()
+		m.sysConfig.Config = sysCfg
+
+		m.userConfig = configV6.toUserConfigV1()
+		m.userConfig.fix()
+		if err := m.saveUserConfig(); err != nil {
+			logger.Warning(err)
+		}
+	}
+
+	cfgDir := getCfgDir()
+	// 内置显示器配置文件 ~/.config/deepin/startdde/builtin-monitor
+	builtinMonitorConfigFile := filepath.Join(cfgDir, "builtin-monitor")
+	builtinMonitor, err := loadBuiltinMonitorConfig(builtinMonitorConfigFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warning(err)
+		}
+	} else {
+		m.sysConfig.Config.Cache.BuiltinMonitor = builtinMonitor
+	}
+
+	// NOTE: 这里的 cache 文件路径就是错的 ~/.cache/deepin/startdded/connectifno.cache
+	connectCacheFile := filepath.Join(basedir.GetUserCacheDir(),
+		"deepin/startdded/connectifno.cache")
+	connectInfo, err := readConnectInfoCache(connectCacheFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warning(err)
+		}
+	} else {
+		connectTime := make(map[string]time.Time)
+		for name, connected := range connectInfo.Connects {
+			if connected {
+				if t, ok := connectInfo.LastConnectedTimes[name]; ok {
+					connectTime[name] = t
+				}
+			}
+		}
+		m.sysConfig.Config.Cache.ConnectTime = connectTime
+	}
+
+	m.sysConfig.fix()
+	if err := m.saveSysConfigNoLock(); err != nil {
+		logger.Warning(err)
+	}
+}
+
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
-	// TODO ? 在获取屏幕亮度之后再加载配置文件，版本迭代时把上次的亮度值写入配置文件。
 	m.loadSysConfig()
 	if m.sysConfig.Version == "" {
-		// TODO 系统配置为空，需要迁移旧配置
+		// 系统配置为空，需要迁移旧配置
+		m.migrateOldConfig()
 	}
 
 	if _scaleFactors != nil {
@@ -687,7 +750,7 @@ func (m *Manager) init() {
 		logger.Warning("loadUserConfig err:", err)
 	}
 
-	// NOTE: listenXEvents 应该在 apply 之前，否则会造成 apply 的等待超时。
+	// NOTE: m.listenXEvents 应该在 m.applyDisplayConfig 之前，否则会造成它里面的 m.apply 函数的等待超时。
 	m.listenXEvents()
 	// 此时不需要设置色温，在 StartPart2 中做。为性能考虑。
 	err = m.applyDisplayConfig(m.DisplayMode, false, nil)
@@ -1657,36 +1720,6 @@ func (m *Manager) updatePropMonitors() {
 	m.setPropMonitors(paths)
 }
 
-func (m *Manager) modifyConfigName(name, newName string) (err error) {
-	if name == "" || newName == "" {
-		err = errors.New("name is empty")
-		return
-	}
-
-	id := m.getMonitorsId()
-	if id == "" {
-		err = errors.New("no output connected")
-		return
-	}
-
-	screenCfg := m.config[id]
-	if screenCfg == nil {
-		err = errors.New("not found screen config")
-		return
-	}
-
-	if name == newName {
-		return nil
-	}
-
-	err = m.saveSysConfig()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (m *Manager) newTouchscreen(path dbus.ObjectPath) (*Touchscreen, error) {
 	t, err := inputdevices.NewTouchscreen(m.sysBus, path)
 	if err != nil {
@@ -1990,15 +2023,17 @@ func (m *Manager) loadUserConfig() error {
 	if err != nil {
 		return err
 	}
+	cfg.fix()
 	m.userConfig = cfg
 	return nil
 }
 
-var _saveUserCfgMu sync.Mutex
-
 func (m *Manager) saveUserConfig() error {
-	_saveUserCfgMu.Lock()
-	defer _saveUserCfgMu.Unlock()
+	if _greeterMode {
+		return nil
+	}
+	m.userCfgMu.Lock()
+	defer m.userCfgMu.Unlock()
 
 	m.userConfig.Version = userConfigVersion
 	if logger.GetLogLevel() == log.LevelDebug {
@@ -2028,19 +2063,24 @@ func (m *Manager) loadSysConfig() {
 	if err != nil {
 		logger.Warning(err)
 		// 修正一下空配置
-		fixSysConfig(&m.sysConfig)
+		m.sysConfig.fix()
 	} else {
-		m.sysConfig = *cfg
+		m.sysConfig.copyFrom(cfg)
 	}
 }
 
-func fixSysConfig(rootCfg *SysRootConfig) {
-	cfg := &rootCfg.Config
+func (c *SysRootConfig) fix() {
+	cfg := &c.Config
+	// 默认显示模式为复制模式
 	if cfg.DisplayMode == DisplayModeUnknown || cfg.DisplayMode == DisplayModeCustom {
-		cfg.DisplayMode = DisplayModeExtend
+		cfg.DisplayMode = DisplayModeMirror
+	}
+	for _, screenConfig := range cfg.Screens {
+		screenConfig.fix()
 	}
 }
 
+// 无需对结果再次地调用 fix 方法
 func (m *Manager) getSysConfig() (*SysRootConfig, error) {
 	cfgJson, err := m.displayCfgService.Get(0)
 	if err != nil {
@@ -2051,7 +2091,7 @@ func (m *Manager) getSysConfig() (*SysRootConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	fixSysConfig(&rootCfg)
+	rootCfg.fix()
 	return &rootCfg, nil
 }
 
@@ -2065,6 +2105,9 @@ func (m *Manager) saveSysConfig() error {
 }
 
 func (m *Manager) saveSysConfigNoLock() error {
+	if _greeterMode {
+		return nil
+	}
 	m.sysConfig.UpdateAt = time.Now().Format(time.RFC3339Nano)
 	m.sysConfig.Version = sysConfigVersion
 

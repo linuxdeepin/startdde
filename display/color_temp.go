@@ -7,13 +7,27 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"pkg.deepin.io/lib/xdg/basedir"
 )
 
+const (
+	// ColorTemperatureModeNone 不调整色温
+	ColorTemperatureModeNone int32 = iota
+	// ColorTemperatureModeAuto 自动调整色温
+	ColorTemperatureModeAuto
+	// ColorTemperatureModeManual 手动调整色温
+	ColorTemperatureModeManual
+)
+
+func isValidColorTempMode(mode int32) bool {
+	return mode >= ColorTemperatureModeNone && mode <= ColorTemperatureModeManual
+}
+
 // dbus 上导出的方法
 func (m *Manager) setColorTempMode(mode int32) error {
-	if mode > ColorTemperatureModeManual || mode < ColorTemperatureModeNone {
+	if !isValidColorTempMode(mode) {
 		return errors.New("mode out of range, not 0 or 1 or 2")
 	}
 	m.setPropColorTemperatureMode(mode)
@@ -36,7 +50,7 @@ func (m *Manager) setColorTempModeReal(mode int32) {
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
 		value := m.ColorTemperatureManual
-		setColorTempOneShot(strconv.Itoa(int(value)))
+		setColorTempOneShot(value)
 	}
 }
 
@@ -45,13 +59,17 @@ func (m *Manager) setColorTempValue(value int32) error {
 	if m.ColorTemperatureMode != ColorTemperatureModeManual {
 		return errors.New("current not manual mode, can not adjust CCT by manual")
 	}
-	if value < 1000 || value > 25000 {
+	if !isValidColorTempValue(value) {
 		return errors.New("value out of range")
 	}
-	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
+	setColorTempOneShot(value) // 手动设置色温
 	m.setPropColorTemperatureManual(value)
 	m.saveColorTempValueInCfg(value)
 	return nil
+}
+
+func isValidColorTempValue(value int32) bool {
+	return value >= 1000 && value <= 25000
 }
 
 // saveColorTempValueInCfg 保存手动色温值到用户配置
@@ -88,6 +106,7 @@ func (m *Manager) applyColorTempConfig(displayMode byte) {
 }
 
 func controlRedshift(action string) {
+	// #nosec G204
 	_, err := exec.Command("systemctl", "--user", action, "redshift.service").Output()
 	if err != nil {
 		logger.Warning("failed to ", action, " redshift.service:", err)
@@ -96,13 +115,20 @@ func controlRedshift(action string) {
 	}
 }
 
+var _setColorTempMu sync.Mutex
+
 // setColorTempOneShot 调用 redshift 命令设置一次色温
-func setColorTempOneShot(colorTemp string) {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp, "-P").Output()
+func setColorTempOneShot(value int32) {
+	_setColorTempMu.Lock()
+	defer _setColorTempMu.Unlock()
+
+	valueStr := strconv.Itoa(int(value))
+	// #nosec G204
+	_, err := exec.Command("redshift", "-m", "vidmode", "-O", valueStr, "-P").Output()
 	if err != nil {
-		logger.Warning("failed to set current ColorTemperature by redshift.service: ", err)
+		logger.Warning("failed to set current ColorTemperature by redshift command: ", err)
 	} else {
-		logger.Info("success to to set current ColorTemperature by redshift.service")
+		logger.Info("success to to set current ColorTemperature by redshift command")
 	}
 }
 
@@ -126,7 +152,7 @@ func generateRedshiftConfFile() error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			dir := filepath.Dir(configFilePath)
-			err := os.MkdirAll(dir, 0755)
+			err := os.MkdirAll(dir, 0750)
 			if err != nil {
 				return err
 			}
@@ -139,7 +165,7 @@ func generateRedshiftConfFile() error {
 				"adjustment-method=vidmode\n" +
 				"[vidmode]\n" +
 				"screen=0")
-			err = ioutil.WriteFile(configFilePath, content, 0644)
+			err = ioutil.WriteFile(configFilePath, content, 0600)
 			return err
 		} else {
 			return err

@@ -30,6 +30,7 @@ func (c *SysRootConfig) copyFrom(newSysConfig *SysRootConfig) {
 	c.mu.Unlock()
 }
 
+// SysConfig v1
 type SysConfig struct {
 	DisplayMode  byte
 	Screens      map[string]*SysScreenConfig
@@ -43,9 +44,16 @@ type SysCache struct {
 	ConnectTime    map[string]time.Time
 }
 
+// UserConfig v1
 type UserConfig struct {
 	Version string
 	Screens map[string]UserScreenConfig
+}
+
+func (c *UserConfig) fix() {
+	for _, screenConfig := range c.Screens {
+		screenConfig.fix()
+	}
 }
 
 type UserScreenConfig map[string]*UserMonitorModeConfig
@@ -62,6 +70,15 @@ type UserMonitorModeConfig struct {
 	ColorTemperatureManual int32
 	// 以后如果有必要
 	// Monitors UserMonitorConfigs
+}
+
+func (c *UserMonitorModeConfig) fix() {
+	if !isValidColorTempMode(c.ColorTemperatureMode) {
+		c.ColorTemperatureMode = defaultTemperatureMode
+	}
+	if !isValidColorTempValue(c.ColorTemperatureManual) {
+		c.ColorTemperatureManual = defaultTemperatureManual
+	}
 }
 
 func getDefaultUserMonitorModeConfig() *UserMonitorModeConfig {
@@ -107,6 +124,12 @@ func (usc UserScreenConfig) setMonitorModeConfig(mode byte, uuid string, cfg *Us
 	}
 }
 
+func (usc UserScreenConfig) fix() {
+	for _, config := range usc {
+		config.fix()
+	}
+}
+
 // SysScreenConfig 系统级屏幕配置
 // NOTE: Single 可以看作是特殊的显示模式，和 Mirror,Extend 等模式共用 SysMonitorModeConfig 结构可以保持设计上的统一，不必在乎里面有 Monitors
 type SysScreenConfig struct {
@@ -117,8 +140,33 @@ type SysScreenConfig struct {
 	OnlyOneUuid string                           `json:",omitempty"`
 }
 
+func (c *SysScreenConfig) fix() {
+	if c.Mirror != nil {
+		c.Mirror.fix()
+	}
+	if c.Extend != nil {
+		c.Extend.fix()
+	}
+	if c.Single != nil {
+		c.Single.fix()
+	}
+	for uuid, config := range c.OnlyOneMap {
+		if config != nil {
+			config.fix()
+		} else {
+			delete(c.OnlyOneMap, uuid)
+		}
+	}
+}
+
 type SysMonitorModeConfig struct {
 	Monitors SysMonitorConfigs
+}
+
+func (c *SysMonitorModeConfig) fix() {
+	for _, monitor := range c.Monitors {
+		monitor.fix()
+	}
 }
 
 type SysMonitorConfig struct {
@@ -134,6 +182,21 @@ type SysMonitorConfig struct {
 	RefreshRate float64
 	Brightness  float64
 	Primary     bool
+}
+
+func (c *SysMonitorConfig) fix() {
+	// c.Enable 为 false，但 c.Primary 为 true 的，错误情况
+	if !c.Enabled && c.Primary {
+		c.Primary = false
+	}
+	if !isValidBrightness(c.Brightness) {
+		c.Brightness = 1
+	}
+}
+
+func isValidBrightness(value float64) bool {
+	// 不含 0
+	return value > 0 && value <= 1
 }
 
 type SysMonitorConfigs []*SysMonitorConfig
