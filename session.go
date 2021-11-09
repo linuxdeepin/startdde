@@ -171,7 +171,7 @@ func (m *SessionManager) prepareLogout(force bool) {
 	sendMsgToUserExperModule(UserLogoutMsg)
 	quitObexSevice()
 	//注销系统断开所有蓝牙连接
-	m.bluetoothManager.DisConnectAllDevices(0)
+	m.bluetoothManager.DisconnectAllDevices(0)
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
 		// PulseAudio should have quit
