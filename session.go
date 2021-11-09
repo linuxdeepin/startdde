@@ -33,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	bluetooth "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.bluetooth"
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 
 	dbus "github.com/godbus/dbus"
@@ -87,6 +88,7 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
 	inhibitManager        InhibitManager
 	powerManager          powermanager.PowerManager
+	bluetoothManager      bluetooth.Bluetooth
 
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            login1.Manager
@@ -168,6 +170,9 @@ func (m *SessionManager) prepareLogout(force bool) {
 	stopBAMFDaemon()
 	sendMsgToUserExperModule(UserLogoutMsg)
 	quitObexSevice()
+
+	//注销系统断开所有蓝牙连接
+	m.bluetoothManager.DisconnectAllDevices(0)
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		playLogoutSound()
 		// PulseAudio should have quit
@@ -664,6 +669,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	dbusDaemon.InitSignalExt(sigLoop, true)
 	objLogin := login1.NewManager(sysBus)
 	powerManager := powermanager.NewPowerManager(sysBus)
+	bluetoothManager := bluetooth.NewBluetooth(sessionBus)
 	var objLoginSessionSelf login1.Session
 	sessionPath, err := objLogin.GetSessionByPID(0, 0)
 	if err != nil {
@@ -683,6 +689,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		objLogin:            objLogin,
 		objLoginSessionSelf: objLoginSessionSelf,
 		powerManager:        powerManager,
+		bluetoothManager:    bluetoothManager,
 		dbusDaemon:          dbusDaemon,
 		daemon:              daemon.NewDaemon(sysBus),
 	}
