@@ -149,7 +149,7 @@ func (m *Manager) saveBuiltinMonitorConfig(name string) (err error) {
 	m.sysConfig.mu.Lock()
 
 	m.sysConfig.Config.Cache.BuiltinMonitor = name
-	err = m.saveSysConfigNoLock()
+	err = m.saveSysConfigNoLock("builtin monitor")
 
 	m.sysConfig.mu.Unlock()
 	return

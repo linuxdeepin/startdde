@@ -50,7 +50,9 @@ type ConfigV6 struct {
 }
 
 func (cfgV6 *ConfigV6) toSysConfigV1() (sysCfg SysConfig) {
-	sysCfg.FillModes = cfgV6.FillMode.FillModeMap
+	if cfgV6.FillMode != nil {
+		sysCfg.FillModes = cfgV6.FillMode.FillModeMap
+	}
 	if len(cfgV6.ConfigV5) > 0 {
 		sysCfg.Screens = make(map[string]*SysScreenConfig, len(cfgV6.ConfigV5))
 		for monitorsId, screenCfgV5 := range cfgV6.ConfigV5 {

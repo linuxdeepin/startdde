@@ -33,12 +33,12 @@ import (
 	"syscall"
 	"time"
 
-	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
-
-	dbus "github.com/godbus/dbus"
+	"github.com/godbus/dbus"
 	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
+	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
 	"pkg.deepin.io/dde/api/soundutils"
@@ -152,6 +152,19 @@ func stopBAMFDaemon() {
 	}
 }
 
+func stopRedshift() {
+	bus, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	systemdManger := systemd1.NewManager(bus)
+	_, err = systemdManger.StopUnit(0, "redshift.service", "replace")
+	if err != nil {
+		logger.Warning("failed to stop redshift.service:", err)
+	}
+}
+
 func (m *SessionManager) prepareLogout(force bool) {
 	if !force {
 		err := autostop.LaunchAutostopScripts(logger)
@@ -166,11 +179,12 @@ func (m *SessionManager) prepareLogout(force bool) {
 	// quit at-spi-dbus-bus.service
 	quitAtSpiService()
 	stopBAMFDaemon()
+	stopRedshift()
 	sendMsgToUserExperModule(UserLogoutMsg)
-	quitObexSevice()
+	quitObexService()
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
+		// playLogoutSound 内部会退出 pulseaudio
 		playLogoutSound()
-		// PulseAudio should have quit
 	} else {
 		quitPulseAudio()
 	}
@@ -1423,7 +1437,7 @@ func quitAtSpiService() {
 	}
 }
 
-func quitObexSevice() {
+func quitObexService() {
 	logger.Debugf("quitting %s...", obexService)
 	// mask obex.service
 	out, err := exec.Command("systemctl", "--user", "--runtime", "--now", "mask",

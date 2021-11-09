@@ -46,7 +46,9 @@ func (m *Manager) setColorTempModeReal(mode int32) {
 		resetColorTemp()        // 色温重置
 	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
 		resetColorTemp()
-		controlRedshift("start") // 开启服务
+		// NOTE: 不用 start 而要用 restart ，因为可能用户注销之后，redshift 并没有退出，再次登录
+		// 之后，如果只 start 它，已经 start 的服务不会再次 start，导致色温设置没有应用成功。
+		controlRedshift("restart") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
 		value := m.ColorTemperatureManual

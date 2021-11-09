@@ -591,7 +591,7 @@ func (m *Manager) applyDisplayConfig(mode byte, setColorTemp bool, options apply
 		}
 		if needSaveCfg {
 			screenCfg.setSingleMonitorConfigs(monitorConfigs)
-			err = m.saveSysConfig()
+			err = m.saveSysConfig("single")
 			if err != nil {
 				logger.Warning(err)
 			}
@@ -681,7 +681,7 @@ func (m *Manager) migrateOldConfig() {
 	}
 
 	m.sysConfig.fix()
-	if err := m.saveSysConfigNoLock(); err != nil {
+	if err := m.saveSysConfigNoLock("migrate old config"); err != nil {
 		logger.Warning(err)
 	}
 }
@@ -891,7 +891,7 @@ func (m *Manager) recordMonitorsConnected(monitors []*XOutputInfo) (err error) {
 		needSave = needSave || ns
 	}
 	if needSave {
-		err = m.saveSysConfig()
+		err = m.saveSysConfig("monitors conected")
 	}
 	return err
 }
@@ -900,7 +900,7 @@ func (m *Manager) recordMonitorConnected(name string, connected bool, t time.Tim
 	logger.Debug("recordMonitorConnected", name, connected, t)
 	needSave := m.recordMonitorConnectedAux(name, connected, t)
 	if needSave {
-		err = m.saveSysConfig()
+		err = m.saveSysConfig("monitor connected")
 	}
 	return err
 }
@@ -1113,7 +1113,7 @@ func (m *Manager) applyModeMirror(options applyOptions) (err error) {
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeMirror, "", configs)
-		return m.saveSysConfig()
+		return m.saveSysConfig("mode mirror")
 	}
 
 	return
@@ -1273,7 +1273,7 @@ func (m *Manager) setPrimary(name string) error {
 
 		screenCfg.setMonitorConfigs(DisplayModeExtend, "", configs)
 
-		err = m.saveSysConfig()
+		err = m.saveSysConfig("primary changed")
 		if err != nil {
 			return err
 		}
@@ -1339,7 +1339,7 @@ func (m *Manager) applyModeExtend(options applyOptions) (err error) {
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeExtend, "", configs)
-		return m.saveSysConfig()
+		return m.saveSysConfig("mode extend")
 	}
 	return
 }
@@ -1449,7 +1449,7 @@ func (m *Manager) applyModeOnlyOne(options applyOptions) (err error) {
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeOnlyOne, uuid, configs)
-		return m.saveSysConfig()
+		return m.saveSysConfig("mode only one")
 	}
 
 	return
@@ -1477,10 +1477,12 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 
 		return err
 	}
-	err = m.saveSysConfig()
-	if err != nil {
-		logger.Warning(err)
-		return err
+	if oldMode != mode {
+		err = m.saveSysConfig("switch mode")
+		if err != nil {
+			logger.Warning(err)
+			return err
+		}
 	}
 
 	return nil
@@ -1524,7 +1526,7 @@ func (m *Manager) save() (err error) {
 		screenCfg.setMonitorConfigs(m.DisplayMode, uuid, toSysMonitorConfigs(monitors, primaryName))
 	}
 
-	err = m.saveSysConfig()
+	err = m.saveSysConfig("save")
 	if err != nil {
 		return err
 	}
@@ -2096,15 +2098,15 @@ func (m *Manager) getSysConfig() (*SysRootConfig, error) {
 }
 
 // saveSysConfig 保存系统级配置
-func (m *Manager) saveSysConfig() error {
+func (m *Manager) saveSysConfig(reason string) error {
 	m.sysConfig.mu.Lock()
 	defer m.sysConfig.mu.Unlock()
 
-	err := m.saveSysConfigNoLock()
+	err := m.saveSysConfigNoLock(reason)
 	return err
 }
 
-func (m *Manager) saveSysConfigNoLock() error {
+func (m *Manager) saveSysConfigNoLock(reason string) error {
 	if _greeterMode {
 		return nil
 	}
@@ -2112,7 +2114,7 @@ func (m *Manager) saveSysConfigNoLock() error {
 	m.sysConfig.Version = sysConfigVersion
 
 	if logger.GetLogLevel() == log.LevelDebug {
-		logger.Debug("saveSysConfig sysConfig:", spew.Sdump(&m.sysConfig))
+		logger.Debugf("saveSysConfig reason: %s, sysConfig: %s", reason, spew.Sdump(&m.sysConfig))
 	}
 
 	cfgJson := jsonMarshal(&m.sysConfig)
@@ -2150,7 +2152,7 @@ func (m *Manager) setMonitorFillMode(monitor *Monitor, fillMode string) error {
 		cfg.FillModes = make(map[string]string)
 	}
 	cfg.FillModes[fillModeKey] = fillMode
-	err = m.saveSysConfig()
+	err = m.saveSysConfig("fill mode changed")
 	return err
 }
 

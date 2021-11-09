@@ -79,7 +79,7 @@ func (m *Manager) setScaleFactors(factors map[string]float64) error {
 		return nil
 	}
 	m.sysConfig.Config.ScaleFactors = factors
-	err := m.saveSysConfigNoLock()
+	err := m.saveSysConfigNoLock("scale factors changed")
 	if err != nil {
 		logger.Warning(err)
 	}

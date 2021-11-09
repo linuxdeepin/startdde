@@ -58,7 +58,7 @@ func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
 		return nil
 	}
 
-	err := m.saveSysConfig()
+	err := m.saveSysConfig("brightness changed")
 	return err
 }
 
