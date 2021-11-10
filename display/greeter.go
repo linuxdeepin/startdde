@@ -40,5 +40,5 @@ func (m *Manager) beginTouch() {
 }
 
 func (m *Manager) doShowCursor(show bool) error {
-	return m.srm.showCursor(show)
+	return m.mm.showCursor(show)
 }

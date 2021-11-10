@@ -2,89 +2,38 @@ package display
 
 import (
 	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/input"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
-const evMaskForHideCursor uint32 = input.XIEventMaskRawMotion | input.XIEventMaskRawTouchBegin
-
-func (m *Manager) listenXEvents() {
-	eventChan := m.xConn.MakeAndAddEventChan(50)
-	root := m.xConn.GetDefaultScreen().Root
-	// 选择监听哪些 randr 事件
-	err := randr.SelectInputChecked(m.xConn, root,
-		randr.NotifyMaskOutputChange|randr.NotifyMaskOutputProperty|
-			randr.NotifyMaskCrtcChange|randr.NotifyMaskScreenChange).Check(m.xConn)
-	if err != nil {
-		logger.Warning("failed to select randr event:", err)
-		return
-	}
-
-	var inputExtData *x.QueryExtensionReply
-	if _greeterMode {
-		// 仅 greeter 需要
-		err = m.doXISelectEvents(evMaskForHideCursor)
-		if err != nil {
-			logger.Warning(err)
-		}
-		inputExtData = m.xConn.GetExtensionData(input.Ext())
-	}
-
-	rrExtData := m.xConn.GetExtensionData(randr.Ext())
-
-	go func() {
-		for ev := range eventChan {
-			switch ev.GetEventCode() {
-			case randr.NotifyEventCode + rrExtData.FirstEvent:
-				event, _ := randr.NewNotifyEvent(ev)
-				switch event.SubCode {
-				case randr.NotifyOutputChange:
-					e, _ := event.NewOutputChangeNotifyEvent()
-					m.srm.HandleEvent(e)
-
-				case randr.NotifyCrtcChange:
-					e, _ := event.NewCrtcChangeNotifyEvent()
-					m.srm.HandleEvent(e)
-
-				case randr.NotifyOutputProperty:
-					e, _ := event.NewOutputPropertyNotifyEvent()
-					// TODO srm 可能也应该处理这个事件
-					m.handleOutputPropertyChanged(e)
-				}
-
-			case randr.ScreenChangeNotifyEventCode + rrExtData.FirstEvent:
-				event, _ := randr.NewScreenChangeNotifyEvent(ev)
-				cfgTsChanged := m.srm.HandleScreenChanged(event)
-				m.handleScreenChanged(event, cfgTsChanged)
-
-			case x.GeGenericEventCode:
-				if !_greeterMode {
-					continue
-				}
-				// 仅 greeter 处理这个事件
-				geEvent, _ := x.NewGeGenericEvent(ev)
-				if geEvent.Extension == inputExtData.MajorOpcode {
-					switch geEvent.EventType {
-					case input.RawMotionEventCode:
-						m.beginMoveMouse()
-
-					case input.RawTouchBeginEventCode:
-						m.beginTouch()
-					}
-				}
+// 在显示器断开或连接时，monitorsId 会改变，重新应用与之相符合的显示配置。
+func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
+	oldMonitorsId := m.monitorsId
+	newMonitorsId := m.getMonitorsId()
+	logger.Debugf("old monitors id: %v, new monitors id: %v", oldMonitorsId, newMonitorsId)
+	if newMonitorsId != oldMonitorsId && newMonitorsId != "" {
+		m.monitorsId = newMonitorsId
+		logger.Debug("new monitors id:", newMonitorsId)
+		m.markClean()
+		go func() {
+			// NOTE: applyDisplayConfig 必须在另外一个 goroutine 中进行。
+			err := m.applyDisplayConfig(m.DisplayMode, true, options)
+			if err != nil {
+				logger.Warning(err)
 			}
-		}
-	}()
+		}()
+	}
+	return false
 }
 
-func (m *Manager) handleMonitorChanged(id uint32) {
-	xOutputInfo := m.srm.getMonitor(id)
-	if xOutputInfo == nil {
-		logger.Warning("monitor is nil")
+// 在 X 下，显示器属性改变，断开或者连接显示器。
+// 在 wayland 下，仅显示器属性改变。
+func (m *Manager) handleMonitorChanged(monitorInfo *MonitorInfo) {
+	m.updateMonitor(monitorInfo)
+	if _useWayland {
 		return
 	}
 
-	m.updateMonitor(xOutputInfo)
+	// 后续只在 X 下需要
 	prevNumMonitors := len(m.Monitors)
 	m.updatePropMonitors()
 	currentNumMonitors := len(m.Monitors)
@@ -99,23 +48,32 @@ func (m *Manager) handleMonitorChanged(id uint32) {
 		}
 		options[optionDisableCrtc] = true
 	}
+	m.updateMonitorsId(options)
+}
 
-	//m.initFillModes()
-	oldMonitorsID := m.monitorsId
-	newMonitorsID := m.getMonitorsId()
-	if newMonitorsID != oldMonitorsID && newMonitorsID != "" {
-		logger.Debug("new monitors id:", newMonitorsID)
-		m.markClean()
-		// 接入新屏幕点亮屏幕
-		go func() {
-			// NOTE: applyDisplayConfig 必须在另外一个 goroutine 中进行。
-			err := m.applyDisplayConfig(m.DisplayMode, true, options)
-			if err != nil {
-				logger.Warning(err)
-			}
-		}()
-		m.monitorsId = newMonitorsID
+// wayland 下连接显示器
+func (m *Manager) handleMonitorAdded(monitorInfo *MonitorInfo) {
+	err := m.addMonitor(monitorInfo)
+	if err != nil {
+		logger.Warning(err)
+		return
 	}
+	m.updatePropMonitors()
+	m.updateMonitorsId(nil)
+}
+
+// wayland 下断开显示器
+func (m *Manager) handleMonitorRemoved(monitorId uint32) {
+	logger.Debug("monitor removed", monitorId)
+	monitor := m.removeMonitor(monitorId)
+	if monitor == nil {
+		logger.Warning("remove monitor failed, invalid id", monitorId)
+		return
+	}
+
+	m.handleMonitorConnectedChanged(monitor, false)
+	m.updatePropMonitors()
+	m.updateMonitorsId(nil)
 }
 
 func (m *Manager) handleOutputPropertyChanged(ev *randr.OutputPropertyNotifyEvent) {

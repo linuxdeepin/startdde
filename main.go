@@ -252,7 +252,8 @@ func greeterDisplayMain() {
 		logger.Warning(err)
 		os.Exit(1)
 	}
-	display.Init(xConn)
+	// TODO
+	display.Init(xConn, false)
 	logger.Debug("greeter mode")
 	service, err := dbusutil.NewSessionService()
 	if err != nil {
@@ -305,15 +306,18 @@ func main() {
 		logger.Info("in wayland mode")
 		_useWayland = true
 		// 相比于 X11 环境，在 Wayland 环境下，先于启动核心组件之前启动了 wl_display 模块。
-		err := wl_display.Start()
-		if err != nil {
-			logger.Warning(err)
-		}
-		recommendedScaleFactor = wl_display.GetRecommendedScaleFactor()
+		//err := wl_display.Start()
+		//if err != nil {
+		//	logger.Warning(err)
+		//}
+		//recommendedScaleFactor = wl_display.GetRecommendedScaleFactor()
 	} else {
-		display.Init(xConn)
-		recommendedScaleFactor = display.GetRecommendedScaleFactor()
+		//display.Init(xConn)
+		//recommendedScaleFactor = display.GetRecommendedScaleFactor()
 	}
+	display.Init(xConn, _useWayland)
+	// TODO
+	recommendedScaleFactor = display.GetRecommendedScaleFactor()
 
 	service, err := dbusutil.NewSessionService()
 	if err != nil {
@@ -339,26 +343,30 @@ func main() {
 	}
 	logDebugAfter("before launchCoreComponents")
 
-	if !_useWayland {
-		// 使用 X11 环境时, 把 display 模块的启动分成两个部分，前一部分在 core components 启动之前启动，
-		// 后一部分在 core components 启动之后启动。
-		err := display.Start(service)
-		if err != nil {
-			logger.Warning("start display part1 failed:", err)
-		}
+	//if !_useWayland {
+	//	// 使用 X11 环境时, 把 display 模块的启动分成两个部分，前一部分在 core components 启动之前启动，
+	//	// 后一部分在 core components 启动之后启动。
+	//	err := display.Start(service)
+	//	if err != nil {
+	//		logger.Warning("start display part1 failed:", err)
+	//	}
+	//}
+	err = display.Start(service)
+	if err != nil {
+		logger.Warning("start display part1 failed:", err)
 	}
 
 	launchCoreComponents(sessionManager)
 
-	if !_useWayland {
-		// 启动 display 模块的后一部分
-		go func() {
-			err := display.StartPart2()
-			if err != nil {
-				logger.Warning("start display part2 failed:", err)
-			}
-		}()
-	}
+	//if !_useWayland {
+	// 启动 display 模块的后一部分
+	go func() {
+		err := display.StartPart2()
+		if err != nil {
+			logger.Warning("start display part2 failed:", err)
+		}
+	}()
+	//}
 
 	go func() {
 		initSoundThemePlayer()

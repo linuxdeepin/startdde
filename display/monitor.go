@@ -3,11 +3,13 @@ package display
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/godbus/dbus"
+	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/strv"
@@ -126,7 +128,7 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 	}
 
 	newMode := findMode(m.Modes, mode)
-	if newMode.Id == 0 {
+	if newMode.isZero() {
 		return dbusutil.ToError(errors.New("invalid mode"))
 	}
 
@@ -154,11 +156,11 @@ func (m *Monitor) setMode(mode ModeInfo) {
 
 func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
 	mode := getFirstModeBySizeRate(m.Modes, width, height, rate)
-	if mode.Id != 0 {
+	if !mode.isZero() {
 		return mode
 	}
 	mode = getFirstModeBySize(m.Modes, width, height)
-	if mode.Id != 0 {
+	if !mode.isZero() {
 		return mode
 	}
 	return m.BestMode
@@ -167,7 +169,7 @@ func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
 func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
 	logger.Debugf("monitor %v %v dbus call SetModeBySize %v %v", m.ID, m.Name, width, height)
 	mode := getFirstModeBySize(m.Modes, width, height)
-	if mode.Id == 0 {
+	if mode.isZero() {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
 	return m.SetMode(mode.Id)
@@ -179,7 +181,7 @@ func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
 		return dbusutil.ToError(errors.New("width or height is 0"))
 	}
 	mode := getFirstModeBySizeRate(m.Modes, m.Width, m.Height, value)
-	if mode.Id == 0 {
+	if mode.isZero() {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
 	return m.SetMode(mode.Id)
@@ -382,4 +384,55 @@ func (m *Monitor) setCurrentFillMode(write *dbusutil.PropertyWrite) *dbus.Error 
 		logger.Warning(err)
 	}
 	return dbusutil.ToError(err)
+}
+
+// MonitorInfo X 和 Wayland 共用的显示器信息
+type MonitorInfo struct {
+	// 只在 X 下使用
+	crtc               randr.Crtc
+	Enabled            bool
+	ID                 uint32
+	UUID               string
+	Name               string
+	Connected          bool
+	Modes              []ModeInfo
+	CurrentMode        ModeInfo
+	PreferredMode      ModeInfo
+	X                  int16
+	Y                  int16
+	Width              uint16
+	Height             uint16
+	Rotation           uint16
+	Rotations          uint16
+	MmHeight           uint32
+	MmWidth            uint32
+	EDID               []byte
+	Manufacturer       string
+	Model              string
+	CurrentFillMode    string
+	AvailableFillModes []string
+}
+
+func (m *MonitorInfo) dumpForDebug() {
+	logger.Debugf("MonitorInfo{crtc: %d,\nID: %v,\nName: %v,\nConnected: %v,\nCurrentMode: %v,\nPreferredMode: %v,\n"+
+		"X: %v, Y: %v, Width: %v, Height: %v,\nRotation: %v,\nRotations: %v,\nMmWidth: %v,\nMmHeight: %v,\nModes: %v}",
+		m.crtc, m.ID, m.Name, m.Connected, m.CurrentMode, m.PreferredMode, m.X, m.Y, m.Width, m.Height, m.Rotation, m.Rotations,
+		m.MmWidth, m.MmHeight, m.Modes)
+}
+
+func (m *MonitorInfo) outputId() randr.Output {
+	return randr.Output(m.ID)
+}
+
+func (m *MonitorInfo) equal(other *MonitorInfo) bool {
+	return reflect.DeepEqual(m, other)
+}
+
+func (m *MonitorInfo) getRect() x.Rectangle {
+	return x.Rectangle{
+		X:      m.X,
+		Y:      m.Y,
+		Width:  m.Width,
+		Height: m.Height,
+	}
 }

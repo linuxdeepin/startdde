@@ -8,9 +8,13 @@ import (
 	"pkg.deepin.io/lib/strv"
 )
 
-func (v *Manager) setPropMonitors(value []dbus.ObjectPath) {
-	v.Monitors = value
-	v.emitPropChangedMonitors(value)
+func (v *Manager) setPropMonitors(value []dbus.ObjectPath) (changed bool) {
+	if !objPathsEqual(v.Monitors, value) {
+		v.Monitors = value
+		v.emitPropChangedMonitors(value)
+		return true
+	}
+	return false
 }
 
 func (v *Manager) emitPropChangedMonitors(value []dbus.ObjectPath) error {

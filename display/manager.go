@@ -116,9 +116,10 @@ type touchscreenMapValue struct {
 //go:generate dbusutil-gen em -type Manager,Monitor
 
 type Manager struct {
-	service    *dbusutil.Service
-	sysBus     *dbus.Conn
-	sysSigLoop *dbusutil.SignalLoop
+	service        *dbusutil.Service
+	sysBus         *dbus.Conn
+	sysSigLoop     *dbusutil.SignalLoop
+	sessionSigLoop *dbusutil.SignalLoop
 	// 系统级 dbus-daemon 服务
 	dbusDaemon   ofdbus.DBus
 	sensorProxy  dbus.BusObject
@@ -136,21 +137,23 @@ type Manager struct {
 	builtinMonitorMu         sync.Mutex
 	candidateBuiltinMonitors []*Monitor // 候补的
 
-	monitorMap    map[uint32]*Monitor
-	monitorMapMu  sync.Mutex
-	srm           *screenResourcesManager
+	monitorMap   map[uint32]*Monitor
+	monitorMapMu sync.Mutex
+	mm           monitorManager
+	debugOpts    debugOptions
+
 	sessionActive bool
 	newSysCfg     *SysRootConfig
 	cursorShowed  bool
 
 	// gsettings com.deepin.dde.display
-	settings                *gio.Settings
-	monitorsId              string
-	hasBuiltinMonitor       bool
-	rotateScreenTimeDelay   int32
-	setCurrentFillModeMutex sync.Mutex
+	settings              *gio.Settings
+	monitorsId            string
+	hasBuiltinMonitor     bool
+	rotateScreenTimeDelay int32
+	setFillModeMu         sync.Mutex
 
-	// dbusutil-gen: equal=nil
+	// dbusutil-gen: equal=objPathsEqual
 	Monitors []dbus.ObjectPath
 	// dbusutil-gen: equal=nil
 	CustomIdList []string
@@ -185,18 +188,12 @@ type Manager struct {
 	gsColorTemperatureManual int32
 }
 
-type ModeInfo struct {
-	Id     uint32
-	name   string
-	Width  uint16
-	Height uint16
-	Rate   float64
-}
-
 type monitorSizeInfo struct {
 	width, height     uint16
 	mmWidth, mmHeight uint32
 }
+
+var _ monitorManagerHooks = (*Manager)(nil)
 
 func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
@@ -224,10 +221,18 @@ func newManager(service *dbusutil.Service) *Manager {
 	screen := m.xConn.GetDefaultScreen()
 	m.ScreenWidth = screen.WidthInPixels
 	m.ScreenHeight = screen.HeightInPixels
-	m.srm = newScreenResourcesManager(m.xConn, _hasRandr1d2)
-	m.srm.monitorChangedCb = m.handleMonitorChanged
-	m.srm.forceUpdateMonitorCb = m.updateMonitor
-	m.srm.primaryRectChangedCb = m.handlePrimaryRectChanged
+
+	sessionSigLoop := dbusutil.NewSignalLoop(m.service.Conn(), 10)
+	m.sessionSigLoop = sessionSigLoop
+	sessionSigLoop.Start()
+
+	if _useWayland {
+		m.mm = newKMonitorManager(sessionSigLoop)
+	} else {
+		m.mm = newXMonitorManager(m.xConn, _hasRandr1d2)
+	}
+
+	m.mm.setHooks(m)
 
 	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 
@@ -443,7 +448,10 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 			go func() {
 				// 设置 fillModes
 				for _, monitor := range monitors {
-					m.srm.setMonitorFileMode(monitor, newCfg.FillModes)
+					err := m.mm.setMonitorFillMode(monitor, newCfg.FillModes[monitor.generateFillModeKey()])
+					if err != nil {
+						logger.Warning("set monitor fill mode failed:", monitor, err)
+					}
 				}
 			}()
 		}
@@ -555,8 +563,8 @@ func (m *Manager) buildConfigForSingle(monitor *Monitor) SysMonitorConfigs {
 }
 
 func (m *Manager) applyDisplayConfig(mode byte, setColorTemp bool, options applyOptions) error {
-	// 对于 randr 版本低于 1.2 时，不做操作
-	if !_hasRandr1d2 {
+	// X 环境下，如果 randr 版本低于 1.2 时，不做操作
+	if !_useWayland && !_hasRandr1d2 {
 		return nil
 	}
 	monitors := m.getConnectedMonitors()
@@ -566,6 +574,10 @@ func (m *Manager) applyDisplayConfig(mode byte, setColorTemp bool, options apply
 		return nil
 	}
 	defer func() {
+		if _useWayland {
+			m.updateScreenSize()
+		}
+
 		// 拔插屏幕时需要根据配置文件重置色温
 		if setColorTemp {
 			m.applyColorTempConfig(mode)
@@ -688,6 +700,7 @@ func (m *Manager) migrateOldConfig() {
 
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
+	m.initDebugOptions()
 	m.loadSysConfig()
 	if m.sysConfig.Version == "" {
 		// 系统配置为空，需要迁移旧配置
@@ -702,8 +715,9 @@ func (m *Manager) init() {
 		_scaleFactors = nil
 	}
 
-	if _hasRandr1d2 {
-		monitors := m.srm.getMonitors()
+	if _hasRandr1d2 || _useWayland {
+		monitors := m.mm.getMonitors()
+		logger.Debug("len monitors", len(monitors))
 		err := m.recordMonitorsConnected(monitors)
 		if err != nil {
 			logger.Warning(err)
@@ -883,7 +897,7 @@ func (m *Manager) updateMonitorFallback(screenInfo *randr.GetScreenInfoReply) *M
 	return monitor
 }
 
-func (m *Manager) recordMonitorsConnected(monitors []*XOutputInfo) (err error) {
+func (m *Manager) recordMonitorsConnected(monitors []*MonitorInfo) (err error) {
 	t := time.Now()
 	needSave := false
 	for _, monitor := range monitors {
@@ -891,7 +905,7 @@ func (m *Manager) recordMonitorsConnected(monitors []*XOutputInfo) (err error) {
 		needSave = needSave || ns
 	}
 	if needSave {
-		err = m.saveSysConfig("monitors conected")
+		err = m.saveSysConfig("monitors connected changed")
 	}
 	return err
 }
@@ -900,7 +914,7 @@ func (m *Manager) recordMonitorConnected(name string, connected bool, t time.Tim
 	logger.Debug("recordMonitorConnected", name, connected, t)
 	needSave := m.recordMonitorConnectedAux(name, connected, t)
 	if needSave {
-		err = m.saveSysConfig("monitor connected")
+		err = m.saveSysConfig("monitor connected changed")
 	}
 	return err
 }
@@ -930,60 +944,57 @@ func (m *Manager) recordMonitorConnectedAux(name string, connected bool, t time.
 }
 
 // addMonitor 在 Manager.monitorMap 增加显示器，在 dbus 上导出显示器对象
-func (m *Manager) addMonitor(xOutputInfo *XOutputInfo) error {
+func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 	m.monitorMapMu.Lock()
-	_, ok := m.monitorMap[xOutputInfo.ID]
+	_, ok := m.monitorMap[monitorInfo.ID]
 	m.monitorMapMu.Unlock()
 	if ok {
 		return nil
 	}
 
-	logger.Debug("addMonitor", xOutputInfo.Name)
-	connected := xOutputInfo.Connected
-	err := m.recordMonitorConnected(xOutputInfo.Name, connected, time.Now())
-	if err != nil {
-		logger.Warning(err)
-	}
+	logger.Debug("addMonitor", monitorInfo.Name)
 
 	monitor := &Monitor{
 		service:            m.service,
 		m:                  m,
-		ID:                 xOutputInfo.ID,
-		Name:               xOutputInfo.Name,
-		Connected:          connected,
-		MmWidth:            xOutputInfo.MmWidth,
-		MmHeight:           xOutputInfo.MmHeight,
-		Enabled:            xOutputInfo.crtc != 0,
-		uuid:               getOutputUuid(xOutputInfo.Name, xOutputInfo.EDID),
-		Manufacturer:       xOutputInfo.Manufacturer,
-		Model:              xOutputInfo.Model,
-		AvailableFillModes: xOutputInfo.AvailableFillModes,
+		ID:                 monitorInfo.ID,
+		Name:               monitorInfo.Name,
+		Connected:          monitorInfo.Connected,
+		MmWidth:            monitorInfo.MmWidth,
+		MmHeight:           monitorInfo.MmHeight,
+		Enabled:            monitorInfo.Enabled,
+		uuid:               monitorInfo.UUID,
+		Manufacturer:       monitorInfo.Manufacturer,
+		Model:              monitorInfo.Model,
+		AvailableFillModes: monitorInfo.AvailableFillModes,
 	}
 
-	monitor.Modes = m.filterModeInfos(xOutputInfo.Modes, xOutputInfo.PreferredMode)
-	monitor.BestMode = getBestMode(monitor.Modes, xOutputInfo.PreferredMode)
-	if monitor.BestMode.Id != 0 {
+	monitor.Modes = m.filterModeInfos(monitorInfo.Modes, monitorInfo.PreferredMode)
+	monitor.BestMode = getBestMode(monitor.Modes, monitorInfo.PreferredMode)
+	if !monitor.BestMode.isZero() {
 		monitor.PreferredModes = []ModeInfo{monitor.BestMode}
 	}
-	monitor.X = xOutputInfo.X
-	monitor.Y = xOutputInfo.Y
-	monitor.Width = xOutputInfo.Width
-	monitor.Height = xOutputInfo.Height
+	monitor.X = monitorInfo.X
+	monitor.Y = monitorInfo.Y
+	monitor.Width = monitorInfo.Width
+	monitor.Height = monitorInfo.Height
 
-	monitor.Reflects = getReflects(xOutputInfo.Rotations)
-	monitor.Rotations = getRotations(xOutputInfo.Rotations)
-	monitor.Rotation, monitor.Reflect = parseCrtcRotation(xOutputInfo.Rotation)
-	monitor.CurrentMode = xOutputInfo.CurrentMode
-	monitor.RefreshRate = xOutputInfo.CurrentMode.Rate
+	monitor.Reflects = getReflects(monitorInfo.Rotations)
+	monitor.Rotations = getRotations(monitorInfo.Rotations)
+	monitor.Rotation, monitor.Reflect = parseCrtcRotation(monitorInfo.Rotation)
+	monitor.CurrentMode = monitorInfo.CurrentMode
+	monitor.RefreshRate = monitorInfo.CurrentMode.Rate
 
 	monitor.oldRotation = monitor.Rotation
 
-	err = m.service.Export(monitor.getPath(), monitor)
+	m.handleMonitorConnectedChanged(monitor, monitorInfo.Connected)
+
+	err := m.service.Export(monitor.getPath(), monitor)
 	if err != nil {
 		return err
 	}
 	m.monitorMapMu.Lock()
-	m.monitorMap[xOutputInfo.ID] = monitor
+	m.monitorMap[monitorInfo.ID] = monitor
 	m.monitorMapMu.Unlock()
 
 	monitorObj := m.service.GetServerObject(monitor)
@@ -998,12 +1009,12 @@ func (m *Manager) addMonitor(xOutputInfo *XOutputInfo) error {
 }
 
 // updateMonitor 根据 outputInfo 中的信息更新 dbus 上的 Monitor 对象的属性
-func (m *Manager) updateMonitor(xOutputInfo *XOutputInfo) {
+func (m *Manager) updateMonitor(monitorInfo *MonitorInfo) {
 	m.monitorMapMu.Lock()
-	monitor, ok := m.monitorMap[xOutputInfo.ID]
+	monitor, ok := m.monitorMap[monitorInfo.ID]
 	m.monitorMapMu.Unlock()
 	if !ok {
-		err := m.addMonitor(xOutputInfo)
+		err := m.addMonitor(monitorInfo)
 		if err != nil {
 			logger.Warning(err)
 			return
@@ -1011,12 +1022,54 @@ func (m *Manager) updateMonitor(xOutputInfo *XOutputInfo) {
 
 		return
 	}
-	logger.Debugf("updateMonitor %v", xOutputInfo.Name)
-	//xOutputInfo.dumpForDebug()
+	logger.Debugf("updateMonitor %v", monitorInfo.Name)
+	//monitorInfo.dumpForDebug()
 
-	connected := xOutputInfo.Connected
-	enabled := xOutputInfo.crtc != 0
-	err := m.recordMonitorConnected(xOutputInfo.Name, connected, time.Now())
+	m.handleMonitorConnectedChanged(monitor, monitorInfo.Connected)
+	monitor.PropsMu.Lock()
+
+	if monitor.uuid != monitorInfo.UUID {
+		logger.Debugf("%v uuid changed, old:%q, new %q", monitor, monitor.uuid, monitorInfo.UUID)
+	}
+	monitor.uuid = monitorInfo.UUID
+	monitor.setPropAvailableFillModes(monitorInfo.AvailableFillModes)
+	monitor.setPropManufacturer(monitorInfo.Manufacturer)
+	monitor.setPropModel(monitorInfo.Model)
+	monitor.setPropConnected(monitorInfo.Connected)
+	monitor.setPropEnabled(monitorInfo.Enabled)
+	monitor.setPropModes(m.filterModeInfos(monitorInfo.Modes, monitorInfo.PreferredMode))
+	bestMode := getBestMode(monitor.Modes, monitorInfo.PreferredMode)
+	monitor.setPropBestMode(bestMode)
+	var preferredModes []ModeInfo
+	if !bestMode.isZero() {
+		preferredModes = []ModeInfo{bestMode}
+	}
+	monitor.setPropPreferredModes(preferredModes)
+	monitor.setPropMmWidth(monitorInfo.MmWidth)
+	monitor.setPropMmHeight(monitorInfo.MmHeight)
+	monitor.setPropX(monitorInfo.X)
+	monitor.setPropY(monitorInfo.Y)
+	monitor.setPropWidth(monitorInfo.Width)
+	monitor.setPropHeight(monitorInfo.Height)
+
+	monitor.setPropReflects(getReflects(monitorInfo.Rotations))
+	monitor.setPropRotations(getRotations(monitorInfo.Rotations))
+	rotation, reflectProp := parseCrtcRotation(monitorInfo.Rotation)
+	monitor.setPropRotation(rotation)
+	monitor.setPropReflect(reflectProp)
+
+	monitor.setPropCurrentMode(monitorInfo.CurrentMode)
+	monitor.setPropRefreshRate(monitorInfo.CurrentMode.Rate)
+
+	monitor.PropsMu.Unlock()
+}
+
+func (m *Manager) forceUpdateMonitor(monitorInfo *MonitorInfo) {
+	m.updateMonitor(monitorInfo)
+}
+
+func (m *Manager) handleMonitorConnectedChanged(monitor *Monitor, connected bool) {
+	err := m.recordMonitorConnected(monitor.Name, connected, time.Now())
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -1026,40 +1079,6 @@ func (m *Manager) updateMonitor(xOutputInfo *XOutputInfo) {
 		// 断开
 		m.updateBuiltinMonitorOnDisconnected(monitor.ID)
 	}
-	uuid := getOutputUuid(xOutputInfo.Name, xOutputInfo.EDID)
-	monitor.PropsMu.Lock()
-
-	monitor.uuid = uuid
-	monitor.setPropAvailableFillModes(xOutputInfo.AvailableFillModes)
-	monitor.setPropManufacturer(xOutputInfo.Manufacturer)
-	monitor.setPropModel(xOutputInfo.Model)
-	monitor.setPropConnected(connected)
-	monitor.setPropEnabled(enabled)
-	monitor.setPropModes(m.filterModeInfos(xOutputInfo.Modes, xOutputInfo.PreferredMode))
-	bestMode := getBestMode(monitor.Modes, xOutputInfo.PreferredMode)
-	monitor.setPropBestMode(bestMode)
-	var preferredModes []ModeInfo
-	if bestMode.Id != 0 {
-		preferredModes = []ModeInfo{bestMode}
-	}
-	monitor.setPropPreferredModes(preferredModes)
-	monitor.setPropMmWidth(xOutputInfo.MmWidth)
-	monitor.setPropMmHeight(xOutputInfo.MmHeight)
-	monitor.setPropX(xOutputInfo.X)
-	monitor.setPropY(xOutputInfo.Y)
-	monitor.setPropWidth(xOutputInfo.Width)
-	monitor.setPropHeight(xOutputInfo.Height)
-
-	monitor.setPropReflects(getReflects(xOutputInfo.Rotations))
-	monitor.setPropRotations(getRotations(xOutputInfo.Rotations))
-	rotation, reflectProp := parseCrtcRotation(xOutputInfo.Rotation)
-	monitor.setPropRotation(rotation)
-	monitor.setPropReflect(reflectProp)
-
-	monitor.setPropCurrentMode(xOutputInfo.CurrentMode)
-	monitor.setPropRefreshRate(xOutputInfo.CurrentMode.Rate)
-
-	monitor.PropsMu.Unlock()
 }
 
 func (m *Manager) buildConfigForModeMirror() (monitorCfgs SysMonitorConfigs, err error) {
@@ -1210,11 +1229,12 @@ func (m *Manager) apply(options applyOptions) error {
 	m.PropsMu.RLock()
 	prevScreenSize := screenSize{width: m.ScreenWidth, height: m.ScreenHeight}
 	m.PropsMu.RUnlock()
-	err := m.srm.apply(m.monitorMap, prevScreenSize, options, m.sysConfig.Config.FillModes)
+	err := m.mm.apply(m.monitorMap, prevScreenSize, options, m.sysConfig.Config.FillModes)
 	return err
 }
 
 func (m *Manager) handlePrimaryRectChanged(pmi primaryMonitorInfo) {
+	logger.Debug("handlePrimaryRectChanged", pmi)
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
@@ -1266,7 +1286,7 @@ func (m *Manager) setPrimary(name string) error {
 			configs.setPrimary(primaryMonitor.uuid)
 		}
 
-		err := m.srm.SetMonitorPrimary(primaryMonitor.ID)
+		err := m.mm.setMonitorPrimary(primaryMonitor.ID)
 		if err != nil {
 			return err
 		}
@@ -1623,7 +1643,7 @@ func (m *Manager) applySysMonitorConfigs(configs SysMonitorConfigs, options appl
 		m.syncPropBrightness()
 	}()
 
-	err = m.srm.SetMonitorPrimary(primaryMonitorID)
+	err = m.mm.setMonitorPrimary(primaryMonitorID)
 	if err != nil {
 		logger.Warning(err)
 	}
@@ -2039,7 +2059,11 @@ func (m *Manager) saveUserConfig() error {
 
 	m.userConfig.Version = userConfigVersion
 	if logger.GetLogLevel() == log.LevelDebug {
-		logger.Debug("saveUserConfig", spew.Sdump(m.userConfig))
+		if m.debugOpts.printSaveCfgDetail {
+			logger.Debug("saveUserConfig", spew.Sdump(m.userConfig))
+		} else {
+			logger.Debug("saveUserConfig")
+		}
 	}
 	content, err := json.Marshal(m.userConfig)
 	if err != nil {
@@ -2106,6 +2130,14 @@ func (m *Manager) saveSysConfig(reason string) error {
 	return err
 }
 
+type debugOptions struct {
+	printSaveCfgDetail bool
+}
+
+func (m *Manager) initDebugOptions() {
+	m.debugOpts.printSaveCfgDetail = os.Getenv("DISPLAY_PRINT_SAVE_CFG_DETAIL") == "1"
+}
+
 func (m *Manager) saveSysConfigNoLock(reason string) error {
 	if _greeterMode {
 		return nil
@@ -2114,7 +2146,11 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 	m.sysConfig.Version = sysConfigVersion
 
 	if logger.GetLogLevel() == log.LevelDebug {
-		logger.Debugf("saveSysConfig reason: %s, sysConfig: %s", reason, spew.Sdump(&m.sysConfig))
+		if m.debugOpts.printSaveCfgDetail {
+			logger.Debugf("saveSysConfig reason: %s, sysConfig: %s", reason, spew.Sdump(&m.sysConfig))
+		} else {
+			logger.Debugf("saveSysConfig reason: %s", reason)
+		}
 	}
 
 	cfgJson := jsonMarshal(&m.sysConfig)
@@ -2123,36 +2159,39 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 }
 
 func (m *Manager) setMonitorFillMode(monitor *Monitor, fillMode string) error {
-	m.setCurrentFillModeMutex.Lock()
-	defer m.setCurrentFillModeMutex.Unlock()
+	m.setFillModeMu.Lock()
+	defer m.setFillModeMu.Unlock()
 
 	if len(monitor.AvailableFillModes) == 0 {
 		return errors.New("monitor do not support set fill mode")
 	}
 
+	m.sysConfig.mu.Lock()
+	cfg := &m.sysConfig.Config
 	fillModeKey := monitor.generateFillModeKey()
 	if fillMode == "" {
-		fillMode = m.sysConfig.Config.FillModes[fillModeKey]
+		fillMode = cfg.FillModes[fillModeKey]
 	}
+	m.sysConfig.mu.Unlock()
 	if fillMode == "" {
 		fillMode = fillModeDefault
 	}
 
 	logger.Debugf("%v set fill mode %v", monitor, fillMode)
 
-	err := m.srm.setOutputScalingMode(randr.Output(monitor.ID), fillMode)
+	err := m.mm.setMonitorFillMode(monitor, fillMode)
 	if err != nil {
-		logger.Warning(err)
 		return err
 	}
-	monitor.setPropCurrentFillMode(fillMode)
 
-	cfg := &m.sysConfig.Config
+	m.sysConfig.mu.Lock()
 	if cfg.FillModes == nil {
 		cfg.FillModes = make(map[string]string)
 	}
 	cfg.FillModes[fillModeKey] = fillMode
-	err = m.saveSysConfig("fill mode changed")
+	err = m.saveSysConfigNoLock("fill mode changed")
+	m.sysConfig.mu.Unlock()
+
 	return err
 }
 
@@ -2444,4 +2483,27 @@ func (m *Manager) listenSettingsChanged() {
 			return
 		}
 	})
+}
+
+// wayland 下专用，更新屏幕宽高属性
+func (m *Manager) updateScreenSize() {
+	var screenWidth uint16
+	var screenHeight uint16
+
+	m.monitorMapMu.Lock()
+	for _, monitor := range m.monitorMap {
+		if !monitor.Enabled {
+			continue
+		}
+		if screenWidth < uint16(monitor.X)+monitor.Width {
+			screenWidth = uint16(monitor.X) + monitor.Width
+		}
+		if screenHeight < uint16(monitor.Y)+monitor.Height {
+			screenHeight = uint16(monitor.Y) + monitor.Height
+		}
+	}
+	m.monitorMapMu.Unlock()
+
+	m.setPropScreenWidth(screenWidth)
+	m.setPropScreenHeight(screenHeight)
 }

@@ -92,6 +92,18 @@ func uint16SliceEqual(v1, v2 []uint16) bool {
 	return true
 }
 
+func objPathsEqual(v1, v2 []dbus.ObjectPath) bool {
+	if len(v1) != len(v2) {
+		return false
+	}
+	for i, e1 := range v1 {
+		if e1 != v2[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func outputSliceEqual(v1, v2 []randr.Output) bool {
 	if len(v1) != len(v2) {
 		return false

@@ -1,0 +1,637 @@
+package display
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os/exec"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"pkg.deepin.io/lib/dbusutil"
+	"pkg.deepin.io/lib/log"
+)
+
+type monitorIdGenerator struct {
+	nextId    uint32
+	uuidIdMap map[string]uint32
+	mu        sync.Mutex
+}
+
+func newMonitorIdGenerator() *monitorIdGenerator {
+	return &monitorIdGenerator{
+		nextId:    1,
+		uuidIdMap: make(map[string]uint32),
+	}
+}
+
+func (mig *monitorIdGenerator) getId(uuid string) uint32 {
+	mig.mu.Lock()
+	defer mig.mu.Unlock()
+
+	id, ok := mig.uuidIdMap[uuid]
+	if ok {
+		return id
+	}
+	id = mig.nextId
+	mig.nextId++
+	mig.uuidIdMap[uuid] = id
+	return id
+}
+
+type KOutputInfo struct {
+	// json 中不提供 id
+	id           uint32
+	UUID         string      `json:"uuid"`
+	EdidBase64   string      `json:"edid_base64"`
+	Enabled      int32       `json:"enabled"`
+	X            int32       `json:"x"`
+	Y            int32       `json:"y"`
+	Width        int32       `json:"width"`
+	Height       int32       `json:"height"`
+	RefreshRate  int32       `json:"refresh_rate"`
+	Manufacturer string      `json:"manufacturer"`
+	Model        string      `json:"model"`
+	ModeInfos    []KModeInfo `json:"ModeInfo"`
+	PhysHeight   int32       `json:"phys_height"`
+	PhysWidth    int32       `json:"phys_width"`
+	Transform    int32       `json:"transform"`
+	Scale        float64     `json:"scale"`
+}
+
+func (oi *KOutputInfo) setId(mig *monitorIdGenerator) {
+	oi.id = mig.getId(oi.UUID)
+}
+
+func (oi *KOutputInfo) getModes() (result []ModeInfo) {
+	for _, mi := range oi.ModeInfos {
+		result = append(result, mi.toModeInfo())
+	}
+	sort.Sort(sort.Reverse(ModeInfos(result)))
+	return
+}
+
+const (
+	OutputDeviceTransformNormal     = 0
+	OutputDeviceTransform90         = 1
+	OutputDeviceTransform180        = 2
+	OutputDeviceTransform270        = 3
+	OutputDeviceTransformFlipped    = 4
+	OutputDeviceTransformFlipped90  = 5
+	OutputDeviceTransformFlipped180 = 6
+	OutputDeviceTransformFlipped270 = 7
+)
+
+const (
+	OutputDeviceModeCurrent   = 1 << 0
+	OutputDeviceModePreferred = 1 << 1
+)
+
+func (oi *KOutputInfo) getBestMode() ModeInfo {
+	var preferredMode *KModeInfo
+	for _, info := range oi.ModeInfos {
+		if info.Flags&OutputDeviceModePreferred != 0 {
+			preferredMode = &info
+			break
+		}
+	}
+
+	if preferredMode == nil {
+		// not found preferred mode
+		return getMaxAreaOutputDeviceMode(oi.ModeInfos).toModeInfo()
+	}
+	return preferredMode.toModeInfo()
+}
+
+func (oi *KOutputInfo) getCurrentMode() ModeInfo {
+	for _, info := range oi.ModeInfos {
+		if info.Flags&OutputDeviceModeCurrent != 0 {
+			return info.toModeInfo()
+		}
+	}
+	return ModeInfo{}
+}
+
+func (oi *KOutputInfo) rotation() uint16 {
+	switch oi.Transform {
+	case OutputDeviceTransformNormal:
+		return randr.RotationRotate0
+	case OutputDeviceTransform90:
+		return randr.RotationRotate90
+	case OutputDeviceTransform180:
+		return randr.RotationRotate180
+	case OutputDeviceTransform270:
+		return randr.RotationRotate270
+
+	case OutputDeviceTransformFlipped:
+		return randr.RotationRotate0
+	case OutputDeviceTransformFlipped90:
+		return randr.RotationRotate90
+	case OutputDeviceTransformFlipped180:
+		return randr.RotationRotate180
+	case OutputDeviceTransformFlipped270:
+		return randr.RotationRotate270
+	}
+	return 0
+}
+
+func randrRotationToTransform(rotation int) int {
+	switch rotation {
+	case randr.RotationRotate0:
+		return OutputDeviceTransformNormal
+	case randr.RotationRotate90:
+		return OutputDeviceTransform90
+	case randr.RotationRotate180:
+		return OutputDeviceTransform180
+	case randr.RotationRotate270:
+		return OutputDeviceTransform270
+	}
+	return 0
+}
+
+func getMaxAreaOutputDeviceMode(modes []KModeInfo) KModeInfo {
+	if len(modes) == 0 {
+		return KModeInfo{}
+	}
+	maxAreaMode := modes[0]
+	for _, mode := range modes[1:] {
+		if int(maxAreaMode.Width)*int(maxAreaMode.Height) < int(mode.Width)*int(mode.Height) {
+			maxAreaMode = mode
+		}
+	}
+	return maxAreaMode
+}
+
+func (oi *KOutputInfo) getEnabled() bool {
+	return int32ToBool(oi.Enabled)
+}
+
+func (oi *KOutputInfo) getName() string {
+	return getOutputDeviceName(oi.Model, oi.Manufacturer)
+}
+
+func (oi *KOutputInfo) toMonitorInfo() *MonitorInfo {
+	mi := &MonitorInfo{
+		Enabled:       oi.Enabled != 0,
+		ID:            oi.id,
+		Name:          oi.getName(),
+		UUID:          oi.UUID,
+		Connected:     true,
+		Modes:         oi.getModes(),
+		CurrentMode:   oi.getCurrentMode(),
+		PreferredMode: oi.getBestMode(),
+		X:             int16(oi.X),
+		Y:             int16(oi.Y),
+		Width:         uint16(oi.Width),
+		Height:        uint16(oi.Height),
+		Rotation:      oi.rotation(),
+		Rotations: randr.RotationRotate0 | randr.RotationRotate90 |
+			randr.RotationRotate180 | randr.RotationRotate270,
+		MmHeight:     uint32(oi.PhysHeight),
+		MmWidth:      uint32(oi.PhysWidth),
+		Manufacturer: oi.Manufacturer,
+		Model:        oi.Model,
+	}
+	edid, err := decodeEdidBase64(oi.EdidBase64)
+	if err != nil {
+		logger.Warningf("decode monitor %v %v edid failed: %v", mi.ID, mi.Name, err)
+	} else {
+		mi.EDID = edid
+	}
+	if logger.GetLogLevel() == log.LevelDebug {
+		logger.Debugf("monitor %v %v edid: %v", mi.ID, mi.Name, spew.Sdump(mi.EDID))
+		manufacturer, model := parseEdid(mi.EDID)
+		logger.Debugf("parse edid manufacturer: %q, model: %q", manufacturer, model)
+	}
+	return mi
+}
+
+func decodeEdidBase64(edidB64 string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(edidB64)
+}
+
+type KModeInfo struct {
+	Id          int32 `json:"id"`
+	Width       int32 `json:"width"`
+	Height      int32 `json:"height"`
+	RefreshRate int32 `json:"refresh_rate"`
+	Flags       int32 `json:"flags"`
+}
+
+func (mi KModeInfo) toModeInfo() ModeInfo {
+	return ModeInfo{
+		Id:     uint32(mi.Id),
+		name:   mi.name(),
+		Width:  uint16(mi.Width),
+		Height: uint16(mi.Height),
+		Rate:   mi.rate(),
+	}
+}
+
+func (mi KModeInfo) name() string {
+	return fmt.Sprintf("%dx%d", mi.Width, mi.Height)
+}
+
+func (mi KModeInfo) rate() float64 {
+	return float64(mi.RefreshRate) / 1000.0
+}
+
+func unmarshalOutputInfos(str string) ([]*KOutputInfo, error) {
+	var v outputInfoWrap
+	err := json.Unmarshal([]byte(str), &v)
+	if err != nil {
+		return nil, err
+	}
+	return v.OutputInfo, nil
+}
+
+func unmarshalOutputInfo(str string) (*KOutputInfo, error) {
+	var v outputInfoWrap
+	err := json.Unmarshal([]byte(str), &v)
+	if err != nil {
+		return nil, err
+	}
+	if len(v.OutputInfo) == 0 {
+		return nil, errors.New("length of slice v.OutputInfo is 0")
+	}
+	return v.OutputInfo[0], nil
+}
+
+type outputInfoWrap struct {
+	OutputInfo []*KOutputInfo
+}
+
+// such as: make('dell'), model('eDP-1-dell'), so name is 'eDP-1'
+func getOutputDeviceName(model, make string) string {
+	logger.Debugf("[DEBUG] get name: '%s', '%s'", model, make)
+	name := getNameFromModelAndMake(model, make)
+	if name != model {
+		return name
+	}
+	names := strings.Split(model, "-")
+	if len(names) <= 2 {
+		return getNameFromModel(model)
+	}
+
+	idx := len(names) - 1
+	for ; idx > 1; idx-- {
+		if len(names[idx]) > 1 {
+			continue
+		}
+		break
+	}
+	return strings.Join(names[:idx+1], "-")
+}
+
+func getNameFromModel(model string) string {
+	idx := strings.IndexByte(model, ' ')
+	if idx == -1 {
+		return model
+	}
+	return model[:idx]
+}
+
+func getNameFromModelAndMake(model, make string) string {
+	preMake := strings.Split(make, " ")[0]
+	name := strings.Split(model, preMake)[0]
+	return strings.TrimRight(name, "-")
+}
+
+func int32ToBool(v int32) bool {
+	return v != 0
+}
+
+func (m *Manager) removeMonitor(id uint32) *Monitor {
+	m.monitorMapMu.Lock()
+
+	monitor, ok := m.monitorMap[id]
+	if !ok {
+		m.monitorMapMu.Unlock()
+		return nil
+	}
+	delete(m.monitorMap, id)
+	m.monitorMapMu.Unlock()
+
+	err := m.service.StopExport(monitor)
+	if err != nil {
+		logger.Warning(err)
+	}
+	return monitor
+}
+
+type kMonitorManager struct {
+	hooks          monitorManagerHooks
+	sessionSigLoop *dbusutil.SignalLoop
+	mu             sync.Mutex
+	management     kwayland.OutputManagement
+	mig            *monitorIdGenerator
+	monitorMap     map[uint32]*MonitorInfo
+	primary        uint32
+	applyMu        sync.Mutex
+}
+
+func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
+	kmm := &kMonitorManager{
+		sessionSigLoop: sessionSigLoop,
+		monitorMap:     make(map[uint32]*MonitorInfo),
+	}
+
+	sessionBus := sessionSigLoop.Conn()
+	kmm.mig = newMonitorIdGenerator()
+	kmm.management = kwayland.NewOutputManagement(sessionBus)
+	err := kmm.init()
+	if err != nil {
+		logger.Warning(err)
+	}
+	return kmm
+}
+
+func (mm *kMonitorManager) init() error {
+	mm.listenDBusSignals()
+	// init monitorMap
+	kOutputInfos, err := mm.listOutput()
+	if err != nil {
+		logger.Warning(err)
+	}
+	monitors := kOutputInfos.toMonitorInfos()
+	mm.mu.Lock()
+	for _, monitor := range monitors {
+		mm.monitorMap[monitor.ID] = monitor
+	}
+	mm.mu.Unlock()
+	return nil
+}
+
+type KOutputInfos []*KOutputInfo
+
+func (infos KOutputInfos) toMonitorInfos() []*MonitorInfo {
+	result := make([]*MonitorInfo, 0, len(infos))
+	for _, info := range infos {
+		result = append(result, info.toMonitorInfo())
+	}
+	return result
+}
+
+func (mm *kMonitorManager) listOutput() (KOutputInfos, error) {
+	var outputJ string
+	var duration = 500 * time.Millisecond
+	// sometimes got the output list will return nil, this is the output service not inited yet.
+	// so try got 3 times.
+	for i := 0; i < 3; i++ {
+		data, err := mm.management.ListOutput(0)
+		if len(data) != 0 {
+			outputJ = data
+			break
+		}
+
+		if err != nil || len(data) == 0 {
+			logger.Warning("Failed to get output list:", err)
+		}
+		time.Sleep(duration)
+		duration += 100 * time.Millisecond
+	}
+	logger.Debug("outputJ:", outputJ)
+	outputInfos, err := unmarshalOutputInfos(outputJ)
+	if err != nil {
+		return nil, err
+	}
+	// 补充 id
+	for _, info := range outputInfos {
+		info.setId(mm.mig)
+	}
+	return outputInfos, nil
+}
+
+func (mm *kMonitorManager) setHooks(hooks monitorManagerHooks) {
+	mm.hooks = hooks
+}
+
+func (mm *kMonitorManager) setMonitorFillMode(monitor *Monitor, fillMode string) error {
+	return nil
+}
+
+func (mm *kMonitorManager) getMonitors() []*MonitorInfo {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	monitors := make([]*MonitorInfo, 0, len(mm.monitorMap))
+	for _, monitor := range mm.monitorMap {
+		monitorCp := *monitor
+		monitors = append(monitors, &monitorCp)
+	}
+	return monitors
+}
+
+func (mm *kMonitorManager) getMonitor(id uint32) *MonitorInfo {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	monitorInfo, ok := mm.monitorMap[id]
+	if !ok {
+		return nil
+	}
+	monitor := *monitorInfo
+	return &monitor
+}
+
+func (mm *kMonitorManager) apply(monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
+	mm.applyMu.Lock()
+	defer mm.applyMu.Unlock()
+	return mm.applyByWLOutput(monitorMap)
+}
+
+func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error {
+	var disabledMonitors []*Monitor
+	var args []string
+	for _, monitor := range monitorMap {
+		trans := int32(randrRotationToTransform(int(monitor.Rotation)))
+		if !monitor.Enabled {
+			disabledMonitors = append(disabledMonitors, monitor)
+			continue
+		}
+		logger.Debugf("apply name: %q, uuid: %q, enabled: %v, x: %v, y: %v, mode: %+v, trans:%v",
+			monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
+
+		args = append(args, monitor.uuid, "1",
+			strconv.Itoa(int(monitor.X)), strconv.Itoa(int(monitor.Y)),
+			strconv.Itoa(int(monitor.CurrentMode.Width)),
+			strconv.Itoa(int(monitor.CurrentMode.Height)),
+			strconv.Itoa(int(monitor.CurrentMode.Rate*1000)),
+			strconv.Itoa(int(trans)))
+	}
+
+	if len(args) > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
+		cmdline.Args = append(cmdline.Args, args...)
+		logger.Info("cmd line args:", cmdline.Args)
+
+		data, err := cmdline.CombinedOutput()
+		cancel()
+		// ignore timeout signal
+		if err != nil && !strings.Contains(err.Error(), "killed") {
+			logger.Warningf("%s(%s)", string(data), err)
+			return err
+		}
+		// wait request done
+		//time.Sleep(time.Millisecond * 500)
+	}
+
+	// TODO 为什么 enabled 和 disabled 需要分开？
+	for _, monitor := range disabledMonitors {
+		logger.Debug("-----------Will disable output:", monitor.Name)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
+		cancel()
+		// ignore timeout signal
+		if err != nil && !strings.Contains(err.Error(), "killed") {
+			logger.Warningf("%s(%s)", string(data), err)
+			return err
+		}
+		// wait request done
+		//time.Sleep(time.Millisecond * 500)
+	}
+	return nil
+}
+
+func (mm *kMonitorManager) handleOutputAdded(outputInfo *KOutputInfo) {
+	logger.Debugf("OutputAdded %#v", outputInfo)
+
+	monitorInfo := outputInfo.toMonitorInfo()
+	mm.mu.Lock()
+	mm.monitorMap[outputInfo.id] = monitorInfo
+	mm.mu.Unlock()
+
+	if mm.hooks != nil {
+		mm.hooks.handleMonitorAdded(monitorInfo)
+	}
+}
+
+func (mm *kMonitorManager) handleOutputChanged(outputInfo *KOutputInfo) {
+	logger.Debugf("OutputChanged %#v", outputInfo)
+
+	monitorInfo := outputInfo.toMonitorInfo()
+	mm.mu.Lock()
+	mm.monitorMap[outputInfo.id] = monitorInfo
+	primary := mm.primary
+	mm.mu.Unlock()
+
+	if monitorInfo.ID == primary {
+		mm.invokePrimaryRectChangedCb(monitorInfo)
+	}
+
+	if mm.hooks != nil {
+		mm.hooks.handleMonitorChanged(monitorInfo)
+	}
+
+	// TODO
+	//if m.checkKwinMonitorData(monitor, kinfo) == true {
+	//	m.updateMonitor(monitor, kinfo)
+	//}
+}
+
+func (mm *kMonitorManager) handleOutputRemoved(outputInfo *KOutputInfo) {
+	logger.Debugf("OutputRemoved %#v", outputInfo)
+
+	mm.mu.Lock()
+	delete(mm.monitorMap, outputInfo.id)
+	mm.mu.Unlock()
+
+	if mm.hooks != nil {
+		mm.hooks.handleMonitorRemoved(outputInfo.id)
+	}
+}
+
+func (mm *kMonitorManager) listenDBusSignals() {
+	mm.management.InitSignalExt(mm.sessionSigLoop, true)
+
+	_, err := mm.management.ConnectOutputAdded(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		outputInfo.setId(mm.mig)
+		mm.handleOutputAdded(outputInfo)
+
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = mm.management.ConnectOutputChanged(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		outputInfo.setId(mm.mig)
+		// 根据选择 transform 修正宽和高，应该只有 OutputChanged 事件才有必要。
+		if needSwapWidthHeight(outputInfo.rotation()) {
+			outputInfo.Width, outputInfo.Height = outputInfo.Height, outputInfo.Width
+		}
+		mm.handleOutputChanged(outputInfo)
+
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	_, err = mm.management.ConnectOutputRemoved(func(output string) {
+		outputInfo, err := unmarshalOutputInfo(output)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		outputInfo.setId(mm.mig)
+		mm.handleOutputRemoved(outputInfo)
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
+func (mm *kMonitorManager) invokePrimaryRectChangedCb(monitorInfo *MonitorInfo) {
+	pmi := primaryMonitorInfo{
+		Name: monitorInfo.Name,
+		Rect: monitorInfo.getRect(),
+	}
+
+	if mm.hooks != nil {
+		mm.hooks.handlePrimaryRectChanged(pmi)
+	}
+}
+
+func (mm *kMonitorManager) setMonitorPrimary(monitorId uint32) error {
+	logger.Debug("mm.setMonitorPrimary", monitorId)
+	monitor := mm.getMonitor(monitorId)
+	if monitor == nil {
+		return fmt.Errorf("invalid monitor id %v", monitorId)
+	}
+
+	mm.mu.Lock()
+	mm.primary = monitorId
+	mm.mu.Unlock()
+
+	mm.invokePrimaryRectChangedCb(monitor)
+	return nil
+}
+
+func (mm *kMonitorManager) showCursor(show bool) error {
+	return nil
+}
+
+func (mm *kMonitorManager) HandleEvent(ev interface{}) {
+
+}
+
+func (mm *kMonitorManager) HandleScreenChanged(e *randr.ScreenChangeNotifyEvent) (cfgTsChanged bool) {
+	return false
+}

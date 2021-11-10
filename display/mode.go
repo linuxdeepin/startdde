@@ -30,6 +30,37 @@ import (
 	"pkg.deepin.io/lib/strv"
 )
 
+type ModeInfo struct {
+	Id     uint32
+	name   string
+	Width  uint16
+	Height uint16
+	Rate   float64
+}
+
+func (mi ModeInfo) isZero() bool {
+	return mi == ModeInfo{}
+}
+
+type ModeInfos []ModeInfo
+
+func (infos ModeInfos) Len() int {
+	return len(infos)
+}
+
+func (infos ModeInfos) Less(i, j int) bool {
+	areaI := int(infos[i].Width) * int(infos[i].Height)
+	areaJ := int(infos[j].Width) * int(infos[j].Height)
+	if areaI == areaJ {
+		return infos[i].Rate < infos[j].Rate
+	}
+	return areaI < areaJ
+}
+
+func (infos ModeInfos) Swap(i, j int) {
+	infos[i], infos[j] = infos[j], infos[i]
+}
+
 func toModeInfo(info randr.ModeInfo) ModeInfo {
 	return ModeInfo{
 		Id:     info.Id,
@@ -69,7 +100,7 @@ func filterModeInfos(modes []ModeInfo, saveMode ModeInfo) []ModeInfo {
 						len(mode1.name) > 0 &&
 						isDigit(mode1.name[len(mode1.name)-1])
 				})
-				if m.Id != 0 {
+				if !m.isZero() {
 					// 找到大小相同的 mode
 					skip = true
 					filteredModeNames = append(filteredModeNames, mode.name)
@@ -83,7 +114,7 @@ func filterModeInfos(modes []ModeInfo, saveMode ModeInfo) []ModeInfo {
 						mode.Height == mode1.Height &&
 						formatRate(mode.Rate) == formatRate(mode1.Rate)
 				})
-				if m.Id != 0 {
+				if !m.isZero() {
 					//logger.Debugf("compare mode: %s, find m: %s",
 					//	spew.Sdump(mode), spew.Sdump(m))
 					skip = true
@@ -177,7 +208,7 @@ func modeInfosEqual(v1, v2 []ModeInfo) bool {
 func toModeInfos(modes []randr.ModeInfo, modeIds []randr.Mode) (modeInfos []ModeInfo) {
 	for _, id := range modeIds {
 		modeInfo := findModeInfo(modes, id)
-		if modeInfo.Id != 0 {
+		if !modeInfo.isZero() {
 			modeInfos = append(modeInfos, modeInfo)
 		}
 	}
@@ -205,7 +236,7 @@ func findMode(modes []ModeInfo, modeId uint32) ModeInfo {
 // modeId 是 preferred mode 的 id
 func getPreferredMode(modes []ModeInfo, modeId uint32) ModeInfo {
 	mode := findMode(modes, modeId)
-	if mode.Id != 0 {
+	if !mode.isZero() {
 		return mode
 	}
 	if len(modes) > 0 {
@@ -216,11 +247,11 @@ func getPreferredMode(modes []ModeInfo, modeId uint32) ModeInfo {
 
 func getBestMode(modes []ModeInfo, preferredMode ModeInfo) ModeInfo {
 	mode := findMode(modes, preferredMode.Id)
-	if mode.Id != 0 {
+	if !mode.isZero() {
 		return mode
 	}
 	mode = getFirstModeBySize(modes, preferredMode.Width, preferredMode.Height)
-	if mode.Id != 0 {
+	if !mode.isZero() {
 		return mode
 	}
 	if len(modes) > 0 {
