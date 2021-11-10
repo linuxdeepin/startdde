@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/strv"
 	"pkg.deepin.io/lib/xdg/basedir"
@@ -56,16 +56,17 @@ func (m *Manager) Save() *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
-func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
-	var touchUUID string
+//不能使用Serial，Serial名称可能会相同
+func (m *Manager) AssociateTouch(outputName, touchUUID string) *dbus.Error {
+	var UUID string
 	for _, v := range m.Touchscreens {
-		if v.Serial == touchSerial {
-			touchUUID = v.uuid
+		if v.UUID == touchUUID {
+			UUID = v.UUID
 			break
 		}
 	}
 
-	if touchUUID == "" {
+	if UUID == "" {
 		return dbusutil.ToError(errors.New("touchscreen not exists"))
 	}
 
@@ -74,7 +75,7 @@ func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
 		return dbusutil.ToError(errors.New("monitor not exists"))
 	}
 
-	err := m.associateTouch(monitor, touchUUID, false)
+	err := m.associateTouch(monitor, UUID, false)
 	return dbusutil.ToError(err)
 }
 
@@ -171,7 +172,7 @@ func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
 	}
 
 	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
-	if os.Getenv("CAN_SET_BRIGHTNESS") == "N"{
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
 		if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
 			return false, nil
 		}
