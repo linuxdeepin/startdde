@@ -25,7 +25,7 @@ type Touchscreen struct {
 	Name       string
 	DeviceNode string
 	Serial     string
-	uuid       string
+	UUID       string
 	outputName string
 	busType    uint8
 	width      float64
