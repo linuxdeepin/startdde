@@ -56,16 +56,16 @@ func (m *Manager) Save() *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
-func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
-	var touchUUID string
+func (m *Manager) AssociateTouch(outputName, touchUUID string) *dbus.Error {
+	var UUID string
 	for _, v := range m.Touchscreens {
-		if v.Serial == touchSerial {
-			touchUUID = v.uuid
+		if v.UUID == touchUUID {
+			UUID = v.UUID
 			break
 		}
 	}
 
-	if touchUUID == "" {
+	if UUID == "" {
 		return dbusutil.ToError(errors.New("touchscreen not exists"))
 	}
 
@@ -74,7 +74,7 @@ func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
 		return dbusutil.ToError(errors.New("monitor not exists"))
 	}
 
-	err := m.associateTouch(monitor, touchUUID, false)
+	err := m.associateTouch(monitor, UUID, false)
 	return dbusutil.ToError(err)
 }
 
