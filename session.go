@@ -390,14 +390,22 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 		return nil
 	}
 
+	// 使用窗管接口进行黑屏处理
+	if _gSettingsConfig.needQuickBlackScreen {
+		logger.Info("request wm blackscreen effect")
+		cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:true")
+		error := cmd.Run()
+		if error != nil {
+			logger.Warning("wm blackscreen failed")
+		}
+	}
+
+	logger.Info("login1 start suspend")
 	err = m.objLogin.Suspend(0, false)
 	if err != nil {
 		logger.Warning("failed to suspend:", err)
 	}
 
-	if _gSettingsConfig.needQuickBlackScreen {
-		setDPMSMode(false)
-	}
 	return nil
 }
 
