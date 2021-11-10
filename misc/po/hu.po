@@ -4,6 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
+# Kiss Zoltan <atari@freemail.hu>, 2021
 # Béla Bajza, 2021
 # 
 #, fuzzy
@@ -11,7 +12,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2021-08-30 17:26+0800\n"
+"POT-Creation-Date: 2021-09-28 10:19+0800\n"
 "PO-Revision-Date: 2021-08-31 07:06+0000\n"
 "Last-Translator: Béla Bajza, 2021\n"
 "Language-Team: Hungarian (https://www.transifex.com/linuxdeepin/teams/3617/hu/)\n"
@@ -21,16 +22,30 @@ msgstr ""
 "Language: hu\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: ../../main.go:391
+#: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
 msgstr "Jelszava %d nap múlva lejár"
 
-#: ../../main.go:393
+#: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
 msgstr "%d bejelentkezési hiba az utolsó sikeres bejelentkezés óta"
 
-#: ../../main.go:398
+#: ../../main.go:423
 msgid "Login Reminder"
 msgstr "Bejelentkezési emlékeztető"
+
+#: ../../main.go:424
+msgid "Details"
+msgstr "Részletek"
+
+#: ../../main.go:444
+#, c-format
+msgid "Login time: %s"
+msgstr "Bejelentkezés ideje: %s"
+
+#: ../../main.go:445
+#, c-format
+msgid "Last login: %s"
+msgstr "Utolsó bejelentkezés: %s"
