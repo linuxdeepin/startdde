@@ -4,7 +4,8 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Yuri Chornoivan <yurchor@ukr.net>, 2021
+# dpnlin, 2021
+# Ivica  Kolić <ikoli@yahoo.com>, 2021
 # 
 #, fuzzy
 msgid ""
@@ -13,38 +14,38 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-09-28 10:19+0800\n"
 "PO-Revision-Date: 2021-08-31 07:06+0000\n"
-"Last-Translator: Yuri Chornoivan <yurchor@ukr.net>, 2021\n"
-"Language-Team: Ukrainian (https://www.transifex.com/linuxdeepin/teams/3617/uk/)\n"
+"Last-Translator: Ivica  Kolić <ikoli@yahoo.com>, 2021\n"
+"Language-Team: Croatian (https://www.transifex.com/linuxdeepin/teams/3617/hr/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: uk\n"
-"Plural-Forms: nplurals=4; plural=(n % 1 == 0 && n % 10 == 1 && n % 100 != 11 ? 0 : n % 1 == 0 && n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 1 : n % 1 == 0 && (n % 10 ==0 || (n % 10 >=5 && n % 10 <=9) || (n % 100 >=11 && n % 100 <=14 )) ? 2: 3);\n"
+"Language: hr\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 
 #: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
-msgstr "Строк дії вашого пароля буде вичерпано за %d днів"
+msgstr "Vaša će lozinka isteći za %d dana"
 
 #: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
-msgstr "%d невдалих спроб увійти з часу останнього успішного входу"
+msgstr ""
 
 #: ../../main.go:423
 msgid "Login Reminder"
-msgstr "Нагадування щодо входу"
+msgstr "Podsjetnik prijave"
 
 #: ../../main.go:424
 msgid "Details"
-msgstr "Подробиці"
+msgstr "Detalji"
 
 #: ../../main.go:444
 #, c-format
 msgid "Login time: %s"
-msgstr "Час входу: %s"
+msgstr "Vrijeme prijave: %s"
 
 #: ../../main.go:445
 #, c-format
 msgid "Last login: %s"
-msgstr "Останній вхід: %s"
+msgstr "Zadnja prijava: %s"
