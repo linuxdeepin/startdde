@@ -279,6 +279,13 @@ func newManager(service *dbusutil.Service) *Manager {
 		if !isSleep {
 			logger.Info("system Wakeup, need reacquire screen status", isSleep)
 			m.initScreenRotation()
+
+			logger.Info("Cancel wm blackscreen effect")
+			cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:false")
+			error := cmd.Run()
+			if error != nil {
+				logger.Warning("Cancel wm blackscreen failed", error)
+			}
 		}
 	})
 
