@@ -140,6 +140,35 @@ func launchCoreComponents(sm *SessionManager) {
 			}
 			launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", false, nil)
 		}
+	} else {
+		var handleId dbusutil.SignalHandlerId
+		var needDel = true
+		handleId, err := sm.dbusDaemon.ConnectNameOwnerChanged(func(name, newOwner, oldOwner string) {
+			if name == "org.kde.KWin" && newOwner != "" && oldOwner == "" {
+				handleKWinReady(sm)
+				sm.dbusDaemon.RemoveHandler(handleId)
+			}
+		})
+		if err != nil {
+			logger.Warningf("connect to signal err: %s, run handle after timeout", err)
+			time.AfterFunc(time.Second*5, func() {
+				handleKWinReady(sm)
+			})
+			needDel = false
+		}
+
+		hasOwner, err := sm.dbusDaemon.NameHasOwner(0, "org.kde.KWin")
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+
+		if hasOwner {
+			handleKWinReady(sm)
+			if needDel {
+				sm.dbusDaemon.RemoveHandler(handleId)
+			}
+		}
 	}
 
 	// 先启动 dde-session-daemon，再启动 dde-dock
