@@ -63,7 +63,6 @@ Usage of /usr/bin/startdde:
   -d=false: debug
 ```
 
-
 ### Directly run without display manager
 
 ```
