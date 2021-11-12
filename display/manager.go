@@ -43,6 +43,9 @@ const (
 	DisplayModeUnknown
 )
 
+// DisplayModeInvalid 无效的模式
+const DisplayModeInvalid uint8 = 0
+
 const (
 	// 1：自动旋转；即未主动调用 SetRotation() 接口（由内部触发）发生的旋转操作，如根据重力传感器自动设定旋转方向
 	RotationFinishModeAuto uint8 = iota + 1
@@ -430,7 +433,7 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 			logger.Debug("monitor configs changed")
 			doApply = true
 			go func() {
-				err := m.applySysMonitorConfigs(newMonitorCfgs, nil)
+				err := m.applySysMonitorConfigs(newCfg.DisplayMode, newMonitorCfgs, nil)
 				if err != nil {
 					logger.Warning(err)
 					return
@@ -596,7 +599,7 @@ func (m *Manager) applyDisplayConfig(mode byte, setColorTemp bool, options apply
 		}
 
 		// 应用配置
-		err = m.applySysMonitorConfigs(monitorConfigs, options)
+		err = m.applySysMonitorConfigs(DisplayModeInvalid, monitorConfigs, options)
 		if err != nil {
 			logger.Warning("failed to apply configs:", err)
 			return err
@@ -1125,7 +1128,7 @@ func (m *Manager) applyModeMirror(options applyOptions) (err error) {
 		}
 	}
 
-	err = m.applySysMonitorConfigs(configs, options)
+	err = m.applySysMonitorConfigs(DisplayModeMirror, configs, options)
 	if err != nil {
 		return
 	}
@@ -1352,7 +1355,7 @@ func (m *Manager) applyModeExtend(options applyOptions) (err error) {
 		}
 	}
 
-	err = m.applySysMonitorConfigs(configs, options)
+	err = m.applySysMonitorConfigs(DisplayModeExtend, configs, options)
 	if err != nil {
 		return
 	}
@@ -1462,7 +1465,7 @@ func (m *Manager) applyModeOnlyOne(options applyOptions) (err error) {
 		}
 	}
 
-	err = m.applySysMonitorConfigs(configs, options)
+	err = m.applySysMonitorConfigs(DisplayModeOnlyOne, configs, options)
 	if err != nil {
 		return
 	}
@@ -1482,8 +1485,6 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 		optionDisableCrtc: true,
 	}
 	oldMode := m.DisplayMode
-	// NOTE: 前端控制中心要求先有DisplayMode改变信号，再有主屏改变信号。
-	m.setDisplayMode(mode)
 	err = m.applyDisplayConfig(mode, true, options)
 	if err != nil {
 		logger.Warning(err)
@@ -1493,12 +1494,16 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 		if err1 != nil {
 			logger.Warning(err1)
 		}
-		m.setDisplayMode(oldMode)
 
 		return err
 	}
 	if oldMode != mode {
-		err = m.saveSysConfig("switch mode")
+		// 保存设置
+		m.sysConfig.mu.Lock()
+		m.sysConfig.Config.DisplayMode = mode
+		err = m.saveSysConfigNoLock("switch mode")
+		m.sysConfig.mu.Unlock()
+
 		if err != nil {
 			logger.Warning(err)
 			return err
@@ -1572,7 +1577,7 @@ func (m *Manager) getConnectedMonitors() Monitors {
 	return getConnectedMonitors(m.monitorMap)
 }
 
-func (m *Manager) applySysMonitorConfigs(configs SysMonitorConfigs, options applyOptions) error {
+func (m *Manager) applySysMonitorConfigs(mode byte, configs SysMonitorConfigs, options applyOptions) error {
 	logger.Debug("applySysMonitorConfigs", spew.Sdump(configs), options)
 
 	// 验证配置
@@ -1630,6 +1635,11 @@ func (m *Manager) applySysMonitorConfigs(configs SysMonitorConfigs, options appl
 		return err
 	}
 
+	// NOTE: DisplayMode 属性改变信号应该在设置各个 Monitor 的属性之后，否则会引发前端 dcc 的 bug。
+	if mode != DisplayModeInvalid {
+		m.setPropDisplayMode(mode)
+	}
+
 	// 异步处理亮度设置
 	go func() {
 		for _, config := range configs {
@@ -1643,6 +1653,7 @@ func (m *Manager) applySysMonitorConfigs(configs SysMonitorConfigs, options appl
 		m.syncPropBrightness()
 	}()
 
+	// NOTE: Primary 和 PrimaryRect 属性改变信号应该在 DisplayMode 属性改变之后，否则会引发前端 dcc 的 bug。
 	err = m.mm.setMonitorPrimary(primaryMonitorID)
 	if err != nil {
 		logger.Warning(err)
