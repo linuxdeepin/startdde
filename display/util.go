@@ -253,6 +253,18 @@ func needSwapWidthHeight(rotation uint16) bool {
 		rotation&randr.RotationRotate270 != 0
 }
 
+func swapWidthHeightWithRotation(rotation uint16, pWidth, pHeight *uint16) {
+	if needSwapWidthHeight(rotation) {
+		*pWidth, *pHeight = *pHeight, *pWidth
+	}
+}
+
+func swapWidthHeightWithRotationInt32(rotation uint16, pWidth, pHeight *int32) {
+	if needSwapWidthHeight(rotation) {
+		*pWidth, *pHeight = *pHeight, *pWidth
+	}
+}
+
 func getConfigVersion(filename string) (string, error) {
 	content, err := ioutil.ReadFile(filename)
 	if err != nil {

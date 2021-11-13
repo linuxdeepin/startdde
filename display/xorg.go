@@ -264,6 +264,7 @@ func (ci *CrtcInfo) getRect() x.Rectangle {
 		Width:  ci.Width,
 		Height: ci.Height,
 	}
+	swapWidthHeightWithRotation(ci.Rotation, &rect.Width, &rect.Height)
 	return rect
 }
 
@@ -353,7 +354,7 @@ func (mm *xMonitorManager) getMonitors() []*MonitorInfo {
 func (mm *xMonitorManager) doDiff() {
 	logger.Debug("mm.doDiff")
 	// NOTE: 不要加锁
-	oldMonitors := monitorsNewToMap(mm.monitorsCache)
+	oldMonitors := toMonitorInfoMap(mm.monitorsCache)
 	mm.refreshMonitorsCache()
 	newMonitors := mm.monitorsCache
 	for _, monitor := range newMonitors {
@@ -435,7 +436,7 @@ func (mm *xMonitorManager) compareAll(monitorCrtcCfgMap map[randr.Output]crtcCon
 	return true
 }
 
-func monitorsNewToMap(monitors []*MonitorInfo) map[uint32]*MonitorInfo {
+func toMonitorInfoMap(monitors []*MonitorInfo) map[uint32]*MonitorInfo {
 	result := make(map[uint32]*MonitorInfo, len(monitors))
 	for _, monitor := range monitors {
 		result[monitor.ID] = monitor
@@ -479,9 +480,9 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 			if crtcInfo != nil {
 				monitor.X = crtcInfo.X
 				monitor.Y = crtcInfo.Y
-				monitor.Width = crtcInfo.Width
-				monitor.Height = crtcInfo.Height
 				monitor.Rotation = crtcInfo.Rotation
+				monitor.Width, monitor.Height = crtcInfo.Width, crtcInfo.Height
+				swapWidthHeightWithRotation(crtcInfo.Rotation, &monitor.Width, &monitor.Height)
 				monitor.Rotations = crtcInfo.Rotations
 				monitor.CurrentMode = findModeInfo(mm.modes, crtcInfo.Mode)
 			}
@@ -767,9 +768,7 @@ func getScreenWidthHeight(monitorMap map[uint32]*Monitor) (sw, sh uint16) {
 		width := monitor.CurrentMode.Width
 		height := monitor.CurrentMode.Height
 
-		if needSwapWidthHeight(monitor.Rotation) {
-			width, height = height, width
-		}
+		swapWidthHeightWithRotation(monitor.Rotation, &width, &height)
 
 		w1 := int(monitor.X) + int(width)
 		h1 := int(monitor.Y) + int(height)
@@ -1055,10 +1054,9 @@ func (mm *xMonitorManager) handleOutputChanged(e *randr.OutputChangeNotifyEvent)
 		return
 	}
 
-	// e.Mode 和 e.Rotation 没有被使用到
+	// e.Mode 和 e.Rotation 没有被使用到, 因为在 refreshMonitorsCache 中没有用到 outputInfo 的 Mode 和 Rotation。
+	// 只用 crtcInfo 的 Mode 和 Rotation 就足够了。
 	outputInfo.Crtc = e.Crtc
-	//e.Mode 有什么用？
-	//e.Rotation 有什么用？
 	outputInfo.Connection = e.Connection
 	outputInfo.SubPixelOrder = e.SubPixelOrder
 }

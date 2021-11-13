@@ -81,12 +81,14 @@ func (m *Manager) handleOutputPropertyChanged(ev *randr.OutputPropertyNotifyEven
 }
 
 func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent, cfgTsChanged bool) {
-	logger.Debugf("screen changed cfgTs: %v, screen size: %vx%v ", ev.ConfigTimestamp,
-		ev.Width, ev.Height)
+	width, height := ev.Width, ev.Height
+	swapWidthHeightWithRotation(uint16(ev.Rotation), &width, &height)
+	logger.Debugf("screen changed cfgTs: %v, rotation:%v, screen size: %vx%v", ev.ConfigTimestamp,
+		ev.Rotation, width, height)
 
 	m.PropsMu.Lock()
-	m.setPropScreenWidth(ev.Width)
-	m.setPropScreenHeight(ev.Height)
+	m.setPropScreenWidth(width)
+	m.setPropScreenHeight(height)
 	m.PropsMu.Unlock()
 
 	if cfgTsChanged {

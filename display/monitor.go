@@ -144,9 +144,7 @@ func (m *Monitor) setMode(mode ModeInfo) {
 	width := mode.Width
 	height := mode.Height
 
-	if needSwapWidthHeight(m.Rotation) {
-		width, height = height, width
-	}
+	swapWidthHeightWithRotation(m.Rotation, &width, &height)
 
 	m.setPropWidth(width)
 	m.setPropHeight(height)
@@ -238,9 +236,7 @@ func (m *Monitor) setRotation(value uint16) {
 	width := m.CurrentMode.Width
 	height := m.CurrentMode.Height
 
-	if needSwapWidthHeight(value) {
-		width, height = height, width
-	}
+	swapWidthHeightWithRotation(value, &width, &height)
 
 	m.setPropRotation(value)
 	m.setPropWidth(width)
@@ -369,11 +365,9 @@ func (monitors Monitors) GetByUuid(uuid string) *Monitor {
 }
 
 func (m *Monitor) generateFillModeKey() string {
-	if needSwapWidthHeight(m.Rotation) {
-		return fmt.Sprintf("%s:%dx%d", m.uuid, m.Height, m.Width)
-	}
-
-	return fmt.Sprintf("%s:%dx%d", m.uuid, m.Width, m.Height)
+	width, height := m.Width, m.Height
+	swapWidthHeightWithRotation(m.Rotation, &width, &height)
+	return fmt.Sprintf("%s:%dx%d", m.uuid, width, height)
 }
 
 func (m *Monitor) setCurrentFillMode(write *dbusutil.PropertyWrite) *dbus.Error {

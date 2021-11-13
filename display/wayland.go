@@ -574,9 +574,7 @@ func (mm *kMonitorManager) listenDBusSignals() {
 
 		outputInfo.setId(mm.mig)
 		// 根据选择 transform 修正宽和高，应该只有 OutputChanged 事件才有必要。
-		if needSwapWidthHeight(outputInfo.rotation()) {
-			outputInfo.Width, outputInfo.Height = outputInfo.Height, outputInfo.Width
-		}
+		swapWidthHeightWithRotationInt32(outputInfo.rotation(), &outputInfo.Width, &outputInfo.Height)
 		mm.handleOutputChanged(outputInfo)
 
 	})

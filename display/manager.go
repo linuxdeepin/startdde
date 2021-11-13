@@ -1026,7 +1026,7 @@ func (m *Manager) updateMonitor(monitorInfo *MonitorInfo) {
 		return
 	}
 	logger.Debugf("updateMonitor %v", monitorInfo.Name)
-	//monitorInfo.dumpForDebug()
+	monitorInfo.dumpForDebug()
 
 	m.handleMonitorConnectedChanged(monitor, monitorInfo.Connected)
 	monitor.PropsMu.Lock()
@@ -1610,11 +1610,10 @@ func (m *Manager) applySysMonitorConfigs(mode byte, configs SysMonitorConfigs, o
 				monitor.setRotation(monitorCfg.Rotation)
 				monitor.setReflect(monitorCfg.Reflect)
 
+				// monitorCfg 中的宽和高是经过 rotation 调整的
 				width := monitorCfg.Width
 				height := monitorCfg.Height
-				if needSwapWidthHeight(monitorCfg.Rotation) {
-					width, height = height, width
-				}
+				swapWidthHeightWithRotation(monitorCfg.Rotation, &width, &height)
 				mode := monitor.selectMode(width, height, monitorCfg.RefreshRate)
 				monitor.setMode(mode)
 				monitor.enable(true)
