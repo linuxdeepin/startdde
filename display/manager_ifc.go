@@ -14,14 +14,6 @@ func (m *Manager) GetInterfaceName() string {
 	return dbusInterface
 }
 
-func (m *Manager) applyChanges() error {
-	if !m.HasChanged {
-		return nil
-	}
-	err := m.apply(nil)
-	return err
-}
-
 func (m *Manager) ApplyChanges() *dbus.Error {
 	logger.Debug("dbus call ApplyChanges")
 	err := m.applyChanges()
@@ -30,20 +22,27 @@ func (m *Manager) ApplyChanges() *dbus.Error {
 
 func (m *Manager) ResetChanges() *dbus.Error {
 	logger.Debug("dbus call ResetChanges")
+	m.PropsMu.Lock()
 	if !m.HasChanged {
+		m.PropsMu.Unlock()
 		return nil
 	}
+	m.setPropHasChanged(false)
+	m.PropsMu.Unlock()
 
+	m.monitorMapMu.Lock()
 	for _, monitor := range m.monitorMap {
 		monitor.resetChanges()
 	}
+	monitorMap := m.cloneMonitorMapNoLock()
+	m.monitorMapMu.Unlock()
 
-	err := m.apply(nil)
+	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
+	err := m.apply(monitorsId, monitorMap, nil)
 	if err != nil {
 		return dbusutil.ToError(err)
 	}
 
-	m.setPropHasChanged(false)
 	return nil
 }
 

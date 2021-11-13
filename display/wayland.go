@@ -180,19 +180,20 @@ func (oi *KOutputInfo) getName() string {
 
 func (oi *KOutputInfo) toMonitorInfo() *MonitorInfo {
 	mi := &MonitorInfo{
-		Enabled:       oi.Enabled != 0,
-		ID:            oi.id,
-		Name:          oi.getName(),
-		UUID:          oi.UUID,
-		Connected:     true,
-		Modes:         oi.getModes(),
-		CurrentMode:   oi.getCurrentMode(),
-		PreferredMode: oi.getBestMode(),
-		X:             int16(oi.X),
-		Y:             int16(oi.Y),
-		Width:         uint16(oi.Width),
-		Height:        uint16(oi.Height),
-		Rotation:      oi.rotation(),
+		Enabled:          oi.Enabled != 0,
+		ID:               oi.id,
+		Name:             oi.getName(),
+		UUID:             oi.UUID,
+		Connected:        true,
+		VirtualConnected: true,
+		Modes:            oi.getModes(),
+		CurrentMode:      oi.getCurrentMode(),
+		PreferredMode:    oi.getBestMode(),
+		X:                int16(oi.X),
+		Y:                int16(oi.Y),
+		Width:            uint16(oi.Width),
+		Height:           uint16(oi.Height),
+		Rotation:         oi.rotation(),
 		Rotations: randr.RotationRotate0 | randr.RotationRotate90 |
 			randr.RotationRotate180 | randr.RotationRotate270,
 		MmHeight:     uint32(oi.PhysHeight),
@@ -335,7 +336,6 @@ type kMonitorManager struct {
 	mig            *monitorIdGenerator
 	monitorMap     map[uint32]*MonitorInfo
 	primary        uint32
-	applyMu        sync.Mutex
 }
 
 func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
@@ -440,9 +440,7 @@ func (mm *kMonitorManager) getMonitor(id uint32) *MonitorInfo {
 	return &monitor
 }
 
-func (mm *kMonitorManager) apply(monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
-	mm.applyMu.Lock()
-	defer mm.applyMu.Unlock()
+func (mm *kMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
 	return mm.applyByWLOutput(monitorMap)
 }
 

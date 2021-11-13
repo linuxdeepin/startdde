@@ -206,15 +206,14 @@ type monitorManagerHooks interface {
 	handleMonitorRemoved(monitorId uint32)
 	handleMonitorChanged(monitorInfo *MonitorInfo)
 	handlePrimaryRectChanged(pmi primaryMonitorInfo)
-	forceUpdateMonitor(monitorInfo *MonitorInfo)
+	getMonitorsId() string
 }
 
 type monitorManager interface {
 	setHooks(hooks monitorManagerHooks)
 	getMonitors() []*MonitorInfo
 	getMonitor(id uint32) *MonitorInfo
-	apply(monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions,
-		fillModes map[string]string) error
+	apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error
 	setMonitorPrimary(monitorId uint32) error
 	setMonitorFillMode(monitor *Monitor, fillMode string) error
 	showCursor(show bool) error
@@ -234,7 +233,6 @@ type xMonitorManager struct {
 	outputs                 map[randr.Output]*OutputInfo
 	primary                 randr.Output
 	monitorChangedCbEnabled bool
-	applyMu                 sync.Mutex
 }
 
 func newXMonitorManager(xConn *x.Conn, hasRandr1d2 bool) *xMonitorManager {
@@ -373,6 +371,7 @@ func (mm *xMonitorManager) doDiff() {
 					logger.Debug("monitorChangedCb disabled")
 				}
 				if monitor.outputId() == mm.primary {
+					// NOTE: mm.mu 已经上锁了
 					mm.mu.Unlock()
 					mm.invokePrimaryRectChangedCb(mm.primary)
 					mm.mu.Lock()
@@ -384,7 +383,7 @@ func (mm *xMonitorManager) doDiff() {
 	}
 }
 
-func (mm *xMonitorManager) wait(monitorCrtcCfgMap map[randr.Output]crtcConfig) {
+func (mm *xMonitorManager) wait(monitorCrtcCfgMap map[randr.Output]crtcConfig, monitorsId string) {
 	const (
 		timeout  = 5 * time.Second
 		interval = 500 * time.Millisecond
@@ -395,6 +394,12 @@ func (mm *xMonitorManager) wait(monitorCrtcCfgMap map[randr.Output]crtcConfig) {
 			logger.Debug("mm wait success")
 			return
 		}
+
+		if mm.hooks != nil && mm.hooks.getMonitorsId() != monitorsId {
+			logger.Debug("monitorsId changed, wait return")
+			return
+		}
+
 		time.Sleep(interval)
 	}
 	logger.Warning("mm wait time out")
@@ -457,7 +462,6 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 			MmWidth:   outputInfo.MmWidth,
 			MmHeight:  outputInfo.MmHeight,
 		}
-		monitor.Enabled = monitor.crtc != 0
 		monitor.PreferredMode = getPreferredMode(monitor.Modes, uint32(outputInfo.PreferredMode()))
 		var err error
 		monitor.EDID, err = mm.getOutputEdid(outputId)
@@ -486,6 +490,14 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 				monitor.Rotations = crtcInfo.Rotations
 				monitor.CurrentMode = findModeInfo(mm.modes, crtcInfo.Mode)
 			}
+		}
+
+		if monitor.Connected && monitor.Width != 0 && monitor.Height != 0 {
+			monitor.VirtualConnected = true
+			monitor.Enabled = true
+		} else {
+			monitor.VirtualConnected = false
+			monitor.Enabled = false
 		}
 
 		monitors = append(monitors, monitor)
@@ -532,18 +544,16 @@ func findOutputInMonitorCrtcCfgMap(monitorCrtcCfgMap map[randr.Output]crtcConfig
 	return 0
 }
 
-func (mm *xMonitorManager) apply(monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions,
-	fillModes map[string]string) error {
+func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
 
-	logger.Debug("call apply")
+	logger.Debug("call apply", monitorsId)
 	optDisableCrtc, _ := options[optionDisableCrtc].(bool)
 
-	mm.applyMu.Lock()
+	//mm.applyMu.Lock()
 	x.GrabServer(mm.xConn)
 	logger.Debug("grab server")
 	ungrabServerDone := false
 	monitorCrtcCfgMap := make(map[randr.Output]crtcConfig)
-	// 禁止更新显示器对象
 	mm.monitorChangedCbEnabled = false
 
 	ungrabServer := func() {
@@ -559,10 +569,9 @@ func (mm *xMonitorManager) apply(monitorMap map[uint32]*Monitor, prevScreenSize 
 
 	defer func() {
 		ungrabServer()
-
 		mm.monitorChangedCbEnabled = true
-		mm.applyMu.Unlock()
-		logger.Debug("apply return")
+		//mm.applyMu.Unlock()
+		logger.Debug("apply return", monitorsId)
 	}()
 
 	// 根据 monitor 的配置，准备 crtc 配置到 monitorCrtcCfgMap
@@ -677,15 +686,16 @@ func (mm *xMonitorManager) apply(monitorMap map[uint32]*Monitor, prevScreenSize 
 	ungrabServer()
 
 	// 等待所有事件结束
-	mm.wait(monitorCrtcCfgMap)
+	mm.wait(monitorCrtcCfgMap, monitorsId)
 
 	// 更新一遍所有显示器
+	mm.monitorChangedCbEnabled = true
 	logger.Debug("update all monitors")
 	for _, monitor := range monitorMap {
 		monitorInfo := mm.getMonitor(monitor.ID)
 		if monitorInfo != nil {
 			if mm.hooks != nil {
-				mm.hooks.forceUpdateMonitor(monitorInfo)
+				mm.hooks.handleMonitorChanged(monitorInfo)
 			}
 		}
 	}
@@ -737,6 +747,16 @@ func (mm *xMonitorManager) setMonitorFillMode(monitor *Monitor, fillMode string)
 func getConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
 	var monitors Monitors
 	for _, monitor := range monitorMap {
+		if monitor.realConnected {
+			monitors = append(monitors, monitor)
+		}
+	}
+	return monitors
+}
+
+func getVirtualConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
+	var monitors Monitors
+	for _, monitor := range monitorMap {
 		if monitor.Connected {
 			monitors = append(monitors, monitor)
 		}
@@ -761,7 +781,7 @@ func getScreenSize(monitorMap map[uint32]*Monitor) screenSize {
 func getScreenWidthHeight(monitorMap map[uint32]*Monitor) (sw, sh uint16) {
 	var w, h int
 	for _, monitor := range monitorMap {
-		if !monitor.Connected || !monitor.Enabled {
+		if !monitor.realConnected || !monitor.Enabled {
 			continue
 		}
 

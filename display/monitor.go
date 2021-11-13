@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
+	"strings"
 	"sync"
-	"time"
 
 	"github.com/godbus/dbus"
 	x "github.com/linuxdeepin/go-x11-client"
@@ -26,17 +27,17 @@ const (
 )
 
 type Monitor struct {
-	m                 *Manager
-	service           *dbusutil.Service
-	uuid              string
-	PropsMu           sync.RWMutex
-	lastConnectedTime time.Time
+	m       *Manager
+	service *dbusutil.Service
+	uuid    string
+	PropsMu sync.RWMutex
 
-	ID           uint32
-	Name         string
-	Connected    bool
-	Manufacturer string
-	Model        string
+	ID            uint32
+	Name          string
+	Connected     bool
+	realConnected bool
+	Manufacturer  string
+	Model         string
 	// dbusutil-gen: equal=uint16SliceEqual
 	Rotations []uint16
 	// dbusutil-gen: equal=uint16SliceEqual
@@ -82,6 +83,47 @@ func (m *Monitor) getPath() dbus.ObjectPath {
 	return dbus.ObjectPath(dbusPath + "/Monitor_" + strconv.Itoa(int(m.ID)))
 }
 
+func (m *Monitor) clone() *Monitor {
+	m.PropsMu.RLock()
+	defer m.PropsMu.RUnlock()
+
+	monitorCp := Monitor{
+		m:                  m.m,
+		service:            m.service,
+		uuid:               m.uuid,
+		ID:                 m.ID,
+		Name:               m.Name,
+		Connected:          m.Connected,
+		realConnected:      m.realConnected,
+		Manufacturer:       m.Manufacturer,
+		Model:              m.Model,
+		Rotations:          m.Rotations,
+		Reflects:           m.Reflects,
+		BestMode:           m.BestMode,
+		Modes:              m.Modes,
+		PreferredModes:     m.PreferredModes,
+		MmWidth:            m.MmWidth,
+		MmHeight:           m.MmHeight,
+		Enabled:            m.Enabled,
+		X:                  m.X,
+		Y:                  m.Y,
+		Width:              m.Width,
+		Height:             m.Height,
+		Rotation:           m.Rotation,
+		Reflect:            m.Reflect,
+		RefreshRate:        m.RefreshRate,
+		Brightness:         m.Brightness,
+		CurrentRotateMode:  m.CurrentRotateMode,
+		oldRotation:        m.oldRotation,
+		CurrentMode:        m.CurrentMode,
+		CurrentFillMode:    m.CurrentFillMode,
+		AvailableFillModes: m.AvailableFillModes,
+		backup:             nil,
+	}
+
+	return &monitorCp
+}
+
 type MonitorBackup struct {
 	Enabled    bool
 	Mode       ModeInfo
@@ -92,6 +134,7 @@ type MonitorBackup struct {
 }
 
 func (m *Monitor) markChanged() {
+	// NOTE: 不用加锁
 	m.m.setPropHasChanged(true)
 	if m.backup == nil {
 		m.backup = &MonitorBackup{
@@ -107,22 +150,28 @@ func (m *Monitor) markChanged() {
 }
 
 func (m *Monitor) Enable(enabled bool) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	logger.Debugf("monitor %v %v dbus call Enable %v", m.ID, m.Name, enabled)
 	if m.Enabled == enabled {
 		return nil
 	}
 
 	m.markChanged()
-	m.enable(enabled)
+	m.setPropEnabled(enabled)
 	return nil
 }
 
-func (m *Monitor) enable(enabled bool) {
-	m.setPropEnabled(enabled)
+func (m *Monitor) SetMode(mode uint32) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
+	logger.Debugf("monitor %v %v dbus call SetMode %v", m.ID, m.Name, mode)
+	return m.setModeNoLock(mode)
 }
 
-func (m *Monitor) SetMode(mode uint32) *dbus.Error {
-	logger.Debugf("monitor %v %v dbus call SetMode %v", m.ID, m.Name, mode)
+func (m *Monitor) setModeNoLock(mode uint32) *dbus.Error {
 	if m.CurrentMode.Id == mode {
 		return nil
 	}
@@ -138,7 +187,6 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 }
 
 func (m *Monitor) setMode(mode ModeInfo) {
-	m.PropsMu.Lock()
 	m.setPropCurrentMode(mode)
 
 	width := mode.Width
@@ -149,7 +197,20 @@ func (m *Monitor) setMode(mode ModeInfo) {
 	m.setPropWidth(width)
 	m.setPropHeight(height)
 	m.setPropRefreshRate(mode.Rate)
-	m.PropsMu.Unlock()
+}
+
+// setMode 的不发送属性改变信号版本
+func (m *Monitor) setModeNoEmitChanged(mode ModeInfo) {
+	m.CurrentMode = mode
+
+	width := mode.Width
+	height := mode.Height
+
+	swapWidthHeightWithRotation(m.Rotation, &width, &height)
+
+	m.Width = width
+	m.Height = height
+	m.RefreshRate = mode.Rate
 }
 
 func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
@@ -165,15 +226,21 @@ func (m *Monitor) selectMode(width, height uint16, rate float64) ModeInfo {
 }
 
 func (m *Monitor) SetModeBySize(width, height uint16) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	logger.Debugf("monitor %v %v dbus call SetModeBySize %v %v", m.ID, m.Name, width, height)
 	mode := getFirstModeBySize(m.Modes, width, height)
 	if mode.isZero() {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
-	return m.SetMode(mode.Id)
+	return m.setModeNoLock(mode.Id)
 }
 
 func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	logger.Debugf("monitor %v %v dbus call SetRefreshRate %v", m.ID, m.Name, value)
 	if m.Width == 0 || m.Height == 0 {
 		return dbusutil.ToError(errors.New("width or height is 0"))
@@ -182,28 +249,38 @@ func (m *Monitor) SetRefreshRate(value float64) *dbus.Error {
 	if mode.isZero() {
 		return dbusutil.ToError(errors.New("not found match mode"))
 	}
-	return m.SetMode(mode.Id)
+	return m.setModeNoLock(mode.Id)
 }
 
 func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	logger.Debugf("monitor %v %v dbus call SetPosition %v %v", m.ID, m.Name, X, y)
+	if _dpy == nil {
+		return dbusutil.ToError(errors.New("_dpy is nil"))
+	}
+
+	if _dpy.getInApply() {
+		logger.Debug("reject set position, in apply")
+		return nil
+	}
+
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	if m.X == X && m.Y == y {
+		logger.Debug("reject set position, no change")
 		return nil
 	}
 
 	m.markChanged()
-	m.setPosition(X, y)
+	m.setPropX(X)
+	m.setPropY(y)
 	return nil
 }
 
-func (m *Monitor) setPosition(X, y int16) {
-	m.PropsMu.Lock()
-	m.setPropX(X)
-	m.setPropY(y)
-	m.PropsMu.Unlock()
-}
-
 func (m *Monitor) SetReflect(value uint16) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	logger.Debugf("monitor %v %v dbus call SetReflect %v", m.ID, m.Name, value)
 	if m.Reflect == value {
 		return nil
@@ -213,13 +290,10 @@ func (m *Monitor) SetReflect(value uint16) *dbus.Error {
 	return nil
 }
 
-func (m *Monitor) setReflect(value uint16) {
-	m.PropsMu.Lock()
-	m.setPropReflect(value)
-	m.PropsMu.Unlock()
-}
-
 func (m *Monitor) SetRotation(value uint16) *dbus.Error {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	logger.Debugf("monitor %v %v dbus call SetRotation %v", m.ID, m.Name, value)
 	if m.Rotation == value {
 		return nil
@@ -232,7 +306,6 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 }
 
 func (m *Monitor) setRotation(value uint16) {
-	m.PropsMu.Lock()
 	width := m.CurrentMode.Width
 	height := m.CurrentMode.Height
 
@@ -241,7 +314,6 @@ func (m *Monitor) setRotation(value uint16) {
 	m.setPropRotation(value)
 	m.setPropWidth(width)
 	m.setPropHeight(height)
-	m.PropsMu.Unlock()
 }
 
 func (m *Monitor) setPropBrightnessWithLock(value float64) {
@@ -251,6 +323,9 @@ func (m *Monitor) setPropBrightnessWithLock(value float64) {
 }
 
 func (m *Monitor) resetChanges() {
+	m.PropsMu.Lock()
+	defer m.PropsMu.Unlock()
+
 	if m.backup == nil {
 		return
 	}
@@ -337,6 +412,29 @@ func (m *Monitor) dumpInfoForDebug() {
 
 type Monitors []*Monitor
 
+func (monitors Monitors) getMonitorsId() string {
+	if len(monitors) == 0 {
+		return ""
+	}
+	var ids []string
+	for _, monitor := range monitors {
+		ids = append(ids, monitor.uuid)
+	}
+	sort.Strings(ids)
+	return strings.Join(ids, monitorsIdDelimiter)
+}
+
+func (monitors Monitors) getPaths() []dbus.ObjectPath {
+	sort.Slice(monitors, func(i, j int) bool {
+		return monitors[i].ID < monitors[j].ID
+	})
+	paths := make([]dbus.ObjectPath, len(monitors))
+	for i, monitor := range monitors {
+		paths[i] = monitor.getPath()
+	}
+	return paths
+}
+
 func (monitors Monitors) GetByName(name string) *Monitor {
 	for _, monitor := range monitors {
 		if monitor.Name == name {
@@ -388,7 +486,8 @@ type MonitorInfo struct {
 	ID                 uint32
 	UUID               string
 	Name               string
-	Connected          bool
+	Connected          bool // 实际的是否连接，对应于 Monitor 的 realConnected
+	VirtualConnected   bool // 用于前端，对应于 Monitor 的 Connected
 	Modes              []ModeInfo
 	CurrentMode        ModeInfo
 	PreferredMode      ModeInfo
