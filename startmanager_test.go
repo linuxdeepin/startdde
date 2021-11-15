@@ -22,6 +22,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -221,6 +222,71 @@ func TestStartManager_getRestartTime(t *testing.T) {
 			got, got1 := tt.obj.getRestartTime(tt.args.appInfo)
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantSec, got1)
+		})
+	}
+}
+
+func Test_removeProxy(t *testing.T) {
+	type args struct {
+		sl []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		// TODO: Add test cases.
+		{
+			name: "StartManager_removeProxy",
+			args: args{
+				sl: []string{
+					"ftp_proxy=http://127.0.0.1:8889",
+					"http_proxy=http://127.0.0.1:8889",
+					"https_proxy=http://127.0.0.1:8889",
+					"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
+					"LANG=zh_CN.UTF-8",
+				},
+			},
+			want: []string{
+				"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus",
+				"LANG=zh_CN.UTF-8",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeProxy(tt.args.sl); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeProxy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_removeSl(t *testing.T) {
+	type args struct {
+		sl  []string
+		mem string
+	}
+	tests := []struct {
+		name string
+		args args
+		want []string
+	}{
+		// TODO: Add test cases.
+		{
+			name: "StartManager_removeSl",
+			args: args{
+				sl:  []string{"test", "mem"},
+				mem: "mem",
+			},
+			want: []string{"test"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := removeSl(tt.args.sl, tt.args.mem); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("removeSl() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

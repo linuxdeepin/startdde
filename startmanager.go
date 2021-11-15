@@ -502,7 +502,6 @@ type IStartCommand interface {
 
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
 	files []string, iStartCmd IStartCommand, cmdName string) error {
-
 	// maximum RAM unit is MB
 	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
 	// unit is MB/s
@@ -567,6 +566,13 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	if appInfo.IsDesktopOverrideExecSet() {
 		logger.Debug("cmd override exec:", appInfo.GetDesktopOverrideExec())
+	}
+
+	logger.Infof("app id %v check use app proxy", appInfo.GetId())
+	if m.shouldUseProxy(appInfo.GetId()) {
+		env := removeProxy(os.Environ())
+		logger.Infof("app %v use app proxy, clear proxy env, env: %v", appInfo.GetId(), env)
+		ctx.SetEnv(env)
 	}
 
 	cmd, err := iStartCmd.StartCommand(files, ctx)
@@ -651,7 +657,6 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 	if uiApp != nil {
 		swapSchedDispatcher.AddApp(uiApp)
 	}
-
 	if err != nil {
 		return err
 	}
@@ -671,7 +676,6 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 				}
 			}
 		}
-
 		err := cmd.Wait()
 		if err != nil {
 			logger.Warningf("%v: %v", cmd.Args, err)
@@ -714,6 +718,28 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 	}
 
 	return nil
+}
+
+func removeProxy(sl []string) []string {
+	result := removeSl(sl, "auto_proxy")
+	result = removeSl(result, "http_proxy")
+	result = removeSl(result, "https_proxy")
+	result = removeSl(result, "ftp_proxy")
+	result = removeSl(result, "all_proxy")
+	result = removeSl(result, "SOCKS_SERVER")
+	result = removeSl(result, "no_proxy")
+	return result
+}
+
+func removeSl(sl []string, mem string) []string {
+	for index, elem := range sl {
+		if !strings.HasPrefix(elem, mem) {
+			continue
+		}
+		sl = append(sl[:index], sl[index+1:]...)
+		break
+	}
+	return sl
 }
 
 func isDEComponent(appInfo *desktopappinfo.DesktopAppInfo) bool {
