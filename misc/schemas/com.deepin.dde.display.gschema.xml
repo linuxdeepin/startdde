@@ -26,7 +26,7 @@
             <description>the method for setting brightness.</description>
         </key>
         <key name="display-mode" enum="com.deepin.dde.display.DisplayMode">
-            <default>'mirrors'</default>
+            <default>'extend'</default>
             <summary>the multi monitors display mode</summary>
             <description>The mode of multi monitors</description>
         </key>
