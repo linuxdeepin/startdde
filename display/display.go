@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/godbus/dbus"
-	displaycfg "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.displaycfg"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	"pkg.deepin.io/lib/dbusutil"
 	"pkg.deepin.io/lib/log"
 )
@@ -49,8 +49,8 @@ func (h *scaleFactorsHelper) GetScaleFactors() (map[string]float64, error) {
 	if err != nil {
 		return nil, err
 	}
-	displayCfgService := displaycfg.NewDisplayCfg(sysBus)
-	cfgJson, err := displayCfgService.Get(0)
+	sysDisplay := sysdisplay.NewDisplay(sysBus)
+	cfgJson, err := sysDisplay.GetConfig(0)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func StartPart2() error {
 		return errors.New("_dpy is nil")
 	}
 	m := _dpy
-	m.initDisplayCfg()
+	m.initSysDisplay()
 	m.initTouchscreens()
 
 	if !_greeterMode {

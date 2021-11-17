@@ -549,7 +549,6 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 	logger.Debug("call apply", monitorsId)
 	optDisableCrtc, _ := options[optionDisableCrtc].(bool)
 
-	//mm.applyMu.Lock()
 	x.GrabServer(mm.xConn)
 	logger.Debug("grab server")
 	ungrabServerDone := false
@@ -570,7 +569,6 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 	defer func() {
 		ungrabServer()
 		mm.monitorChangedCbEnabled = true
-		//mm.applyMu.Unlock()
 		logger.Debug("apply return", monitorsId)
 	}()
 

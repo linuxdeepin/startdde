@@ -18,7 +18,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
 	dgesture "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.gesture"
-	displaycfg "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.displaycfg"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
@@ -127,13 +127,13 @@ type Manager struct {
 	dbusDaemon   ofdbus.DBus
 	sensorProxy  dbus.BusObject
 	inputDevices inputdevices.InputDevices
-	// 系统级 displayCfg 服务
-	displayCfgService displaycfg.DisplayCfg
-	xConn             *x.Conn
-	PropsMu           sync.RWMutex
-	sysConfig         SysRootConfig
-	userConfig        UserConfig
-	userCfgMu         sync.Mutex
+	// 系统级 display 服务
+	sysDisplay sysdisplay.Display
+	xConn      *x.Conn
+	PropsMu    sync.RWMutex
+	sysConfig  SysRootConfig
+	userConfig UserConfig
+	userCfgMu  sync.Mutex
 
 	recommendScaleFactor     float64
 	builtinMonitor           *Monitor
@@ -259,8 +259,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.inputDevices = inputdevices.NewInputDevices(m.sysBus)
 	m.inputDevices.InitSignalExt(sysSigLoop, true)
 
-	m.displayCfgService = displaycfg.NewDisplayCfg(m.sysBus)
-	m.displayCfgService.InitSignalExt(sysSigLoop, true)
+	m.sysDisplay = sysdisplay.NewDisplay(m.sysBus)
 
 	loginManager := login1.NewManager(m.sysBus)
 	loginManager.InitSignalExt(sysSigLoop, true)
@@ -326,11 +325,11 @@ func newManager(service *dbusutil.Service) *Manager {
 	return m
 }
 
-// 初始化和 displayCfg 服务的信号处理
-func (m *Manager) initDisplayCfg() {
-	m.displayCfgService.InitSignalExt(m.sysSigLoop, true)
-	_, err := m.displayCfgService.ConnectUpdated(func(updateAt string) {
-		logger.Debug("displayCfg service Updated", updateAt)
+// 初始化系统级 display 服务的信号处理
+func (m *Manager) initSysDisplay() {
+	m.sysDisplay.InitSignalExt(m.sysSigLoop, true)
+	_, err := m.sysDisplay.ConnectConfigUpdated(func(updateAt string) {
+		logger.Debug("sys display ConfigUpdated", updateAt)
 		if updateAt == m.sysConfig.UpdateAt {
 			return
 		}
@@ -2247,7 +2246,7 @@ func (c *SysRootConfig) fix() {
 
 // 无需对结果再次地调用 fix 方法
 func (m *Manager) getSysConfig() (*SysRootConfig, error) {
-	cfgJson, err := m.displayCfgService.Get(0)
+	cfgJson, err := m.sysDisplay.GetConfig(0)
 	if err != nil {
 		return nil, err
 	}
@@ -2293,7 +2292,7 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 	}
 
 	cfgJson := jsonMarshal(&m.sysConfig)
-	err := m.displayCfgService.Set(0, cfgJson)
+	err := m.sysDisplay.SetConfig(0, cfgJson)
 	return err
 }
 
