@@ -40,6 +40,10 @@ Depends:
  libpam-gnome-keyring,
  procps,
  xinput,
+ dde-wloutput,
+ dde-wloutput-daemon,
+ kelvinu,
+ dde-wldpms,
  ${misc:Depends},
  ${shlibs:Depends},
 Recommends:
