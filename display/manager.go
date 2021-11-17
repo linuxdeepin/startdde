@@ -377,12 +377,20 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 	displayModeEq := currentCfg.DisplayMode == newCfg.DisplayMode
 	scaleFactorsEq := reflect.DeepEqual(currentCfg.ScaleFactors, newCfg.ScaleFactors)
 	monitorMap := m.cloneMonitorMap()
-	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	currentMonitorCfgs := currentCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode)
+	monitors := getConnectedMonitors(monitorMap)
+	single := len(monitors) == 1
+	monitorsId := monitors.getMonitorsId()
+	currentMonitorCfgs := currentCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode, single)
 	currentMonitorCfgs.sort()
-	newMonitorCfgs := newCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode)
+	newMonitorCfgs := newCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode, single)
 	newMonitorCfgs.sort()
 	monitorCfgsEq := reflect.DeepEqual(currentMonitorCfgs, newMonitorCfgs)
+	logger.Debugf("fillModeEq: %v, displayModeEq: %v, scaleFactorsEq: %v, monitorCfgsEq: %v, monitorsId: %v, single: %v",
+		fillModesEq, displayModeEq, scaleFactorsEq, monitorCfgsEq, monitorsId, single)
+	if logger.GetLogLevel() == log.LevelDebug {
+		logger.Debugf("currentMonitorCfgs: %s", spew.Sdump(currentMonitorCfgs))
+		logger.Debugf("newMonitorCfgs: %s", spew.Sdump(newMonitorCfgs))
+	}
 
 	setCfg()
 
@@ -1419,10 +1427,13 @@ func (m *Manager) getSysScreenConfig(monitorsId string) *SysScreenConfig {
 	return screenCfg
 }
 
-func (cfg *SysConfig) getMonitorConfigs(monitorId string, displayMode byte) SysMonitorConfigs {
+func (cfg *SysConfig) getMonitorConfigs(monitorId string, displayMode byte, single bool) SysMonitorConfigs {
 	sc := cfg.Screens[monitorId]
 	if sc == nil {
 		return nil
+	}
+	if single {
+		return sc.getSingleMonitorConfigs()
 	}
 	return sc.getMonitorConfigs(displayMode, sc.OnlyOneUuid)
 }
