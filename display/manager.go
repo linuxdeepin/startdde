@@ -1350,12 +1350,12 @@ func (m *Manager) setPrimary(name string) error {
 }
 
 func (m *Manager) buildConfigForModeExtend(monitors Monitors) (monitorCfgs SysMonitorConfigs, err error) {
-	var xOffset int
 	// 先获取主屏
 	var primaryMonitor *Monitor
 	primaryMonitor = m.getDefaultPrimaryMonitor(monitors)
 
 	sortMonitorsByPrimaryAndId(monitors, primaryMonitor)
+	var xOffset int
 
 	for _, monitor := range monitors {
 		cfg := monitor.toBasicSysConfig()
@@ -1364,6 +1364,7 @@ func (m *Manager) buildConfigForModeExtend(monitors Monitors) (monitorCfgs SysMo
 			cfg.Primary = true
 		}
 		mode := monitor.BestMode
+		// 不用考虑旋转，默认不旋转
 		cfg.Width = mode.Width
 		cfg.Height = mode.Height
 		cfg.RefreshRate = mode.Rate
@@ -1376,7 +1377,7 @@ func (m *Manager) buildConfigForModeExtend(monitors Monitors) (monitorCfgs SysMo
 		cfg.Rotation = randr.RotationRotate0
 		//cfg.Reflect = 0
 		cfg.Brightness = 1
-		xOffset += int(monitor.Width)
+		xOffset += int(cfg.Width)
 		monitorCfgs = append(monitorCfgs, cfg)
 	}
 	return
