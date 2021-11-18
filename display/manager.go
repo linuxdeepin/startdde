@@ -157,6 +157,7 @@ type Manager struct {
 	rotateScreenTimeDelay int32
 	setFillModeMu         sync.Mutex
 	delayApplyTimer       *time.Timer
+	delayApplyOptions     applyOptions
 	prevNumMonitors       int
 	applyMu               sync.Mutex
 	inApply               bool
@@ -646,6 +647,82 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId string, monitorMap ma
 	return nil
 }
 
+// 在显示器断开或连接时，monitorsId 会改变，重新应用与之相符合的显示配置。
+func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
+	m.monitorsIdMu.Lock()
+	defer m.monitorsIdMu.Unlock()
+	// NOTE: 加锁为了保护 monitorsId 和 delayApplyTimer
+
+	oldMonitorsId := m.monitorsId
+	monitorMap := m.cloneMonitorMap()
+	newMonitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
+	if newMonitorsId != oldMonitorsId && newMonitorsId != "" {
+		m.monitorsId = newMonitorsId
+		logger.Debugf("monitors id changed, old monitors id: %v, new monitors id: %v", oldMonitorsId, newMonitorsId)
+		m.markClean()
+
+		const delayApplyDuration = 1 * time.Second
+		if m.delayApplyTimer == nil {
+			m.delayApplyTimer = time.AfterFunc(delayApplyDuration, func() {
+				options := m.getDelayApplyOptions()
+				// NOTE: applyConfig 应在非 X 事件处理的另外一个 goroutine 中进行。
+				logger.Debugf("delay call applyConfig, options: %v", options)
+				paths := m.applyConfig(true, options)
+				logger.Debug("update prop Monitors:", paths)
+				m.PropsMu.Lock()
+				m.setPropMonitors(paths)
+				m.PropsMu.Unlock()
+			})
+		}
+		m.setDelayApplyOptions(options)
+		m.delayApplyTimer.Stop()
+		// timer Reset 之前需要 Stop
+		m.delayApplyTimer.Reset(delayApplyDuration)
+	}
+	return false
+}
+
+func (m *Manager) getDelayApplyOptions() applyOptions {
+	m.PropsMu.Lock()
+	options := m.delayApplyOptions
+	m.PropsMu.Unlock()
+	return options
+}
+
+func (m *Manager) setDelayApplyOptions(options applyOptions) {
+	m.PropsMu.Lock()
+	m.delayApplyOptions = options
+	m.PropsMu.Unlock()
+}
+
+// applyConfig 应用显示配置，允许根据实际情况自动切换模式。
+func (m *Manager) applyConfig(setColorTemp bool, options applyOptions) (paths []dbus.ObjectPath) {
+	monitorMap := m.cloneMonitorMap()
+	monitors := getConnectedMonitors(monitorMap)
+	monitorsId := monitors.getMonitorsId()
+	logger.Debug("applyConfig", monitorsId)
+
+	m.PropsMu.RLock()
+	displayMode := m.DisplayMode
+	m.PropsMu.RUnlock()
+
+	// 3个及以上屏幕，如果当前显示模式是 OnlyOne，需要自动切换到 Mirror 显示模式。
+	if displayMode == DisplayModeOnlyOne && len(monitors) >= 3 {
+		logger.Debug("switchMode mirror", monitorsId)
+		err := m.switchModeAux(DisplayModeMirror, displayMode, monitorsId, monitorMap, setColorTemp, options)
+		if err != nil {
+			logger.Warning(err)
+		}
+	} else {
+		err := m.applyDisplayConfig(m.DisplayMode, monitorsId, monitorMap, setColorTemp, options)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}
+
+	return monitors.getPaths()
+}
+
 func (m *Manager) migrateOldConfig() {
 	if _greeterMode {
 		return
@@ -786,12 +863,7 @@ func (m *Manager) init() {
 	// NOTE: m.listenXEvents 应该在 m.applyDisplayConfig 之前，否则会造成它里面的 m.apply 函数的等待超时。
 	m.listenXEvents()
 	// 此时不需要设置色温，在 StartPart2 中做。为性能考虑。
-	monitorMap := m.cloneMonitorMap()
-	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	err = m.applyDisplayConfig(m.DisplayMode, monitorsId, monitorMap, false, nil)
-	if err != nil {
-		logger.Warning(err)
-	}
+	m.applyConfig(false, nil)
 	if m.builtinMonitor != nil {
 		m.listenSettingsChanged() // 监听旋转屏幕延时值
 		m.initScreenRotation()    // 获取初始屏幕的状态（屏幕方向）
@@ -1527,23 +1599,17 @@ func (m *Manager) applyModeOnlyOne(monitorsId string, monitorMap map[uint32]*Mon
 	return
 }
 
-func (m *Manager) switchMode(mode byte, name string) (err error) {
-	options := applyOptions{
-		optionOnlyOne: name,
-		// 替代之前的 modeChanged
-		optionDisableCrtc: true,
-	}
-	oldMode := m.DisplayMode
-	monitorMap := m.cloneMonitorMap()
-	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	err = m.applyDisplayConfig(mode, monitorsId, monitorMap, true, options)
+func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId string, monitorMap map[uint32]*Monitor,
+	setColorTemp bool, options applyOptions) (err error) {
+
+	err = m.applyDisplayConfig(mode, monitorsId, monitorMap, setColorTemp, options)
 	if err != nil {
 		logger.Warning(err)
 
 		// 模式切换失败，回退到之前的模式
 		monitorMap := m.cloneMonitorMap()
 		monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-		err1 := m.applyDisplayConfig(oldMode, monitorsId, monitorMap, true, options)
+		err1 := m.applyDisplayConfig(oldMode, monitorsId, monitorMap, setColorTemp, options)
 		if err1 != nil {
 			logger.Warning(err1)
 		}
@@ -1564,6 +1630,20 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	}
 
 	return nil
+}
+
+func (m *Manager) switchMode(mode byte, name string) (err error) {
+	oldMode := m.DisplayMode
+	monitorMap := m.cloneMonitorMap()
+	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
+	options := applyOptions{
+		// 替代之前的 modeChanged
+		optionDisableCrtc: true,
+	}
+	if mode == DisplayModeOnlyOne && name != "" {
+		options[optionOnlyOne] = name
+	}
+	return m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
 }
 
 func (m *Manager) setDisplayMode(mode byte) {
@@ -1733,7 +1813,9 @@ func (m *Manager) cloneMonitorMapNoLock() map[uint32]*Monitor {
 }
 
 func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId string, monitorMap map[uint32]*Monitor, configs SysMonitorConfigs, options applyOptions) error {
-	logger.Debug("applySysMonitorConfigs", spew.Sdump(configs), options)
+	if logger.GetLogLevel() == log.LevelDebug {
+		logger.Debugf("applySysMonitorConfigs configs: %s, options: %v", spew.Sdump(configs), options)
+	}
 
 	// 验证配置
 	enabledCount := 0

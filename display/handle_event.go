@@ -1,52 +1,9 @@
 package display
 
 import (
-	"time"
-
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
-
-// 在显示器断开或连接时，monitorsId 会改变，重新应用与之相符合的显示配置。
-func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
-	m.monitorsIdMu.Lock()
-	defer m.monitorsIdMu.Unlock()
-	// NOTE: 这个函数可能同时在 X 事件处理和 applyDisplayConfig 的不同 goroutine 中执行，因此需要加锁。
-
-	oldMonitorsId := m.monitorsId
-	monitorMap := m.cloneMonitorMap()
-	newMonitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	logger.Debugf("old monitors id: %v, new monitors id: %v", oldMonitorsId, newMonitorsId)
-	if newMonitorsId != oldMonitorsId && newMonitorsId != "" {
-		m.monitorsId = newMonitorsId
-		logger.Debug("monitors id changed, new monitors id:", newMonitorsId)
-		m.markClean()
-
-		const delayApplyDuration = 1 * time.Second
-		if m.delayApplyTimer == nil {
-			m.delayApplyTimer = time.AfterFunc(delayApplyDuration, func() {
-				// NOTE: applyDisplayConfig 在非 X 事件处理的另外一个 goroutine 中进行。
-				monitorMap := m.cloneMonitorMap()
-				monitors := getConnectedMonitors(monitorMap)
-				monitorsId := monitors.getMonitorsId()
-				logger.Debug("delay call applyDisplayConfig", monitorsId)
-				err := m.applyDisplayConfig(m.DisplayMode, monitorsId, monitorMap, true, options)
-				if err != nil {
-					logger.Warning(err)
-				}
-				paths := monitors.getPaths()
-				logger.Debug("update prop Monitors:", paths)
-				m.PropsMu.Lock()
-				m.setPropMonitors(paths)
-				m.PropsMu.Unlock()
-			})
-		}
-		m.delayApplyTimer.Stop()
-		// timer Reset 之前需要 Stop
-		m.delayApplyTimer.Reset(delayApplyDuration)
-	}
-	return false
-}
 
 // 在 X 下，显示器属性改变，断开或者连接显示器。
 // 在 wayland 下，仅显示器属性改变。
