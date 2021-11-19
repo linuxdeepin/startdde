@@ -161,6 +161,7 @@ type Manager struct {
 	prevNumMonitors       int
 	applyMu               sync.Mutex
 	inApply               bool
+	futureConfig          monitorsFutureConfig
 
 	// dbusutil-gen: equal=objPathsEqual
 	Monitors []dbus.ObjectPath
@@ -1231,16 +1232,15 @@ func (m *Manager) applyModeMirror(monitorsId string, monitorMap map[uint32]*Moni
 	return
 }
 
-func (m *Manager) getSuitableSysMonitorConfigs(displayMode byte) SysMonitorConfigs {
-	monitors := m.getConnectedMonitors()
-	screenCfg := m.getSysScreenConfig(monitors.getMonitorsId())
+func (m *Manager) getSuitableSysMonitorConfigs(displayMode byte, monitorsId string, monitors Monitors) SysMonitorConfigs {
+	screenCfg := m.getSysScreenConfig(monitorsId)
 	if len(monitors) == 0 {
 		return nil
 	} else if len(monitors) == 1 {
-		return screenCfg.getSingleMonitorConfigs()
+		return screenCfg.getSingleMonitorConfigs().clone()
 	}
 	uuid := getOnlyOneMonitorUuid(displayMode, monitors)
-	return screenCfg.getMonitorConfigs(displayMode, uuid)
+	return screenCfg.getMonitorConfigs(displayMode, uuid).clone()
 }
 
 func (m *Manager) getSuitableUserMonitorModeConfig(displayMode byte) *UserMonitorModeConfig {
@@ -1652,6 +1652,11 @@ func (m *Manager) setDisplayMode(mode byte) {
 }
 
 func (m *Manager) save() (err error) {
+	if m.getInApply() {
+		logger.Debug("no save, in apply")
+		return nil
+	}
+
 	m.PropsMu.RLock()
 	if !m.HasChanged {
 		m.PropsMu.RUnlock()
@@ -1667,30 +1672,19 @@ func (m *Manager) save() (err error) {
 		err = errors.New("no monitor connected")
 		return
 	}
+	monitorsId := monitors.getMonitorsId()
 
-	screenCfg := m.getSysScreenConfig(monitors.getMonitorsId())
-
+	screenCfg := m.getSysScreenConfig(monitorsId)
+	configs := m.futureConfig.getConfigs(monitorsId)
+	if len(configs) == 0 {
+		logger.Debug("no save, no config")
+		return
+	}
 	if len(monitors) == 1 {
-		screenCfg.setSingleMonitorConfigs(SysMonitorConfigs{monitors[0].toSysConfig()})
+		screenCfg.setSingleMonitorConfigs(configs)
 	} else {
-		// TODO 为什么需要这里的代码？
-		var primaryName string
-		//当为扩展屏幕的时候，设置默认屏为配置文件中默认屏幕
-		if m.DisplayMode == DisplayModeExtend && screenCfg.Extend != nil {
-			for _, monitor := range screenCfg.Extend.Monitors {
-				if monitor.Primary {
-					primaryName = monitor.Name
-				}
-			}
-		}
-		//没找到主屏或者模式非扩展模式，则取默认值
-		if primaryName == "" {
-			primaryName = m.Primary
-		}
-
-		logger.Debugf("display mode: %d, primary name: %s", m.DisplayMode, primaryName)
 		uuid := getOnlyOneMonitorUuid(m.DisplayMode, monitors)
-		screenCfg.setMonitorConfigs(m.DisplayMode, uuid, toSysMonitorConfigs(monitors, primaryName))
+		screenCfg.setMonitorConfigs(m.DisplayMode, uuid, configs)
 	}
 
 	err = m.saveSysConfig("save")
@@ -1707,6 +1701,7 @@ func (m *Manager) markClean() {
 	for _, monitor := range m.monitorMap {
 		monitor.PropsMu.Lock()
 		monitor.backup = nil
+		monitor.changes = nil
 		monitor.PropsMu.Unlock()
 	}
 	m.monitorMapMu.Unlock()
@@ -1714,6 +1709,41 @@ func (m *Manager) markClean() {
 	m.PropsMu.Lock()
 	m.setPropHasChanged(false)
 	m.PropsMu.Unlock()
+
+	m.futureConfig.clear()
+}
+
+type monitorsFutureConfig struct {
+	mu         sync.Mutex
+	monitorsId string
+	configs    SysMonitorConfigs
+}
+
+func (mfc *monitorsFutureConfig) clear() {
+	mfc.mu.Lock()
+	defer mfc.mu.Unlock()
+
+	mfc.monitorsId = ""
+	mfc.configs = nil
+}
+
+func (mfc *monitorsFutureConfig) setConfigs(monitorsId string, configs SysMonitorConfigs) {
+	mfc.mu.Lock()
+	defer mfc.mu.Unlock()
+
+	mfc.monitorsId = monitorsId
+	mfc.configs = configs.clone()
+}
+
+func (mfc *monitorsFutureConfig) getConfigs(monitorsId string) SysMonitorConfigs {
+	mfc.mu.Lock()
+	defer mfc.mu.Unlock()
+
+	if mfc.monitorsId != monitorsId {
+		return nil
+	}
+
+	return mfc.configs.clone()
 }
 
 func (m *Manager) applyChanges() error {
@@ -1734,15 +1764,22 @@ func (m *Manager) applyChanges() error {
 	monitors := getConnectedMonitors(monitorMap)
 	monitorsId := monitors.getMonitorsId()
 
-	// 检查 monitors 的配置
-	err := checkMonitors(monitors, m.DisplayMode)
-	if err != nil {
-		logger.Warning("checkMonitors failed:", err)
-		m.resetChangesWithoutApply()
-		return err
+	configs := m.getSuitableSysMonitorConfigs(m.DisplayMode, monitorsId, monitors)
+	for _, config := range configs {
+		monitor := monitors.GetByUuid(config.UUID)
+		if monitor == nil {
+			continue
+		}
+		config.modify(monitor.changes)
 	}
 
-	err = m.apply(monitorsId, monitorMap, nil)
+	err := m.applySysMonitorConfigs(DisplayModeInvalid, monitorsId, monitorMap, configs, nil)
+	if err != nil {
+		logger.Warning("[applyChanges] apply sys monitor configs failed:", err)
+		m.futureConfig.clear()
+	} else {
+		m.futureConfig.setConfigs(monitorsId, configs)
+	}
 	return err
 }
 
@@ -1762,39 +1799,10 @@ func (m *Manager) resetChangesWithoutApply() {
 	m.monitorMapMu.Unlock()
 }
 
-func checkMonitors(monitors Monitors, mode byte) error {
-	logger.Debug("checkMonitors mode:", mode)
-	configs := toSysMonitorConfigs(monitors, "")
-	if logger.GetLogLevel() == log.LevelDebug {
-		logger.Debug("checkMonitors configs:", spew.Sdump(configs))
-	}
-	if len(configs) > 1 {
-		if mode == DisplayModeExtend {
-			zeroPosCount := 0
-			for _, config := range configs {
-				if config.X == 0 && config.Y == 0 {
-					zeroPosCount++
-				}
-			}
-			logger.Debug("zeroPosCount:", zeroPosCount)
-			if zeroPosCount > 1 {
-				return errors.New("display mode is extend, but the position of more than one monitor is at (0,0)")
-			}
-		}
-	}
-	return nil
-}
-
 func (m *Manager) getConnectedMonitors() Monitors {
 	m.monitorMapMu.Lock()
 	defer m.monitorMapMu.Unlock()
 	return getConnectedMonitors(m.monitorMap)
-}
-
-func (m *Manager) getVirtualConnectedMonitors() Monitors {
-	m.monitorMapMu.Lock()
-	defer m.monitorMapMu.Unlock()
-	return getVirtualConnectedMonitors(m.monitorMap)
 }
 
 func (m *Manager) cloneMonitorMap() map[uint32]*Monitor {

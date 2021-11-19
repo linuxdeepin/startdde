@@ -131,7 +131,9 @@ func (m *Manager) DeleteCustomMode(name string) *dbus.Error {
 // RefreshBrightness 重置亮度，主要被 session/power 模块调用。从配置恢复亮度。
 func (m *Manager) RefreshBrightness() *dbus.Error {
 	logger.Debug("dbus call RefreshBrightness")
-	configs := m.getSuitableSysMonitorConfigs(m.DisplayMode)
+	monitors := m.getConnectedMonitors()
+	monitorsId := monitors.getMonitorsId()
+	configs := m.getSuitableSysMonitorConfigs(m.DisplayMode, monitorsId, monitors)
 	for _, config := range configs {
 		if config.Enabled {
 			err := m.setBrightness(config.Name, config.Brightness)

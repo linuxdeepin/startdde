@@ -194,12 +194,55 @@ func (c *SysMonitorConfig) fix() {
 	}
 }
 
+func (c *SysMonitorConfig) modify(changes monitorChanges) {
+	for name, value := range changes {
+		var ok bool
+		switch name {
+		case monitorPropX:
+			c.X, ok = value.(int16)
+		case monitorPropY:
+			c.Y, ok = value.(int16)
+		case monitorPropWidth:
+			c.Width, ok = value.(uint16)
+		case monitorPropHeight:
+			c.Height, ok = value.(uint16)
+		case monitorPropRotation:
+			c.Rotation, ok = value.(uint16)
+		case monitorPropRefreshRate:
+			c.RefreshRate, ok = value.(float64)
+		case monitorPropEnabled:
+			c.Enabled, ok = value.(bool)
+		default:
+			ok = true
+			logger.Warningf("invalid monitor property name, uuid: %v, name: %v", c.UUID, name)
+		}
+
+		if !ok {
+			logger.Warningf("failed to set value, uuid: %v, name: %v, value: %v", c.UUID, name, value)
+		} else {
+			logger.Debugf("config %v set value %v = %v", c.UUID, name, value)
+		}
+	}
+}
+
 func isValidBrightness(value float64) bool {
 	// 不含 0
 	return value > 0 && value <= 1
 }
 
 type SysMonitorConfigs []*SysMonitorConfig
+
+func (cfgs SysMonitorConfigs) clone() SysMonitorConfigs {
+	if cfgs == nil {
+		return nil
+	}
+	result := make(SysMonitorConfigs, len(cfgs))
+	for i, config := range cfgs {
+		configCp := *config
+		result[i] = &configCp
+	}
+	return result
+}
 
 func (s *SysScreenConfig) getSingleMonitorConfigs() SysMonitorConfigs {
 	if s.Single == nil {

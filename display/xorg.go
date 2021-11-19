@@ -574,11 +574,9 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 	logger.Debug("call apply", monitorsId)
 	optDisableCrtc, _ := options[optionDisableCrtc].(bool)
 
-	crtcCfgs := make(map[randr.Crtc]crtcConfig)
 	disabledOutputs := make(map[randr.Output]bool)
 	freeCrtcs := mm.getFreeCrtcMap()
 
-	// 根据 monitor 的配置，准备 crtc 配置到 monitorCrtcCfgMap
 	// 继续找更多的 free crtc
 	for _, monitor := range monitorMap {
 		monitor.dumpInfoForDebug()
@@ -598,6 +596,8 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 		}
 	}
 
+	// 根据 monitor 的配置，准备 crtc 配置放到 crtcCfgs 中。
+	crtcCfgs := make(map[randr.Crtc]crtcConfig)
 	for output, monitor := range monitorMap {
 		monitorInfo := mm.getMonitor(monitor.ID)
 		if monitorInfo == nil {
@@ -623,19 +623,20 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 				outputs:  []randr.Output{randr.Output(output)},
 			}
 		}
+	}
 
-		for crtc, isFree := range freeCrtcs {
-			if isFree {
-				// 禁用此 crtc，把它的 outputs 设置为空。
-				crtcCfgs[crtc] = crtcConfig{
-					crtc:     crtc,
-					rotation: randr.RotationRotate0,
-				}
+	for crtc, isFree := range freeCrtcs {
+		if isFree {
+			// 禁用此 crtc，把它的 outputs 设置为空。
+			crtcCfgs[crtc] = crtcConfig{
+				crtc:     crtc,
+				rotation: randr.RotationRotate0,
 			}
 		}
 	}
+	logger.Debug("freeCrtcs:", freeCrtcs)
+	logger.Debug("disableOutputs", disabledOutputs)
 
-	// 到此输出 crtcCfgs ，替换之前的 monitorCrtcCfgMap
 	if logger.GetLogLevel() == log.LevelDebug {
 		logger.Debug("crtcCfgs:", spew.Sdump(crtcCfgs))
 	}
@@ -726,8 +727,7 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 	}
 
 	for _, crtcCfg := range crtcCfgs {
-		logger.Debugf("applyCrtcConfig crtc: %d, outputs: %v", crtcCfg.crtc, crtcCfg.outputs)
-		err := mm.applyCrtcConfig(crtcCfg)
+		err := mm.setCrtcConfig(crtcCfg)
 		if err != nil {
 			return err
 		}
@@ -797,17 +797,10 @@ func (mm *xMonitorManager) setMonitorFillMode(monitor *Monitor, fillMode string)
 func getConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
 	var monitors Monitors
 	for _, monitor := range monitorMap {
-		if monitor.realConnected {
-			monitors = append(monitors, monitor)
-		}
-	}
-	return monitors
-}
-
-func getVirtualConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
-	var monitors Monitors
-	for _, monitor := range monitorMap {
-		if monitor.Connected {
+		monitor.PropsMu.RLock()
+		connected := monitor.realConnected
+		monitor.PropsMu.RUnlock()
+		if connected {
 			monitors = append(monitors, monitor)
 		}
 	}
@@ -871,23 +864,13 @@ func (mm *xMonitorManager) setScreenSize(ss screenSize) error {
 }
 
 func (mm *xMonitorManager) disableCrtc(crtc randr.Crtc) error {
-	mm.mu.Lock()
-	cfgTs := mm.cfgTs
-	mm.mu.Unlock()
-
-	setCfg, err := randr.SetCrtcConfig(mm.xConn, crtc, 0, cfgTs,
-		0, 0, 0, randr.RotationRotate0, nil).Reply(mm.xConn)
-	if err != nil {
-		return err
-	}
-	if setCfg.Status != randr.SetConfigSuccess {
-		return fmt.Errorf("failed to disable crtc %d: %v",
-			crtc, getRandrStatusStr(setCfg.Status))
-	}
-	return nil
+	return mm.setCrtcConfig(crtcConfig{
+		crtc:     crtc,
+		rotation: randr.RotationRotate0,
+	})
 }
 
-func (mm *xMonitorManager) applyCrtcConfig(cfg crtcConfig) error {
+func (mm *xMonitorManager) setCrtcConfig(cfg crtcConfig) error {
 	mm.mu.Lock()
 	cfgTs := mm.cfgTs
 	mm.mu.Unlock()

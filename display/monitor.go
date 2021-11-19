@@ -69,6 +69,44 @@ type Monitor struct {
 	AvailableFillModes strv.Strv
 
 	backup *MonitorBackup
+	// changes 记录 DBus 接口对显示器对象做的设置，也用 PropsMu 保护。
+	changes monitorChanges
+}
+
+// monitorChanges 用于记录从 DBus 接收到的显示器新设置，key 是显示器属性名。
+type monitorChanges map[string]interface{}
+
+// monitorChanges 中 key 支持的的显示器属性名
+const (
+	monitorPropEnabled     = "Enabled"
+	monitorPropX           = "X"
+	monitorPropY           = "Y"
+	monitorPropWidth       = "Width"
+	monitorPropHeight      = "Height"
+	monitorPropRotation    = "Rotation"
+	monitorPropRefreshRate = "RefreshRate"
+)
+
+func (changes monitorChanges) clone() monitorChanges {
+	if changes == nil {
+		return nil
+	}
+	result := make(monitorChanges, len(changes))
+	for name, value := range changes {
+		result[name] = value
+	}
+	return result
+}
+
+// 合并新改变
+func (m *Monitor) mergeChanges(newChanges monitorChanges) {
+	// NOTE: 不用对 Monitor.PropsMu 加锁
+	if m.changes == nil {
+		m.changes = make(monitorChanges)
+	}
+	for name, value := range newChanges {
+		m.changes[name] = value
+	}
 }
 
 func (m *Monitor) String() string {
@@ -119,6 +157,7 @@ func (m *Monitor) clone() *Monitor {
 		CurrentFillMode:    m.CurrentFillMode,
 		AvailableFillModes: m.AvailableFillModes,
 		backup:             nil,
+		changes:            m.changes.clone(),
 	}
 
 	return &monitorCp
@@ -160,6 +199,9 @@ func (m *Monitor) Enable(enabled bool) *dbus.Error {
 
 	m.markChanged()
 	m.setPropEnabled(enabled)
+	m.mergeChanges(monitorChanges{
+		monitorPropEnabled: enabled,
+	})
 	return nil
 }
 
@@ -183,6 +225,11 @@ func (m *Monitor) setModeNoLock(mode uint32) *dbus.Error {
 
 	m.markChanged()
 	m.setMode(newMode)
+	m.mergeChanges(monitorChanges{
+		monitorPropWidth:       m.Width,
+		monitorPropHeight:      m.Height,
+		monitorPropRefreshRate: m.RefreshRate,
+	})
 	return nil
 }
 
@@ -274,6 +321,10 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 	m.markChanged()
 	m.setPropX(X)
 	m.setPropY(y)
+	m.mergeChanges(monitorChanges{
+		monitorPropX: X,
+		monitorPropY: y,
+	})
 	return nil
 }
 
@@ -301,6 +352,11 @@ func (m *Monitor) SetRotation(value uint16) *dbus.Error {
 	m.oldRotation = m.Rotation
 	m.markChanged()
 	m.setRotation(value)
+	m.mergeChanges(monitorChanges{
+		monitorPropWidth:    m.Width,
+		monitorPropHeight:   m.Height,
+		monitorPropRotation: value,
+	})
 	m.setPropCurrentRotateMode(RotationFinishModeManual)
 	return nil
 }
@@ -400,12 +456,12 @@ func (m *Monitor) toSysConfig() *SysMonitorConfig {
 }
 
 func (m *Monitor) dumpInfoForDebug() {
-	logger.Debugf("dump info monitor %v, uuid: %v, id: %v, %v+%v,%vx%v, enable: %v, rotation: %v, reflect: %v, current mode: %+v",
-		m.Name,
-		m.uuid,
+	logger.Debugf("dump info monitor %v %v, enabled: %v, uuid: %v, %v+%v,%vx%v, rotation: %v, reflect: %v, current mode: %+v",
 		m.ID,
-		m.X, m.Y, m.Width, m.Height,
+		m.Name,
 		m.Enabled,
+		m.uuid,
+		m.X, m.Y, m.Width, m.Height,
 		m.Rotation, m.Reflect,
 		m.CurrentMode)
 }
@@ -418,7 +474,10 @@ func (monitors Monitors) getMonitorsId() string {
 	}
 	var ids []string
 	for _, monitor := range monitors {
-		ids = append(ids, monitor.uuid)
+		monitor.PropsMu.RLock()
+		uuid := monitor.uuid
+		monitor.PropsMu.RUnlock()
+		ids = append(ids, uuid)
 	}
 	sort.Strings(ids)
 	return strings.Join(ids, monitorsIdDelimiter)
@@ -507,9 +566,11 @@ type MonitorInfo struct {
 }
 
 func (m *MonitorInfo) dumpForDebug() {
-	logger.Debugf("MonitorInfo{crtc: %d,\nID: %v,\nName: %v,\nConnected: %v,\nCurrentMode: %v,\nPreferredMode: %v,\n"+
-		"X: %v, Y: %v, Width: %v, Height: %v,\nRotation: %v,\nRotations: %v,\nMmWidth: %v,\nMmHeight: %v,\nModes: %v}",
-		m.crtc, m.ID, m.Name, m.Connected, m.CurrentMode, m.PreferredMode, m.X, m.Y, m.Width, m.Height, m.Rotation, m.Rotations,
+	logger.Debugf("MonitorInfo{crtc: %d,\nID: %v,\nName: %v,\nConnected: %v,\nVirtualConnected: %v,\n"+
+		"CurrentMode: %v,\nPreferredMode: %v,\nX: %v, Y: %v, Width: %v, Height: %v,\nRotation: %v,\nRotations: %v,\n"+
+		"MmWidth: %v,\nMmHeight: %v,\nModes: %v}",
+		m.crtc, m.ID, m.Name, m.Connected, m.VirtualConnected,
+		m.CurrentMode, m.PreferredMode, m.X, m.Y, m.Width, m.Height, m.Rotation, m.Rotations,
 		m.MmWidth, m.MmHeight, m.Modes)
 }
 
