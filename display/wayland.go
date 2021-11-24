@@ -15,9 +15,9 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 type monitorIdGenerator struct {
@@ -45,6 +45,18 @@ func (mig *monitorIdGenerator) getId(uuid string) uint32 {
 	mig.nextId++
 	mig.uuidIdMap[uuid] = id
 	return id
+}
+
+func (mig *monitorIdGenerator) getUuidById(id uint32) string {
+	mig.mu.Lock()
+	defer mig.mu.Unlock()
+
+	for uuid, id0 := range mig.uuidIdMap {
+		if id0 == id {
+			return uuid
+		}
+	}
+	return ""
 }
 
 type KOutputInfo struct {
@@ -178,12 +190,11 @@ func (oi *KOutputInfo) getName() string {
 	return getOutputDeviceName(oi.Model, oi.Manufacturer)
 }
 
-func (oi *KOutputInfo) toMonitorInfo() *MonitorInfo {
+func (oi *KOutputInfo) toMonitorInfo(mm *kMonitorManager) *MonitorInfo {
 	mi := &MonitorInfo{
 		Enabled:          oi.Enabled != 0,
 		ID:               oi.id,
 		Name:             oi.getName(),
-		UUID:             oi.UUID,
 		Connected:        true,
 		VirtualConnected: true,
 		Modes:            oi.getModes(),
@@ -211,6 +222,16 @@ func (oi *KOutputInfo) toMonitorInfo() *MonitorInfo {
 		logger.Debugf("monitor %v %v edid: %v", mi.ID, mi.Name, spew.Sdump(mi.EDID))
 		manufacturer, model := parseEdid(mi.EDID)
 		logger.Debugf("parse edid manufacturer: %q, model: %q", manufacturer, model)
+	}
+
+	mi.UUID = oi.UUID
+	mi.UuidV0 = oi.UUID
+	if mi.Connected {
+		stdName, err := mm.getStdMonitorName(mi.Name, mi.EDID)
+		if err != nil {
+			logger.Warningf("get monitor %v std name failed: %v", mi.Name, err)
+		}
+		mi.UUID = getOutputUuid(mi.Name, stdName, mi.EDID)
 	}
 	return mi
 }
@@ -270,7 +291,10 @@ type outputInfoWrap struct {
 	OutputInfo []*KOutputInfo
 }
 
-// such as: make('dell'), model('eDP-1-dell'), so name is 'eDP-1'
+// 根据 model 和 make/Manufacturer 获取显示器的名字
+// 比如 model 'eDP-1-未知', make 'LP140WH8-TPD' => eDP-1
+// 'eDP-1-dell', 'dell' => eDP-1   这个例子可能目前不真实
+// 'HDMI-A-2-VA2430-H-3/W72211325199', 'VSC' => HDMI-A-2
 func getOutputDeviceName(model, make string) string {
 	logger.Debugf("[DEBUG] get name: '%s', '%s'", model, make)
 	name := getNameFromModelAndMake(model, make)
@@ -282,6 +306,17 @@ func getOutputDeviceName(model, make string) string {
 		return getNameFromModel(model)
 	}
 
+	// 找到第一个纯数字部分
+	for idx, name := range names {
+		_, err := strconv.Atoi(name)
+		if err == nil && idx >= 1 {
+			// name 是数字
+			// 比如 model 为 HDMI-A-2-VA2430-H-3/W72211325199
+			// 可以得到 HDMI-A-2 这个名字
+			return strings.Join(names[:idx+1], "-")
+		}
+	}
+
 	idx := len(names) - 1
 	for ; idx > 1; idx-- {
 		if len(names[idx]) > 1 {
@@ -289,6 +324,8 @@ func getOutputDeviceName(model, make string) string {
 		}
 		break
 	}
+	// 比如 model 为 HDMI-A-2-VA2430-H-3/W72211325199
+	// 可以得到 HDMI-A-2-VA2430-H 这个名字
 	return strings.Join(names[:idx+1], "-")
 }
 
@@ -336,12 +373,15 @@ type kMonitorManager struct {
 	mig            *monitorIdGenerator
 	monitorMap     map[uint32]*MonitorInfo
 	primary        uint32
+	// 键是 wayland 原始数据 model 字段处理过后的显示器名称，值是标准名。
+	stdNamesCache map[string]string
 }
 
 func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
 	kmm := &kMonitorManager{
 		sessionSigLoop: sessionSigLoop,
 		monitorMap:     make(map[uint32]*MonitorInfo),
+		stdNamesCache:  make(map[string]string),
 	}
 
 	sessionBus := sessionSigLoop.Conn()
@@ -361,8 +401,8 @@ func (mm *kMonitorManager) init() error {
 	if err != nil {
 		logger.Warning(err)
 	}
-	monitors := kOutputInfos.toMonitorInfos()
 	mm.mu.Lock()
+	monitors := kOutputInfos.toMonitorInfos(mm)
 	for _, monitor := range monitors {
 		mm.monitorMap[monitor.ID] = monitor
 	}
@@ -372,10 +412,10 @@ func (mm *kMonitorManager) init() error {
 
 type KOutputInfos []*KOutputInfo
 
-func (infos KOutputInfos) toMonitorInfos() []*MonitorInfo {
+func (infos KOutputInfos) toMonitorInfos(mm *kMonitorManager) []*MonitorInfo {
 	result := make([]*MonitorInfo, 0, len(infos))
 	for _, info := range infos {
-		result = append(result, info.toMonitorInfo())
+		result = append(result, info.toMonitorInfo(mm))
 	}
 	return result
 }
@@ -440,7 +480,23 @@ func (mm *kMonitorManager) getMonitor(id uint32) *MonitorInfo {
 	return &monitor
 }
 
-func (mm *kMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
+func (mm *kMonitorManager) getStdMonitorName(name string, edid []byte) (string, error) {
+	// NOTE：不要加锁
+	stdName := mm.stdNamesCache[name]
+	if stdName != "" {
+		return stdName, nil
+	}
+
+	stdName, err := getStdMonitorName(edid)
+	if err != nil {
+		return "", err
+	}
+	mm.stdNamesCache[name] = stdName
+	return stdName, nil
+}
+
+func (mm *kMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize,
+	options applyOptions, fillModes map[string]string) error {
 	return mm.applyByWLOutput(monitorMap)
 }
 
@@ -453,10 +509,15 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 			disabledMonitors = append(disabledMonitors, monitor)
 			continue
 		}
+		uuid := mm.mig.getUuidById(monitor.ID)
+		if uuid == "" {
+			logger.Warningf("get monitor %d uuid failed", monitor.ID)
+			return fmt.Errorf("get monitor %d uuid failed", monitor.ID)
+		}
 		logger.Debugf("apply name: %q, uuid: %q, enabled: %v, x: %v, y: %v, mode: %+v, trans:%v",
-			monitor.Name, monitor.uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
+			monitor.Name, uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
 
-		args = append(args, monitor.uuid, "1",
+		args = append(args, uuid, "1",
 			strconv.Itoa(int(monitor.X)), strconv.Itoa(int(monitor.Y)),
 			strconv.Itoa(int(monitor.CurrentMode.Width)),
 			strconv.Itoa(int(monitor.CurrentMode.Height)),
@@ -485,7 +546,13 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
+		uuid := mm.mig.getUuidById(monitor.ID)
+		if uuid == "" {
+			logger.Warningf("get monitor %d uuid failed", monitor.ID)
+			cancel()
+			return fmt.Errorf("get monitor %d uuid failed", monitor.ID)
+		}
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {
@@ -501,8 +568,8 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 func (mm *kMonitorManager) handleOutputAdded(outputInfo *KOutputInfo) {
 	logger.Debugf("OutputAdded %#v", outputInfo)
 
-	monitorInfo := outputInfo.toMonitorInfo()
 	mm.mu.Lock()
+	monitorInfo := outputInfo.toMonitorInfo(mm)
 	mm.monitorMap[outputInfo.id] = monitorInfo
 	mm.mu.Unlock()
 
@@ -514,8 +581,8 @@ func (mm *kMonitorManager) handleOutputAdded(outputInfo *KOutputInfo) {
 func (mm *kMonitorManager) handleOutputChanged(outputInfo *KOutputInfo) {
 	logger.Debugf("OutputChanged %#v", outputInfo)
 
-	monitorInfo := outputInfo.toMonitorInfo()
 	mm.mu.Lock()
+	monitorInfo := outputInfo.toMonitorInfo(mm)
 	mm.monitorMap[outputInfo.id] = monitorInfo
 	primary := mm.primary
 	mm.mu.Unlock()

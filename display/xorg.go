@@ -94,6 +94,10 @@ func GetRecommendedScaleFactor() float64 {
 			continue
 		}
 
+		if outputInfo.Crtc == 0 {
+			continue
+		}
+
 		crtcInfo, err := randr.GetCrtcInfo(_xConn, outputInfo.Crtc, cfgTs).Reply(_xConn)
 		if err != nil {
 			logger.Warningf("get crtc %v info failed: %v", outputInfo.Crtc, err)
@@ -207,14 +211,14 @@ type monitorManagerHooks interface {
 	handleMonitorRemoved(monitorId uint32)
 	handleMonitorChanged(monitorInfo *MonitorInfo)
 	handlePrimaryRectChanged(pmi primaryMonitorInfo)
-	getMonitorsId() string
+	getMonitorsId() monitorsId
 }
 
 type monitorManager interface {
 	setHooks(hooks monitorManagerHooks)
 	getMonitors() []*MonitorInfo
 	getMonitor(id uint32) *MonitorInfo
-	apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error
+	apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error
 	setMonitorPrimary(monitorId uint32) error
 	setMonitorFillMode(monitor *Monitor, fillMode string) error
 	showCursor(show bool) error
@@ -234,14 +238,17 @@ type xMonitorManager struct {
 	outputs                 map[randr.Output]*OutputInfo
 	primary                 randr.Output
 	monitorChangedCbEnabled bool
+	// 键是 x 的 output 名称，值是标准名。
+	stdNamesCache map[string]string
 }
 
 func newXMonitorManager(xConn *x.Conn, hasRandr1d2 bool) *xMonitorManager {
 	xmm := &xMonitorManager{
-		xConn:       xConn,
-		hasRandr1d2: hasRandr1d2,
-		crtcs:       make(map[randr.Crtc]*CrtcInfo),
-		outputs:     make(map[randr.Output]*OutputInfo),
+		xConn:         xConn,
+		hasRandr1d2:   hasRandr1d2,
+		crtcs:         make(map[randr.Crtc]*CrtcInfo),
+		outputs:       make(map[randr.Output]*OutputInfo),
+		stdNamesCache: make(map[string]string),
 	}
 	err := xmm.init()
 	if err != nil {
@@ -384,7 +391,7 @@ func (mm *xMonitorManager) doDiff() {
 	}
 }
 
-func (mm *xMonitorManager) wait(crtcCfgs map[randr.Crtc]crtcConfig, disabledOutputs map[randr.Output]bool, monitorsId string) {
+func (mm *xMonitorManager) wait(crtcCfgs map[randr.Crtc]crtcConfig, disabledOutputs map[randr.Output]bool, monitorsId monitorsId) {
 	now := time.Now()
 	defer func() {
 		logger.Debug("wait cost", time.Since(now))
@@ -420,19 +427,36 @@ func (mm *xMonitorManager) compareAll(crtcCfgs map[randr.Crtc]crtcConfig, disabl
 
 	for crtc, crtcCfg := range crtcCfgs {
 		crtcInfo := mm.crtcs[crtc]
-		if !(crtcCfg.x == crtcInfo.X &&
-			crtcCfg.y == crtcInfo.Y &&
-			crtcCfg.mode == crtcInfo.Mode &&
-			crtcCfg.rotation == crtcInfo.Rotation &&
-			outputSliceEqual(crtcCfg.outputs, crtcInfo.Outputs)) {
-			logger.Debugf("[compareAll] crtc %d not match", crtcCfg.crtc)
-			return false
+		if len(crtcCfg.outputs) > 0 {
+			// 启用 crtc 的情况
+			if !(crtcCfg.x == crtcInfo.X &&
+				crtcCfg.y == crtcInfo.Y &&
+				crtcCfg.mode == crtcInfo.Mode &&
+				crtcCfg.rotation == crtcInfo.Rotation &&
+				outputSliceEqual(crtcCfg.outputs, crtcInfo.Outputs)) {
+				if logger.GetLogLevel() == log.LevelDebug {
+					logger.Debugf("[compareAll] crtc %d not match, crtcCfg(expect): %v, crtcInfo(actual): %v",
+						crtcCfg.crtc, spew.Sdump(crtcCfg), spew.Sdump(crtcInfo))
+				}
+				return false
+			}
+		} else {
+			// 禁用 crtc 的情况, len(crtcCfg.outputs) == 0 成立。
+			if !(len(crtcInfo.Outputs) == 0 && crtcInfo.Mode == 0 && crtcInfo.Width == 0 && crtcInfo.Height == 0) {
+				if logger.GetLogLevel() == log.LevelDebug {
+					logger.Debugf("[compareAll] crtc %d not disabled, crtcCfg(expect): %v, crtcInfo(actual): %v",
+						crtcCfg.crtc, spew.Sdump(crtcCfg), spew.Sdump(crtcInfo))
+				}
+				return false
+			}
 		}
+
 		if len(crtcCfg.outputs) > 0 {
 			outputId := crtcCfg.outputs[0]
 			outputInfo := mm.outputs[outputId]
-			if outputInfo.Crtc != crtcCfg.crtc {
-				logger.Debugf("[compareAll] output %v crtc not match", outputId)
+			if crtcCfg.crtc != outputInfo.Crtc {
+				logger.Debugf("[compareAll] output %v crtc not match, output crtc expect: %v, actual: %v",
+					outputId, crtcCfg.crtc, outputInfo.Crtc)
 				return false
 			}
 		}
@@ -457,6 +481,21 @@ func toMonitorInfoMap(monitors []*MonitorInfo) map[uint32]*MonitorInfo {
 	return result
 }
 
+func (mm *xMonitorManager) getStdMonitorName(name string, edid []byte) (string, error) {
+	// NOTE：不要加锁
+	stdName := mm.stdNamesCache[name]
+	if stdName != "" {
+		return stdName, nil
+	}
+
+	stdName, err := getStdMonitorName(edid)
+	if err != nil {
+		return "", err
+	}
+	mm.stdNamesCache[name] = stdName
+	return stdName, nil
+}
+
 func (mm *xMonitorManager) refreshMonitorsCache() {
 	// NOTE: 不要加锁
 	monitors := make([]*MonitorInfo, 0, len(mm.outputs))
@@ -476,7 +515,17 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 		if err != nil {
 			logger.Warningf("get output %d edid failed: %v", outputId, err)
 		}
-		monitor.UUID = getOutputUuid(monitor.Name, monitor.EDID)
+
+		stdName := ""
+		if monitor.Connected {
+			stdName, err = mm.getStdMonitorName(monitor.Name, monitor.EDID)
+			if err != nil {
+				logger.Warningf("get monitor %v std name failed: %v", monitor.Name, err)
+			}
+		}
+
+		monitor.UUID = getOutputUuid(monitor.Name, stdName, monitor.EDID)
+		monitor.UuidV0 = getOutputUuidV0(monitor.Name, monitor.EDID)
 		monitor.Manufacturer, monitor.Model = parseEdid(monitor.EDID)
 
 		availFillModes, err := mm.getOutputAvailableFillModes(outputId)
@@ -569,7 +618,8 @@ func findOutputInCrtcCfgs(crtcCfgs map[randr.Crtc]crtcConfig, crtc randr.Crtc) r
 	return 0
 }
 
-func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error {
+func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize,
+	options applyOptions, fillModes map[string]string) error {
 
 	logger.Debug("call apply", monitorsId)
 	optDisableCrtc, _ := options[optionDisableCrtc].(bool)

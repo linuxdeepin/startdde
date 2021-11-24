@@ -3,8 +3,11 @@ package display
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"math"
+	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -199,7 +202,24 @@ func parseEdid(edid []byte) (string, string) {
 	return string(maInf), string(moInf)
 }
 
-func getOutputUuid(name string, edid []byte) string {
+func getOutputUuid(name, stdName string, edid []byte) string {
+	if len(edid) < 128 {
+		return name + "||v1"
+	}
+
+	id, _ := utils.SumStrMd5(string(edid[:128]))
+	if id == "" {
+		return name + "||v1"
+	}
+
+	if stdName != "" {
+		name = "@" + stdName
+	}
+
+	return name + "|" + id + "|v1"
+}
+
+func getOutputUuidV0(name string, edid []byte) string {
 	if len(edid) < 128 {
 		return name
 	}
@@ -208,6 +228,7 @@ func getOutputUuid(name string, edid []byte) string {
 	if id == "" {
 		return name
 	}
+
 	return name + id
 }
 
@@ -339,4 +360,45 @@ func hasRate(rates []float64, rate float64) bool {
 	}
 
 	return false
+}
+
+var regCardOutput = regexp.MustCompile(`^card\d+-.+`)
+
+func getStdMonitorName(edid []byte) (string, error) {
+	// /sys/class/drm/card0-HDMI-A-1
+	fileInfos, err := ioutil.ReadDir("/sys/class/drm")
+	if err != nil {
+		return "", err
+	}
+	for _, info := range fileInfos {
+		name := info.Name()
+		if regCardOutput.MatchString(name) {
+			nameParts := strings.SplitN(name, "-", 2)
+			if len(nameParts) == 2 {
+				outputName := nameParts[1]
+				sysEdid, _ := readSysDrmEdid(name)
+				if outputName != "" && len(sysEdid) > 0 && edidEqual(edid, sysEdid) {
+					return outputName, nil
+				}
+			}
+		}
+	}
+	return "", errors.New("can not get std name")
+}
+
+func edidEqual(edid1, edid2 []byte) bool {
+	// 比如 edid1  是从 x or wayland 获取的，
+	// 而 edid2 是从 /sys/class/drm/XXX/edid 获取的。
+	if len(edid1) == len(edid2) {
+		return bytes.Equal(edid1, edid2)
+	}
+	if len(edid2) > 128 && len(edid1) == 128 {
+		return bytes.Equal(edid1, edid2[:128])
+	}
+	return false
+}
+
+func readSysDrmEdid(name string) ([]byte, error) {
+	content, err := ioutil.ReadFile(filepath.Join("/sys/class/drm", name, "edid"))
+	return content, err
 }

@@ -50,8 +50,8 @@ type UserConfig struct {
 	Screens map[string]UserScreenConfig
 }
 
-func (c *UserConfig) fix() {
-	for _, screenConfig := range c.Screens {
+func (cfg *UserConfig) fix() {
+	for _, screenConfig := range cfg.Screens {
 		screenConfig.fix()
 	}
 }
@@ -81,6 +81,14 @@ func (c *UserMonitorModeConfig) fix() {
 	}
 }
 
+func (c *UserMonitorModeConfig) clone() *UserMonitorModeConfig {
+	if c == nil {
+		return nil
+	}
+	cfgCp := *c
+	return &cfgCp
+}
+
 func getDefaultUserMonitorModeConfig() *UserMonitorModeConfig {
 	return &UserMonitorModeConfig{
 		ColorTemperatureMode:   defaultTemperatureMode,
@@ -88,17 +96,211 @@ func getDefaultUserMonitorModeConfig() *UserMonitorModeConfig {
 	}
 }
 
-func (m *Manager) getUserScreenConfig() UserScreenConfig {
-	id := m.getMonitorsId()
-	screenCfg := m.userConfig.Screens[id]
-	if screenCfg == nil {
-		if m.userConfig.Screens == nil {
-			m.userConfig.Screens = make(map[string]UserScreenConfig)
-		}
-		screenCfg = UserScreenConfig{}
-		m.userConfig.Screens[id] = screenCfg
+func (m *Manager) getUserScreenConfig(monitorsId monitorsId) UserScreenConfig {
+	m.userCfgMu.Lock()
+	defer m.userCfgMu.Unlock()
+
+	screens := m.userConfig.Screens
+	screenCfg := screens[monitorsId.v1]
+	if screenCfg != nil {
+		return screenCfg.clone()
 	}
-	return screenCfg
+
+	return UserScreenConfig{}
+}
+
+func (m *Manager) setUserScreenConfig(monitorsId monitorsId, screenCfg UserScreenConfig) {
+	m.userCfgMu.Lock()
+	defer m.userCfgMu.Unlock()
+
+	screens := m.userConfig.Screens
+	if screens == nil {
+		screens = make(map[string]UserScreenConfig)
+		m.userConfig.Screens = screens
+	}
+	screens[monitorsId.v1] = screenCfg.clone()
+}
+
+// getSysScreenConfig 根据 monitorsId 参数返回不同的屏幕配置，不同 monitorsId 则屏幕配置不同。
+// monitorsId 代表了已连接了哪些显示器。
+func (m *Manager) getSysScreenConfig(monitorsId monitorsId) *SysScreenConfig {
+	m.sysConfig.mu.Lock()
+	defer m.sysConfig.mu.Unlock()
+
+	screens := m.sysConfig.Config.Screens
+	screenCfg := screens[monitorsId.v1]
+	if screenCfg != nil {
+		return screenCfg.clone()
+	}
+
+	return &SysScreenConfig{}
+}
+
+func (m *Manager) updateConfigUuid(monitors Monitors) {
+	m.updateSysConfigUuid(monitors)
+	m.updateUserConfigUuid(monitors)
+}
+
+func (m *Manager) updateUserConfigUuid(monitors Monitors) {
+	m.userCfgMu.Lock()
+	defer m.userCfgMu.Unlock()
+
+	needSave := m.userConfig.updateUuid(monitors)
+	if needSave {
+		err := m.saveUserConfigNoLock()
+		if err != nil {
+			logger.Warning("save user config failed:", err)
+		}
+	}
+}
+
+func (cfg *UserConfig) updateUuid(monitors Monitors) (changed bool) {
+	screens := cfg.Screens
+	// screensAdditional 待插入 screens 的键值
+	var screensAdditional map[string]UserScreenConfig
+	for monitorsId, screenCfg := range screens {
+		monitorUuids := strings.Split(monitorsId, monitorsIdDelimiter)
+
+		var partMonitors Monitors
+		for _, uuid := range monitorUuids {
+			monitor := monitors.GetByUuid(uuid)
+			if monitor != nil {
+				partMonitors = append(partMonitors, monitor)
+			}
+		}
+
+		// 如果 monitorsId 中所有显示器的 uuid 都能在 monitors 中找到，
+		// 则可以进行对 screens 中这个 monitorsId 和 screenCfg 的替换。
+		if len(monitorUuids) == len(partMonitors) {
+			newMonitorsId := partMonitors.getMonitorsId()
+			screenCfgChanged := false
+			screenCfg, screenCfgChanged = screenCfg.updateUuid(monitors)
+			if newMonitorsId.v1 != monitorsId || screenCfgChanged {
+				if screensAdditional == nil {
+					screensAdditional = make(map[string]UserScreenConfig)
+				}
+				screensAdditional[newMonitorsId.v1] = screenCfg
+				delete(screens, monitorsId)
+				changed = true
+			}
+		}
+	}
+
+	for key, screenCfg := range screensAdditional {
+		screens[key] = screenCfg
+	}
+	return
+}
+
+func (m *Manager) updateSysConfigUuid(monitors Monitors) {
+	m.sysConfig.mu.Lock()
+	defer m.sysConfig.mu.Unlock()
+
+	needSave := m.sysConfig.Config.updateUuid(monitors)
+	if needSave {
+		err := m.saveSysConfigNoLock("update uuid")
+		if err != nil {
+			logger.Warning("save sys config failed:", err)
+		}
+	}
+}
+
+func (m *Manager) setSysScreenConfig(monitorsId monitorsId, screenCfg *SysScreenConfig) {
+	m.sysConfig.mu.Lock()
+	defer m.sysConfig.mu.Unlock()
+
+	screens := m.sysConfig.Config.Screens
+	if screens == nil {
+		screens = make(map[string]*SysScreenConfig)
+		m.sysConfig.Config.Screens = screens
+	}
+	screens[monitorsId.v1] = screenCfg.clone()
+}
+
+func (cfg *SysConfig) getMonitorConfigs(monitorsId monitorsId, displayMode byte, single bool) SysMonitorConfigs {
+	if cfg == nil {
+		return nil
+	}
+	screens := cfg.Screens
+	sc := screens[monitorsId.v1]
+	if sc == nil {
+		return nil
+	}
+
+	if single {
+		return sc.getSingleMonitorConfigs()
+	}
+	return sc.getMonitorConfigs(displayMode, sc.OnlyOneUuid)
+}
+
+func (cfg *SysConfig) updateUuid(monitors Monitors) (changed bool) {
+	// 更新 screens 中的 uuid
+	screens := cfg.Screens
+	// screensAdditional 待插入 screens 的键值
+	var screensAdditional map[string]*SysScreenConfig
+	for monitorsId, screenCfg := range screens {
+		monitorUuids := strings.Split(monitorsId, monitorsIdDelimiter)
+
+		var partMonitors Monitors
+		for _, uuid := range monitorUuids {
+			monitor := monitors.GetByUuid(uuid)
+			if monitor != nil {
+				partMonitors = append(partMonitors, monitor)
+			}
+		}
+
+		// 如果 monitorsId 中所有显示器的 uuid 都能在 monitors 中找到，
+		// 则可以进行对 screens 中这个 monitorsId 和 screenCfg 的替换。
+		if len(monitorUuids) == len(partMonitors) {
+			newMonitorsId := partMonitors.getMonitorsId()
+			screenCfgChanged := false
+			screenCfg, screenCfgChanged = screenCfg.updateUuid(monitors)
+			if newMonitorsId.v1 != monitorsId || screenCfgChanged {
+				if screensAdditional == nil {
+					screensAdditional = make(map[string]*SysScreenConfig)
+				}
+				screensAdditional[newMonitorsId.v1] = screenCfg
+				delete(screens, monitorsId)
+				changed = true
+			}
+		}
+	}
+
+	for key, screenCfg := range screensAdditional {
+		screens[key] = screenCfg
+	}
+
+	// 更新 fillModes 中的 uuid
+	fillModes := cfg.FillModes
+	var fillModesAdditional map[string]string
+
+	for key, value := range fillModes {
+		// key 的格式是 uuid:(width)x(height)
+		fields := strings.SplitN(key, fillModeKeyDelimiter, 2)
+		if len(fields) != 2 {
+			// 删除无效的键
+			changed = true
+			delete(fillModes, key)
+			continue
+		}
+		uuid := fields[0]
+		uuidChanged := false
+		uuid, uuidChanged = updateUuid(uuid, monitors)
+		if uuidChanged {
+			if fillModesAdditional == nil {
+				fillModesAdditional = make(map[string]string)
+			}
+			newKey := uuid + fillModeKeyDelimiter + fields[1]
+			fillModesAdditional[newKey] = value
+			delete(fillModes, key)
+			changed = true
+		}
+	}
+
+	for key, value := range fillModesAdditional {
+		fillModes[key] = value
+	}
+	return
 }
 
 func (usc UserScreenConfig) getMonitorModeConfig(mode byte, uuid string) (cfg *UserMonitorModeConfig) {
@@ -130,6 +332,38 @@ func (usc UserScreenConfig) fix() {
 	}
 }
 
+func (usc UserScreenConfig) clone() UserScreenConfig {
+	if usc == nil {
+		return nil
+	}
+	result := make(UserScreenConfig, len(usc))
+	for key, config := range usc {
+		result[key] = config.clone()
+	}
+	return result
+}
+
+func (usc UserScreenConfig) updateUuid(monitors Monitors) (outCfg UserScreenConfig, changed bool) {
+	if usc == nil {
+		return nil, false
+	}
+	outCfg = make(UserScreenConfig, len(usc))
+	for key, config := range usc {
+		if strings.HasPrefix(key, KeyModeOnlyOnePrefix) {
+			uuid := key[len(KeyModeOnlyOnePrefix):]
+			uuidChanged := false
+			uuid, uuidChanged = updateUuid(uuid, monitors)
+			changed = changed || uuidChanged
+			key = KeyModeOnlyOnePrefix + uuid
+		}
+		outCfg[key] = config
+	}
+	if !changed {
+		outCfg = usc
+	}
+	return
+}
+
 // SysScreenConfig 系统级屏幕配置
 // NOTE: Single 可以看作是特殊的显示模式，和 Mirror,Extend 等模式共用 SysMonitorModeConfig 结构可以保持设计上的统一，不必在乎里面有 Monitors
 type SysScreenConfig struct {
@@ -138,6 +372,114 @@ type SysScreenConfig struct {
 	Single      *SysMonitorModeConfig            `json:",omitempty"`
 	OnlyOneMap  map[string]*SysMonitorModeConfig `json:",omitempty"`
 	OnlyOneUuid string                           `json:",omitempty"`
+}
+
+func isCurrentVersionUuid(uuid string) bool {
+	return strings.HasSuffix(uuid, "|v1")
+}
+
+func (c *SysScreenConfig) updateUuid(monitors Monitors) (result *SysScreenConfig, overallChanged bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	result = &SysScreenConfig{}
+
+	if c.Mirror != nil {
+		changed := false
+		result.Mirror, changed = c.Mirror.updateUuid(monitors)
+		overallChanged = overallChanged || changed
+	}
+	if c.Extend != nil {
+		changed := false
+		result.Extend, changed = c.Extend.updateUuid(monitors)
+		overallChanged = overallChanged || changed
+	}
+	if c.Single != nil {
+		changed := false
+		result.Single, changed = c.Single.updateUuid(monitors)
+		overallChanged = overallChanged || changed
+	}
+	if len(c.OnlyOneMap) > 0 {
+		result.OnlyOneMap = make(map[string]*SysMonitorModeConfig, len(c.OnlyOneMap))
+		for uuid, config := range c.OnlyOneMap {
+			changed := false
+			uuid, changed = updateUuid(uuid, monitors)
+			overallChanged = overallChanged || changed
+
+			result.OnlyOneMap[uuid], changed = config.updateUuid(monitors)
+			overallChanged = overallChanged || changed
+		}
+	}
+
+	changed := false
+	result.OnlyOneUuid, changed = updateUuid(c.OnlyOneUuid, monitors)
+	overallChanged = overallChanged || changed
+
+	return result, overallChanged
+}
+
+func updateUuid(uuid string, monitors Monitors) (newUuid string, change bool) {
+	if isCurrentVersionUuid(uuid) {
+		return uuid, false
+	}
+	monitor := monitors.GetByUuid(uuid)
+	if monitor != nil {
+		return monitor.uuid, true
+	}
+	// 放弃修改
+	return uuid, false
+}
+
+// 更新配置中的所有 uuid 的版本
+func (c *SysMonitorModeConfig) updateUuid(monitors Monitors) (*SysMonitorModeConfig, bool) {
+	if c == nil {
+		return nil, false
+	}
+	monitorConfigs := c.Monitors
+	hasChanged := false
+	outMonitorCfgs := make(SysMonitorConfigs, 0, len(monitorConfigs))
+	for _, monitorCfg := range monitorConfigs {
+		if !isCurrentVersionUuid(monitorCfg.UUID) {
+			monitor := monitors.GetByUuid(monitorCfg.UUID)
+			if monitor != nil {
+				outMonitorCfg := *monitorCfg
+				// 更新 uuid
+				outMonitorCfg.UUID = monitor.uuid
+				hasChanged = true
+				outMonitorCfgs = append(outMonitorCfgs, &outMonitorCfg)
+			}
+		} else {
+			outMonitorCfgs = append(outMonitorCfgs, monitorCfg)
+		}
+	}
+	result := SysMonitorModeConfig{}
+	if hasChanged && len(outMonitorCfgs) == len(monitorConfigs) {
+		result.Monitors = outMonitorCfgs
+	} else {
+		// 放弃更新 uuid
+		result.Monitors = monitorConfigs
+	}
+	return &result, hasChanged
+}
+
+func (c *SysScreenConfig) clone() *SysScreenConfig {
+	if c == nil {
+		return nil
+	}
+	result := &SysScreenConfig{
+		Mirror:      c.Mirror.clone(),
+		Extend:      c.Extend.clone(),
+		Single:      c.Single.clone(),
+		OnlyOneUuid: c.OnlyOneUuid,
+	}
+	if len(c.OnlyOneMap) > 0 {
+		result.OnlyOneMap = make(map[string]*SysMonitorModeConfig, len(c.OnlyOneMap))
+		for uuid, config := range c.OnlyOneMap {
+			result.OnlyOneMap[uuid] = config.clone()
+		}
+	}
+	return result
 }
 
 func (c *SysScreenConfig) fix() {
@@ -166,6 +508,15 @@ type SysMonitorModeConfig struct {
 func (c *SysMonitorModeConfig) fix() {
 	for _, monitor := range c.Monitors {
 		monitor.fix()
+	}
+}
+
+func (c *SysMonitorModeConfig) clone() *SysMonitorModeConfig {
+	if c == nil {
+		return nil
+	}
+	return &SysMonitorModeConfig{
+		Monitors: c.Monitors.clone(),
 	}
 }
 
@@ -245,13 +596,16 @@ func (cfgs SysMonitorConfigs) clone() SysMonitorConfigs {
 }
 
 func (s *SysScreenConfig) getSingleMonitorConfigs() SysMonitorConfigs {
-	if s.Single == nil {
+	if s == nil || s.Single == nil {
 		return nil
 	}
 	return s.Single.Monitors
 }
 
 func (s *SysScreenConfig) getMonitorConfigs(mode uint8, uuid string) SysMonitorConfigs {
+	if s == nil {
+		return nil
+	}
 	switch mode {
 	case DisplayModeMirror:
 		if s.Mirror == nil {
@@ -269,10 +623,10 @@ func (s *SysScreenConfig) getMonitorConfigs(mode uint8, uuid string) SysMonitorC
 		if uuid == "" {
 			return nil
 		}
-		if s.OnlyOneMap[uuid] == nil {
-			return nil
+		config := s.OnlyOneMap[uuid]
+		if config != nil {
+			return config.Monitors
 		}
-		return s.OnlyOneMap[uuid].Monitors
 	}
 
 	return nil
@@ -335,7 +689,7 @@ func (s *SysScreenConfig) setMonitorConfigsOnlyOne(uuid string, configs SysMonit
 
 func (cfgs SysMonitorConfigs) getByUuid(uuid string) *SysMonitorConfig {
 	for _, mc := range cfgs {
-		if mc.UUID == uuid {
+		if uuid == mc.UUID {
 			return mc
 		}
 	}

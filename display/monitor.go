@@ -29,7 +29,8 @@ const (
 type Monitor struct {
 	m       *Manager
 	service *dbusutil.Service
-	uuid    string
+	uuid    string // uuid v1
+	uuidV0  string
 	PropsMu sync.RWMutex
 
 	ID            uint32
@@ -129,6 +130,7 @@ func (m *Monitor) clone() *Monitor {
 		m:                  m.m,
 		service:            m.service,
 		uuid:               m.uuid,
+		uuidV0:             m.uuidV0,
 		ID:                 m.ID,
 		Name:               m.Name,
 		Connected:          m.Connected,
@@ -161,6 +163,10 @@ func (m *Monitor) clone() *Monitor {
 	}
 
 	return &monitorCp
+}
+
+func (m *Monitor) getUuids() strv.Strv {
+	return []string{m.uuid, m.uuidV0}
 }
 
 type MonitorBackup struct {
@@ -468,19 +474,30 @@ func (m *Monitor) dumpInfoForDebug() {
 
 type Monitors []*Monitor
 
-func (monitors Monitors) getMonitorsId() string {
+type monitorsId struct {
+	v0, v1 string
+}
+
+func (monitors Monitors) getMonitorsId() monitorsId {
 	if len(monitors) == 0 {
-		return ""
+		return monitorsId{}
 	}
-	var ids []string
+	var idsV0 []string
+	var idsV1 []string
 	for _, monitor := range monitors {
 		monitor.PropsMu.RLock()
-		uuid := monitor.uuid
+		uuidV1 := monitor.uuid
+		uuidV0 := monitor.uuidV0
 		monitor.PropsMu.RUnlock()
-		ids = append(ids, uuid)
+		idsV0 = append(idsV0, uuidV0)
+		idsV1 = append(idsV1, uuidV1)
 	}
-	sort.Strings(ids)
-	return strings.Join(ids, monitorsIdDelimiter)
+	sort.Strings(idsV0)
+	sort.Strings(idsV1)
+	return monitorsId{
+		v0: strings.Join(idsV0, monitorsIdDelimiter),
+		v1: strings.Join(idsV1, monitorsIdDelimiter),
+	}
 }
 
 func (monitors Monitors) getPaths() []dbus.ObjectPath {
@@ -514,17 +531,19 @@ func (monitors Monitors) GetById(id uint32) *Monitor {
 
 func (monitors Monitors) GetByUuid(uuid string) *Monitor {
 	for _, monitor := range monitors {
-		if monitor.uuid == uuid {
+		if monitor.getUuids().Contains(uuid) {
 			return monitor
 		}
 	}
 	return nil
 }
 
+const fillModeKeyDelimiter = ":"
+
 func (m *Monitor) generateFillModeKey() string {
 	width, height := m.Width, m.Height
 	swapWidthHeightWithRotation(m.Rotation, &width, &height)
-	return fmt.Sprintf("%s:%dx%d", m.uuid, width, height)
+	return m.uuid + fillModeKeyDelimiter + fmt.Sprintf("%dx%d", width, height)
 }
 
 func (m *Monitor) setCurrentFillMode(write *dbusutil.PropertyWrite) *dbus.Error {
@@ -543,7 +562,8 @@ type MonitorInfo struct {
 	crtc               randr.Crtc
 	Enabled            bool
 	ID                 uint32
-	UUID               string
+	UUID               string // UUID V1
+	UuidV0             string
 	Name               string
 	Connected          bool // 实际的是否连接，对应于 Monitor 的 realConnected
 	VirtualConnected   bool // 用于前端，对应于 Monitor 的 Connected

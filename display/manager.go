@@ -151,7 +151,7 @@ type Manager struct {
 
 	// gsettings com.deepin.dde.display
 	settings              *gio.Settings
-	monitorsId            string
+	monitorsId            monitorsId
 	monitorsIdMu          sync.Mutex
 	hasBuiltinMonitor     bool
 	rotateScreenTimeDelay int32
@@ -375,11 +375,13 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 		return
 	}
 
+	monitorMap := m.cloneMonitorMap()
+	monitors := getConnectedMonitors(monitorMap)
+	newCfg.updateUuid(monitors)
+
 	fillModesEq := reflect.DeepEqual(currentCfg.FillModes, newCfg.FillModes)
 	displayModeEq := currentCfg.DisplayMode == newCfg.DisplayMode
 	scaleFactorsEq := reflect.DeepEqual(currentCfg.ScaleFactors, newCfg.ScaleFactors)
-	monitorMap := m.cloneMonitorMap()
-	monitors := getConnectedMonitors(monitorMap)
 	single := len(monitors) == 1
 	monitorsId := monitors.getMonitorsId()
 	currentMonitorCfgs := currentCfg.getMonitorConfigs(monitorsId, currentCfg.DisplayMode, single)
@@ -580,8 +582,8 @@ func (m *Manager) buildConfigForSingle(monitor *Monitor) SysMonitorConfigs {
 	return SysMonitorConfigs{cfg}
 }
 
-func (m *Manager) applyDisplayConfig(mode byte, monitorsId string, monitorMap map[uint32]*Monitor, setColorTemp bool, options applyOptions) error {
-	if monitorsId == "" {
+func (m *Manager) applyDisplayConfig(mode byte, monitorsId monitorsId, monitorMap map[uint32]*Monitor, setColorTemp bool, options applyOptions) error {
+	if monitorsId.v1 == "" {
 		return errors.New("monitorsId is empty")
 	}
 	// X 环境下，如果 randr 版本低于 1.2 时，不做操作
@@ -594,6 +596,7 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId string, monitorMap ma
 		logger.Debug("applyDisplayConfig not found any connected monitor，return")
 		return nil
 	}
+	m.updateConfigUuid(monitors)
 	defer func() {
 		if _useWayland {
 			m.updateScreenSize()
@@ -608,7 +611,9 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId string, monitorMap ma
 	if len(monitors) == 1 {
 		// 单屏情况
 		screenCfg := m.getSysScreenConfig(monitorsId)
+
 		needSaveCfg := false
+
 		monitorConfigs := screenCfg.getSingleMonitorConfigs()
 		if len(monitorConfigs) == 0 {
 			// 没有单屏配置
@@ -624,6 +629,7 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId string, monitorMap ma
 		}
 		if needSaveCfg {
 			screenCfg.setSingleMonitorConfigs(monitorConfigs)
+			m.setSysScreenConfig(monitorsId, screenCfg)
 			err = m.saveSysConfig("single")
 			if err != nil {
 				logger.Warning(err)
@@ -657,9 +663,9 @@ func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
 	oldMonitorsId := m.monitorsId
 	monitorMap := m.cloneMonitorMap()
 	newMonitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	if newMonitorsId != oldMonitorsId && newMonitorsId != "" {
+	if newMonitorsId != oldMonitorsId && newMonitorsId.v1 != "" {
 		m.monitorsId = newMonitorsId
-		logger.Debugf("monitors id changed, old monitors id: %v, new monitors id: %v", oldMonitorsId, newMonitorsId)
+		logger.Debugf("monitors id changed, old monitors id: %v, new monitors id: %v", oldMonitorsId.v1, newMonitorsId.v1)
 		m.markClean()
 
 		const delayApplyDuration = 1 * time.Second
@@ -1060,6 +1066,7 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 		MmHeight:           monitorInfo.MmHeight,
 		Enabled:            monitorInfo.Enabled,
 		uuid:               monitorInfo.UUID,
+		uuidV0:             monitorInfo.UuidV0,
 		Manufacturer:       monitorInfo.Manufacturer,
 		Model:              monitorInfo.Model,
 		AvailableFillModes: monitorInfo.AvailableFillModes,
@@ -1128,6 +1135,7 @@ func (m *Manager) updateMonitor(monitorInfo *MonitorInfo) {
 		logger.Debugf("%v uuid changed, old:%q, new %q", monitor, monitor.uuid, monitorInfo.UUID)
 	}
 	monitor.uuid = monitorInfo.UUID
+	monitor.uuidV0 = monitorInfo.UuidV0
 	monitor.realConnected = monitorInfo.Connected
 	monitor.setPropAvailableFillModes(monitorInfo.AvailableFillModes)
 	monitor.setPropManufacturer(monitorInfo.Manufacturer)
@@ -1204,13 +1212,15 @@ func (m *Manager) buildConfigForModeMirror(monitors Monitors) (monitorCfgs SysMo
 	return
 }
 
-func (m *Manager) applyModeMirror(monitorsId string, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
+func (m *Manager) applyModeMirror(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
 	logger.Debug("apply mode mirror")
-	screenCfg := m.getSysScreenConfig(monitorsId)
-	configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
 	monitors := getConnectedMonitors(monitorMap)
+	screenCfg := m.getSysScreenConfig(monitorsId)
 
 	needSaveCfg := false
+
+	configs := screenCfg.getMonitorConfigs(DisplayModeMirror, "")
+
 	if len(configs) == 0 {
 		needSaveCfg = true
 		configs, err = m.buildConfigForModeMirror(monitors)
@@ -1226,26 +1236,27 @@ func (m *Manager) applyModeMirror(monitorsId string, monitorMap map[uint32]*Moni
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeMirror, "", configs)
+		m.setSysScreenConfig(monitorsId, screenCfg)
 		return m.saveSysConfig("mode mirror")
 	}
 
 	return
 }
 
-func (m *Manager) getSuitableSysMonitorConfigs(displayMode byte, monitorsId string, monitors Monitors) SysMonitorConfigs {
+func (m *Manager) getSuitableSysMonitorConfigs(displayMode byte, monitorsId monitorsId, monitors Monitors) SysMonitorConfigs {
 	screenCfg := m.getSysScreenConfig(monitorsId)
 	if len(monitors) == 0 {
 		return nil
 	} else if len(monitors) == 1 {
-		return screenCfg.getSingleMonitorConfigs().clone()
+		return screenCfg.getSingleMonitorConfigs()
 	}
 	uuid := getOnlyOneMonitorUuid(displayMode, monitors)
-	return screenCfg.getMonitorConfigs(displayMode, uuid).clone()
+	return screenCfg.getMonitorConfigs(displayMode, uuid)
 }
 
 func (m *Manager) getSuitableUserMonitorModeConfig(displayMode byte) *UserMonitorModeConfig {
 	monitors := m.getConnectedMonitors()
-	screenCfg := m.getUserScreenConfig()
+	screenCfg := m.getUserScreenConfig(monitors.getMonitorsId())
 	if len(monitors) == 0 {
 		return nil
 	} else if len(monitors) == 1 {
@@ -1257,20 +1268,22 @@ func (m *Manager) getSuitableUserMonitorModeConfig(displayMode byte) *UserMonito
 
 func (m *Manager) modifySuitableSysMonitorConfigs(fn func(configs SysMonitorConfigs) SysMonitorConfigs) {
 	monitors := m.getConnectedMonitors()
-	screenCfg := m.getSysScreenConfig(monitors.getMonitorsId())
+	monitorsId := monitors.getMonitorsId()
+	screenCfg := m.getSysScreenConfig(monitorsId)
 	if len(monitors) == 0 {
 		return
 	} else if len(monitors) == 1 {
 		configs := screenCfg.getSingleMonitorConfigs()
 		configs = fn(configs)
 		screenCfg.setSingleMonitorConfigs(configs)
-		return
+	} else {
+		displayMode := m.DisplayMode
+		uuid := getOnlyOneMonitorUuid(displayMode, monitors)
+		configs := screenCfg.getMonitorConfigs(displayMode, uuid)
+		configs = fn(configs)
+		screenCfg.setMonitorConfigs(displayMode, uuid, configs)
 	}
-	displayMode := m.DisplayMode
-	uuid := getOnlyOneMonitorUuid(displayMode, monitors)
-	configs := screenCfg.getMonitorConfigs(displayMode, uuid)
-	configs = fn(configs)
-	screenCfg.setMonitorConfigs(displayMode, uuid, configs)
+	m.setSysScreenConfig(monitorsId, screenCfg)
 }
 
 // 获取 OnlyOne 显示模式下启用显示器的 UUID，其他显示模式下返回空。
@@ -1278,17 +1291,18 @@ func getOnlyOneMonitorUuid(displayMode byte, monitors Monitors) (uuid string) {
 	if displayMode == DisplayModeOnlyOne {
 		for _, monitor := range monitors {
 			if monitor.Enabled {
-				uuid = monitor.uuid
-				break
+				return monitor.uuid
 			}
 		}
 	}
-	return
+	return ""
 }
 
 func (m *Manager) modifySuitableUserMonitorModeConfig(fn func(cfg *UserMonitorModeConfig)) {
 	monitors := m.getConnectedMonitors()
-	screenCfg := m.getUserScreenConfig()
+	monitorsId := monitors.getMonitorsId()
+	screenCfg := m.getUserScreenConfig(monitorsId)
+
 	if len(monitors) == 0 {
 		return
 	} else if len(monitors) == 1 {
@@ -1298,6 +1312,7 @@ func (m *Manager) modifySuitableUserMonitorModeConfig(fn func(cfg *UserMonitorMo
 		}
 		fn(cfg)
 		screenCfg[KeySingle] = cfg
+		m.setUserScreenConfig(monitorsId, screenCfg)
 		return
 	}
 	displayMode := m.DisplayMode
@@ -1308,6 +1323,7 @@ func (m *Manager) modifySuitableUserMonitorModeConfig(fn func(cfg *UserMonitorMo
 	}
 	fn(cfg)
 	screenCfg.setMonitorModeConfig(displayMode, uuid, cfg)
+	m.setUserScreenConfig(monitorsId, screenCfg)
 }
 
 type screenSize struct {
@@ -1317,7 +1333,7 @@ type screenSize struct {
 	mmHeight uint32
 }
 
-func (m *Manager) apply(monitorsId string, monitorMap map[uint32]*Monitor, options applyOptions) error {
+func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions) error {
 	// 当前的屏幕大小
 	m.PropsMu.RLock()
 	prevScreenSize := screenSize{width: m.ScreenWidth, height: m.ScreenHeight}
@@ -1409,7 +1425,7 @@ func (m *Manager) setPrimary(name string) error {
 		}
 
 		screenCfg.setMonitorConfigs(DisplayModeExtend, "", configs)
-
+		m.setSysScreenConfig(monitorsId, screenCfg)
 		err = m.saveSysConfig("primary changed")
 		if err != nil {
 			return err
@@ -1455,13 +1471,15 @@ func (m *Manager) buildConfigForModeExtend(monitors Monitors) (monitorCfgs SysMo
 	return
 }
 
-func (m *Manager) applyModeExtend(monitorsId string, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
+func (m *Manager) applyModeExtend(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
 	logger.Debug("apply mode extend")
-	screenCfg := m.getSysScreenConfig(monitorsId)
-	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
 	monitors := getConnectedMonitors(monitorMap)
+	screenCfg := m.getSysScreenConfig(monitorsId)
 
 	needSaveCfg := false
+
+	configs := screenCfg.getMonitorConfigs(DisplayModeExtend, "")
+
 	if len(configs) == 0 {
 		needSaveCfg = true
 		configs, err = m.buildConfigForModeExtend(monitors)
@@ -1477,38 +1495,10 @@ func (m *Manager) applyModeExtend(monitorsId string, monitorMap map[uint32]*Moni
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeExtend, "", configs)
+		m.setSysScreenConfig(monitorsId, screenCfg)
 		return m.saveSysConfig("mode extend")
 	}
 	return
-}
-
-// getSysScreenConfig 根据 monitorsId 参数返回不同的屏幕配置，不同 monitorsId 则屏幕配置不同。
-// monitorsId 代表了已连接了哪些显示器。
-func (m *Manager) getSysScreenConfig(monitorsId string) *SysScreenConfig {
-	// TODO: 这个方法其实不安全，因为返回了 SysScreenConfig 指针。
-	m.sysConfig.mu.Lock()
-	defer m.sysConfig.mu.Unlock()
-
-	screenCfg := m.sysConfig.Config.Screens[monitorsId]
-	if screenCfg == nil {
-		if m.sysConfig.Config.Screens == nil {
-			m.sysConfig.Config.Screens = make(map[string]*SysScreenConfig)
-		}
-		screenCfg = &SysScreenConfig{}
-		m.sysConfig.Config.Screens[monitorsId] = screenCfg
-	}
-	return screenCfg
-}
-
-func (cfg *SysConfig) getMonitorConfigs(monitorId string, displayMode byte, single bool) SysMonitorConfigs {
-	sc := cfg.Screens[monitorId]
-	if sc == nil {
-		return nil
-	}
-	if single {
-		return sc.getSingleMonitorConfigs()
-	}
-	return sc.getMonitorConfigs(displayMode, sc.OnlyOneUuid)
 }
 
 func (m *Manager) buildConfigForModeOnlyOne(monitors Monitors, uuid string) (monitorCfgs SysMonitorConfigs, err error) {
@@ -1533,28 +1523,28 @@ func (m *Manager) buildConfigForModeOnlyOne(monitors Monitors, uuid string) (mon
 	return
 }
 
-func (m *Manager) applyModeOnlyOne(monitorsId string, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
+func (m *Manager) applyModeOnlyOne(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions) (err error) {
 	name, _ := options[optionOnlyOne].(string)
 	logger.Debug("apply mode only one", name)
 
 	monitors := getConnectedMonitors(monitorMap)
 	screenCfg := m.getSysScreenConfig(monitorsId)
-	uuid := ""
+
 	needSaveCfg := false
+
+	uuid := ""
 	if name == "" {
 		// 未指定名称
-		uuid = screenCfg.OnlyOneUuid
-		monitor := monitors.GetByUuid(uuid)
-		if monitor == nil {
-			// uuid 无效
-			uuid = ""
-		}
+		monitor := monitors.GetByUuid(screenCfg.OnlyOneUuid)
+		if monitor != nil {
+			uuid = monitor.uuid
+		} // else 用默认主屏作为替补
+
 	} else {
 		// 指定了名称
 		monitor := monitors.GetByName(name)
 		if monitor != nil {
 			uuid = monitor.uuid
-			screenCfg.OnlyOneUuid = uuid
 			needSaveCfg = true
 		} else {
 			// 名称指定错误
@@ -1568,7 +1558,6 @@ func (m *Manager) applyModeOnlyOne(monitorsId string, monitorMap map[uint32]*Mon
 			return errors.New("not found primary monitor")
 		}
 		uuid = primaryMonitor.uuid
-		screenCfg.OnlyOneUuid = uuid
 		needSaveCfg = true
 	}
 	// 必须要有 uuid
@@ -1577,9 +1566,9 @@ func (m *Manager) applyModeOnlyOne(monitorsId string, monitorMap map[uint32]*Mon
 	}
 
 	configs := screenCfg.getMonitorConfigs(DisplayModeOnlyOne, uuid)
-
 	if len(configs) == 0 {
 		needSaveCfg = true
+		logger.Debug("buildConfigForModeOnlyOne", uuid)
 		configs, err = m.buildConfigForModeOnlyOne(monitors, uuid)
 		if err != nil {
 			return
@@ -1593,13 +1582,15 @@ func (m *Manager) applyModeOnlyOne(monitorsId string, monitorMap map[uint32]*Mon
 
 	if needSaveCfg {
 		screenCfg.setMonitorConfigs(DisplayModeOnlyOne, uuid, configs)
+		screenCfg.OnlyOneUuid = uuid
+		m.setSysScreenConfig(monitorsId, screenCfg)
 		return m.saveSysConfig("mode only one")
 	}
 
 	return
 }
 
-func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId string, monitorMap map[uint32]*Monitor,
+func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId monitorsId, monitorMap map[uint32]*Monitor,
 	setColorTemp bool, options applyOptions) (err error) {
 
 	err = m.applyDisplayConfig(mode, monitorsId, monitorMap, setColorTemp, options)
@@ -1675,6 +1666,7 @@ func (m *Manager) save() (err error) {
 	monitorsId := monitors.getMonitorsId()
 
 	screenCfg := m.getSysScreenConfig(monitorsId)
+
 	configs := m.futureConfig.getConfigs(monitorsId)
 	if len(configs) == 0 {
 		logger.Debug("no save, no config")
@@ -1686,6 +1678,7 @@ func (m *Manager) save() (err error) {
 		uuid := getOnlyOneMonitorUuid(m.DisplayMode, monitors)
 		screenCfg.setMonitorConfigs(m.DisplayMode, uuid, configs)
 	}
+	m.setSysScreenConfig(monitorsId, screenCfg)
 
 	err = m.saveSysConfig("save")
 	if err != nil {
@@ -1715,7 +1708,7 @@ func (m *Manager) markClean() {
 
 type monitorsFutureConfig struct {
 	mu         sync.Mutex
-	monitorsId string
+	monitorsId monitorsId
 	configs    SysMonitorConfigs
 }
 
@@ -1723,11 +1716,11 @@ func (mfc *monitorsFutureConfig) clear() {
 	mfc.mu.Lock()
 	defer mfc.mu.Unlock()
 
-	mfc.monitorsId = ""
+	mfc.monitorsId = monitorsId{}
 	mfc.configs = nil
 }
 
-func (mfc *monitorsFutureConfig) setConfigs(monitorsId string, configs SysMonitorConfigs) {
+func (mfc *monitorsFutureConfig) setConfigs(monitorsId monitorsId, configs SysMonitorConfigs) {
 	mfc.mu.Lock()
 	defer mfc.mu.Unlock()
 
@@ -1735,7 +1728,7 @@ func (mfc *monitorsFutureConfig) setConfigs(monitorsId string, configs SysMonito
 	mfc.configs = configs.clone()
 }
 
-func (mfc *monitorsFutureConfig) getConfigs(monitorsId string) SysMonitorConfigs {
+func (mfc *monitorsFutureConfig) getConfigs(monitorsId monitorsId) SysMonitorConfigs {
 	mfc.mu.Lock()
 	defer mfc.mu.Unlock()
 
@@ -1820,7 +1813,7 @@ func (m *Manager) cloneMonitorMapNoLock() map[uint32]*Monitor {
 	return result
 }
 
-func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId string, monitorMap map[uint32]*Monitor, configs SysMonitorConfigs, options applyOptions) error {
+func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monitorMap map[uint32]*Monitor, configs SysMonitorConfigs, options applyOptions) error {
 	if logger.GetLogLevel() == log.LevelDebug {
 		logger.Debugf("applySysMonitorConfigs configs: %s, options: %v", spew.Sdump(configs), options)
 	}
@@ -1871,7 +1864,12 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId string, monitorMa
 	}
 
 	if primaryMonitorID == 0 {
-		primaryMonitorID = m.getDefaultPrimaryMonitor(enabledMonitors).ID
+		primaryMonitor := m.getDefaultPrimaryMonitor(enabledMonitors)
+		if primaryMonitor != nil {
+			primaryMonitorID = primaryMonitor.ID
+		} else {
+			logger.Warningf("failed to get default primary monitor, enabledMonitors: %v", enabledMonitors)
+		}
 	}
 
 	// 对于 X 来说，这里是处理 crtc 设置
@@ -1968,7 +1966,7 @@ func getPortPriority(name string) int {
 	return priorityOther
 }
 
-func (m *Manager) getMonitorsId() string {
+func (m *Manager) getMonitorsId() monitorsId {
 	return getConnectedMonitors(m.cloneMonitorMap()).getMonitorsId()
 }
 
@@ -2291,11 +2289,15 @@ func (m *Manager) loadUserConfig() error {
 }
 
 func (m *Manager) saveUserConfig() error {
+	m.userCfgMu.Lock()
+	defer m.userCfgMu.Unlock()
+	return m.saveUserConfigNoLock()
+}
+
+func (m *Manager) saveUserConfigNoLock() error {
 	if _greeterMode {
 		return nil
 	}
-	m.userCfgMu.Lock()
-	defer m.userCfgMu.Unlock()
 
 	m.userConfig.Version = userConfigVersion
 	if logger.GetLogLevel() == log.LevelDebug {
@@ -2379,9 +2381,6 @@ func (m *Manager) initDebugOptions() {
 }
 
 func (m *Manager) saveSysConfigNoLock(reason string) error {
-	if _greeterMode {
-		return nil
-	}
 	m.sysConfig.UpdateAt = time.Now().Format(time.RFC3339Nano)
 	m.sysConfig.Version = sysConfigVersion
 
