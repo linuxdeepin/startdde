@@ -42,7 +42,7 @@ Depends:
  xinput,
  dde-wloutput,
  dde-wloutput-daemon,
- kelvinu,
+ dde-wayland-config,
  dde-wldpms,
  ${misc:Depends},
  ${shlibs:Depends},
