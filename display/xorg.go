@@ -719,8 +719,8 @@ func (mm *xMonitorManager) apply(monitorsId string, monitorMap map[uint32]*Monit
 		return err
 	}
 
-	for _, monitor := range monitorMap {
-		err = mm.setMonitorFillMode(monitor, fillModes[monitor.generateFillModeKey()])
+	for id, monitor := range monitorMap {
+		err = mm.setMonitorFillMode(monitor.m.monitorMap[id], fillModes[monitor.generateFillModeKey()])
 		if err != nil {
 			logger.Warning("set monitor fill mode failed:", monitor, err)
 		}
