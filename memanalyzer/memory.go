@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 // GetProcessMemory get process used memory from config

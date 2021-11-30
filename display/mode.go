@@ -27,7 +27,7 @@ import (
 	"strconv"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 type ModeInfo struct {

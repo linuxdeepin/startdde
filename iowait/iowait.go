@@ -26,8 +26,8 @@ import (
 	"strings"
 	"time"
 
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 // #cgo pkg-config: x11 xcursor xfixes gio-2.0

@@ -30,8 +30,8 @@ import (
 	"strconv"
 	"strings"
 
-	"pkg.deepin.io/lib/strv"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/strv"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 // CardInfo the display/graphics card id

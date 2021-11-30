@@ -12,8 +12,8 @@ import (
 	"github.com/godbus/dbus"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 const (

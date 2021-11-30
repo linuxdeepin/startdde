@@ -22,8 +22,8 @@ package wm
 import (
 	"path/filepath"
 
-	"pkg.deepin.io/lib/keyfile"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/keyfile"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const (

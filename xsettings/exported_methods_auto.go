@@ -3,7 +3,7 @@
 package xsettings
 
 import (
-	"pkg.deepin.io/lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 func (v *XSManager) GetExportedMethods() dbusutil.ExportedMethods {

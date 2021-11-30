@@ -41,14 +41,14 @@ import (
 	proxy "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.proxy"
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/startdde/swapsched"
-	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/appinfo"
-	"pkg.deepin.io/lib/appinfo/desktopappinfo"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/gsettings"
-	"pkg.deepin.io/lib/keyfile"
-	"pkg.deepin.io/lib/strv"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-gir/gio-2.0"
+	"github.com/linuxdeepin/go-lib/appinfo"
+	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/gsettings"
+	"github.com/linuxdeepin/go-lib/keyfile"
+	"github.com/linuxdeepin/go-lib/strv"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 //go:generate dbusutil-gen em -type StartManager,SessionManager,Inhibitor

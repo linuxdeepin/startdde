@@ -26,7 +26,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"pkg.deepin.io/lib/appinfo/desktopappinfo"
+	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 )
 
 func _TestSetAutostart(t *testing.T) { //nolint

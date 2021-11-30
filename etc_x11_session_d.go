@@ -11,7 +11,7 @@ import (
 
 	x "github.com/linuxdeepin/go-x11-client"
 	"pkg.deepin.io/dde/api/userenv"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 // 00deepin-dde-env

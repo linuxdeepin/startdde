@@ -23,7 +23,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"pkg.deepin.io/lib/locale"
+	"github.com/linuxdeepin/go-lib/locale"
 )
 
 // key is locale code

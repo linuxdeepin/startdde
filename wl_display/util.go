@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 var regMode = regexp.MustCompile(`^(\d+)x(\d+)(\D+)$`)

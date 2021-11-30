@@ -28,8 +28,8 @@ import (
 
 	"github.com/godbus/dbus"
 	display "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
-	"pkg.deepin.io/lib/utils"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/utils"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const (

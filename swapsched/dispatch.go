@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"pkg.deepin.io/lib/cgroup"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/cgroup"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 // 模块主要是利用cgroup提供的功能，使应用程序(ui-app)之间进行内存竞争（不要与DE进行竞争),

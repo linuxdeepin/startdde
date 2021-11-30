@@ -7,8 +7,8 @@ import (
 	"os"
 
 	dbus "github.com/godbus/dbus"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 func (m *Manager) GetInterfaceName() string {

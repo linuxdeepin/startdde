@@ -26,7 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/strv"
 	"regexp"
 	"strconv"
 	"strings"

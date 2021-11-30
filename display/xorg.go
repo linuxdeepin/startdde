@@ -33,7 +33,7 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/input"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-x11-client/ext/xfixes"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 var _xConn *x.Conn

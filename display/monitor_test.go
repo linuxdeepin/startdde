@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"pkg.deepin.io/lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 func Test_getFirstModeBySize(t *testing.T) {

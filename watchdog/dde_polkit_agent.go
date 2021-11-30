@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"pkg.deepin.io/lib/procfs"
-	"pkg.deepin.io/lib/utils"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/procfs"
+	"github.com/linuxdeepin/go-lib/utils"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const (

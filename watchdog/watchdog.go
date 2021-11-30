@@ -25,8 +25,8 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/procfs"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/procfs"
 )
 
 const (

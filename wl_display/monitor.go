@@ -10,7 +10,7 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 
 	dbus "github.com/godbus/dbus"
-	"pkg.deepin.io/lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"syscall"
 
-	"pkg.deepin.io/lib/cgroup"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/cgroup"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const (

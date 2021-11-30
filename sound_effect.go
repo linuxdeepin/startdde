@@ -31,7 +31,7 @@ import (
 	dbus1 "github.com/godbus/dbus"
 	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"pkg.deepin.io/dde/api/soundutils"
-	"pkg.deepin.io/lib/pulse"
+	"github.com/linuxdeepin/go-lib/pulse"
 )
 
 var soundThemePlayer soundthemeplayer.SoundThemePlayer

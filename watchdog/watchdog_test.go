@@ -24,7 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 func isUseKwin() bool {

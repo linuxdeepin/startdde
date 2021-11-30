@@ -5,7 +5,7 @@ Maintainer: Deepin Packages Builder <packages@deepin.com>
 Build-Depends:
  dde-api-dev(>> 3.16.0+),
  debhelper-compat (= 11),
- golang-dlib-dev (>> 1.8.0+),
+ golang-github-linuxdeepin-go-lib-dev (>> 1.8.0+),
  golang-github-davecgh-go-spew-dev,
  golang-github-fsnotify-fsnotify-dev,
  golang-github-linuxdeepin-go-dbus-factory-dev (>> 0.6.0+),

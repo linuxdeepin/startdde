@@ -30,7 +30,7 @@ import (
 	dbus "github.com/godbus/dbus"
 	"pkg.deepin.io/dde/startdde/memanalyzer"
 	"pkg.deepin.io/dde/startdde/memchecker"
-	"pkg.deepin.io/lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 const (

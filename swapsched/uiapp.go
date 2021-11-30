@@ -3,7 +3,7 @@ package swapsched
 import (
 	"sync"
 
-	"pkg.deepin.io/lib/cgroup"
+	"github.com/linuxdeepin/go-lib/cgroup"
 )
 
 type UIApp struct {

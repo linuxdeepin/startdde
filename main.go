@@ -45,11 +45,11 @@ import (
 	wl_display "pkg.deepin.io/dde/startdde/wl_display"
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xsettings"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/gettext"
-	"pkg.deepin.io/lib/gsettings"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/proxy"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/gettext"
+	"github.com/linuxdeepin/go-lib/gsettings"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/proxy"
 )
 
 var logger = log.NewLogger("startdde")

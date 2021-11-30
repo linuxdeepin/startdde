@@ -50,14 +50,14 @@ import (
 	"pkg.deepin.io/dde/startdde/wm_kwin"
 	"pkg.deepin.io/dde/startdde/xcursor"
 	"pkg.deepin.io/dde/startdde/xsettings"
-	gio "pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/appinfo/desktopappinfo"
-	"pkg.deepin.io/lib/cgroup"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/keyfile"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/procfs"
-	"pkg.deepin.io/lib/xdg/basedir"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
+	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
+	"github.com/linuxdeepin/go-lib/cgroup"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/keyfile"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/procfs"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const (

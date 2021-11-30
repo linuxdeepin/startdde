@@ -31,8 +31,8 @@ import (
 	libwm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 const (

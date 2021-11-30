@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	"pkg.deepin.io/lib/strv"
+	"github.com/linuxdeepin/go-lib/strv"
 )
 
 // MemoryInfo show the current memory stat, sum by kb

@@ -11,10 +11,10 @@ import (
 	"github.com/godbus/dbus"
 	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	wm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
-	"pkg.deepin.io/lib/dbusutil"
-	"pkg.deepin.io/lib/keyfile"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/keyfile"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 //go:generate dbusutil-gen em -type Switcher

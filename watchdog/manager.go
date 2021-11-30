@@ -22,9 +22,9 @@ package watchdog
 import (
 	"time"
 
-	"pkg.deepin.io/gir/gio-2.0"
-	"pkg.deepin.io/lib/gsettings"
-	dutils "pkg.deepin.io/lib/utils"
+	"github.com/linuxdeepin/go-gir/gio-2.0"
+	"github.com/linuxdeepin/go-lib/gsettings"
+	dutils "github.com/linuxdeepin/go-lib/utils"
 )
 
 const (

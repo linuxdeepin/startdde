@@ -12,8 +12,8 @@ import (
 	"github.com/godbus/dbus"
 	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/gir/gudev-1.0"
-	"pkg.deepin.io/lib/utils"
+	"github.com/linuxdeepin/go-gir/gudev-1.0"
+	"github.com/linuxdeepin/go-lib/utils"
 )
 
 func getRotations(origin uint16) []uint16 {

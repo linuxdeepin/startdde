@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 var (

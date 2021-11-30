@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/davecgh/go-spew/spew"
-	"pkg.deepin.io/lib/log"
-	"pkg.deepin.io/lib/xdg/basedir"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
 const configVersion = "4.0"

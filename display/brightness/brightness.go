@@ -26,8 +26,8 @@ import (
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	displayBl "pkg.deepin.io/lib/backlight/display"
-	"pkg.deepin.io/lib/log"
+	displayBl "github.com/linuxdeepin/go-lib/backlight/display"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 const (

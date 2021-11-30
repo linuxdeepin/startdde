@@ -11,7 +11,7 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"golang.org/x/xerrors"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 var logger *log.Logger

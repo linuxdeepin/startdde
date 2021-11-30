@@ -26,7 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"pkg.deepin.io/lib/log"
+	"github.com/linuxdeepin/go-lib/log"
 )
 
 var logger *log.Logger

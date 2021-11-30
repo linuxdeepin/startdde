@@ -27,7 +27,7 @@ import (
 	"strconv"
 	"strings"
 
-	"pkg.deepin.io/lib/utils"
+	"github.com/linuxdeepin/go-lib/utils"
 )
 
 const (
