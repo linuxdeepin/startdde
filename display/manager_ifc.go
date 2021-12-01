@@ -150,6 +150,10 @@ func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.E
 }
 
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
+	if value > 1 || value < 0 {
+		return dbusutil.ToError(fmt.Errorf("the brightness value range is 0-1"))
+	}
+
 	can, _ := m.CanSetBrightness(outputName)
 	if !can {
 		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
