@@ -6,9 +6,9 @@ import (
 	"github.com/godbus/dbus"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/api/dxinput"
-	"pkg.deepin.io/dde/api/dxinput/common"
-	dxutils "pkg.deepin.io/dde/api/dxinput/utils"
+	"github.com/linuxdeepin/dde-api/dxinput"
+	"github.com/linuxdeepin/dde-api/dxinput/common"
+	dxutils "github.com/linuxdeepin/dde-api/dxinput/utils"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	x "github.com/linuxdeepin/go-x11-client"
-	"pkg.deepin.io/dde/api/userenv"
+	"github.com/linuxdeepin/dde-api/userenv"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
