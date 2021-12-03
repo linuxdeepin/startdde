@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	wl_display "pkg.deepin.io/dde/startdde/wl_display"
+	wl_display "github.com/linuxdeepin/startdde/wl_display"
 )
 
 func main() {

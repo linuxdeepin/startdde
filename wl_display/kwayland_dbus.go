@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"pkg.deepin.io/dde/startdde/wl_display/ddewloutput"
+	"github.com/linuxdeepin/startdde/wl_display/ddewloutput"
 )
 
 type monitorIdGenerator struct {

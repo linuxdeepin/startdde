@@ -27,7 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"pkg.deepin.io/dde/startdde/display/brightness"
+	"github.com/linuxdeepin/startdde/display/brightness"
 )
 
 type InvalidOutputNameError struct {

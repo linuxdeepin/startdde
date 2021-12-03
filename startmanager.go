@@ -40,7 +40,7 @@ import (
 	systemPower "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
 	proxy "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.proxy"
 	x "github.com/linuxdeepin/go-x11-client"
-	"pkg.deepin.io/dde/startdde/swapsched"
+	"github.com/linuxdeepin/startdde/swapsched"
 	"github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"

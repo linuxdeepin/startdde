@@ -27,7 +27,7 @@ import (
 	"golang.org/x/xerrors"
 	"github.com/linuxdeepin/dde-api/dxinput"
 	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
-	"pkg.deepin.io/dde/startdde/display/brightness"
+	"github.com/linuxdeepin/startdde/display/brightness"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"

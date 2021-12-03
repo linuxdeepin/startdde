@@ -28,8 +28,8 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
-	"pkg.deepin.io/dde/startdde/memanalyzer"
-	"pkg.deepin.io/dde/startdde/memchecker"
+	"github.com/linuxdeepin/startdde/memanalyzer"
+	"github.com/linuxdeepin/startdde/memchecker"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
