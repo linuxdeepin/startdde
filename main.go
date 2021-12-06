@@ -193,7 +193,7 @@ func launchCoreComponents(sm *SessionManager) {
 		if _useKWin {
 			dockArgs = []string{"-r"}
 		}
-		launch(cmdDdeDock, dockArgs, "dde-dock", true, nil)
+		launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
 	})
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
