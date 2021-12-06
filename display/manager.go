@@ -1211,9 +1211,9 @@ func (m *Manager) apply() error {
 		if monitor.Enabled {
 			m.PropsMu.Lock()
 			value := monitor.Brightness
-			if value == 0 {
-				value = 1
-			}
+			//if value == 0 {
+			//	value = 1
+			//}
 			m.PropsMu.Unlock()
 
 			go func(mon *Monitor) {
