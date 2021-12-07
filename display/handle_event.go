@@ -1,6 +1,8 @@
 package display
 
 import (
+	"time"
+
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
@@ -16,13 +18,19 @@ func (m *Manager) handleMonitorChanged(monitorInfo *MonitorInfo) {
 	// 后续只在 X 下需要
 	currentNumMonitors := len(m.getConnectedMonitors())
 	m.PropsMu.Lock()
-	prevNumMonitors := m.prevNumMonitors
-	m.prevNumMonitors = currentNumMonitors
+	prevCurrentNumMonitors := m.prevCurrentNumMonitors
+	m.prevCurrentNumMonitors = currentNumMonitors
+
+	if prevCurrentNumMonitors != currentNumMonitors {
+		m.prevNumMonitors = prevCurrentNumMonitors
+		m.prevNumMonitorsUpdatedAt = time.Now()
+	}
+
 	m.PropsMu.Unlock()
 
-	logger.Debugf("prevNumMonitors: %v, currentNumMonitors: %v", prevNumMonitors, currentNumMonitors)
+	logger.Debugf("prevCurrentNumMonitors: %v, currentNumMonitors: %v", prevCurrentNumMonitors, currentNumMonitors)
 	var options applyOptions
-	if currentNumMonitors < prevNumMonitors && currentNumMonitors >= 1 {
+	if currentNumMonitors < prevCurrentNumMonitors && currentNumMonitors >= 1 {
 		// 连接状态的显示器数量减少了，并且现存一个及以上连接状态的显示器。
 		logger.Debug("should disable crtc in apply")
 		if options == nil {

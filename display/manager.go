@@ -17,22 +17,22 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/dde-api/dxinput"
+	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
 	dgesture "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.gesture"
 	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"golang.org/x/xerrors"
-	"github.com/linuxdeepin/dde-api/dxinput"
-	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
-	"github.com/linuxdeepin/startdde/display/brightness"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	"github.com/linuxdeepin/startdde/display/brightness"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -150,18 +150,22 @@ type Manager struct {
 	cursorShowed  bool
 
 	// gsettings com.deepin.dde.display
-	settings              *gio.Settings
-	monitorsId            monitorsId
-	monitorsIdMu          sync.Mutex
-	hasBuiltinMonitor     bool
-	rotateScreenTimeDelay int32
-	setFillModeMu         sync.Mutex
-	delayApplyTimer       *time.Timer
-	delayApplyOptions     applyOptions
-	prevNumMonitors       int
-	applyMu               sync.Mutex
-	inApply               bool
-	futureConfig          monitorsFutureConfig
+	settings                 *gio.Settings
+	monitorsId               monitorsId
+	monitorsIdMu             sync.Mutex
+	hasBuiltinMonitor        bool
+	rotateScreenTimeDelay    int32
+	setFillModeMu            sync.Mutex
+	delayApplyTimer          *time.Timer
+	delayApplyOptions        applyOptions
+	prevCurrentNumMonitors   int
+	prevNumMonitors          int
+	prevNumMonitorsUpdatedAt time.Time
+	delaySwitchMode          *delaySwitchMode
+	applyMu                  sync.Mutex
+	applySaveMu              sync.Mutex
+	inApply                  bool
+	futureConfig             monitorsFutureConfig
 
 	// dbusutil-gen: equal=objPathsEqual
 	Monitors []dbus.ObjectPath
@@ -670,16 +674,7 @@ func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
 
 		const delayApplyDuration = 1 * time.Second
 		if m.delayApplyTimer == nil {
-			m.delayApplyTimer = time.AfterFunc(delayApplyDuration, func() {
-				options := m.getDelayApplyOptions()
-				// NOTE: applyConfig 应在非 X 事件处理的另外一个 goroutine 中进行。
-				logger.Debugf("delay call applyConfig, options: %v", options)
-				paths := m.applyConfig(true, options)
-				logger.Debug("update prop Monitors:", paths)
-				m.PropsMu.Lock()
-				m.setPropMonitors(paths)
-				m.PropsMu.Unlock()
-			})
+			m.delayApplyTimer = time.AfterFunc(delayApplyDuration, m.delayApplyConfig)
 		}
 		m.setDelayApplyOptions(options)
 		m.delayApplyTimer.Stop()
@@ -687,6 +682,50 @@ func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
 		m.delayApplyTimer.Reset(delayApplyDuration)
 	}
 	return false
+}
+
+func (m *Manager) delayApplyConfig() {
+	options := m.getDelayApplyOptions()
+	// NOTE: applyConfig 应在非 X 事件处理的另外一个 goroutine 中进行。
+
+	monitorMap := m.cloneMonitorMap()
+	monitors := getConnectedMonitors(monitorMap)
+	monitorsId := monitors.getMonitorsId()
+
+	m.PropsMu.Lock()
+	delay := m.delaySwitchMode
+	m.PropsMu.Unlock()
+
+	var paths []dbus.ObjectPath
+	if delay != nil && len(monitors) > 1 && time.Since(delay.time) < 4*time.Second {
+		logger.Debug("delay != nil and len(monitors) > 1")
+		logger.Debug("since delay.time:", time.Since(delay.time))
+		// 这个 time.Since(delay.time) 一般是 1.5s 左右。
+		opts := getSwitchModeOptions(delay.mode, delay.name)
+		logger.Debugf("delay call switchModeAux, delaySwitchMode: %+v", delay)
+		err := m.switchModeAux(delay.mode, delay.oldMode, monitorsId, monitorMap, true, opts)
+		if err != nil {
+			logger.Warning("switch mode failed:", err)
+		}
+
+		paths = monitors.getPaths()
+
+		m.PropsMu.Lock()
+		m.delaySwitchMode = nil
+		m.PropsMu.Unlock()
+
+	} else {
+		logger.Debugf("delay call applyConfig, monitorsId: %v, options: %v", monitorsId, options)
+
+		m.applySaveMu.Lock()
+		paths = m.applyConfig(true, options)
+		m.applySaveMu.Unlock()
+	}
+
+	logger.Debug("update prop Monitors:", paths)
+	m.PropsMu.Lock()
+	m.setPropMonitors(paths)
+	m.PropsMu.Unlock()
 }
 
 func (m *Manager) getDelayApplyOptions() applyOptions {
@@ -707,7 +746,7 @@ func (m *Manager) applyConfig(setColorTemp bool, options applyOptions) (paths []
 	monitorMap := m.cloneMonitorMap()
 	monitors := getConnectedMonitors(monitorMap)
 	monitorsId := monitors.getMonitorsId()
-	logger.Debug("applyConfig", monitorsId)
+	logger.Debugf("applyConfig monitorsId: %v, options: %v", monitorsId, options)
 
 	m.PropsMu.RLock()
 	displayMode := m.DisplayMode
@@ -1592,19 +1631,12 @@ func (m *Manager) applyModeOnlyOne(monitorsId monitorsId, monitorMap map[uint32]
 
 func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId monitorsId, monitorMap map[uint32]*Monitor,
 	setColorTemp bool, options applyOptions) (err error) {
+	m.applySaveMu.Lock()
+	defer m.applySaveMu.Unlock()
 
 	err = m.applyDisplayConfig(mode, monitorsId, monitorMap, setColorTemp, options)
 	if err != nil {
 		logger.Warning(err)
-
-		// 模式切换失败，回退到之前的模式
-		monitorMap := m.cloneMonitorMap()
-		monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-		err1 := m.applyDisplayConfig(oldMode, monitorsId, monitorMap, setColorTemp, options)
-		if err1 != nil {
-			logger.Warning(err1)
-		}
-
 		return err
 	}
 	if oldMode != mode {
@@ -1623,10 +1655,55 @@ func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId monitorsId, monit
 	return nil
 }
 
+type delaySwitchMode struct {
+	mode, oldMode byte
+	name          string
+	time          time.Time
+}
+
 func (m *Manager) switchMode(mode byte, name string) (err error) {
 	oldMode := m.DisplayMode
 	monitorMap := m.cloneMonitorMap()
-	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
+	monitors := getConnectedMonitors(monitorMap)
+
+	setDelaySwitch := func() {
+		m.PropsMu.Lock()
+		defer m.PropsMu.Unlock()
+
+		if m.prevNumMonitors >= 2 && time.Since(m.prevNumMonitorsUpdatedAt) < 1*time.Second {
+			// 距离上次显示器数量改变发生时间小于 1s，表示突发显示器断开事件。
+			m.delaySwitchMode = &delaySwitchMode{
+				mode:    mode,
+				oldMode: oldMode,
+				name:    name,
+				time:    time.Now(),
+			}
+			logger.Debugf("switchMode set delaySwitchMode %+v, time: %v", m.delaySwitchMode, m.delaySwitchMode.time)
+		}
+	}
+
+	if len(monitors) == 1 {
+		setDelaySwitch()
+		return nil
+	}
+
+	monitorsId := monitors.getMonitorsId()
+	options := getSwitchModeOptions(mode, name)
+	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
+	if err != nil {
+		applyErr, ok := err.(*applyFailed)
+		if ok && applyErr.reason == reasonNumChanged {
+			if len(applyErr.monitors) == 1 {
+				setDelaySwitch()
+				return nil
+			}
+		}
+	}
+
+	return err
+}
+
+func getSwitchModeOptions(mode byte, name string) applyOptions {
 	options := applyOptions{
 		// 替代之前的 modeChanged
 		optionDisableCrtc: true,
@@ -1634,7 +1711,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 	if mode == DisplayModeOnlyOne && name != "" {
 		options[optionOnlyOne] = name
 	}
-	return m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
+	return options
 }
 
 func (m *Manager) setDisplayMode(mode byte) {
@@ -1875,6 +1952,12 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	// 对于 X 来说，这里是处理 crtc 设置
 	err := m.apply(monitorsId, monitorMap, options)
 	if err != nil {
+		monitors := getConnectedMonitors(monitorMap)
+		currentMonitorMap := m.cloneMonitorMap()
+		currentMonitors := getConnectedMonitors(currentMonitorMap)
+		if len(monitors) != len(currentMonitors) {
+			return &applyFailed{reason: reasonNumChanged, monitors: currentMonitors}
+		}
 		return err
 	}
 
@@ -1903,6 +1986,20 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	}
 
 	return nil
+}
+
+type applyFailed struct {
+	reason   string
+	err      error
+	monitors Monitors
+}
+
+const (
+	reasonNumChanged = "number of connected monitors changed"
+)
+
+func (err *applyFailed) Error() string {
+	return fmt.Sprintf("apply failed, reason: %v, original error: %v", err.reason, err.err)
 }
 
 func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
