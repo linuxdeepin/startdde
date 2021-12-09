@@ -140,10 +140,11 @@ type Manager struct {
 	builtinMonitorMu         sync.Mutex
 	candidateBuiltinMonitors []*Monitor // 候补的
 
-	monitorMap   map[uint32]*Monitor
-	monitorMapMu sync.Mutex
-	mm           monitorManager
-	debugOpts    debugOptions
+	monitorMap     map[uint32]*Monitor
+	monitorMapMu   sync.Mutex
+	mm             monitorManager
+	debugOpts      debugOptions
+	redshiftRunner *redshiftRunner
 
 	sessionActive bool
 	newSysCfg     *SysRootConfig
@@ -211,9 +212,13 @@ var _ monitorManagerHooks = (*Manager)(nil)
 
 func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
-		service:    service,
-		monitorMap: make(map[uint32]*Monitor),
-		Brightness: make(map[string]float64),
+		service:        service,
+		monitorMap:     make(map[uint32]*Monitor),
+		Brightness:     make(map[string]float64),
+		redshiftRunner: newRedshiftRunner(),
+	}
+	m.redshiftRunner.cb = func(value int) {
+		m.setColorTempOneShot()
 	}
 
 	chassis, err := getComputeChassis()
@@ -601,14 +606,14 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId monitorsId, monitorMa
 		return nil
 	}
 	m.updateConfigUuid(monitors)
+
+	if setColorTemp {
+		m.applyColorTempConfig(mode)
+	}
+
 	defer func() {
 		if _useWayland {
 			m.updateScreenSize()
-		}
-
-		// 拔插屏幕时需要根据配置文件重置色温
-		if setColorTemp {
-			m.applyColorTempConfig(mode)
 		}
 	}()
 	var err error

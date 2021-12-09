@@ -21,13 +21,15 @@ package brightness
 
 import (
 	"fmt"
+	"math"
 
-	dbus "github.com/godbus/dbus"
+	"github.com/godbus/dbus"
 	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "github.com/linuxdeepin/go-lib/backlight/display"
 	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/multierr"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 const (
@@ -49,29 +51,52 @@ func InitBacklightHelper() {
 	helper = backlight.NewBacklight(sysBus)
 }
 
-func Set(value float64, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
-	if value < 0 {
-		value = 0
-	} else if value > 1 {
-		value = 1
+func Set(brightness float64, temperature int, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
+	if brightness < 0 {
+		brightness = 0
+	} else if brightness > 1 {
+		brightness = 1
 	}
 
 	output := randr.Output(outputId)
+
+	// 亮度和色温分开设置，亮度用背光，色温用 gamma
+	setBlGamma := func() error {
+		var errs error
+		err := setBacklight(brightness, output, conn)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+		}
+
+		err = setOutputCrtcGamma(gammaSetting{
+			brightness:  1,
+			temperature: temperature,
+		}, output, conn)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+		}
+		return errs
+	}
+
+	// 亮度和色温都用 gamma 值设置
+	setGamma := func() error {
+		return setOutputCrtcGamma(gammaSetting{
+			brightness:  brightness,
+			temperature: temperature,
+		}, output, conn)
+	}
+
+	setFn := setGamma
 	switch setter {
 	case SetterBacklight:
-		return setBacklight(value, output, conn)
-	case SetterGamma:
-		return setOutputCrtcGamma(value, output, conn)
-	}
-
-	// case SetterAuto
-	if isBuiltin {
-		if supportBacklight(output, conn) {
-			return setBacklight(value, output, conn)
+		setFn = setBlGamma
+	case SetterAuto:
+		if isBuiltin && supportBacklight() {
+			setFn = setBlGamma
 		}
+		//case SetterGamma
 	}
-
-	return setOutputCrtcGamma(value, output, conn)
+	return setFn()
 }
 
 // unused function
@@ -113,38 +138,53 @@ func GetBacklightController(outputId uint32, conn *x.Conn) (*displayBl.Controlle
 	return nil, nil
 }
 
-func supportBacklight(output randr.Output, conn *x.Conn) bool {
+func supportBacklight() bool {
 	if helper == nil {
 		return false
 	}
 	return len(controllers) > 0
 }
 
-func setOutputCrtcGamma(value float64, output randr.Output, conn *x.Conn) error {
-	oinfo, err := randr.GetOutputInfo(conn, output, x.CurrentTime).Reply(conn)
+func setOutputCrtcGamma(setting gammaSetting, output randr.Output, conn *x.Conn) error {
+	outputInfo, err := randr.GetOutputInfo(conn, output, x.CurrentTime).Reply(conn)
 	if err != nil {
 		fmt.Printf("Get output(%v) failed: %v\n", output, err)
 		return err
 	}
 
-	if oinfo.Crtc == 0 || oinfo.Connection != randr.ConnectionConnected {
-		fmt.Printf("Output(%s) no crtc or disconnected\n", string(oinfo.Name))
-		return fmt.Errorf("Output(%v) unready", output)
+	if outputInfo.Crtc == 0 || outputInfo.Connection != randr.ConnectionConnected {
+		fmt.Printf("output(%s) no crtc or disconnected\n", outputInfo.Name)
+		return fmt.Errorf("output(%v) unready", output)
 	}
 
-	gamma, err := randr.GetCrtcGammaSize(conn, oinfo.Crtc).Reply(conn)
+	gamma, err := randr.GetCrtcGammaSize(conn, outputInfo.Crtc).Reply(conn)
 	if err != nil {
 		fmt.Printf("Failed to get gamma size: %v\n", err)
 		return err
 	}
 
 	if gamma.Size == 0 {
-		return fmt.Errorf("The output(%v) has invalid gamma size", output)
+		return fmt.Errorf("output(%v) has invalid gamma size", output)
 	}
 
-	red, green, blue := genGammaRamp(gamma.Size, value)
-	return randr.SetCrtcGammaChecked(conn, oinfo.Crtc,
+	red, green, blue := initGammaRamp(int(gamma.Size))
+	fillColorRamp(red, green, blue, setting)
+	return randr.SetCrtcGammaChecked(conn, outputInfo.Crtc,
 		red, green, blue).Check(conn)
+}
+
+func initGammaRamp(size int) (red, green, blue []uint16) {
+	red = make([]uint16, size)
+	green = make([]uint16, size)
+	blue = make([]uint16, size)
+
+	for i := 0; i < size; i++ {
+		value := uint16(float64(i) / float64(size) * (math.MaxUint16 + 1))
+		red[i] = value
+		green[i] = value
+		blue[i] = value
+	}
+	return
 }
 
 func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {

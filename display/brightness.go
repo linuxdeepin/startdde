@@ -167,9 +167,13 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	return false
 }
 
-func (m *Manager) setMonitorBrightness(monitor *Monitor, value float64) error {
+func (m *Manager) setMonitorBrightness(monitor *Monitor, brightnessValue float64, temperature int) error {
+	if !isValidColorTempValue(int32(temperature)) {
+		temperature = defaultTemperatureManual
+	}
+
 	isBuiltin := m.isBuiltinMonitor(monitor.Name)
-	err := brightness.Set(value, m.getBrightnessSetter(), isBuiltin,
+	err := brightness.Set(brightnessValue, temperature, m.getBrightnessSetter(), isBuiltin,
 		monitor.ID, m.xConn)
 	return err
 }
@@ -187,7 +191,8 @@ func (m *Manager) setBrightnessAux(fake bool, name string, value float64) error 
 
 	value = math.Round(value*1000) / 1000 // 通过该方法，用来对亮度值(亮度值范围为0-1)四舍五入保留小数点后三位有效数字
 	if !fake && enabled {
-		err := m.setMonitorBrightness(monitor, value)
+		temperature := m.getColorTemperatureValue()
+		err := m.setMonitorBrightness(monitor, value, temperature)
 		if err != nil {
 			logger.Warningf("failed to set brightness for %s: %v", name, err)
 			return err

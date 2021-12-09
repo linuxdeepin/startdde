@@ -115,10 +115,7 @@ func StartPart2() error {
 	m.initTouchscreens()
 
 	if !_greeterMode {
-		err := generateRedshiftConfFile()
-		if err != nil {
-			logger.Warning(err)
-		}
+		controlRedshift("disable")
 		m.applyColorTempConfig(m.DisplayMode)
 	}
 
