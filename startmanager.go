@@ -21,7 +21,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -93,7 +92,6 @@ type StartManager struct {
 	appsUseProxy        strv.Strv
 	appsDisableScaling  strv.Strv
 	mu                  sync.Mutex
-	appClose            chan *UeMessageItem
 	appProxy            proxy.App
 	launchedHooks       []string
 
@@ -191,8 +189,6 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 
 	m.appsDir = getAppDirs()
 	m.settings = gio.NewSettings(gSchemaLauncher)
-	m.appClose = make(chan *UeMessageItem, UserExperCLoseAppChanInitLen)
-
 	m.appsUseProxy = m.settings.GetStrv(gKeyAppsUseProxy)
 	m.appsDisableScaling = m.settings.GetStrv(gKeyAppsDisableScaling)
 
@@ -211,11 +207,6 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 		}
 		logger.Debug("update ", key)
 	})
-
-	err := m.listenAppCloseEvent()
-	if err != nil {
-		logger.Warning(err)
-	}
 
 	m.proxyChainsConfFile = filepath.Join(basedir.GetUserConfigDir(), "deepin", "proxychains.conf")
 	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
@@ -587,45 +578,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	}
 	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
-	go sendAppDataMsgToUserExperModule(UserExperOpenApp, item)
-
 	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
-}
-
-func (m *StartManager) listenAppCloseEvent() error {
-	go func() {
-		for item := range m.appClose {
-			if item != nil {
-				item := &UeMessageItem{Path: item.Path, Name: item.Name, Id: item.Id}
-				go sendAppDataMsgToUserExperModule(UserExperCloseApp, item)
-			}
-		}
-	}()
-
-	return nil
-}
-
-func sendAppDataMsgToUserExperModule(msg string, item *UeMessageItem) {
-	// 社区版不收集数据
-	if isCommunity() {
-		return
-	}
-	// send open app and close app message to user experience module
-	bus, err := dbus.SystemBus()
-	if err == nil {
-		userexp := bus.Object(UserExperServiceName, UserExperPath)
-		ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancelFn()
-		err = userexp.CallWithContext(ctx, UserExperServiceName+".SendAppStateData", 0, msg, item.Path, item.Name, item.Id).Err
-		if err != nil {
-			logger.Warningf("failed to call %s.SendAppStateData, %v", UserExperServiceName, err)
-		} else {
-			logger.Infof("send %s message, app info %s/%s/%s", msg, item.Path, item.Name, item.Id)
-		}
-	} else {
-		logger.Warning(err)
-	}
 }
 
 func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo, error) {
@@ -720,14 +673,6 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 		}
 
 		err := cmd.Wait()
-
-		// send app close info to ue module
-		// we did not care the program exit normal or not
-		if appInfo != nil {
-			item := &UeMessageItem{Path: appInfo.GetFileName(), Name: appInfo.GetName(), Id: appInfo.GetId()}
-			m.appClose <- item
-		}
-
 		if err != nil {
 			logger.Warningf("%v: %v", cmd.Args, err)
 

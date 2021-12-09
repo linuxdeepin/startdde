@@ -180,7 +180,6 @@ func (m *SessionManager) prepareLogout(force bool) {
 	quitAtSpiService()
 	stopBAMFDaemon()
 	stopRedshift()
-	sendMsgToUserExperModule(UserLogoutMsg)
 	quitObexService()
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		// playLogoutSound 内部会退出 pulseaudio
@@ -258,7 +257,6 @@ func (m *SessionManager) Shutdown() *dbus.Error {
 func (m *SessionManager) prepareShutdown(force bool) {
 	killSogouImeWatchdog()
 	stopBAMFDaemon()
-	sendMsgToUserExperModule(UserShutdownMsg)
 	if !force {
 		preparePlayShutdownSound()
 	}
@@ -1032,52 +1030,6 @@ func initQtThemeConfig() error {
 	return nil
 }
 
-const (
-	UserExperServiceName = "com.deepin.userexperience.Daemon"
-	UserExperPath        = "/com/deepin/userexperience/Daemon"
-	UserLoginMsg         = "login"
-	UserLogoutMsg        = "logout"
-	UserShutdownMsg      = "shutdown"
-
-	UserExperOpenApp  = "openapp"
-	UserExperCloseApp = "closeapp"
-
-	UserExperCLoseAppChanInitLen = 24
-)
-
-type UeMessageItem struct {
-	Path, Name, Id string
-}
-
-func sendMsgToUserExperModule(msg string) {
-	if isCommunity() {
-		return
-	}
-	// send message to user experience module
-	// first send will active the services
-	bus, err := dbus.SystemBus()
-	ch := make(chan struct{})
-	if err == nil {
-		go func() {
-			userexp := bus.Object(UserExperServiceName, UserExperPath)
-			err = userexp.Call(UserExperServiceName+".SendLogonData", 0, msg).Err
-			if err != nil {
-				logger.Warningf("failed to call %s.SendLogonData, %v", UserExperServiceName, err)
-			} else {
-				logger.Infof("send %s message to ue module", msg)
-			}
-			close(ch)
-		}()
-		select {
-		case <-ch:
-		case <-time.After(1 * time.Second):
-			logger.Debug("sendMsgToUserExperModule timed out!")
-		}
-	} else {
-		logger.Warning(err)
-	}
-}
-
 func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
@@ -1120,7 +1072,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	}()
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
 	go m.launchAutostart()
-	sendMsgToUserExperModule(UserLoginMsg)
 
 	if m.loginSession != nil {
 		m.loginSession.InitSignalExt(sysSignalLoop, true)
