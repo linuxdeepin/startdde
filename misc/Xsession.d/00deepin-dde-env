@@ -16,6 +16,8 @@ if [ "$1" = "/usr/bin/startdde" ]; then
     fi
     # control qt program infos level
     export QT_LOGGING_RULES="*.debug=false"
+    # set qt qpa platform type
+    export QT_QPA_PLATFORM=xcb
     # control qml softwarecontext in loongson-drm
     lshw -c display | grep "driver=loongson-drm"
     if [ $? -eq 0 ];then
