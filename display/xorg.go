@@ -29,11 +29,11 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/linuxdeepin/go-lib/log"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/input"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-x11-client/ext/xfixes"
-	"github.com/linuxdeepin/go-lib/log"
 )
 
 var _xConn *x.Conn
@@ -719,6 +719,7 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		logger.Debug("apply return", monitorsId)
 	}()
 
+	var shouldDelayDisableCrtc = false
 	for crtc, crtcInfo := range mm.getCrtcs() {
 		rect := crtcInfo.getRect()
 		logger.Debugf("crtc %v, crtcInfo: %+v", crtc, crtcInfo)
@@ -757,11 +758,18 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 
 		if shouldDisable && len(crtcInfo.Outputs) > 0 {
 			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
+			shouldDelayDisableCrtc = true
 			err := mm.disableCrtc(crtc)
 			if err != nil {
 				return err
 			}
 		}
+	}
+
+	// disableCrtc后等待1秒，防止多个屏幕反复disabled导致屏幕提示 频率超出范围 黑屏现象
+	// NOTE：此处延时是为了修复BUG 107874  104595 107865
+	if shouldDelayDisableCrtc {
+		time.Sleep(1 * time.Second)
 	}
 
 	err := mm.setScreenSize(screenSize)
