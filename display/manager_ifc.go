@@ -220,7 +220,7 @@ func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
 		resetColorTemp()        // 色温重置
 	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
 		resetColorTemp()
-		controlRedshift("start") // 开启服务
+		controlRedshift("restart") // 开启服务
 	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
 		controlRedshift("stop") // 停止服务
 		lastManualCCT := m.ColorTemperatureManual
