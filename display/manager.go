@@ -1758,7 +1758,24 @@ func (m *Manager) updatePropMonitors() {
 	for i, monitor := range monitors {
 		paths[i] = monitor.getPath()
 	}
-	m.setPropMonitors(paths)
+	//每次接收到output changed事件发送MonitorChanged信号，会导致信号发太多，文管和控制中心收到MonitorChanged信号做操作
+	//只有Monitors和paths不一样时才发送MonitorChanged信号
+	if m.Monitors == nil {
+		m.setPropMonitors(paths)
+		return
+	}
+
+	if len(paths) != len(m.Monitors) {
+		m.setPropMonitors(paths)
+		return
+	}
+
+	for i := 0; i < len(m.Monitors); i++ {
+		if paths[i] != m.Monitors[i] {
+			m.setPropMonitors(paths)
+			return
+		}
+	}
 }
 
 func (m *Manager) modifyConfigName(name, newName string) (err error) {
