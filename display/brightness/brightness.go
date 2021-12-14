@@ -32,6 +32,12 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
+var _useWayland bool
+
+func SetUseWayland(value bool) {
+	_useWayland = true
+}
+
 const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
@@ -146,6 +152,10 @@ func supportBacklight() bool {
 }
 
 func setOutputCrtcGamma(setting gammaSetting, output randr.Output, conn *x.Conn) error {
+	if _useWayland {
+		return nil
+	}
+
 	outputInfo, err := randr.GetOutputInfo(conn, output, x.CurrentTime).Reply(conn)
 	if err != nil {
 		fmt.Printf("Get output(%v) failed: %v\n", output, err)

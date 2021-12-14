@@ -847,6 +847,7 @@ func (m *Manager) migrateOldConfig() {
 
 func (m *Manager) init() {
 	brightness.InitBacklightHelper()
+	brightness.SetUseWayland(_useWayland)
 	m.initDebugOptions()
 	m.loadSysConfig()
 	if m.sysConfig.Version == "" {
