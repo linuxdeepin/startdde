@@ -35,7 +35,7 @@ import (
 var _useWayland bool
 
 func SetUseWayland(value bool) {
-	_useWayland = true
+	_useWayland = value
 }
 
 const (
