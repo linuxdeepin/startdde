@@ -38,7 +38,8 @@ func (m *Manager) ResetChanges() *dbus.Error {
 	m.monitorMapMu.Unlock()
 
 	monitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	err := m.apply(monitorsId, monitorMap, nil)
+	// 简化实现主屏ID为0。
+	err := m.apply(monitorsId, monitorMap, nil, 0, m.DisplayMode)
 	if err != nil {
 		return dbusutil.ToError(err)
 	}

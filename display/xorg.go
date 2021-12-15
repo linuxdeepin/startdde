@@ -218,7 +218,7 @@ type monitorManager interface {
 	setHooks(hooks monitorManagerHooks)
 	getMonitors() []*MonitorInfo
 	getMonitor(id uint32) *MonitorInfo
-	apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string) error
+	apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string, primaryMonitorID uint32, displayMode byte) error
 	setMonitorPrimary(monitorId uint32) error
 	setMonitorFillMode(monitor *Monitor, fillMode string) error
 	showCursor(show bool) error
@@ -619,7 +619,7 @@ func findOutputInCrtcCfgs(crtcCfgs map[randr.Crtc]crtcConfig, crtc randr.Crtc) r
 }
 
 func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize,
-	options applyOptions, fillModes map[string]string) error {
+	options applyOptions, fillModes map[string]string, primaryMonitorID uint32, displayMode byte) error {
 
 	logger.Debug("call apply", monitorsId)
 	optDisableCrtc, _ := options[optionDisableCrtc].(bool)
@@ -777,8 +777,22 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		return err
 	}
 
+	// 为了规避扩展模式下，A B屏相同低分辨率（X 分辨率）的平铺方式不一致，当切换A B屏为复制模式后
+	// 此时默认非X分辨率，此时切换到X分辨率，此时需要做规避，以此时主屏的平铺方式去设置所有屏幕
+	var primaryScreenFillMode = fillModeDefault
+	if monitorMap[primaryMonitorID] != nil {
+		primaryScreenFillMode = fillModes[monitorMap[primaryMonitorID].generateFillModeKey()]
+	}
+
 	for id, monitor := range monitorMap {
-		err = mm.setMonitorFillMode(monitor.m.monitorMap[id], fillModes[monitor.generateFillModeKey()])
+		var monitorFillMode = fillModeDefault
+		if displayMode == DisplayModeMirror {
+			monitorFillMode = primaryScreenFillMode
+		} else {
+			monitorFillMode = fillModes[monitor.generateFillModeKey()]
+		}
+
+		err = mm.setMonitorFillMode(monitor.m.monitorMap[id], monitorFillMode)
 		if err != nil {
 			logger.Warning("set monitor fill mode failed:", monitor, err)
 		}

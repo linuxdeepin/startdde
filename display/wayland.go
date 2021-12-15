@@ -496,7 +496,7 @@ func (mm *kMonitorManager) getStdMonitorName(name string, edid []byte) (string, 
 }
 
 func (mm *kMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize,
-	options applyOptions, fillModes map[string]string) error {
+	options applyOptions, fillModes map[string]string, primaryMonitorID uint32, displayMode byte) error {
 	return mm.applyByWLOutput(monitorMap)
 }
 

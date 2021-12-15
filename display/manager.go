@@ -474,10 +474,25 @@ func (m *Manager) handleSysConfigUpdated(newSysConfig *SysRootConfig) {
 			// applySysMonitorConfigs 会在内部设置 fillMode
 			logger.Debug("fillModes changed, set fill mode for monitors")
 			monitors := m.getConnectedMonitors()
+			var primaryScreenFillMode = fillModeDefault
+			for _, config := range newMonitorCfgs {
+				if config.Primary {
+					primaryScreenFillMode = newCfg.FillModes[monitors.GetByName(config.Name).generateFillModeKey()]
+					break
+				}
+			}
+
 			go func() {
 				// 设置 fillModes
 				for _, monitor := range monitors {
-					err := m.mm.setMonitorFillMode(monitor, newCfg.FillModes[monitor.generateFillModeKey()])
+					var monitorFillMode = fillModeDefault
+					if newCfg.DisplayMode == DisplayModeMirror {
+						monitorFillMode = primaryScreenFillMode
+					} else {
+						monitorFillMode = newCfg.FillModes[monitor.generateFillModeKey()]
+					}
+
+					err := m.mm.setMonitorFillMode(monitor, monitorFillMode)
 					if err != nil {
 						logger.Warning("set monitor fill mode failed:", monitor, err)
 					}
@@ -1378,7 +1393,7 @@ type screenSize struct {
 	mmHeight uint32
 }
 
-func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions) error {
+func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, options applyOptions, primaryMonitorID uint32, displayMode byte) error {
 	// 当前的屏幕大小
 	m.PropsMu.RLock()
 	prevScreenSize := screenSize{width: m.ScreenWidth, height: m.ScreenHeight}
@@ -1387,7 +1402,7 @@ func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, o
 
 	// NOTE: 应该限制只有 Manager.apply 才能调用 mm.apply
 	m.applyMu.Lock()
-	err := m.mm.apply(monitorsId, monitorMap, prevScreenSize, options, m.sysConfig.Config.FillModes)
+	err := m.mm.apply(monitorsId, monitorMap, prevScreenSize, options, m.sysConfig.Config.FillModes, primaryMonitorID, displayMode)
 	m.applyMu.Unlock()
 
 	m.setInApply(false)
@@ -1956,7 +1971,7 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	}
 
 	// 对于 X 来说，这里是处理 crtc 设置
-	err := m.apply(monitorsId, monitorMap, options)
+	err := m.apply(monitorsId, monitorMap, options, primaryMonitorID, mode)
 	if err != nil {
 		monitors := getConnectedMonitors(monitorMap)
 		currentMonitorMap := m.cloneMonitorMap()
