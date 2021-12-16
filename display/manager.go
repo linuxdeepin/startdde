@@ -1226,7 +1226,7 @@ func (m *Manager) updateMonitor(monitorInfo *MonitorInfo) {
 
 	monitor.setPropCurrentMode(monitorInfo.CurrentMode)
 	monitor.setPropRefreshRate(monitorInfo.CurrentMode.Rate)
-
+	m.updateScreenSize()
 	monitor.PropsMu.Unlock()
 }
 
