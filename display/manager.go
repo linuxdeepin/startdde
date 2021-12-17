@@ -1652,8 +1652,6 @@ func (m *Manager) applyModeOnlyOne(monitorsId monitorsId, monitorMap map[uint32]
 
 func (m *Manager) switchModeAux(mode, oldMode byte, monitorsId monitorsId, monitorMap map[uint32]*Monitor,
 	setColorTemp bool, options applyOptions) (err error) {
-	m.applySaveMu.Lock()
-	defer m.applySaveMu.Unlock()
 
 	err = m.applyDisplayConfig(mode, monitorsId, monitorMap, setColorTemp, options)
 	if err != nil {
