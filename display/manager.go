@@ -1226,8 +1226,9 @@ func (m *Manager) updateMonitor(monitorInfo *MonitorInfo) {
 
 	monitor.setPropCurrentMode(monitorInfo.CurrentMode)
 	monitor.setPropRefreshRate(monitorInfo.CurrentMode.Rate)
-	m.updateScreenSize()
 	monitor.PropsMu.Unlock()
+
+	m.updateScreenSize()
 }
 
 func (m *Manager) handleMonitorConnectedChanged(monitor *Monitor, connected bool) {
@@ -2847,7 +2848,10 @@ func (m *Manager) updateScreenSize() {
 
 	m.monitorMapMu.Lock()
 	for _, monitor := range m.monitorMap {
+		monitor.PropsMu.RLock()
+
 		if !monitor.Enabled {
+			monitor.PropsMu.RUnlock()
 			continue
 		}
 		if screenWidth < uint16(monitor.X)+monitor.Width {
@@ -2856,9 +2860,13 @@ func (m *Manager) updateScreenSize() {
 		if screenHeight < uint16(monitor.Y)+monitor.Height {
 			screenHeight = uint16(monitor.Y) + monitor.Height
 		}
+
+		monitor.PropsMu.RUnlock()
 	}
 	m.monitorMapMu.Unlock()
 
+	m.PropsMu.Lock()
 	m.setPropScreenWidth(screenWidth)
 	m.setPropScreenHeight(screenHeight)
+	m.PropsMu.Unlock()
 }
