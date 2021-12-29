@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
@@ -80,6 +81,9 @@ const (
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
+
+	gsSchemaXSettings  = "com.deepin.xsettings"
+	gsKeyScaleFactor = "scale-factor"
 )
 
 const (
@@ -152,6 +156,7 @@ type Manager struct {
 
 	// gsettings com.deepin.dde.display
 	settings                 *gio.Settings
+	xSettingsGs              *gio.Settings
 	monitorsId               monitorsId
 	monitorsIdMu             sync.Mutex
 	hasBuiltinMonitor        bool
@@ -234,6 +239,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.rotateScreenTimeDelay = m.settings.GetInt(gsKeyRotateScreenTimeDelay)
 	m.ColorTemperatureManual = defaultTemperatureManual
 	m.ColorTemperatureMode = defaultTemperatureMode
+
+	m.xSettingsGs = gio.NewSettings(gsSchemaXSettings)
 
 	m.xConn = _xConn
 
@@ -638,6 +645,16 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId monitorsId, monitorMa
 			m.updateScreenSize()
 		}
 	}()
+
+	os.Setenv("D_DXCB_FORCE_OVERRIDE_HIDPI", "1")
+	scale := strconv.FormatFloat(m.xSettingsGs.GetDouble(gsKeyScaleFactor), 'f', -1, 64)
+	var value string
+	for i := 0; i < len(monitors); i++ {
+		value += scale + ";"
+	}
+	value = strings.TrimRight(value, ";")
+	os.Setenv("QT_SCREEN_SCALE_FACTORS", value)
+
 	var err error
 	if len(monitors) == 1 {
 		// 单屏情况
