@@ -989,17 +989,16 @@ func (mm *xMonitorManager) getOutputAvailableFillModes(output randr.Output) ([]s
 	var result []string
 	for _, prop := range outputProp.ValidValues {
 		fillMode, _ := mm.xConn.GetAtomName(x.Atom(prop))
-		if fillMode != "None" {
-			result = append(result, fillMode)
-		}
+		result = append(result, fillMode)
 	}
 	return result, nil
 }
 
 func (mm *xMonitorManager) setOutputScalingMode(output randr.Output, fillMode string) error {
-	if fillMode != fillModeDefault &&
+	if fillMode != fillModeFull &&
 		fillMode != fillModeCenter &&
-		fillMode != fillModeFull {
+		fillMode != fillModeDefault &&
+		fillMode != fillModeFullaspect {
 		logger.Warning("invalid fill mode:", fillMode)
 		return fmt.Errorf("invalid fill mode %q", fillMode)
 	}

@@ -10,10 +10,10 @@ import (
 	"sync"
 
 	"github.com/godbus/dbus"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/strv"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 const (
@@ -21,9 +21,10 @@ const (
 )
 
 const (
-	fillModeDefault string = "Full aspect"
-	fillModeCenter  string = "Center"
-	fillModeFull    string = "Full"
+	fillModeDefault    string = "None"
+	fillModeCenter     string = "Center"
+	fillModeFull       string = "Full"
+	fillModeFullaspect string = "Full aspect"
 )
 
 type Monitor struct {
