@@ -3,6 +3,7 @@ GOPATH_DIR = gopath
 GOPKG_PREFIX = github.com/linuxdeepin/startdde
 GOBUILD = go build -v $(GO_BUILD_FLAGS)
 export GO111MODULE=off
+export GOPATH= $(shell go env GOPATH)
 
 LANGUAGES = $(basename $(notdir $(wildcard misc/po/*.po)))
 
