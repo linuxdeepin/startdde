@@ -34,22 +34,13 @@ import (
 	"time"
 
 	"github.com/godbus/dbus"
+	"github.com/linuxdeepin/dde-api/soundutils"
 	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
+	sysbt "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.bluetooth"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/dpms"
-	"github.com/linuxdeepin/dde-api/soundutils"
-	"github.com/linuxdeepin/startdde/autostop"
-	"github.com/linuxdeepin/startdde/keyring"
-	"github.com/linuxdeepin/startdde/memchecker"
-	"github.com/linuxdeepin/startdde/swapsched"
-	"github.com/linuxdeepin/startdde/watchdog"
-	"github.com/linuxdeepin/startdde/wm_kwin"
-	"github.com/linuxdeepin/startdde/xcursor"
-	"github.com/linuxdeepin/startdde/xsettings"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/cgroup"
@@ -58,6 +49,16 @@ import (
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/procfs"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/dpms"
+	"github.com/linuxdeepin/startdde/autostop"
+	"github.com/linuxdeepin/startdde/keyring"
+	"github.com/linuxdeepin/startdde/memchecker"
+	"github.com/linuxdeepin/startdde/swapsched"
+	"github.com/linuxdeepin/startdde/watchdog"
+	"github.com/linuxdeepin/startdde/wm_kwin"
+	"github.com/linuxdeepin/startdde/xcursor"
+	"github.com/linuxdeepin/startdde/xsettings"
 )
 
 const (
@@ -87,6 +88,7 @@ type SessionManager struct {
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
 	inhibitManager        InhibitManager
 	powerManager          powermanager.PowerManager
+	sysBt                 sysbt.Bluetooth
 
 	CurrentSessionPath  dbus.ObjectPath
 	objLogin            login1.Manager
@@ -181,6 +183,9 @@ func (m *SessionManager) prepareLogout(force bool) {
 	stopBAMFDaemon()
 	stopRedshift()
 	quitObexService()
+	//注销系统断开所有蓝牙连接
+	m.sysBt.DisconnectAudioDevices(0)
+
 	if !force && soundutils.CanPlayEvent(soundutils.EventDesktopLogout) {
 		// playLogoutSound 内部会退出 pulseaudio
 		playLogoutSound()
@@ -676,6 +681,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	dbusDaemon.InitSignalExt(sigLoop, true)
 	objLogin := login1.NewManager(sysBus)
 	powerManager := powermanager.NewPowerManager(sysBus)
+	sysBt := sysbt.NewBluetooth(sysBus)
 	var objLoginSessionSelf login1.Session
 	sessionPath, err := objLogin.GetSessionByPID(0, 0)
 	if err != nil {
@@ -695,6 +701,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 		objLogin:            objLogin,
 		objLoginSessionSelf: objLoginSessionSelf,
 		powerManager:        powerManager,
+		sysBt:               sysBt,
 		dbusDaemon:          dbusDaemon,
 		daemon:              daemon.NewDaemon(sysBus),
 	}
