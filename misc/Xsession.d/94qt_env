@@ -1,0 +1,8 @@
+case $XDG_SESSION_TYPE in
+    x11)
+        export QT_QPA_PLATFORM=xcb
+        ;;
+    wayland)
+        export QT_QPA_PLATFORM=wayland
+        ;;
+esac
