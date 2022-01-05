@@ -801,7 +801,7 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 	for _, crtcCfg := range crtcCfgs {
 		err := mm.setCrtcConfig(crtcCfg)
 		if err != nil {
-			return err
+			logger.Warning("set crtcConfig failed:", crtcCfg, err)
 		}
 	}
 
