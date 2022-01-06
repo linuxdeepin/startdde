@@ -1363,7 +1363,6 @@ func startAtSpiService() {
 }
 
 func startObexService() {
-	time.Sleep(3 * time.Second)
 	logger.Debugf("starting %s...", obexService)
 	err := exec.Command("systemctl", "--user", "--runtime", "unmask", obexService).Run()
 	if err != nil {
