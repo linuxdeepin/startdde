@@ -189,14 +189,24 @@ func outputSliceContains(outputs []randr.Output, output randr.Output) bool {
 }
 
 func getMonitorsCommonSizes(monitors []*Monitor) []Size {
+	var notUseBestMode bool
 	count := make(map[Size]int)
+	bestMode := monitors[0].BestMode
 	for _, monitor := range monitors {
+		if bestMode != monitor.BestMode {
+			notUseBestMode = true
+		}
 		smm := getSizeModeMap(monitor.Modes)
 		for size := range smm {
 			count[size]++
 		}
 	}
+
 	var commonSizes []Size
+	if !notUseBestMode {
+		return []Size{ {bestMode.Width,bestMode.Height} }
+	}
+
 	for size, value := range count {
 		if value == len(monitors) {
 			commonSizes = append(commonSizes, size)
