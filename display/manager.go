@@ -1028,10 +1028,13 @@ func (m *Manager) switchModeMirrorAux() (err error, monitor0 *Monitor) {
 		err = errors.New("not found common size")
 		return
 	}
+	maxSize := getMaxAreaSize(commonSizes)
 	for _, monitor := range m.monitorMap {
 		if monitor.Connected {
 			monitor.enable(true)
-			monitor.setMode(monitor.BestMode)
+			var mode ModeInfo
+			mode = getFirstModeBySize(monitor.Modes, maxSize.width, maxSize.height)
+			monitor.setMode(mode)
 			monitor.setPosition(0, 0)
 			monitor.setRotation(randr.RotationRotate0)
 			monitor.setReflect(0)
