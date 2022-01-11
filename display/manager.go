@@ -1999,7 +1999,13 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 			if config.Enabled {
 				err := m.setBrightness(config.Name, config.Brightness)
 				if err != nil {
-					logger.Warning(err)
+					logger.Warningf("call setBrightness err: %v, config.Name: %s", err, config.Name)
+					monitors := m.getConnectedMonitors()
+					monitor := monitors.GetByUuid(config.UUID)
+					err := m.setBrightness(monitor.Name, config.Brightness)
+					if err != nil {
+						logger.Warningf("call setBrightness err: %v, monitor.Name: %s", err, monitor.Name)
+					}
 				}
 			}
 		}

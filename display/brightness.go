@@ -48,8 +48,19 @@ func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
 			v, ok := valueMap[config.Name]
 			if ok {
 				config.Brightness = v
-				changed = true
+			} else {
+				// 存在当从wayland切换到x11后，在wayland中设置过显示配置，此时配置文件中Name与切换到x11之后中的Name不匹配
+				// 因此当失败时，在通过uuid查找一次，把Name改写，亮度不变
+				monitors := m.getConnectedMonitors()
+				for name := range valueMap {
+					monitor := monitors.GetByName(name)
+					if config.UUID == monitor.uuid {
+						config.Name = name
+						config.Brightness = v
+					}
+				}
 			}
+			changed = true
 		}
 		return configs
 	})
@@ -192,6 +203,10 @@ func (m *Manager) setBrightnessAux(fake bool, name string, value float64) error 
 	value = math.Round(value*1000) / 1000 // 通过该方法，用来对亮度值(亮度值范围为0-1)四舍五入保留小数点后三位有效数字
 	if !fake && enabled {
 		temperature := m.getColorTemperatureValue()
+		// 保持最小亮度，不能全黑
+		if value <= 0.1 {
+			value = 0.1
+		}
 		err := m.setMonitorBrightness(monitor, value, temperature)
 		if err != nil {
 			logger.Warningf("failed to set brightness for %s: %v", name, err)
