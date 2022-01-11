@@ -2201,21 +2201,16 @@ func (m *Manager) initTouchMap() {
 }
 
 func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
-	var touchId int32 = -1
+	touchIDs := make([]int32, 0)
 	for _, touchscreen := range m.Touchscreens {
 		if touchscreen.UUID != touchUUID {
 			continue
 		}
 
-		touchId = touchscreen.Id
+		touchIDs = append(touchIDs, touchscreen.Id)
 	}
-	if touchId == -1 {
+	if len(touchIDs) == 0 {
 		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
-	}
-
-	dxTouchscreen, err := dxinput.NewTouchscreen(touchId)
-	if err != nil {
-		return err
 	}
 
 	ignoreGestureFunc := func(id int32, ignore bool) {
@@ -2231,20 +2226,46 @@ func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
 
 	if monitor0.Enabled {
 		matrix := m.genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
-		logger.Debugf("matrix: %v", matrix)
 
-		err = dxTouchscreen.Enable(true)
-		if err != nil {
-			return err
+		for _, touchID := range touchIDs {
+			dxTouchscreen, err := dxinput.NewTouchscreen(touchID)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			logger.Debugf("matrix: %v, touchscreen: %s(%d)", matrix, touchUUID, touchID)
+
+			err = dxTouchscreen.Enable(true)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			ignoreGestureFunc(dxTouchscreen.Id, false)
+
+			err = dxTouchscreen.SetTransformationMatrix(matrix)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
 		}
-		ignoreGestureFunc(dxTouchscreen.Id, false)
-
-		return dxTouchscreen.SetTransformationMatrix(matrix)
 	} else {
-		logger.Debugf("touchscreen %s disabled", touchUUID)
-		ignoreGestureFunc(dxTouchscreen.Id, true)
-		return dxTouchscreen.Enable(false)
+		for _, touchID := range touchIDs {
+			dxTouchscreen, err := dxinput.NewTouchscreen(touchID)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			logger.Debugf("touchscreen %s(%d) disabled", touchUUID, touchID)
+			ignoreGestureFunc(dxTouchscreen.Id, true)
+			err = dxTouchscreen.Enable(false)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+		}
 	}
+
+	return nil
 }
 
 func (m *Manager) updateTouchscreenMap(outputName string, touchUUID string, auto bool) {
