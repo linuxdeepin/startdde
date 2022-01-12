@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/godbus/dbus"
 	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
@@ -175,12 +174,10 @@ func (s *Switcher) listenDBusSignal() {
 		}
 
 		s.emitSignalWMChanged(wmName)
-		time.AfterFunc(1*time.Second, func() {
-			err := showOSD(osdName)
-			if err != nil {
-				logger.Warning(err)
-			}
-		})
+		err := showOSD(osdName)
+		if err != nil {
+			logger.Warning(err)
+		}
 	})
 	if err != nil {
 		logger.Warning(err)
