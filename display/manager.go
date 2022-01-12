@@ -787,7 +787,7 @@ func (m *Manager) applyConfig(setColorTemp bool, options applyOptions) (paths []
 			logger.Warning(err)
 		}
 	} else {
-		err := m.applyDisplayConfig(m.DisplayMode, monitorsId, monitorMap, setColorTemp, options)
+		err := m.applyDisplayConfig(displayMode, monitorsId, monitorMap, setColorTemp, options)
 		if err != nil {
 			logger.Warning(err)
 		}
@@ -798,13 +798,22 @@ func (m *Manager) applyConfig(setColorTemp bool, options applyOptions) (paths []
 
 func (m *Manager) migrateOldConfig() {
 	if _greeterMode {
+		// greeter 模式无法读取gsetting值，在没有显示系统级配置文件时，默认多屏模式为扩展
+		m.sysConfig.mu.Lock()
+		m.sysConfig.Config.DisplayMode = DisplayModeExtend
+		m.DisplayMode = m.sysConfig.Config.DisplayMode
+		m.sysConfig.mu.Unlock()
 		return
 	}
 	logger.Debug("migrateOldConfig")
 
+	// 当系统级配置文件不存在时，此时的display Mode取gsetting中的值，确保升级前后一致
+	m.sysConfig.mu.Lock()
+	m.sysConfig.Config.DisplayMode = uint8(m.settings.GetEnum(gsKeyDisplayMode))
+	m.DisplayMode = m.sysConfig.Config.DisplayMode
+	m.sysConfig.mu.Unlock()
 	// NOTE: 在设置 m.DisplayMode, m.Brightness, m.gsColorTemperatureMode, m.gsColorTemperatureManual 之后
 	// 再加载配置文件并迁移，主要原因是 loadOldConfig 中的 ConfigV3D3.toConfig 和 ConfigV4.toConfig 需要。
-	m.DisplayMode = byte(m.settings.GetEnum(gsKeyDisplayMode))
 	m.gsColorTemperatureMode = m.settings.GetInt(gsKeyColorTemperatureMode)
 	m.gsColorTemperatureManual = m.settings.GetInt(gsKeyColorTemperatureManual)
 	m.initBrightness()
@@ -820,8 +829,8 @@ func (m *Manager) migrateOldConfig() {
 			logger.Debug("migrateOldConfig configV6:", spew.Sdump(configV6))
 		}
 		sysCfg := configV6.toSysConfigV1()
+		sysCfg.DisplayMode = m.DisplayMode
 		m.sysConfig.Config = sysCfg
-
 		m.userConfig = configV6.toUserConfigV1()
 		m.userConfig.fix()
 		if err := m.saveUserConfig(); err != nil {
@@ -2511,6 +2520,10 @@ func (m *Manager) initDebugOptions() {
 }
 
 func (m *Manager) saveSysConfigNoLock(reason string) error {
+	if _greeterMode {
+		return nil
+	}
+
 	m.sysConfig.UpdateAt = time.Now().Format(time.RFC3339Nano)
 	m.sysConfig.Version = sysConfigVersion
 
