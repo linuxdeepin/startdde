@@ -54,6 +54,11 @@ func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
 				monitors := m.getConnectedMonitors()
 				for name := range valueMap {
 					monitor := monitors.GetByName(name)
+					if monitor == nil {
+						logger.Warning("call GetByName failed: ", name)
+						continue
+					}
+
 					if config.UUID == monitor.uuid {
 						config.Name = name
 						config.Brightness = v
