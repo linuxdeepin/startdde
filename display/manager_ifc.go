@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 
 	dbus "github.com/godbus/dbus"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -127,6 +126,10 @@ func (m *Manager) SetAndSaveBrightness(outputName string, value float64) *dbus.E
 }
 
 func (m *Manager) SetBrightness(outputName string, value float64) *dbus.Error {
+	if value > 1 || value < 0 {
+		return dbusutil.ToError(fmt.Errorf("the brightness value range is 0-1"))
+	}
+
 	can, _ := m.CanSetBrightness(outputName)
 	if !can {
 		return dbusutil.ToError(fmt.Errorf("the port %s cannot set brightness", outputName))
@@ -185,22 +188,10 @@ func (m *Manager) GetBuiltinMonitor() (string, dbus.ObjectPath, *dbus.Error) {
 }
 
 func (m *Manager) SetMethodAdjustCCT(adjustMethod int32) *dbus.Error {
-	if adjustMethod > ColorTemperatureModeManual || adjustMethod < ColorTemperatureModeNormal {
-		return dbusutil.ToError(errors.New("adjustMethod type out of range, not 0 or 1 or 2"))
-	}
 	m.ColorTemperatureMode.Set(adjustMethod)
-	switch adjustMethod {
-	case ColorTemperatureModeNormal: // 不调节色温，关闭redshift服务
-		controlRedshift("stop") // 停止服务
-		resetColorTemp()        // 色温重置
-	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
-		resetColorTemp()
-		controlRedshift("start") // 开启服务
-	case ColorTemperatureModeManual: // 手动调节色温 关闭服务 调节色温(调用存在之前保存的手动色温值)
-		controlRedshift("stop") // 停止服务
-		lastManualCCT := m.ColorTemperatureManual.Get()
-		err := m.SetColorTemperature(lastManualCCT)
-		return err
+	err := m.setColorTempMode(adjustMethod)
+	if err != nil {
+		return dbusutil.ToError(err)
 	}
 	return nil
 }
@@ -212,8 +203,8 @@ func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
 	if value < 1000 || value > 25000 {
 		return dbusutil.ToError(errors.New("value out of range"))
 	}
-	setColorTempOneShot(strconv.Itoa(int(value))) // 手动设置色温
 	m.ColorTemperatureManual.Set(value)
+	m.setColorTempOneShot() // 手动设置色温
 	return nil
 }
 
@@ -254,15 +245,6 @@ func controlRedshift(action string) {
 		logger.Warning("failed to ", action, " redshift.service:", err)
 	} else {
 		logger.Info("success to ", action, " redshift.service")
-	}
-}
-
-func setColorTempOneShot(colorTemp string) {
-	_, err := exec.Command("redshift", "-m", "vidmode", "-O", colorTemp, "-P").Output()
-	if err != nil {
-		logger.Warning("failed to set current ColorTemperature by redshift.service: ", err)
-	} else {
-		logger.Info("success to to set current ColorTemperature by redshift.service")
 	}
 }
 

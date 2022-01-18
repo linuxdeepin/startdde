@@ -34,8 +34,11 @@ const (
 )
 
 const (
-	ColorTemperatureModeNormal int32 = iota
+	// ColorTemperatureModeNone 不调整色温
+	ColorTemperatureModeNone int32 = iota
+	// ColorTemperatureModeAuto 自动调整色温
 	ColorTemperatureModeAuto
+	// ColorTemperatureModeManual 手动调整色温
 	ColorTemperatureModeManual
 )
 
@@ -51,6 +54,8 @@ const (
 	gsKeyColorTemperatureManual = "color-temperature-manual"
 	customModeDelim             = "+"
 	monitorsIdDelimiter         = ","
+	defaultTemperatureMode       = ColorTemperatureModeNone
+	defaultTemperatureManual     = 6500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 )
@@ -97,6 +102,7 @@ type Manager struct {
 	monitorsId               string
 	isLaptop                 bool
 	modeChanged              bool
+	redshiftRunner 			 *redshiftRunner
 
 	// dbusutil-gen: equal=nil
 	Monitors []dbus.ObjectPath
@@ -234,6 +240,10 @@ func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
 		service:    service,
 		monitorMap: make(map[randr.Output]*Monitor),
+		redshiftRunner: newRedshiftRunner(),
+	}
+	m.redshiftRunner.cb = func(value int) {
+		m.setColorTempOneShot()
 	}
 
 	chassis, err := getComputeChassis()
@@ -1134,7 +1144,7 @@ func (m *Manager) apply(optionsSlice ...applyOptions) error {
 			m.PropsMu.Unlock()
 
 			go func(mon *Monitor) {
-				err = m.setMonitorBrightness(mon, value)
+				err = m.setMonitorBrightness(mon, value, int(m.ColorTemperatureManual.Get()))
 				if err != nil {
 					logger.Warningf("failed to set brightness for %s: %v", mon.Name, err)
 				}
