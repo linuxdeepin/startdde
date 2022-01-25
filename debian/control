@@ -34,7 +34,7 @@ Depends:
  deepin-turbo,
  deepin-turbo-booster,
  deepin-wm | deepin-metacity | dde-kwin,
- deepin-proxy,
+ proxychains4,
  gnome-keyring,
  gvfs-bin,
  libpam-gnome-keyring,
