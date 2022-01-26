@@ -1764,6 +1764,13 @@ func (m *Manager) getConnectedMonitors() Monitors {
 // 复制和扩展时触发
 func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error {
 	logger.Debug("applyConfigs", spew.Sdump(configs), options)
+	//TODO 修复https://pms.uniontech.com/zentao/bug-view-112236.html问题
+	//复制模式下配置文件中屏幕宽高不同时重新设置一下mode并更新配置文件
+	configModeIsEqual := modeIsEqual(configs)
+	var size Size
+	if configModeIsEqual {
+		size = m.getMaxSize()
+	}
 	var primaryOutput randr.Output
 	for output, monitor := range m.monitorMap {
 		monitorCfg := getMonitorConfigByUuid(configs.Monitors, monitor.uuid)
@@ -1781,6 +1788,11 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error
 			logger.Debug("monitorCfg.Brightness[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
 			monitor.setBrightness(monitorCfg.Brightness)
 
+			if configModeIsEqual {
+				monitorCfg.Width = size.width
+				monitorCfg.Height = size.height
+			}
+
 			width := monitorCfg.Width
 			height := monitorCfg.Height
 			if needSwapWidthHeight(monitorCfg.Rotation) {
@@ -1788,6 +1800,9 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error
 			}
 			mode := monitor.selectMode(width, height, monitorCfg.RefreshRate)
 			monitor.setMode(mode)
+			if configModeIsEqual {
+				monitorCfg.RefreshRate = mode.Rate
+			}
 			monitor.enable(true)
 			m.ColorTemperatureMode = monitorCfg.ColorTemperatureMode
 			m.ColorTemperatureManual = monitorCfg.ColorTemperatureManual
@@ -1808,6 +1823,10 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error
 	err = m.setOutputPrimary(primaryOutput)
 	if err != nil {
 		return err
+	}
+
+	if configModeIsEqual {
+		return m.saveConfig()
 	}
 
 	return nil
@@ -1860,6 +1879,31 @@ func (m *Manager) applySingleConfigs(config *SingleModeConfig, options applyOpti
 	}
 
 	return nil
+}
+
+func modeIsEqual(configs *ModeConfigs) bool {
+	var size Size
+	var modeNotEqual bool
+	size.width = configs.Monitors[0].Width
+	size.height = configs.Monitors[0].Height
+	for _, monitorCfg := range configs.Monitors[1:] {
+		if monitorCfg.Width != size.width && monitorCfg.Height != monitorCfg.Width {
+			modeNotEqual = true
+		}
+	}
+
+	return modeNotEqual
+}
+
+func (m *Manager) getMaxSize() Size {
+	monitors := m.getConnectedMonitors()
+	commonSizes := getMonitorsCommonSizes(monitors)
+	if len(commonSizes) == 0 {
+		err := errors.New("not found common size")
+		logger.Warning("getMonitorsCommonSizes Failed:", err)
+		return Size{}
+	}
+	return getMaxAreaSize(commonSizes)
 }
 
 func (m *Manager) getDefaultPrimaryMonitor(monitors []*Monitor) *Monitor {
