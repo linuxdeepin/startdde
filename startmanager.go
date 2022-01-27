@@ -525,6 +525,7 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
+	var cmdSuffixes []string
 	var uiApp *swapsched.UIApp
 
 	err = m.enableCpuFreqLock(desktopFile)
@@ -1118,6 +1119,14 @@ func isAppInList(app string, apps []string) bool {
 		if filepath.Base(app) == filepath.Base(v) {
 			return true
 		}
+	}
+	return false
+}
+
+func ignoreUseProxy(id string) bool {
+	// deepin-app-store and deepin-manual implement proxy themselves, should be ignored
+	if id == "deepin-app-store" || id == "deepin-manual" {
+		return true
 	}
 	return false
 }
