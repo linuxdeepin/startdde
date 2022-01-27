@@ -475,10 +475,6 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
-	// check if need ignore use proxy
-	if ignoreUseProxy(id) {
-		return false
-	}
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
@@ -590,6 +586,11 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 	if len(cmdPrefixes) > 0 {
 		logger.Debug("cmd prefixes:", cmdPrefixes)
 		ctx.SetCmdPrefixes(cmdPrefixes)
+	}
+
+	if len(cmdSuffixes) > 0 {
+		logger.Debug("cmd suffixes:", cmdSuffixes)
+		ctx.SetCmdSuffixes(cmdSuffixes)
 	}
 
 	if appInfo.IsDesktopOverrideExecSet() {
@@ -1119,14 +1120,6 @@ func isAppInList(app string, apps []string) bool {
 		if filepath.Base(app) == filepath.Base(v) {
 			return true
 		}
-	}
-	return false
-}
-
-func ignoreUseProxy(id string) bool {
-	// deepin-app-store and deepin-manual implement proxy themselves, should be ignored
-	if id == "deepin-app-store" || id == "deepin-manual" {
-		return true
 	}
 	return false
 }
