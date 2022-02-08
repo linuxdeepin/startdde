@@ -91,6 +91,12 @@ func (m *Manager) changeBrightness(raised bool) error {
 
 	successMap := make(map[string]float64)
 	for _, monitor := range monitors {
+		// 如果此显示器不支持亮度调节，则退出
+		if ok, err := m.CanSetBrightness(monitor.Name); !ok {
+			logger.Warning("call CanSetBrightness failed: ", err)
+			continue
+		}
+
 		v, ok := m.Brightness[monitor.Name]
 		if !ok {
 			v = 1.0
