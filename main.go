@@ -42,7 +42,6 @@ import (
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
 	"github.com/linuxdeepin/startdde/watchdog"
-	wl_display "github.com/linuxdeepin/startdde/wl_display"
 	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xsettings"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -410,11 +409,7 @@ loop:
 
 func doSetLogLevel(level log.Priority) {
 	logger.SetLogLevel(level)
-	if !_useWayland {
-		display.SetLogLevel(level)
-	} else {
-		wl_display.SetLogLevel(level)
-	}
+	display.SetLogLevel(level)
 	watchdog.SetLogLevel(level)
 }
 
