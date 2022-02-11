@@ -1068,7 +1068,7 @@ func (m *Manager) switchModeMirror(options applyOptions) (err error) {
 	configs := screenCfg.getModeConfigs(DisplayModeMirror)
 	logger.Debug("switchModeMirror")
 	if len(configs.Monitors) > 0 {
-		err = m.applyConfigs(configs, options)
+		err = m.applyConfigs(configs, options, DisplayModeMirror)
 		return
 	}
 
@@ -1445,7 +1445,7 @@ func (m *Manager) switchModeExtend(options applyOptions) (err error) {
 	modeConfigs := screenCfg.getModeConfigs(DisplayModeExtend)
 
 	if len(modeConfigs.Monitors) > 0 {
-		err = m.applyConfigs(modeConfigs, options)
+		err = m.applyConfigs(modeConfigs, options, DisplayModeExtend)
 		return
 	}
 
@@ -1762,13 +1762,14 @@ func (m *Manager) getConnectedMonitors() Monitors {
 }
 
 // 复制和扩展时触发
-func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error {
+func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions, displayMode uint8) error {
 	logger.Debug("applyConfigs", spew.Sdump(configs), options)
 	//TODO 修复https://pms.uniontech.com/zentao/bug-view-112236.html问题
 	//复制模式下配置文件中屏幕宽高不同时重新设置一下mode并更新配置文件
-	configModeIsEqual := modeIsEqual(configs)
 	var size Size
-	if configModeIsEqual {
+	configModeIsEqual := modeIsEqual(configs)
+	updateConfig := configModeIsEqual && displayMode == DisplayModeMirror
+	if updateConfig {
 		size = m.getMaxSize()
 	}
 	var primaryOutput randr.Output
@@ -1788,11 +1789,10 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error
 			logger.Debug("monitorCfg.Brightness[monitorCfg.name]", monitorCfg.Name, monitorCfg.Brightness)
 			monitor.setBrightness(monitorCfg.Brightness)
 
-			if configModeIsEqual {
+			if updateConfig {
 				monitorCfg.Width = size.width
 				monitorCfg.Height = size.height
 			}
-
 			width := monitorCfg.Width
 			height := monitorCfg.Height
 			if needSwapWidthHeight(monitorCfg.Rotation) {
@@ -1825,7 +1825,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions) error
 		return err
 	}
 
-	if configModeIsEqual {
+	if updateConfig {
 		return m.saveConfig()
 	}
 
