@@ -1767,8 +1767,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions, displ
 	//TODO 修复https://pms.uniontech.com/zentao/bug-view-112236.html问题
 	//复制模式下配置文件中屏幕宽高不同时重新设置一下mode并更新配置文件
 	var size Size
-	configModeIsEqual := modeIsEqual(configs)
-	updateConfig := configModeIsEqual && displayMode == DisplayModeMirror
+	updateConfig := modeIsEqual(configs) && displayMode == DisplayModeMirror
 	if updateConfig {
 		size = m.getMaxSize()
 	}
@@ -1800,7 +1799,7 @@ func (m *Manager) applyConfigs(configs *ModeConfigs, options applyOptions, displ
 			}
 			mode := monitor.selectMode(width, height, monitorCfg.RefreshRate)
 			monitor.setMode(mode)
-			if configModeIsEqual {
+			if updateConfig {
 				monitorCfg.RefreshRate = mode.Rate
 			}
 			monitor.enable(true)
