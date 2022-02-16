@@ -585,6 +585,8 @@ func (mm *xMonitorManager) findFreeCrtc(output randr.Output, freeCrtcs map[randr
 		if isFree && outputSliceContains(crtcInfo.PossibleOutputs, output) {
 			freeCrtcs[crtc] = false
 			return crtc
+		} else if outputSliceContains(crtcInfo.Outputs, output) {
+			return crtc
 		}
 	}
 	return 0
