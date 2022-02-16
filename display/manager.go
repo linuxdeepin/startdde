@@ -995,6 +995,8 @@ func (m *Manager) findFreeCrtc(output randr.Output) randr.Crtc {
 	for crtc, crtcInfo := range m.crtcMap {
 		if len(crtcInfo.Outputs) == 0 && outputSliceContains(crtcInfo.PossibleOutputs, output) {
 			return crtc
+		} else if outputSliceContains(crtcInfo.Outputs, output) {
+			return crtc
 		}
 	}
 	return 0
