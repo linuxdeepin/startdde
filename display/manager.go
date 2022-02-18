@@ -184,6 +184,58 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
+
+	removepe 	*plugEvent
+	touchChangeMu  	sync.Mutex
+	touchScreensMu 	sync.Mutex
+}
+
+type plugEvent struct {
+	mu       sync.Mutex
+	funcs    map[dbus.ObjectPath]func(string2 dbus.ObjectPath) ()
+	interval time.Duration
+	timer    *time.Timer
+	quit     chan struct{}
+}
+
+func newPlugEvent() *plugEvent {
+	interval := 2 * time.Second
+	timer := time.NewTimer(interval)
+	timer.Stop()
+	l := &plugEvent{
+		timer:    timer,
+		interval: interval,
+	}
+	l.funcs = make(map[dbus.ObjectPath]func(string2 dbus.ObjectPath) ())
+	l.quit = make(chan struct{})
+	go l.loopCheck()
+	return l
+}
+
+func (pe *plugEvent) loopCheck() {
+	for {
+		select {
+		case <-pe.timer.C:
+			pe.mu.Lock()
+			funcs := pe.funcs
+			pe.funcs = make(map[dbus.ObjectPath]func(string2 dbus.ObjectPath) ())
+			pe.mu.Unlock()
+
+			for k, v := range funcs {
+				v(k)
+			}
+
+		case <-pe.quit:
+			return
+		}
+	}
+}
+
+func (pe *plugEvent) addEvent(path dbus.ObjectPath, f func(string2 dbus.ObjectPath) ()) {
+	pe.mu.Lock()
+	pe.funcs[path] = f
+	pe.timer.Reset(pe.interval)
+	pe.mu.Unlock()
 }
 
 type ModeInfo struct {
@@ -273,6 +325,8 @@ func newManager(service *dbusutil.Service) *Manager {
 		service:    service,
 		monitorMap: make(map[randr.Output]*Monitor),
 	}
+
+	m.removepe = newPlugEvent()
 
 	chassis, err := getComputeChassis()
 	if err != nil {
@@ -2054,21 +2108,25 @@ func (m *Manager) newTouchscreen(path dbus.ObjectPath) (*Touchscreen, error) {
 func (m *Manager) removeTouchscreenByIdx(i int) {
 	if len(m.Touchscreens) > i {
 		// see https://github.com/golang/go/wiki/SliceTricks
+		m.touchScreensMu.Lock()
 		m.Touchscreens[i] = m.Touchscreens[len(m.Touchscreens)-1]
 		m.Touchscreens[len(m.Touchscreens)-1] = nil
 		m.Touchscreens = m.Touchscreens[:len(m.Touchscreens)-1]
+		m.touchScreensMu.Unlock()
 	}
 }
 
 func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
 	touchScreenUUID := ""
 	i := -1
+	m.touchChangeMu.Lock()
 	for index, v := range m.Touchscreens {
 		if v.path == path {
 			i = index
 			touchScreenUUID = v.UUID
 		}
 	}
+	m.touchChangeMu.Unlock()
 
 	if i == -1 {
 		return
@@ -2094,12 +2152,14 @@ func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
 
 func (m *Manager) removeTouchscreenByDeviceNode(deviceNode string) {
 	i := -1
+	m.touchChangeMu.Lock()
 	for idx, v := range m.Touchscreens {
 		if v.DeviceNode == deviceNode {
 			i = idx
 			break
 		}
 	}
+	m.touchChangeMu.Unlock()
 
 	if i == -1 {
 		return
@@ -2115,7 +2175,8 @@ func (m *Manager) initTouchscreens() {
 		}
 	})
 
-	_, err := m.inputDevices.ConnectTouchscreenAdded(func(path dbus.ObjectPath) {
+	addTouchCb := func(path dbus.ObjectPath) {
+		logger.Info("tip addTouchCb", path)
 		getDeviceInfos(true)
 
 		// 通过 path 删除重复设备
@@ -2130,21 +2191,36 @@ func (m *Manager) initTouchscreens() {
 		// 若设备已存在，删除并重新添加
 		m.removeTouchscreenByDeviceNode(touchscreen.DeviceNode)
 
+		m.touchScreensMu.Lock()
 		m.Touchscreens = append(m.Touchscreens, touchscreen)
 		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.touchScreensMu.Unlock()
 
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
+	}
+
+	removeTouchCb := func(path dbus.ObjectPath) {
+		logger.Info("tip removeTouchCb", path)
+		m.removeTouchscreenByPath(path)
+		m.touchScreensMu.Lock()
+		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.touchScreensMu.Unlock()
+		m.handleTouchscreenChanged()
+		m.showTouchscreenDialogs()
+	}
+
+	_, err := m.inputDevices.ConnectTouchscreenAdded(func(path dbus.ObjectPath) {
+		logger.Info("tip ConnectTouchscreenAdded", path)
+		m.removepe.addEvent(path, addTouchCb)
 	})
 	if err != nil {
 		logger.Warning(err)
 	}
 
 	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
-		m.removeTouchscreenByPath(path)
-		m.emitPropChangedTouchscreens(m.Touchscreens)
-		m.handleTouchscreenChanged()
-		m.showTouchscreenDialogs()
+		logger.Info("tip ConnectTouchscreenRemoved",path)
+		m.removepe.addEvent(path,removeTouchCb)
 	})
 	if err != nil {
 		logger.Warning(err)
@@ -2157,6 +2233,8 @@ func (m *Manager) initTouchscreens() {
 	}
 
 	getDeviceInfos(true)
+
+	m.touchScreensMu.Lock()
 	for _, p := range touchscreens {
 		touchscreen, err := m.newTouchscreen(p)
 		if err != nil {
@@ -2167,6 +2245,7 @@ func (m *Manager) initTouchscreens() {
 		m.Touchscreens = append(m.Touchscreens, touchscreen)
 	}
 	m.emitPropChangedTouchscreens(m.Touchscreens)
+	m.touchScreensMu.Unlock()
 
 	m.initTouchMap()
 	m.handleTouchscreenChanged()
@@ -2190,6 +2269,7 @@ func (m *Manager) initTouchMap() {
 		return
 	}
 
+	m.touchScreensMu.Lock()
 	for touchUUID, v := range m.touchscreenMap {
 		for _, t := range m.Touchscreens {
 			if t.UUID == touchUUID {
@@ -2198,10 +2278,13 @@ func (m *Manager) initTouchMap() {
 			}
 		}
 	}
+	m.touchScreensMu.Unlock()
 }
 
 func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
 	touchIDs := make([]int32, 0)
+
+	m.touchScreensMu.Lock()
 	for _, touchscreen := range m.Touchscreens {
 		if touchscreen.UUID != touchUUID {
 			continue
@@ -2209,6 +2292,8 @@ func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
 
 		touchIDs = append(touchIDs, touchscreen.Id)
 	}
+	m.touchScreensMu.Unlock()
+
 	if len(touchIDs) == 0 {
 		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
 	}
@@ -2374,12 +2459,24 @@ func (m *Manager) showTouchscreenDialog(touchScreenUUID string) error {
 func (m *Manager) handleTouchscreenChanged() {
 	logger.Debugf("touchscreens changed %#v", m.Touchscreens)
 
+	m.touchChangeMu.Lock()
+
+	defer m.touchChangeMu.Unlock()
+
 	monitors := m.getConnectedMonitors()
 
 	// 清除已拔下触摸屏的配置
 	for uuid := range m.touchscreenMap {
+		if len(uuid) == 0 {
+			logger.Warning("tip uuid len is 0,1")
+			continue
+		}
 		found := false
 		for _, touch := range m.Touchscreens {
+			if touch == nil {
+				logger.Warning("tip touch is nil,2")
+				continue
+			}
 			if touch.UUID == uuid {
 				found = true
 				break
@@ -2390,24 +2487,61 @@ func (m *Manager) handleTouchscreenChanged() {
 		}
 	}
 
-	if len(m.Touchscreens) == 1 && len(monitors) == 1 {
-		m.associateTouch(monitors[0], m.Touchscreens[0].UUID, true)
+	//if len(m.Touchscreens) == 1 && len(monitors) == 1 {
+	//	m.associateTouch(monitors[0], m.Touchscreens[0].UUID, true)
+	//}
+
+	var monitor_len int32 = 0
+
+	for _, monitor := range monitors {
+		if monitor != nil {
+			monitor_len += 1
+		}
+	}
+
+	if monitor_len == 1 {
+		for _, monitor := range monitors {
+			if monitor != nil {
+				for _, touch := range m.Touchscreens {
+					if touch != nil {
+						m.associateTouch(monitor, touch.UUID, true)
+					}
+				}
+			}
+		}
 	}
 
 	for _, touch := range m.Touchscreens {
 		// 有配置，直接使配置生效
-		if v, ok := m.touchscreenMap[touch.UUID]; ok {
-			monitor := monitors.GetByName(v.OutputName)
-			if monitor != nil {
-				logger.Debugf("assigned %s to %s, cfg", touch.UUID, v.OutputName)
-				err := m.doSetTouchMap(monitor, touch.UUID)
-				if err != nil {
-					logger.Warning("failed to map touchscreen:", err)
-				}
+		if touch == nil {
+			logger.Warning("tip touch is nil,3")
+			continue
+		}
+
+		found := false
+		for uuid := range m.touchscreenMap {
+			if len(uuid) == 0 {
+				logger.Warning("tip uuid len is 0,4")
 				continue
 			}
-
-			// else 配置中的显示器不存在，忽略配置并删除
+			if touch.UUID == uuid {
+				if v, ok := m.touchscreenMap[touch.UUID]; ok {
+					monitor := monitors.GetByName(v.OutputName)
+					if monitor != nil {
+						found = true
+						logger.Debugf("assigned %s to %s, cfg", touch.UUID, v.OutputName)
+						err := m.doSetTouchMap(monitor, touch.UUID)
+						if err != nil {
+							logger.Warning("failed to map touchscreen:", err)
+						}
+						continue
+					}
+				}
+			}
+		}
+          
+		// 配置中的显示器不存在，忽略配置并删除
+		if !found {
 			m.removeTouchscreenMap(touch.UUID)
 		}
 
@@ -2428,7 +2562,11 @@ func (m *Manager) handleTouchscreenChanged() {
 		// 物理大小匹配
 		assigned := false
 		for _, monitor := range monitors {
-			logger.Debugf("monitor %s w %d h %d, touch %s w %d h %d",
+			if monitor == nil {
+				logger.Warning("monitor is nil,5")
+				continue
+			}
+			logger.Infof("monitor %s w %d h %d, touch %s w %d h %d",
 				monitor.Name, monitor.MmWidth, monitor.MmHeight,
 				touch.UUID, uint32(math.Round(touch.width)), uint32(math.Round(touch.height)))
 
@@ -2496,6 +2634,7 @@ func (m *Manager) initScreenRotation() {
 
 // 检查当前连接的所有触控面板, 如果没有映射配置, 那么调用 OSD 弹窗.
 func (m *Manager) showTouchscreenDialogs() {
+	m.touchScreensMu.Lock()
 	for _, touch := range m.Touchscreens {
 		if _, ok := m.touchscreenMap[touch.UUID]; !ok {
 			logger.Debug("cannot find touchscreen", touch.UUID, "'s configure, show OSD")
@@ -2505,6 +2644,8 @@ func (m *Manager) showTouchscreenDialogs() {
 			}
 		}
 	}
+	m.touchScreensMu.Unlock()
+
 }
 
 // setMethodAdjustCCT 调用 redshift 程序设置色温的模式。
