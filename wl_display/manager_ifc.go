@@ -57,6 +57,11 @@ func (dpy *Manager) AssociateTouch(outputName, touch string) *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
+func (dpy *Manager) AssociateTouchByUUID(outputName, touch string) *dbus.Error {
+	err := dpy.associateTouch(outputName, touch)
+	return dbusutil.ToError(err)
+}
+
 func (m *Manager) ChangeBrightness(raised bool) *dbus.Error {
 	err := m.changeBrightness(raised)
 	return dbusutil.ToError(err)

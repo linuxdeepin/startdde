@@ -18,6 +18,11 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 			InArgs: []string{"outputName", "touchSerial"},
 		},
 		{
+			Name:   "AssociateTouchByUUID",
+			Fn:     v.AssociateTouchByUUID,
+			InArgs: []string{"outputName", "touchUUID"},
+		},
+		{
 			Name:    "CanRotate",
 			Fn:      v.CanRotate,
 			OutArgs: []string{"outArg0"},
