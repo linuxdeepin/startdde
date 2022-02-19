@@ -184,6 +184,8 @@ type Manager struct {
 	// dbusutil-gen: equal=nil
 	Touchscreens dxTouchscreens
 	// dbusutil-gen: equal=nil
+	TouchscreensV2 dxTouchscreens
+	// dbusutil-gen: equal=nil
 	TouchMap       map[string]string
 	touchscreenMap map[string]touchscreenMapValue
 	// touch.uuid -> touchScreenDialog cmd
@@ -2180,6 +2182,8 @@ func (m *Manager) removeTouchscreenByIdx(i int) {
 		m.Touchscreens[len(m.Touchscreens)-1] = nil
 		m.Touchscreens = m.Touchscreens[:len(m.Touchscreens)-1]
 	}
+
+	m.TouchscreensV2 = m.Touchscreens
 }
 
 func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
@@ -2234,6 +2238,7 @@ func (m *Manager) initTouchscreens() {
 	_, err := m.dbusDaemon.ConnectNameOwnerChanged(func(name, oldOwner, newOwner string) {
 		if name == m.inputDevices.ServiceName_() && newOwner == "" {
 			m.setPropTouchscreens(nil)
+			m.setPropTouchscreensV2(nil)
 		}
 	})
 	if err != nil {
@@ -2256,7 +2261,10 @@ func (m *Manager) initTouchscreens() {
 		m.removeTouchscreenByDeviceNode(touchscreen.DeviceNode)
 
 		m.Touchscreens = append(m.Touchscreens, touchscreen)
+		m.TouchscreensV2 = m.Touchscreens
+
 		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.emitPropChangedTouchscreensV2(m.Touchscreens)
 
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
@@ -2268,6 +2276,7 @@ func (m *Manager) initTouchscreens() {
 	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
 		m.removeTouchscreenByPath(path)
 		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.emitPropChangedTouchscreensV2(m.Touchscreens)
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 	})
@@ -2291,7 +2300,10 @@ func (m *Manager) initTouchscreens() {
 
 		m.Touchscreens = append(m.Touchscreens, touchscreen)
 	}
+	m.TouchscreensV2 = m.Touchscreens
+
 	m.emitPropChangedTouchscreens(m.Touchscreens)
+	m.emitPropChangedTouchscreensV2(m.Touchscreens)
 
 	m.initTouchMap()
 	m.handleTouchscreenChanged()

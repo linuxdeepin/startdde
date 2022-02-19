@@ -59,7 +59,29 @@ func (m *Manager) Save() *dbus.Error {
 	return dbusutil.ToError(err)
 }
 
-func (m *Manager) AssociateTouch(outputName, touchUUID string) *dbus.Error {
+func (m *Manager) AssociateTouch(outputName, touchSerial string) *dbus.Error {
+	var UUID string
+	for _, v := range m.Touchscreens {
+		if v.Serial == touchSerial {
+			UUID = v.UUID
+			break
+		}
+	}
+
+	if UUID == "" {
+		return dbusutil.ToError(errors.New("touchscreen not exists"))
+	}
+
+	monitor := m.getConnectedMonitors().GetByName(outputName)
+	if monitor == nil {
+		return dbusutil.ToError(errors.New("monitor not exists"))
+	}
+
+	err := m.associateTouch(monitor, UUID, false)
+	return dbusutil.ToError(err)
+}
+
+func (m *Manager) AssociateTouchByUUID(outputName, touchUUID string) *dbus.Error {
 	var UUID string
 	for _, v := range m.Touchscreens {
 		if v.UUID == touchUUID {
@@ -97,6 +119,7 @@ func (m *Manager) GetBrightness() (map[string]float64, *dbus.Error) {
 func (m *Manager) ListOutputNames() ([]string, *dbus.Error) {
 	logger.Debug("dbus call ListOutputNames")
 	var names []string
+
 	monitors := m.getConnectedMonitors()
 	for _, monitor := range monitors {
 		names = append(names, monitor.Name)
