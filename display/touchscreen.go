@@ -1,23 +1,10 @@
 package display
 
 import (
-	"sync"
+	"strings"
 
 	"github.com/godbus/dbus"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	"github.com/linuxdeepin/dde-api/dxinput"
-	"github.com/linuxdeepin/dde-api/dxinput/common"
-	dxutils "github.com/linuxdeepin/dde-api/dxinput/utils"
-)
-
-const (
-	BusTypeUnknown uint8 = iota
-	BusTypeUSB
-)
-
-const (
-	rotationReflectAll = randr.RotationReflectX | randr.RotationReflectY
+	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 )
 
 type Touchscreen struct {
@@ -35,155 +22,102 @@ type Touchscreen struct {
 
 type dxTouchscreens []*Touchscreen
 
-var (
-	devInfos           common.DeviceInfos
-	touchscreenInfos   dxTouchscreens
-	touchscreenInfosMu sync.Mutex
-)
-
-func getDeviceInfos(force bool) common.DeviceInfos {
-	if force || len(devInfos) == 0 {
-		devInfos = dxutils.ListDevice()
+func (ts *dxTouchscreens) removeByPath(path dbus.ObjectPath) {
+	//touchScreenUUID := ""
+	i := -1
+	for index, v := range *ts {
+		if v.path == path {
+			i = index
+			//touchScreenUUID = v.UUID
+		}
 	}
 
-	return devInfos
-}
-
-func getXTouchscreenInfo(t *Touchscreen) {
-	for _, v := range getDeviceInfos(false) {
-		if v.Type != common.DevTypeTouchscreen {
-			continue
-		}
-
-		tmp, _ := dxinput.NewTouchscreenFromDevInfo(v)
-		data, num := dxutils.GetProperty(tmp.Id, "Device Node")
-		if len(data) == 0 {
-			logger.Warningf("could not get DeviceNode for %s (%d)", tmp.Name, tmp.Id)
-			continue
-		}
-
-		deviceNode := string(data[:num])
-		logger.Warningf("deviceNode: %s", deviceNode)
-
-		logger.Warningf("devNode: %s, deviceNode: %s", t.DeviceNode, deviceNode)
-		if t.DeviceNode != deviceNode {
-			continue
-		}
-
-		t.Id = tmp.Id
+	if i == -1 {
+		return
 	}
+
+	ts.removeByIdx(i)
 }
 
-type TransformationMatrix [9]float32
+func (ts *dxTouchscreens) removeByDeviceNode(deviceNode string) {
+	i := -1
+	for idx, v := range *ts {
+		if v.DeviceNode == deviceNode {
+			i = idx
+			break
+		}
+	}
 
-func (m *TransformationMatrix) set(row int, col int, v float32) {
-	m[row*3+col] = v
+	if i == -1 {
+		return
+	}
+
+	ts.removeByIdx(i)
 }
 
-func (m *TransformationMatrix) setUnity() {
-	m.set(0, 0, 1)
-	m.set(1, 1, 1)
-	m.set(2, 2, 1)
-}
-
-func (m *TransformationMatrix) s4(x02 float32, x12 float32, d1 float32, d2 float32, mainDiag bool) {
-	m.set(0, 2, x02)
-	m.set(1, 2, x12)
-
-	if mainDiag {
-		m.set(0, 0, d1)
-		m.set(1, 1, d2)
-	} else {
-		m.set(0, 0, 0)
-		m.set(1, 1, 0)
-		m.set(0, 1, d1)
-		m.set(1, 0, d2)
+func (ts *dxTouchscreens) removeByIdx(i int) {
+	tsr := *ts
+	if len(tsr) > i {
+		// see https://github.com/golang/go/wiki/SliceTricks
+		tsr[i] = tsr[len(tsr)-1]
+		tsr[len(tsr)-1] = nil
+		*ts = tsr[:len(tsr)-1]
 	}
 }
 
-func genTransformationMatrix(offsetX int16, offsetY int16,
-	screenWidth uint16, screenHeight uint16,
-	rotation uint16) TransformationMatrix {
+type touchscreenManager interface {
+	refreshDevicesFromDisplayServer()
+	addTouchscreen(path dbus.ObjectPath) error
+	removeTouchscreen(path dbus.ObjectPath)
+	touchscreenList() dxTouchscreens
+	associateTouchscreen(monitor *Monitor, touchUUID string) error
+}
 
-	// 必须新的 X 链接才能获取最新的 WidthInPixels 和 HeightInPixels
-	xConn, err := x.NewConn()
+type touchscreenManagerOuter interface {
+	completeTouchscreenID(*Touchscreen)
+}
+
+type baseTouchscreenManager struct {
+	outer touchscreenManagerOuter
+
+	sysBus *dbus.Conn
+	list   dxTouchscreens
+}
+
+func (tm *baseTouchscreenManager) addTouchscreen(path dbus.ObjectPath) error {
+	t, err := inputdevices.NewTouchscreen(tm.sysBus, path)
 	if err != nil {
-		logger.Warning("failed to connect to x server")
-		return genTransformationMatrixAux(offsetX, offsetY, screenWidth, screenHeight, screenWidth, screenHeight, rotation)
+		return err
 	}
 
-	// total display size
-	width := xConn.GetDefaultScreen().WidthInPixels
-	height := xConn.GetDefaultScreen().HeightInPixels
-	xConn.Close()
+	touchscreen := &Touchscreen{
+		path: path,
+	}
+	touchscreen.Name, _ = t.Name().Get(0)
+	touchscreen.DeviceNode, _ = t.DevNode().Get(0)
+	touchscreen.Serial, _ = t.Serial().Get(0)
+	touchscreen.UUID, _ = t.UUID().Get(0)
+	touchscreen.outputName, _ = t.OutputName().Get(0)
+	touchscreen.width, _ = t.Width().Get(0)
+	touchscreen.height, _ = t.Height().Get(0)
 
-	return genTransformationMatrixAux(offsetX, offsetY, screenWidth, screenHeight, width, height, rotation)
+	touchscreen.busType = busTypeUnknown
+	busType, _ := t.BusType().Get(0)
+	if strings.ToLower(busType) == "usb" {
+		touchscreen.busType = busTypeUSB
+	}
+
+	tm.outer.completeTouchscreenID(touchscreen)
+
+	tm.list = append(tm.list, touchscreen)
+
+	return nil
 }
 
-func genTransformationMatrixAux(offsetX int16, offsetY int16,
-	screenWidth uint16, screenHeight uint16,
-	totalDisplayWidth uint16, totalDisplayHeight uint16,
-	rotation uint16) TransformationMatrix {
+func (tm *baseTouchscreenManager) removeTouchscreen(path dbus.ObjectPath) {
+	tm.list.removeByPath(path)
+}
 
-	var matrix TransformationMatrix
-	matrix.setUnity()
-
-	x := float32(offsetX) / float32(totalDisplayWidth)
-	y := float32(offsetY) / float32(totalDisplayHeight)
-
-	w := float32(screenWidth) / float32(totalDisplayWidth)
-	h := float32(screenHeight) / float32(totalDisplayHeight)
-
-	/*
-	 * There are 16 cases:
-	 * Rotation X Reflection
-	 * Rotation: 0 | 90 | 180 | 270
-	 * Reflection: None | X | Y | XY
-	 *
-	 * They are spelled out instead of doing matrix multiplication to avoid
-	 * any floating point errors.
-	 */
-	switch int(rotation) {
-	case randr.RotationRotate0:
-		fallthrough
-	case randr.RotationRotate180 | rotationReflectAll:
-		matrix.s4(x, y, w, h, true)
-
-	case randr.RotationReflectX | randr.RotationRotate0:
-		fallthrough
-	case randr.RotationReflectY | randr.RotationRotate180:
-		matrix.s4(x+w, y, -w, h, true)
-
-	case randr.RotationReflectY | randr.RotationRotate0:
-		fallthrough
-	case randr.RotationReflectX | randr.RotationRotate180:
-		matrix.s4(x, y+h, w, -h, true)
-
-	case randr.RotationRotate90:
-		fallthrough
-	case randr.RotationRotate270 | rotationReflectAll: /* left limited - correct in working zone. */
-		matrix.s4(x+w, y, -w, h, false)
-
-	case randr.RotationRotate270:
-		fallthrough
-	case randr.RotationRotate90 | rotationReflectAll: /* left limited - correct in working zone. */
-		matrix.s4(x, y+h, w, -h, false)
-
-	case randr.RotationRotate90 | randr.RotationReflectX: /* left limited - correct in working zone. */
-		fallthrough
-	case randr.RotationRotate270 | randr.RotationReflectY: /* left limited - correct in working zone. */
-		matrix.s4(x, y, w, h, false)
-
-	case randr.RotationRotate90 | randr.RotationReflectY: /* right limited - correct in working zone. */
-		fallthrough
-	case randr.RotationRotate270 | randr.RotationReflectX: /* right limited - correct in working zone. */
-		matrix.s4(x+w, y+h, -w, -h, false)
-
-	case randr.RotationRotate180:
-		fallthrough
-	case rotationReflectAll | randr.RotationRotate0:
-		matrix.s4(x+w, y+h, -w, -h, true)
-	}
-
-	return matrix
+func (tm *baseTouchscreenManager) touchscreenList() dxTouchscreens {
+	return tm.list
 }

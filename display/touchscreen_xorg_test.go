@@ -20,7 +20,7 @@ func Test_genTransformationMatrixAux(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want TransformationMatrix
+		want transformationMatrix
 	}{
 		{
 			name: "genTransformationMatrixAux single screen",
@@ -33,7 +33,7 @@ func Test_genTransformationMatrixAux(t *testing.T) {
 				totalDisplayHeight: 1080,
 				rotation:           randr.RotationRotate0,
 			},
-			want: TransformationMatrix{
+			want: transformationMatrix{
 				1, 0, 0,
 				0, 1, 0,
 				0, 0, 1,
@@ -50,7 +50,7 @@ func Test_genTransformationMatrixAux(t *testing.T) {
 				totalDisplayHeight: 1080,
 				rotation:           randr.RotationRotate90,
 			},
-			want: TransformationMatrix{
+			want: transformationMatrix{
 				0, -1, 1,
 				1, 0, 0,
 				0, 0, 1,
@@ -67,7 +67,7 @@ func Test_genTransformationMatrixAux(t *testing.T) {
 				totalDisplayHeight: 1080,
 				rotation:           randr.RotationRotate90 | randr.RotationReflectX,
 			},
-			want: TransformationMatrix{
+			want: transformationMatrix{
 				0, 1, 0,
 				1, 0, 0,
 				0, 0, 1,
@@ -84,7 +84,7 @@ func Test_genTransformationMatrixAux(t *testing.T) {
 				totalDisplayHeight: 1080,
 				rotation:           randr.RotationRotate90 | randr.RotationReflectX | randr.RotationReflectY,
 			},
-			want: TransformationMatrix{
+			want: transformationMatrix{
 				0, 1, 0,
 				-1, 0, 1,
 				0, 0, 1,
