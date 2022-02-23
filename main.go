@@ -38,17 +38,17 @@ import (
 	dbus "github.com/godbus/dbus"
 	accounts "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
 	notifications "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.notifications"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/gettext"
+	"github.com/linuxdeepin/go-lib/gsettings"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/proxy"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
 	"github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xsettings"
-	"github.com/linuxdeepin/go-lib/dbusutil"
-	"github.com/linuxdeepin/go-lib/gettext"
-	"github.com/linuxdeepin/go-lib/gsettings"
-	"github.com/linuxdeepin/go-lib/log"
-	"github.com/linuxdeepin/go-lib/proxy"
 )
 
 var logger = log.NewLogger("startdde")
@@ -109,6 +109,32 @@ const (
 	secondsPerDay           = 60 * 60 * 24
 	accountUserPath         = "/com/deepin/daemon/Accounts/User"
 )
+
+func launchDDEDock(sm *SessionManager) {
+	const waitDelayDuration = 7 * time.Second
+
+	var wg sync.WaitGroup
+	launch := func(program string, args []string, name string, wait bool, endFn func()) {
+		if wait {
+			wg.Add(1)
+			sm.launchWaitCore(name, program, args, waitDelayDuration, func(launchOk bool) {
+				if endFn != nil {
+					endFn()
+				}
+				wg.Done()
+			})
+			return
+		}
+
+		sm.launchWithoutWait(program, args...)
+	}
+
+	var dockArgs []string
+	if _useKWin {
+		dockArgs = []string{"-r"}
+	}
+	launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
+}
 
 func launchCoreComponents(sm *SessionManager) {
 	setupEnvironments1()
@@ -186,14 +212,8 @@ func launchCoreComponents(sm *SessionManager) {
 		}
 	}
 
-	// 先启动 dde-session-daemon，再启动 dde-dock
-	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-		var dockArgs []string
-		if _useKWin {
-			dockArgs = []string{"-r"}
-		}
-		launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
-	})
+	// 先启动 dde-session-daemon，最后单独启动 dde-dock
+	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, nil)
 	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
 	wg.Wait()
@@ -374,7 +394,9 @@ func main() {
 	sysSignalLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSignalLoop.Start()
 
-	sessionManager.start(xConn, sysSignalLoop, service)
+	sessionManager.start(xConn, sysSignalLoop, service, func() {
+		launchDDEDock(sessionManager)
+	})
 	watchdog.Start(sessionManager.getLocked, _useKWin)
 
 	if _gSettingsConfig.iowaitEnabled {

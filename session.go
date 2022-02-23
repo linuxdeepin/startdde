@@ -1045,7 +1045,7 @@ func initQtThemeConfig() error {
 	return nil
 }
 
-func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
+func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service, afterStartManager func()) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("StartSession recover:", err)
@@ -1066,6 +1066,7 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	}
 	m.setPropStage(SessionStageCoreBegin)
 	startStartManager(xConn, service)
+	afterStartManager()
 
 	m.startWMSwitcher()
 
