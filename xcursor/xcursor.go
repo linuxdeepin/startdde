@@ -2,7 +2,7 @@ package xcursor
 
 /*
 #cgo pkg-config: x11 xcursor xfixes
-#cgo CFLAGS: -fstack-protector-strong -D_FORTITY_SOURCE=1 -fPIC
+#cgo CFLAGS: -fstack-protector-all -fPIC
 #include <X11/Xlib.h>
 #include <X11/Xcursor/Xcursor.h>
 #include <X11/extensions/Xfixes.h>

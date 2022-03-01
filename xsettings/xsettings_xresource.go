@@ -20,7 +20,7 @@
 package xsettings
 
 //#cgo pkg-config: x11
-//#cgo CFLAGS: -fstack-protector-strong -D_FORTITY_SOURCE=1 -fPIC
+//#cgo CFLAGS: -fstack-protector-all -fPIC
 //#include <stdio.h>
 //#include <string.h>
 //#include <stdlib.h>

@@ -23,10 +23,10 @@ endif
 	jq . misc/config/auto_launch.json >/dev/null
 
 startdde:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde ${GOBUILD_OPTIONS}
 
 fix-xauthority-perm:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOBUILD_OPTIONS} ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
 
 out/locale/%/LC_MESSAGES/startdde.mo: misc/po/%.po
 	mkdir -p $(@D)
