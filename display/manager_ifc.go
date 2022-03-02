@@ -307,3 +307,7 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 
 	return mode, nil
 }
+
+func (m *Manager) SupportSetColorTemperature() (bool, *dbus.Error) {
+	return !(_inVM || _useWayland || !m.drmSupportGamma), nil
+}

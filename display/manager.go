@@ -11,10 +11,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"strconv"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
@@ -82,8 +82,8 @@ const (
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
 
-	gsSchemaXSettings  = "com.deepin.xsettings"
-	gsKeyScaleFactor = "scale-factor"
+	gsSchemaXSettings = "com.deepin.xsettings"
+	gsKeyScaleFactor  = "scale-factor"
 )
 
 const (
@@ -208,6 +208,9 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
+	// 不支持调节色温的显卡型号
+	unsupportGammaDrmList []string
+	drmSupportGamma       bool
 }
 
 type monitorSizeInfo struct {
@@ -223,6 +226,9 @@ func newManager(service *dbusutil.Service) *Manager {
 		monitorMap:     make(map[uint32]*Monitor),
 		Brightness:     make(map[string]float64),
 		redshiftRunner: newRedshiftRunner(),
+		unsupportGammaDrmList: []string{
+			"Loongson",
+		},
 	}
 	m.redshiftRunner.cb = func(value int) {
 		m.setColorTempOneShot()
@@ -349,6 +355,10 @@ func newManager(service *dbusutil.Service) *Manager {
 		logger.Warning(err)
 	}
 
+	m.drmSupportGamma = m.detectDrmSupportGamma()
+	if m.drmSupportGamma {
+		m.setColorTempModeReal(ColorTemperatureModeNone)
+	}
 	return m
 }
 
@@ -2939,4 +2949,35 @@ func (m *Manager) updateScreenSize() {
 	m.setPropScreenWidth(screenWidth)
 	m.setPropScreenHeight(screenHeight)
 	m.PropsMu.Unlock()
+}
+
+func getLspci() string {
+	out, err := exec.Command("lspci").Output()
+	if err != nil {
+		logger.Warning(err)
+		return ""
+	} else {
+		return string(out)
+	}
+}
+
+func (m *Manager) detectDrmSupportGamma() bool {
+	pciInfos := strings.Split(getLspci(), "\n")
+	for _, info := range pciInfos {
+		if strings.Contains(info, "VGA") {
+			vgaSupportGamma := true
+			for _, drm := range m.unsupportGammaDrmList {
+				lowDrm := strings.ToLower(drm)
+				lowInfo := strings.ToLower(info)
+				if strings.Contains(lowInfo, lowDrm) {
+					vgaSupportGamma = false
+					break
+				}
+			}
+			if vgaSupportGamma {
+				return true
+			}
+		}
+	}
+	return false
 }

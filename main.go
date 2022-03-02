@@ -38,17 +38,17 @@ import (
 	dbus "github.com/godbus/dbus"
 	accounts "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
 	notifications "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.notifications"
+	"github.com/linuxdeepin/go-lib/dbusutil"
+	"github.com/linuxdeepin/go-lib/gettext"
+	"github.com/linuxdeepin/go-lib/gsettings"
+	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/proxy"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
 	"github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xsettings"
-	"github.com/linuxdeepin/go-lib/dbusutil"
-	"github.com/linuxdeepin/go-lib/gettext"
-	"github.com/linuxdeepin/go-lib/gsettings"
-	"github.com/linuxdeepin/go-lib/log"
-	"github.com/linuxdeepin/go-lib/proxy"
 )
 
 var logger = log.NewLogger("startdde")
@@ -252,7 +252,7 @@ func greeterDisplayMain() {
 		os.Exit(1)
 	}
 	// TODO
-	display.Init(xConn, false)
+	display.Init(xConn, false, false)
 	logger.Debug("greeter mode")
 	service, err := dbusutil.NewSessionService()
 	if err != nil {
@@ -305,7 +305,7 @@ func main() {
 		logger.Info("in wayland mode")
 		_useWayland = true
 	}
-	display.Init(xConn, _useWayland)
+	display.Init(xConn, _useWayland, _inVM)
 	// TODO
 	recommendedScaleFactor = display.GetRecommendedScaleFactor()
 
