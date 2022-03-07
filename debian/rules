@@ -10,7 +10,7 @@ endif
 ifeq ($(DEB_BUILD_ARCH),mips64el)
 	export AUTO_LAUNCH_CHINESE=1
 else
-	export GOBUILD_OPTIONS=-ldflags "-w -s" -buildmode=pie
+    export GOBUILD_OPTIONS=-ldflags '-linkmode=external -extldflags "-pie"'
 endif
 
 %:
