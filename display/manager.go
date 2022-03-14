@@ -2952,7 +2952,11 @@ func (m *Manager) updateScreenSize() {
 }
 
 func getLspci() string {
-	out, err := exec.Command("lspci").Output()
+	cmd := exec.Command("lspci")
+	cmd.Env = []string{
+		"LC_ALL=C",
+	}
+	out, err := cmd.Output()
 	if err != nil {
 		logger.Warning(err)
 		return ""
