@@ -23,11 +23,15 @@ package display
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/godbus/dbus"
-	"github.com/stretchr/testify/suite"
 	"github.com/linuxdeepin/go-lib/dbusutil"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 type UnitTestSuite struct {
@@ -55,4 +59,33 @@ func (s *UnitTestSuite) Test_initScreenRotation() {
 
 func TestUnitTestSuite(t *testing.T) {
 	suite.Run(t, new(UnitTestSuite))
+}
+
+func Test_getLspci(t *testing.T) {
+	out0, err0 := exec.Command("lspci").Output()
+	out1, err1 := getLspci()
+	assert.Equal(t, string(out0), out1)
+	assert.Equal(t, err0, err1)
+}
+
+func Test_detectDrmSupportGamma(t *testing.T) {
+	service, err := dbusutil.NewSessionService()
+	if err != nil {
+		return
+	}
+	xConn, err := x.NewConn()
+	if err != nil {
+		return
+	}
+	_xConn = xConn
+	m := newManager(service)
+	m.unsupportGammaDrmList = []string{}
+	out0, err0 := exec.Command("lspci").Output()
+	sup, err1 := m.detectDrmSupportGamma()
+	assert.Equal(t, err0, err1)
+	if strings.Contains(string(out0), "VGA") {
+		assert.True(t, sup)
+	} else {
+		assert.False(t, sup)
+	}
 }

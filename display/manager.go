@@ -252,9 +252,10 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.xConn = _xConn
 
 	screen := m.xConn.GetDefaultScreen()
-	m.ScreenWidth = screen.WidthInPixels
-	m.ScreenHeight = screen.HeightInPixels
-
+	if screen != nil {
+		m.ScreenWidth = screen.WidthInPixels
+		m.ScreenHeight = screen.HeightInPixels
+	}
 	sessionSigLoop := dbusutil.NewSignalLoop(m.service.Conn(), 10)
 	m.sessionSigLoop = sessionSigLoop
 	sessionSigLoop.Start()
@@ -356,7 +357,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		logger.Warning(err)
 	}
 
-	m.drmSupportGamma = m.detectDrmSupportGamma()
+	m.drmSupportGamma, _ = m.detectDrmSupportGamma()
 	if m.drmSupportGamma {
 		m.setColorTempModeReal(ColorTemperatureModeNone)
 	}
@@ -2783,7 +2784,7 @@ func (m *Manager) updateScreenSize() {
 	m.PropsMu.Unlock()
 }
 
-func getLspci() string {
+func getLspci() (string, error) {
 	cmd := exec.Command("lspci")
 	cmd.Env = []string{
 		"LC_ALL=C",
@@ -2791,14 +2792,19 @@ func getLspci() string {
 	out, err := cmd.Output()
 	if err != nil {
 		logger.Warning(err)
-		return ""
+		return "", err
 	} else {
-		return string(out)
+		return string(out), nil
 	}
 }
 
-func (m *Manager) detectDrmSupportGamma() bool {
-	pciInfos := strings.Split(getLspci(), "\n")
+func (m *Manager) detectDrmSupportGamma() (bool, error) {
+	pciInfo, err := getLspci()
+	if err != nil {
+		logger.Warning(err)
+		return false, err
+	}
+	pciInfos := strings.Split(pciInfo, "\n")
 	for _, info := range pciInfos {
 		if strings.Contains(info, "VGA") {
 			vgaSupportGamma := true
@@ -2811,9 +2817,9 @@ func (m *Manager) detectDrmSupportGamma() bool {
 				}
 			}
 			if vgaSupportGamma {
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
