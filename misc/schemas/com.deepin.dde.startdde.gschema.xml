@@ -18,9 +18,9 @@
         </key>
 
         <key type="b" name="swap-sched-enabled">
-            <default>true</default>
+            <default>false</default>
             <summary>swap sched enabled</summary>
-            <description></description>
+            <description>deprecated, has no effect</description>
         </key>
         <key type="b" name="iowait-enabled">
             <default>false</default>
