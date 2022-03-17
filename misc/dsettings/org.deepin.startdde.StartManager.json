@@ -1,0 +1,17 @@
+{
+    "magic": "dsg.config.meta",
+    "version": "1.0",
+    "contents": {
+        "enable-systemd-application-units": {
+            "value": false,
+            "serial": 0,
+            "flags": [
+                "global"
+            ],
+            "name": "enable systemd application units",
+            "description": "",
+            "permissions": "readwrite",
+            "visibility": "private"
+        }
+    }
+}

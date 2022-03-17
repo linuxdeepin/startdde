@@ -59,8 +59,6 @@ var _options struct {
 
 var _gSettingsConfig *GSettingsConfig
 
-var globalCgExecBin string
-
 var globalXSManager *xsettings.XSManager
 
 var _xConn *x.Conn

@@ -149,12 +149,6 @@ func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 		return m.startSessionDaemonPart2()
 	}
 
-	if swapSchedDispatcher != nil {
-		cgroupPath := swapSchedDispatcher.GetDECGroup()
-		argsTemp := []string{"-g", "memory:" + cgroupPath, bin}
-		args = append(argsTemp, args...)
-		bin = globalCgExecBin
-	}
 	logger.Debugf("sessionManager.launch %q %v", bin, args)
 
 	if wait {
