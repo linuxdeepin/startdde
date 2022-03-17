@@ -43,7 +43,6 @@ import (
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
-	"github.com/linuxdeepin/go-lib/cgroup"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/keyfile"
 	"github.com/linuxdeepin/go-lib/log"
@@ -53,8 +52,6 @@ import (
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
 	"github.com/linuxdeepin/startdde/autostop"
 	"github.com/linuxdeepin/startdde/keyring"
-	"github.com/linuxdeepin/startdde/memchecker"
-	"github.com/linuxdeepin/startdde/swapsched"
 	"github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xcursor"
@@ -120,10 +117,6 @@ const (
 	SessionStageCoreEnd // nolint
 	SessionStageAppsBegin
 	SessionStageAppsEnd
-)
-
-var (
-	swapSchedDispatcher *swapsched.Dispatcher
 )
 
 func (m *SessionManager) CanLogout() (bool, *dbus.Error) {
@@ -546,16 +539,6 @@ func (m *SessionManager) getLocked() bool {
 	return v
 }
 
-func callSwapSchedHelperPrepare(sessionID string) error {
-	sysBus, err := dbus.SystemBus()
-	if err != nil {
-		return err
-	}
-	const dest = "com.deepin.daemon.SwapSchedHelper"
-	obj := sysBus.Object(dest, "/com/deepin/daemon/SwapSchedHelper")
-	return obj.Call(dest+".Prepare", 0, sessionID).Store()
-}
-
 func (m *SessionManager) initSession() {
 	var err error
 
@@ -593,78 +576,6 @@ func (m *SessionManager) initSession() {
 		if err != nil {
 			logger.Warning("failed to connect Active changed:", err)
 		}
-	}
-	if _gSettingsConfig.swapSchedEnabled {
-		m.initSwapSched()
-	} else {
-		logger.Info("swap sched disabled")
-	}
-}
-
-func (m *SessionManager) initSwapSched() {
-	err := cgroup.Init()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	globalCgExecBin, err = exec.LookPath("cgexec")
-	if err != nil {
-		logger.Warning("cgexec not found:", err)
-		return
-	}
-
-	if m.objLoginSessionSelf == nil {
-		return
-	}
-	sessionID, err := m.objLoginSessionSelf.Id().Get(0)
-	if err != nil {
-		logger.Warning(err)
-	}
-
-	err = callSwapSchedHelperPrepare(sessionID)
-	if err != nil {
-		logger.Warning("call SwapSchedHelper.Prepare error:", err)
-	}
-
-	swapsched.SetLogger(logger)
-
-	memCheckerCfg := memchecker.GetConfig()
-
-	logger.Debugf("mem checker cfg min mem avail: %d KB", memCheckerCfg.MinMemAvail)
-	var enableMemAvailMax int64 // unit is byte
-	enableMemAvailMax = int64(memCheckerCfg.MinMemAvail*1024) - 100*swapsched.MB
-	if enableMemAvailMax < 0 {
-		enableMemAvailMax = 100 * swapsched.MB
-	}
-
-	swapSchedCfg := swapsched.Config{
-		UIAppsCGroup:       sessionID + "@dde/uiapps",
-		DECGroup:           sessionID + "@dde/DE",
-		EnableMemAvailMax:  uint64(enableMemAvailMax),
-		DisableMemAvailMin: uint64(enableMemAvailMax) + 200*swapsched.MB,
-	}
-	swapSchedDispatcher, err = swapsched.NewDispatcher(swapSchedCfg)
-	logger.Debugf("swap sched config: %+v", swapSchedCfg)
-
-	if err == nil {
-		// add self to DE cgroup
-		deCg := cgroup.NewCgroup(swapSchedDispatcher.GetDECGroup())
-		deCg.AddController(cgroup.Memory)
-		err = deCg.AttachCurrentProcess()
-		if err != nil {
-			logger.Warning("failed to add self to DE cgroup:", err)
-		}
-
-		go func() {
-			err = swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
-			if err != nil {
-				logger.Warning(err)
-			}
-		}()
-		go swapSchedDispatcher.Balance()
-	} else {
-		logger.Warning("failed to new swap sched dispatcher:", err)
 	}
 }
 
