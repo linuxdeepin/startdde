@@ -724,7 +724,7 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		logger.Debug("apply return", monitorsId)
 	}()
 
-	var shouldDelayDisableCrtc = false
+	var disableCrtcs []randr.Crtc
 	for crtc, crtcInfo := range mm.getCrtcs() {
 		rect := crtcInfo.getRect()
 		logger.Debugf("crtc %v, crtcInfo: %+v", crtc, crtcInfo)
@@ -763,18 +763,44 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 
 		if shouldDisable && len(crtcInfo.Outputs) > 0 {
 			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
-			shouldDelayDisableCrtc = true
 			err := mm.disableCrtc(crtc)
 			if err != nil {
 				return err
 			}
+			disableCrtcs = append(disableCrtcs, crtc)
 		}
 	}
 
-	// disableCrtc后等待1秒，防止多个屏幕反复disabled导致屏幕提示 频率超出范围 黑屏现象
+	// 等待disable crtcs的事件结束
 	// NOTE：此处延时是为了修复BUG 107874  104595 107865
-	if shouldDelayDisableCrtc {
-		time.Sleep(1 * time.Second)
+	if len(disableCrtcs) > 0 {
+		// 等待disable 事件与期望的一致
+		checker := func() bool {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+
+			for _, crtc := range disableCrtcs {
+				crtcInfo := mm.crtcs[crtc]
+				if len(crtcInfo.Outputs) != 0 || crtcInfo.Mode != 0 || crtcInfo.Width != 0 || crtcInfo.Height != 0 {
+					logger.Debugf("crtcInfo(actual): %v", spew.Sdump(crtcInfo))
+					return false
+				}
+			}
+			return true
+		}
+
+		count := 6
+		for count > 0 {
+			if checker() {
+				logger.Debug("wait disable crtcs success")
+				break
+			}
+			time.Sleep(200 * time.Millisecond)
+			count--
+		}
+		if count == 0 {
+			logger.Warning("wait disable crtcs timeout")
+		}
 	}
 
 	err := mm.setScreenSize(screenSize)
@@ -803,11 +829,19 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		}
 	}
 
+	bad := false
 	for _, crtcCfg := range crtcCfgs {
 		err := mm.setCrtcConfig(crtcCfg)
 		if err != nil {
 			logger.Warning("set crtcConfig failed:", crtcCfg, err)
+			if len(crtcCfg.outputs) > 0 {
+				bad = true
+			}
 		}
+	}
+	if bad {
+		// 防止出错使事情变得更糟糕
+		return fmt.Errorf("set crtcConfig failed")
 	}
 
 	ungrabServer()
