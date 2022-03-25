@@ -231,18 +231,23 @@ func (m *Manager) CanRotate() (bool, *dbus.Error) {
 	return true, nil
 }
 
+func (m *Manager) canSetBrightness(name string) bool {
+	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
+	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
+		if m.builtinMonitor == nil || m.builtinMonitor.Name != name {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (m *Manager) CanSetBrightness(outputName string) (bool, *dbus.Error) {
 	if outputName == "" {
 		return false, dbusutil.ToError(errors.New("monitor Name is err"))
 	}
 
-	//如果是龙芯集显，且不是内置显示器，则不支持调节亮度
-	if os.Getenv("CAN_SET_BRIGHTNESS") == "N" {
-		if m.builtinMonitor == nil || m.builtinMonitor.Name != outputName {
-			return false, nil
-		}
-	}
-	return true, nil
+	return m.canSetBrightness(outputName), nil
 }
 
 func (m *Manager) getBuiltinMonitor() *Monitor {

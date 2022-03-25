@@ -2034,7 +2034,7 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	// 异步处理亮度设置
 	go func() {
 		for _, config := range configs {
-			if config.Enabled {
+			if config.Enabled && m.canSetBrightness(config.Name) {
 				err := m.setBrightness(config.Name, config.Brightness)
 				if err != nil {
 					logger.Warningf("call setBrightness err: %v, config.Name: %s", err, config.Name)
