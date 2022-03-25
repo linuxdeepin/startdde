@@ -228,6 +228,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		redshiftRunner: newRedshiftRunner(),
 		unsupportGammaDrmList: []string{
 			"Loongson",
+			"JM7201",
 		},
 	}
 	m.redshiftRunner.cb = func(value int) {
