@@ -27,8 +27,6 @@ var (
 
 type xTouchscreenManager struct {
 	baseTouchscreenManager
-
-	list dxTouchscreens
 }
 
 func newXTouchscreenManager(sysBus *dbus.Conn) *xTouchscreenManager {
