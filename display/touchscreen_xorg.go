@@ -68,6 +68,7 @@ func (tm *xTouchscreenManager) associateTouchscreen(monitor *Monitor, touchUUID 
 		}
 	}
 
+	logger.Debugf("monitor %s enabled: %t", monitor.Name, monitor.Enabled)
 	if monitor.Enabled {
 		matrix := genTransformationMatrix(monitor.X, monitor.Y, monitor.Width, monitor.Height, monitor.Rotation|monitor.Reflect)
 
@@ -176,6 +177,7 @@ func (m *transformationMatrix) s4(x02 float32, x12 float32, d1 float32, d2 float
 func genTransformationMatrix(offsetX int16, offsetY int16,
 	screenWidth uint16, screenHeight uint16,
 	rotation uint16) transformationMatrix {
+	logger.Debug("X Y W H: ", offsetX, offsetY, screenWidth, screenHeight)
 
 	// 必须新的 X 链接才能获取最新的 WidthInPixels 和 HeightInPixels
 	xConn, err := x.NewConn()

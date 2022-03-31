@@ -102,9 +102,6 @@ func (m *Manager) handleScreenChanged(ev *randr.ScreenChangeNotifyEvent, cfgTsCh
 		}
 	}
 
-	logger.Info("redo map touch screen")
-	m.handleTouchscreenChanged()
-
 	if cfgTsChanged {
 		m.showTouchscreenDialogs()
 	}

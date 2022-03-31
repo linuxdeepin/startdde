@@ -1453,6 +1453,10 @@ func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, o
 	m.applyMu.Unlock()
 
 	m.setInApply(false)
+
+	logger.Info("redo map touch screen")
+	m.handleTouchscreenChanged()
+
 	return err
 }
 
