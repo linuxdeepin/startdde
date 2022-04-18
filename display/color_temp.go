@@ -292,9 +292,11 @@ func (m *Manager) setColorTempOneShot() {
 		name := monitor.Name
 		monitor.PropsMu.RUnlock()
 
-		err := m.setBrightness(name, br)
-		if err != nil {
-			logger.Warning(err)
+		if m.canSetBrightness(name) {
+			err := m.setBrightness(name, br)
+			if err != nil {
+				logger.Warning(err)
+			}
 		}
 	}
 }
