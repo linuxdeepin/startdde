@@ -1086,13 +1086,6 @@ func (mm *xMonitorManager) setMonitorPrimary(monitorId uint32) error {
 	if err != nil {
 		return err
 	}
-
-	// 设置之后处理一次更新回调
-	pOut, err := mm.GetOutputPrimary()
-	if err != nil {
-		return err
-	}
-	mm.invokePrimaryRectChangedCb(pOut)
 	return nil
 }
 
@@ -1260,6 +1253,18 @@ func (mm *xMonitorManager) HandleScreenChanged(e *randr.ScreenChangeNotifyEvent)
 	logger.Debugf("mm.HandleScreenChanged %#v", e)
 	defer logger.Debugf("mm.HandleScreenChanged return %#v", e)
 	cfgTsChanged = mm.handleScreenChanged(e)
+
+	// update primary
+	primary, err := mm.GetOutputPrimary()
+	if err != nil {
+		logger.Warning(err)
+	} else {
+		if mm.primary != primary {
+			mm.primary = primary
+			mm.invokePrimaryRectChangedCb(primary)
+		}
+	}
+
 	mm.doDiff()
 	return
 }
