@@ -919,7 +919,7 @@ func getConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
 	var monitors Monitors
 	for _, monitor := range monitorMap {
 		monitor.PropsMu.RLock()
-		connected := monitor.realConnected
+		connected := monitor.Connected
 		monitor.PropsMu.RUnlock()
 		if connected {
 			monitors = append(monitors, monitor)
