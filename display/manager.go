@@ -1177,6 +1177,7 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 		MmHeight:           monitorInfo.MmHeight,
 		Enabled:            monitorInfo.Enabled,
 		uuid:               monitorInfo.UUID,
+		edid:               monitorInfo.EDID,
 		uuidV0:             monitorInfo.UuidV0,
 		Manufacturer:       monitorInfo.Manufacturer,
 		Model:              monitorInfo.Model,

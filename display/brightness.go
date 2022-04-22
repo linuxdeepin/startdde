@@ -195,8 +195,9 @@ func (m *Manager) setMonitorBrightness(monitor *Monitor, brightnessValue float64
 	}
 
 	isBuiltin := m.isBuiltinMonitor(monitor.Name)
+	edid := encodeEdidBase64(monitor.edid)
 	err := brightness.Set(brightnessValue, temperature, m.getBrightnessSetter(), isBuiltin,
-		monitor.ID, m.xConn)
+		monitor.ID, m.xConn, monitor.uuid, edid)
 	return err
 }
 
