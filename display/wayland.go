@@ -240,6 +240,10 @@ func decodeEdidBase64(edidB64 string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(edidB64)
 }
 
+func encodeEdidBase64(edid []byte) string {
+	return base64.StdEncoding.EncodeToString(edid)
+}
+
 type KModeInfo struct {
 	Id          int32 `json:"id"`
 	Width       int32 `json:"width"`

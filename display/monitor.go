@@ -31,6 +31,7 @@ type Monitor struct {
 	m       *Manager
 	service *dbusutil.Service
 	uuid    string // uuid v1
+	edid    []byte
 	uuidV0  string
 	PropsMu sync.RWMutex
 
@@ -131,6 +132,7 @@ func (m *Monitor) clone() *Monitor {
 		m:                  m.m,
 		service:            m.service,
 		uuid:               m.uuid,
+		edid:               m.edid,
 		uuidV0:             m.uuidV0,
 		ID:                 m.ID,
 		Name:               m.Name,
