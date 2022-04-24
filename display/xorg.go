@@ -1249,10 +1249,12 @@ func (mm *xMonitorManager) HandleEvent(ev interface{}) {
 
 func (mm *xMonitorManager) HandleScreenChanged(e *randr.ScreenChangeNotifyEvent) (cfgTsChanged bool) {
 	mm.mu.Lock()
-	defer mm.mu.Unlock()
 	logger.Debugf("mm.HandleScreenChanged %#v", e)
 	defer logger.Debugf("mm.HandleScreenChanged return %#v", e)
 	cfgTsChanged = mm.handleScreenChanged(e)
+
+	mm.doDiff()
+	mm.mu.Unlock()
 
 	// update primary
 	primary, err := mm.GetOutputPrimary()
@@ -1265,7 +1267,6 @@ func (mm *xMonitorManager) HandleScreenChanged(e *randr.ScreenChangeNotifyEvent)
 		}
 	}
 
-	mm.doDiff()
 	return
 }
 
