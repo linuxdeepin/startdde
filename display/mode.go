@@ -26,8 +26,8 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-lib/strv"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 type ModeInfo struct {
@@ -272,7 +272,7 @@ func getFirstModeBySize(modes []ModeInfo, width, height uint16) ModeInfo {
 func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) ModeInfo {
 	for _, modeInfo := range modes {
 		if modeInfo.Width == width && modeInfo.Height == height &&
-			math.Abs(modeInfo.Rate-rate) <= 0.01 {
+			math.Abs(modeInfo.Rate-rate) <= 0.001 {
 			return modeInfo
 		}
 	}
