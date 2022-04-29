@@ -14,10 +14,9 @@ if [ "$1" = "/usr/bin/startdde" ]; then
         unset QT_SCALE_FACTOR
         export STARTDDE_MIGRATE_SCALE_FACTOR=1
     fi
-    # control qt program infos level
-    export QT_LOGGING_RULES="*.debug=false"
-    if [ `grep Community /etc/os-version` ];then
-        unset QT_LOGGING_RULES
+    # control qt program infos level, do not set it on deepin for qt dev
+    if [ ! `grep Community /etc/os-version` ];then
+        export QT_LOGGING_RULES="*.debug=false"
     fi
     # set qt qpa platform type
     export QT_QPA_PLATFORM=xcb
