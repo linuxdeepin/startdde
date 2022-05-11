@@ -19,10 +19,6 @@ if [ "$1" = "/usr/bin/startdde" ]; then
         if [ ! `grep Community /etc/os-version` ];then
             export QT_LOGGING_RULES="*.debug=false"
         fi
-    else
-        if [ `grep -i uos /etc/os-release` ];then
-             export QT_LOGGING_RULES="*.debug=false"
-        fi
     fi
     # set qt qpa platform type
     export QT_QPA_PLATFORM=xcb
