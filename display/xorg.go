@@ -553,9 +553,9 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 			}
 		}
 
-		if monitor.Connected && monitor.Width != 0 && monitor.Height != 0 {
+		if monitor.Connected && len(monitor.Modes) != 0 {
 			monitor.VirtualConnected = true
-			monitor.Enabled = true
+			monitor.Enabled = monitor.Width != 0 && monitor.Height != 0
 		} else {
 			monitor.VirtualConnected = false
 			monitor.Enabled = false
