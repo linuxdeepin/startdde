@@ -406,6 +406,9 @@ func (mm *kMonitorManager) init() error {
 	for _, monitor := range monitors {
 		mm.monitorMap[monitor.ID] = monitor
 	}
+	if len(monitors) != 0 {
+		mm.primary = monitors[0].ID
+	}
 	mm.mu.Unlock()
 	return nil
 }
@@ -472,12 +475,24 @@ func (mm *kMonitorManager) getMonitors() []*MonitorInfo {
 func (mm *kMonitorManager) getMonitor(id uint32) *MonitorInfo {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
+
+	return mm.getMonitorNoLock(id)
+}
+
+func (mm *kMonitorManager) getMonitorNoLock(id uint32) *MonitorInfo {
 	monitorInfo, ok := mm.monitorMap[id]
 	if !ok {
 		return nil
 	}
 	monitor := *monitorInfo
 	return &monitor
+}
+
+func (mm *kMonitorManager) getPrimaryMonitor() *MonitorInfo {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	return mm.getMonitorNoLock(mm.primary)
 }
 
 func (mm *kMonitorManager) getStdMonitorName(name string, edid []byte) (string, error) {
@@ -662,24 +677,20 @@ func (mm *kMonitorManager) listenDBusSignals() {
 }
 
 func (mm *kMonitorManager) invokePrimaryRectChangedCb(monitorInfo *MonitorInfo) {
-	pmi := primaryMonitorInfo{
-		Name: monitorInfo.Name,
-		Rect: monitorInfo.getRect(),
-	}
-
 	if mm.hooks != nil {
-		mm.hooks.handlePrimaryRectChanged(pmi)
+		mm.hooks.handlePrimaryRectChanged(monitorInfo)
 	}
 }
 
 func (mm *kMonitorManager) setMonitorPrimary(monitorId uint32) error {
 	logger.Debug("mm.setMonitorPrimary", monitorId)
-	monitor := mm.getMonitor(monitorId)
+
+	mm.mu.Lock()
+	monitor := mm.getMonitorNoLock(monitorId)
 	if monitor == nil {
 		return fmt.Errorf("invalid monitor id %v", monitorId)
 	}
 
-	mm.mu.Lock()
 	mm.primary = monitorId
 	mm.mu.Unlock()
 
