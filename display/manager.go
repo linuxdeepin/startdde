@@ -945,8 +945,10 @@ func (m *Manager) init() {
 		m.updatePropMonitors()
 
 		pmi := m.mm.getPrimaryMonitor()
-		m.setPropPrimary(pmi.Name)
-		m.setPropPrimaryRect(pmi.getRect())
+		if pmi != nil {
+			m.setPropPrimary(pmi.Name)
+			m.setPropPrimaryRect(pmi.getRect())
+		}
 
 	} else {
 		// randr 版本低于 1.2
