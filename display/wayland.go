@@ -688,6 +688,7 @@ func (mm *kMonitorManager) setMonitorPrimary(monitorId uint32) error {
 	mm.mu.Lock()
 	monitor := mm.getMonitorNoLock(monitorId)
 	if monitor == nil {
+		mm.mu.Unlock()
 		return fmt.Errorf("invalid monitor id %v", monitorId)
 	}
 
