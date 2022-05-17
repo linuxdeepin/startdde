@@ -317,6 +317,11 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 		return nil
 	}
 
+	if _dpy.DisplayMode == DisplayModeMirror {
+		logger.Debug("refuse to set position, because invalid display mode")
+		return nil
+	}
+
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
