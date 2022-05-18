@@ -188,14 +188,14 @@ func launchCoreComponents(sm *SessionManager) {
 	}
 
 	// 先启动 dde-session-daemon，再启动 dde-dock
-	launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-		var dockArgs []string
-		if _useKWin {
-			dockArgs = []string{"-r"}
-		}
-		launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
-	})
-	launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
+	// launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
+	// 	var dockArgs []string
+	// 	if _useKWin {
+	// 		dockArgs = []string{"-r"}
+	// 	}
+	// 	launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
+	// })
+	// launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
 
 	wg.Wait()
 	logger.Info("core components cost:", time.Since(coreStartTime))
@@ -383,6 +383,10 @@ func main() {
 	} else {
 		logger.Info("iowait disabled")
 	}
+
+	logger.Info("systemd-notify --ready")
+	cmd := exec.Command("systemd-notify", "--ready")
+	cmd.Start()
 
 	go handleOSSignal(sessionManager)
 

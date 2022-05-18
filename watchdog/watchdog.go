@@ -60,11 +60,11 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	}
 	logger.Debug("[WATCHDOG] max launch times:", maxLaunchTimes)
 	_manager = newManager()
-	_manager.AddTimedTask(newDdeDesktopTask())
-	_manager.AddTimedTask(newDdePolkitAgent())
-	_manager.AddDBusTask(ddeDockServiceName, newDdeDockTask())
-	_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
-	_manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
+	// _manager.AddTimedTask(newDdeDesktopTask())
+	// _manager.AddTimedTask(newDdePolkitAgent())
+	// _manager.AddDBusTask(ddeDockServiceName, newDdeDockTask())
+	// _manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
+	// _manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
 	go _manager.StartLoop()
 
 	if useKwin {
@@ -73,10 +73,10 @@ func Start(getLockedFn func() bool, useKwin bool) {
 		_manager.AddDBusTask(wmServiceName, newWMTask())
 	}
 
-	if getLockedFn != nil {
-		ddeLockTask := newDdeLock(getLockedFn)
-		_manager.AddDBusTask(ddeLockServiceName, ddeLockTask)
-	}
+	// if getLockedFn != nil {
+	// 	ddeLockTask := newDdeLock(getLockedFn)
+	// 	_manager.AddDBusTask(ddeLockServiceName, ddeLockTask)
+	// }
 
 	err = _manager.listenDBusSignals()
 	if err != nil {

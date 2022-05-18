@@ -295,14 +295,28 @@ func newManager(service *dbusutil.Service) *Manager {
 		logger.Warning("failed to connect signal PrepareForSleep:", err)
 	}
 
-	selfSessionPath, err := loginManager.GetSessionByPID(0, uint32(os.Getpid()))
+	// selfSessionPath, err := loginManager.GetSessionByPID(0, uint32(os.Getpid()))
+	// if err != nil {
+	// 	logger.Warningf("get session path failed: %v", err)
+	// 	// 允许在不能获取 session path 时提早结束
+	// 	return m
+	// }
+	// TODO: sessionManager迁移删除
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
-		logger.Warningf("get session path failed: %v", err)
-		// 允许在不能获取 session path 时提早结束
+		logger.Warning(err)
 		return m
 	}
-	logger.Debug("self session path:", selfSessionPath)
-	selfSession, err := login1.NewSession(m.sysBus, selfSessionPath)
+	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
+	var sessionPath string
+	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
+	if err != nil {
+		logger.Warning(err)
+		return m
+	}
+
+	logger.Debug("self session path:", sessionPath)
+	selfSession, err := login1.NewSession(m.sysBus, dbus.ObjectPath(sessionPath))
 	if err != nil {
 		logger.Warning(err)
 		return m

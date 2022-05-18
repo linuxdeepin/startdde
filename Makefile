@@ -50,8 +50,6 @@ print_gopath: prepare
 
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
-	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
-	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
 	install -Dm755 fix-xauthority-perm ${DESTDIR}${PREFIX}/sbin/deepin-fix-xauthority-perm
 	install -d -m755 ${DESTDIR}${PREFIX}/lib/deepin-daemon/
 	ln -sfv ../../bin/startdde ${DESTDIR}${PREFIX}/lib/deepin-daemon/greeter-display-daemon

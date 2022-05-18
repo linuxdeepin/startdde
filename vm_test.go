@@ -30,10 +30,3 @@ func TestGetProductType(t *testing.T) {
 		assert.Contains(t, []string{"", "Desktop", "Server"}, productType)
 	})
 }
-
-func TestIsInVM(t *testing.T) {
-	t.Run("Test is in VM", func(t *testing.T) {
-		_, err := isInVM()
-		assert.NoError(t, err)
-	})
-}

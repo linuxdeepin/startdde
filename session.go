@@ -691,12 +691,20 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	powerManager := powermanager.NewPowerManager(sysBus)
 	sysBt := sysbt.NewBluetooth(sysBus)
 	var objLoginSessionSelf login1.Session
-	sessionPath, err := objLogin.GetSessionByPID(0, 0)
+	// sessionPath, err := objLogin.GetSessionByPID(0, 0)
+	// TODO: sessionManager迁移删除
+	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
+	var sessionPath string
+	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
+	if err != nil {
+		logger.Warning(err)
+		return nil
+	}
 	if err != nil {
 		logger.Warning("failed to get current session path:", err)
 	} else {
 		logger.Info("session path:", sessionPath)
-		objLoginSessionSelf, err = login1.NewSession(sysBus, sessionPath)
+		objLoginSessionSelf, err = login1.NewSession(sysBus, dbus.ObjectPath(sessionPath))
 		if err != nil {
 			logger.Warning("login1.NewSession err:", err)
 		}
@@ -791,24 +799,24 @@ func (m *SessionManager) launchDDE() {
 		}
 	}
 
-	osdRunning, err := isOSDRunning()
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		if osdRunning {
-			if globalXSManager.NeedRestartOSD() {
-				logger.Info("Restart dde-osd")
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-			}
-		} else {
-			notificationsOwned, err := isNotificationsOwned()
-			if err != nil {
-				logger.Warning("failed to get org.freedesktop.Notifications status:", err)
-			} else if !notificationsOwned {
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-			}
-		}
-	}
+	// osdRunning, err := isOSDRunning()
+	// if err != nil {
+	// 	logger.Warning(err)
+	// } else {
+	// 	if osdRunning {
+	// 		if globalXSManager.NeedRestartOSD() {
+	// 			logger.Info("Restart dde-osd")
+	// 			m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+	// 		}
+	// 	} else {
+	// 		notificationsOwned, err := isNotificationsOwned()
+	// 		if err != nil {
+	// 			logger.Warning("failed to get org.freedesktop.Notifications status:", err)
+	// 		} else if !notificationsOwned {
+	// 			m.launch("/usr/lib/deepin-daemon/dde-osd", false)
+	// 		}
+	// 	}
+	// }
 
 	groups, err := loadGroupFile()
 	if err != nil {
@@ -1198,13 +1206,24 @@ func getLoginSession() (login1.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	loginManager := login1.NewManager(sysBus)
-	sessionPath, err := loginManager.GetSession(0, "")
+	// loginManager := login1.NewManager(sysBus)
+	// sessionPath, err := loginManager.GetSession(0, "")
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// TODO: sessionManager迁移删除
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		return nil, err
 	}
-	session, err := login1.NewSession(sysBus, sessionPath)
+	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
+	var sessionPath string
+	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
+	if err != nil {
+		return nil, err
+	}
+
+	session, err := login1.NewSession(sysBus, dbus.ObjectPath(sessionPath))
 	if err != nil {
 		return nil, err
 	}
@@ -1423,17 +1442,25 @@ func quitObexService() {
 func getCurSessionPath() (dbus.ObjectPath, error) {
 	var err error
 
-	sysBus, err := dbus.SystemBus()
+	// sysBus, err := dbus.SystemBus()
+	// if err != nil {
+	// 	logger.Warning(err)
+	// 	return "", err
+	// }
+	// loginManager := login1.NewManager(sysBus)
+	// sessionPath, err := loginManager.GetSessionByPID(0, 0)
+	// TODO: sessionManager迁移删除
+	sessionBus, err := dbus.SessionBus()
 	if err != nil {
 		logger.Warning(err)
 		return "", err
 	}
-
-	loginManager := login1.NewManager(sysBus)
-	sessionPath, err := loginManager.GetSessionByPID(0, 0)
+	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
+	var sessionPath string
+	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
 	if err != nil {
 		logger.Warning(err)
 		return "", err
 	}
-	return sessionPath, nil
+	return dbus.ObjectPath(sessionPath), nil
 }
