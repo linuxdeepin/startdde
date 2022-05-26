@@ -119,6 +119,13 @@ const (
 	SessionStageAppsEnd
 )
 
+const (
+	dpmsStateOn int32 = iota
+	dpmsStateStandBy
+	dpmsStateSuspend
+	dpmsStateOff
+)
+
 func (m *SessionManager) CanLogout() (bool, *dbus.Error) {
 	return true, nil
 }
@@ -389,11 +396,16 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 	// 使用窗管接口进行黑屏处理
 	if _gSettingsConfig.needQuickBlackScreen {
 		logger.Info("request wm blackscreen effect")
-		cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:true")
-		error := cmd.Run()
-		if error != nil {
-			logger.Warning("wm blackscreen failed")
+		if _useWayland {
+			setDpmsModeByKwin(dpmsStateOff)
+		} else {
+			cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:true")
+			error := cmd.Run()
+			if error != nil {
+				logger.Warning("wm blackscreen failed")
+			}
 		}
+
 	}
 
 	logger.Info("login1 start suspend")
@@ -1233,9 +1245,9 @@ func setDPMSMode(on bool) {
 	var err error
 	if _useWayland {
 		if !on {
-			_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
+			setDpmsModeByKwin(dpmsStateOff)
 		} else {
-			_, err = exec.Command("dde_wldpms", "-s", "On").Output()
+			setDpmsModeByKwin(dpmsStateOn)
 		}
 	} else {
 		var mode = uint16(dpms.DPMSModeOn)
@@ -1347,4 +1359,33 @@ func getCurSessionPath() (dbus.ObjectPath, error) {
 		return "", err
 	}
 	return sessionPath, nil
+}
+
+func setDpmsModeByKwin(mode int32) {
+	logger.Debug("[startdde] Set DPMS State", mode)
+
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/DpmsManager")
+	var ret []dbus.Variant
+	err = sessionObj.Call("com.deepin.daemon.KWayland.DpmsManager.dpmsList", 0).Store(&ret)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	for i := 0; i < len(ret); i++ {
+		v := ret[i].Value().(string)
+		sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", dbus.ObjectPath(v))
+		err = sessionObj.Call("com.deepin.daemon.KWayland.Dpms.setDpmsMode", 0, int32(mode)).Err
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+	}
+
+	return
 }
