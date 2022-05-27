@@ -14,8 +14,12 @@ if [ "$1" = "/usr/bin/startdde" ]; then
         unset QT_SCALE_FACTOR
         export STARTDDE_MIGRATE_SCALE_FACTOR=1
     fi
-    # control qt program infos level
-    export QT_LOGGING_RULES="*.debug=false"
+    # control qt program infos level, set it only on uos
+    if [ -f "/etc/os-version" ];then
+        if [ ! `grep Community /etc/os-version` ];then
+            export QT_LOGGING_RULES="*.debug=false"
+        fi
+    fi
     # set qt qpa platform type
     export QT_QPA_PLATFORM=xcb
     # control qml softwarecontext in loongson-drm
