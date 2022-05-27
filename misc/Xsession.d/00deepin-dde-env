@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ "$1" = "/usr/bin/startdde" ]; then
     if [ -f "$HOME/.dde_env" ]; then
         . "$HOME/.dde_env"
@@ -27,4 +29,16 @@ if [ "$1" = "/usr/bin/startdde" ]; then
     if [ $? -eq 0 ];then
         export QMLSCENE_DEVICE=softwarecontext
     fi
+
+    # https://man7.org/linux/man-pages/man7/systemd.environment-generator.7.html
+    # set the default value
+    XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share/:/usr/share}"
+
+    if [[ -d $HOME/.local/share/icons/ ]];
+    then
+        export XDG_DATA_DIRS="$HOME/.local/share/icons/:${XDG_DATA_DIRS}"
+    fi
+    export XDG_DATA_HOME="$HOME/.local/share"
+    export XDG_CONFIG_HOME="$HOME/.config"
+    export XDG_CACHE_HOME="$HOME/.cache"
 fi
