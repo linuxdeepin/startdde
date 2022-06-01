@@ -338,6 +338,12 @@ func main() {
 		logger.Warning("start display part1 failed:", err)
 	}
 
+	// NOTE: always start pulseaudio
+	err = startPulseAudio()
+	if err != nil {
+		logger.Warning("failed to start pulseaudio:", err)
+	}
+
 	launchCoreComponents(sessionManager)
 
 	// 启动 display 模块的后一部分

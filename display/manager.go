@@ -944,6 +944,12 @@ func (m *Manager) init() {
 		m.monitorsId = m.getMonitorsId()
 		m.updatePropMonitors()
 
+		pmi := m.mm.getPrimaryMonitor()
+		if pmi != nil {
+			m.setPropPrimary(pmi.Name)
+			m.setPropPrimaryRect(pmi.getRect())
+		}
+
 	} else {
 		// randr 版本低于 1.2
 		screen := m.xConn.GetDefaultScreen()
@@ -1473,15 +1479,13 @@ func (m *Manager) setInApply(value bool) {
 	m.PropsMu.Unlock()
 }
 
-func (m *Manager) handlePrimaryRectChanged(pmi primaryMonitorInfo) {
+func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
 	logger.Debug("handlePrimaryRectChanged", pmi)
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
 	m.setPropPrimary(pmi.Name)
-	if !pmi.IsRectEmpty() {
-		m.setPropPrimaryRect(pmi.Rect)
-	}
+	m.setPropPrimaryRect(pmi.getRect())
 }
 
 func (m *Manager) setPrimary(name string) error {
