@@ -29,22 +29,16 @@ import (
 	"path/filepath"
 
 	dbus1 "github.com/godbus/dbus"
-	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"github.com/linuxdeepin/dde-api/soundutils"
+	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"github.com/linuxdeepin/go-lib/pulse"
 )
 
 var soundThemePlayer soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
-	// NOTE: always start pulseaudio
-	err := startPulseAudio()
-	if err != nil {
-		logger.Warning("failed to start pulseaudio:", err)
-	}
-
 	markFile := filepath.Join(os.TempDir(), "startdde-login-sound-mark")
-	_, err = os.Stat(markFile)
+	_, err := os.Stat(markFile)
 	if err == nil {
 		// already played
 		return
