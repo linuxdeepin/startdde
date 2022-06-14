@@ -1195,6 +1195,7 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 	monitor.Y = monitorInfo.Y
 	monitor.Width = monitorInfo.Width
 	monitor.Height = monitorInfo.Height
+	monitor.Brightness = 1
 
 	monitor.Reflects = getReflects(monitorInfo.Rotations)
 	monitor.Rotations = getRotations(monitorInfo.Rotations)
