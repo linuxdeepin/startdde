@@ -38,11 +38,19 @@ func getCfgDir() string {
 
 func updateSysMonitorConfigsName(configs SysMonitorConfigs, monitorMap map[uint32]*Monitor) {
 	for _, mc := range configs {
+		name := ""
 		for _, m := range monitorMap {
 			if mc.UUID == m.uuid {
-				mc.Name = m.Name
-				break
+				// UUID和名字都对应上的不用修改
+				if mc.Name == m.Name {
+					name = ""
+					break
+				}
+				name = m.Name
 			}
+		}
+		if name != "" {
+			mc.Name = name
 		}
 	}
 }
