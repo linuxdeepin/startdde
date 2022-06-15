@@ -60,6 +60,11 @@ func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
 					}
 
 					if config.UUID == monitor.uuid {
+						other := monitors.GetByUuidAndName(config.UUID, config.Name)
+						if other != nil && other != monitor {
+							// 存在其他的名字和UUID都对应配置的显示器，不要改该配置
+							continue
+						}
 						config.Name = name
 						config.Brightness = v
 					}
