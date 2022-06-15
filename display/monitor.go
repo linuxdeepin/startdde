@@ -551,6 +551,15 @@ func (monitors Monitors) GetByUuid(uuid string) *Monitor {
 	return nil
 }
 
+func (monitors Monitors) GetByUuidAndName(uuid, name string) *Monitor {
+	for _, monitor := range monitors {
+		if monitor.Name == name && monitor.getUuids().Contains(uuid) {
+			return monitor
+		}
+	}
+	return nil
+}
+
 const fillModeKeyDelimiter = ":"
 
 func (m *Monitor) generateFillModeKey() string {
