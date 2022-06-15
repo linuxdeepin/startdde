@@ -1985,7 +1985,10 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	var primaryMonitorID uint32
 	var enabledMonitors []*Monitor
 	for _, monitor := range monitorMap {
-		monitorCfg := configs.getByUuid(monitor.uuid)
+		monitorCfg := configs.getByUuidAndName(monitor.uuid, monitor.Name)
+		if monitorCfg == nil {
+			monitorCfg = configs.getByUuid(monitor.uuid)
+		}
 		if monitorCfg == nil {
 			logger.Debug("disable monitor", monitor)
 			monitor.Enabled = false
