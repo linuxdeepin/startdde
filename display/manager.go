@@ -1912,7 +1912,10 @@ func (m *Manager) applyChanges() error {
 
 	configs := m.getSuitableSysMonitorConfigs(m.DisplayMode, monitorsId, monitors)
 	for _, config := range configs {
-		monitor := monitors.GetByUuid(config.UUID)
+		monitor := monitors.GetByUuidAndName(config.UUID, config.Name)
+		if monitor == nil {
+			monitor = monitors.GetByUuid(config.UUID)
+		}
 		if monitor == nil {
 			continue
 		}
