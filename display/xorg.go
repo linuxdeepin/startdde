@@ -379,7 +379,28 @@ func (mm *xMonitorManager) doDiff() {
 				}
 			}
 		} else {
-			logger.Warning("can not handle new monitor")
+			logger.Info("need add new monitor")
+			if mm.monitorChangedCbEnabled {
+				if mm.hooks != nil {
+					mm.mu.Unlock()
+					mm.hooks.handleMonitorChanged(monitor)
+					mm.mu.Lock()
+				}
+			} else {
+				logger.Debug("monitorChangedCb disabled")
+			}
+		}
+	}
+	newMap := toMonitorInfoMap(newMonitors)
+	if len(newMonitors) < len(oldMonitors) {
+		for k, monitor := range oldMonitors {
+			_, ok := newMap[k]
+			if !ok {
+				// 需要移除的monitor
+				mm.mu.Unlock()
+				mm.hooks.handleMonitorRemoved(monitor.ID)
+				mm.mu.Lock()
+			}
 		}
 	}
 }
@@ -1171,6 +1192,7 @@ func (mm *xMonitorManager) handleOutputChanged(e *randr.OutputChangeNotifyEvent)
 		reply, err := mm.getOutputInfo(e.Output)
 		if err != nil {
 			logger.Warningf("get output %v info failed: %v", e.Output, err)
+			delete(mm.outputs, e.Output)
 			return
 		}
 		mm.outputs[e.Output] = (*OutputInfo)(reply)
