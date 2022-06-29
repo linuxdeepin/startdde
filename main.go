@@ -37,6 +37,7 @@ import (
 
 	dbus "github.com/godbus/dbus"
 	accounts "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
+	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	notifications "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.notifications"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gettext"
@@ -241,6 +242,8 @@ func logInfoAfter(msg string) {
 	logger.Infof("after %s, %s", elapsed, msg)
 }
 
+var _inhibitFd dbus.UnixFD = -1
+
 func greeterDisplayMain() {
 	display.SetGreeterMode(true)
 	// init x conn
@@ -264,7 +267,37 @@ func greeterDisplayMain() {
 	if err != nil {
 		logger.Warning(err)
 	}
+	inhibitLogind()
 	service.Wait()
+}
+
+func inhibitLogind() {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	loginObj := login1.NewManager(sysBus)
+	fd, err := loginObj.Inhibit(0,
+		"handle-suspend-key", "greeter-display-daemon",
+		"handling key press and suspend", "block")
+	logger.Info("inhibitLogind fd:", fd)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	_inhibitFd = fd
+}
+
+func permitLogind() {
+	if _inhibitFd != -1 {
+		err := syscall.Close(int(_inhibitFd))
+		if err != nil {
+			logger.Warning("failed to close inhibitFd:", err)
+		}
+		_inhibitFd = -1
+	}
 }
 
 func main() {
@@ -272,6 +305,7 @@ func main() {
 	if len(os.Args) > 0 && strings.HasPrefix(filepath.Base(os.Args[0]), "greeter") {
 		// os.Args[0] 应该一般是 greeter-display-daemon
 		greeterDisplayMain()
+		permitLogind()
 		return
 	}
 
