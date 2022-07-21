@@ -691,15 +691,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	powerManager := powermanager.NewPowerManager(sysBus)
 	sysBt := sysbt.NewBluetooth(sysBus)
 	var objLoginSessionSelf login1.Session
-	// sessionPath, err := objLogin.GetSessionByPID(0, 0)
-	// TODO: sessionManager迁移删除
-	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
-	var sessionPath string
-	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
-	if err != nil {
-		logger.Warning(err)
-		return nil
-	}
+	sessionPath, err := getCurSessionPath()
 	if err != nil {
 		logger.Warning("failed to get current session path:", err)
 	} else {
@@ -1206,19 +1198,7 @@ func getLoginSession() (login1.Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	// loginManager := login1.NewManager(sysBus)
-	// sessionPath, err := loginManager.GetSession(0, "")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// TODO: sessionManager迁移删除
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return nil, err
-	}
-	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
-	var sessionPath string
-	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
+	sessionPath, err := getCurSessionPath()
 	if err != nil {
 		return nil, err
 	}
@@ -1441,26 +1421,26 @@ func quitObexService() {
 
 func getCurSessionPath() (dbus.ObjectPath, error) {
 	var err error
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return "", err
+	}
+	loginManager := login1.NewManager(sysBus)
+	userPath, err := loginManager.GetUser(0, uint32(os.Getuid()))
+	if err != nil {
+		return "", err
+	}
 
-	// sysBus, err := dbus.SystemBus()
-	// if err != nil {
-	// 	logger.Warning(err)
-	// 	return "", err
-	// }
-	// loginManager := login1.NewManager(sysBus)
-	// sessionPath, err := loginManager.GetSessionByPID(0, 0)
-	// TODO: sessionManager迁移删除
-	sessionBus, err := dbus.SessionBus()
+	userDBus, err := login1.NewUser(sysBus, userPath)
 	if err != nil {
-		logger.Warning(err)
+		logger.Warningf("new user failed: %v", err)
 		return "", err
 	}
-	sessionObj := sessionBus.Object("org.deepin.Session", "/org/deepin/Session")
-	var sessionPath string
-	err = sessionObj.Call("org.deepin.Session.GetSessionPath", 0).Store(&sessionPath)
+	sessionPath, err := userDBus.Display().Get(0)
 	if err != nil {
-		logger.Warning(err)
+		logger.Warningf("fail to get display session info: %v", err)
 		return "", err
 	}
-	return dbus.ObjectPath(sessionPath), nil
+	return sessionPath.Path, nil
 }
