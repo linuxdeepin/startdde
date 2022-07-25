@@ -1,3 +1,10 @@
+startdde (6.0.1) unstable; urgency=medium
+
+  [ TagBuilder ]
+  * fix(display): 获取sessionPath方式错误，阻塞了display设置(Bug: 141713)(Influence: display)
+
+ -- caixiangrong <caixiangrong@uniontech.com>  Mon, 25 Jul 2022 11:47:42 +0800
+
 startdde (6.0.0.0) unstable; urgency=low
 
   * release 6.0.0.0
