@@ -35,9 +35,9 @@ import (
 
 	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
-	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
-	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
-	sysbt "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.bluetooth"
+	daemon "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.daemon1"
+	powermanager "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.powermanager1"
+	sysbt "github.com/linuxdeepin/go-dbus-factory/org.deepin.system.bluetooth1"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
@@ -551,8 +551,8 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	const dest = "com.deepin.daemon.SwapSchedHelper"
-	obj := sysBus.Object(dest, "/com/deepin/daemon/SwapSchedHelper")
+	const dest = "org.deepin.daemon.SwapSchedHelper1"
+	obj := sysBus.Object(dest, "/org/deepin/daemon/SwapSchedHelper1")
 	return obj.Call(dest+".Prepare", 0, sessionID).Store()
 }
 

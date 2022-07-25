@@ -26,8 +26,8 @@ import (
 	"sync"
 
 	dbus "github.com/godbus/dbus"
-	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
-	greeter "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
+	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.daemon1"
+	greeter "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.greeter1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"

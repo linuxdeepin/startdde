@@ -24,7 +24,7 @@ import (
 	"math"
 
 	"github.com/godbus/dbus"
-	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
+	backlight "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.helper.backlight1"
 	displayBl "github.com/linuxdeepin/go-lib/backlight/display"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/multierr"

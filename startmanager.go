@@ -36,7 +36,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	dbus "github.com/godbus/dbus"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
-	systemPower "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
+	systemPower "github.com/linuxdeepin/go-dbus-factory/org.deepin.system.power1"
 	proxy "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.proxy"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/swapsched"

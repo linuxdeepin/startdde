@@ -36,7 +36,7 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
-	accounts "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
+	accounts "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.accounts1"
 	notifications "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.notifications"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
@@ -108,7 +108,7 @@ const (
 	loginReminderTimeout    = 5 * time.Second
 	loginReminderTimeFormat = "2006-01-02 15:04:05"
 	secondsPerDay           = 60 * 60 * 24
-	accountUserPath         = "/com/deepin/daemon/Accounts/User"
+	accountUserPath         = "/org/deepin/daemon/Accounts1/User"
 )
 
 func launchCoreComponents(sm *SessionManager) {

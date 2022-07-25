@@ -137,9 +137,9 @@ func initSoundThemePlayer() {
 }
 
 const (
-	audioInterface   = "com.deepin.daemon.Audio"
+	audioInterface   = "org.deepin.daemon.Audio1"
 	audioServiceName = audioInterface
-	audioPath        = "/com/deepin/daemon/Audio"
+	audioPath        = "/org/deepin/daemon/Audio1"
 )
 
 func startPulseAudio() error {

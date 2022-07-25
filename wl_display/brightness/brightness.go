@@ -24,7 +24,7 @@ import (
 	"fmt"
 
 	"github.com/godbus/dbus"
-	backlight "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.helper.backlight"
+	backlight "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.helper.backlight1"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	displayBl "github.com/linuxdeepin/go-lib/backlight/display"

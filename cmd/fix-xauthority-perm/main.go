@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/godbus/dbus"
-	"github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.accounts"
+	accounts "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.accounts1"
 )
 
 func init() {
