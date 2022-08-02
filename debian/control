@@ -33,7 +33,6 @@ Depends:
  deepin-desktop-schemas (>> 5.2.0+),
  deepin-proxy,
  gnome-keyring,
- gvfs-bin,
  libpam-gnome-keyring,
  procps,
  xinput,
