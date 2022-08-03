@@ -1,3 +1,9 @@
+startdde (3.0.7) stable; urgency=low
+
+  * Autobuild Tag 3.0.7 
+
+ -- 范朋程 <fanpengcheng@uniontech.com>  Tue, 2 Aug 2022 14:41:16 +0800
+
 startdde (3.0.7-1) stable; urgency=low
 
   * Autobuild Tag 3.0.7 
