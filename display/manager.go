@@ -19,6 +19,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
 	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
+	sessiondisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
@@ -66,6 +67,7 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
+	gsXSettingsPrimaryName       = "primary-monitor-name"
 	gsKeyCustomMode              = "current-custom-mode"
 	gsKeyColorTemperatureMode    = "color-temperature-mode"
 	gsKeyColorTemperatureManual  = "color-temperature-manual"
@@ -992,6 +994,45 @@ func (m *Manager) init() {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
 	}
+
+	go func() {
+		// 每次设置过主屏后，都将此值同步到xsettings
+		bus, _ := dbus.SessionBus()
+		display := sessiondisplay.NewDisplay(bus)
+		sigLoop := dbusutil.NewSignalLoop(bus, 10)
+		sigLoop.Start()
+		display.InitSignalExt(sigLoop, true)
+		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
+			if !hasValue {
+				return
+			}
+
+			// 保持主屏数据和xsettings同步
+			for _, key := range m.xSettingsGs.ListKeys() {
+				if gsXSettingsPrimaryName == key {
+					oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
+					if oldPrimary != primary {
+						m.xSettingsGs.SetString(gsXSettingsPrimaryName, primary)
+					}
+					return
+				}
+			}
+		})
+		if err != nil {
+			logger.Warning("connect to `Primary` property changed failed:", err)
+		}
+
+		// 启动后先同步一次
+		for _, key := range m.xSettingsGs.ListKeys() {
+			if gsXSettingsPrimaryName == key {
+				oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
+				if oldPrimary != m.Primary {
+					m.xSettingsGs.SetString(gsXSettingsPrimaryName, m.Primary)
+				}
+				return
+			}
+		}
+	}()
 }
 
 // calcRecommendedScaleFactor 计算推荐的缩放比
