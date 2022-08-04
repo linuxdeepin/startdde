@@ -63,7 +63,8 @@ func TestUnitTestSuite(t *testing.T) {
 
 func Test_getLspci(t *testing.T) {
 	out0, err0 := exec.Command("lspci").Output()
-	out1, err1 := getLspci()
+	args := []string{}
+	out1, err1 := getLspci(args)
 	assert.Equal(t, string(out0), out1)
 	assert.Equal(t, err0, err1)
 }
