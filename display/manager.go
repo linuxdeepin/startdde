@@ -1,6 +1,7 @@
 package display
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,8 +19,8 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
-	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	sessiondisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
@@ -2837,12 +2838,14 @@ func (m *Manager) updateScreenSize() {
 	m.PropsMu.Unlock()
 }
 
-func getLspci() (string, error) {
-	cmd := exec.Command("lspci")
+func getLspci(args []string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	cmd := exec.CommandContext(ctx, "lspci", args...)
 	cmd.Env = []string{
 		"LC_ALL=C",
 	}
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
+	cancel()
 	if err != nil {
 		logger.Warning(err)
 		return "", err
@@ -2852,15 +2855,17 @@ func getLspci() (string, error) {
 }
 
 func (m *Manager) detectDrmSupportGamma() (bool, error) {
-	pciInfo, err := getLspci()
+	args := []string{}
+	pciInfo, err := getLspci(args)
 	if err != nil {
 		logger.Warning(err)
 		return false, err
 	}
 	pciInfos := strings.Split(pciInfo, "\n")
+	vgaSupportGamma := false
 	for _, info := range pciInfos {
 		if strings.Contains(info, "VGA") {
-			vgaSupportGamma := true
+			vgaSupportGamma = true
 			for _, drm := range m.unsupportGammaDrmList {
 				lowDrm := strings.ToLower(drm)
 				lowInfo := strings.ToLower(info)
@@ -2874,5 +2879,16 @@ func (m *Manager) detectDrmSupportGamma() (bool, error) {
 			}
 		}
 	}
-	return false, nil
+	if !vgaSupportGamma {
+		args := []string{"-d 1ed5:"}
+		specifiedVendorInfo, err := getLspci(args)
+		if err != nil {
+			logger.Warning(err)
+			return false, err
+		}
+		if specifiedVendorInfo != "" {
+			vgaSupportGamma = true
+		}
+	}
+	return vgaSupportGamma, nil
 }
