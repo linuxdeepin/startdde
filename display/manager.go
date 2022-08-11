@@ -728,7 +728,7 @@ func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
 	oldMonitorsId := m.monitorsId
 	monitorMap := m.cloneMonitorMap()
 	newMonitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	if newMonitorsId != oldMonitorsId && newMonitorsId.v1 != "" {
+	if newMonitorsId != oldMonitorsId && (newMonitorsId.v1 != "" || _useWayland) {
 		m.monitorsId = newMonitorsId
 		logger.Debugf("monitors id changed, old monitors id: %v, new monitors id: %v", oldMonitorsId.v1, newMonitorsId.v1)
 		m.markClean()
@@ -1209,6 +1209,7 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 	}
 
 	logger.Debug("addMonitor", monitorInfo.Name)
+	monitorInfo.dumpForDebug()
 
 	monitor := &Monitor{
 		service:            m.service,
