@@ -42,7 +42,6 @@ func Test_Start(t *testing.T) {
 		_manager.AddTimedTask(newDdePolkitAgent())
 		_manager.AddDBusTask(ddeDockServiceName, newDdeDockTask())
 		_manager.AddDBusTask(ddeShutdownServiceName, newDdeShutdownTask())
-		_manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
 		if isUseKwin() {
 			_manager.AddDBusTask(kWinServiceName, newDdeKWinTask())
 		} else {
