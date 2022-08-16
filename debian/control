@@ -45,6 +45,7 @@ Depends:
  dde-wayland-config,
  dde-wldpms,
  redshift,
+ dde-appearance,
  ${misc:Depends},
  ${shlibs:Depends},
 Recommends:
