@@ -285,6 +285,11 @@ func (m *Manager) SetColorTemperature(value int32) *dbus.Error {
 func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 	monitors := m.getConnectedMonitors()
 
+	// 实际只有1屏（wayland 插拔情况）维持前状态
+	if len(monitors) == 1 {
+		return m.DisplayMode, nil
+	}
+
 	mode := DisplayModeUnknown
 	var pairs strv.Strv
 	for _, m := range monitors {
