@@ -2466,6 +2466,10 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 		return nil
 	}
 
+	if !m.sessionActive {
+		return nil
+	}
+
 	m.sysConfig.UpdateAt = time.Now().Format(time.RFC3339Nano)
 	m.sysConfig.Version = sysConfigVersion
 
