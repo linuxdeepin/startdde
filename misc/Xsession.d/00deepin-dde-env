@@ -1,4 +1,4 @@
-if [ "$1" = "/usr/bin/startdde" ]; then
+if [ "$1" = "/usr/bin/dde-session" ]; then
     if [ -f "$HOME/.dde_env" ]; then
         . "$HOME/.dde_env"
         # Handling configuration migration issues
