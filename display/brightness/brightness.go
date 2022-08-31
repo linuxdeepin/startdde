@@ -270,17 +270,32 @@ func setBrigntnessByKwin(output string, value float64) error {
 }
 
 func supportDDCCIBrightness(edidBase64 string) bool {
-	res, err := ddcciHelper.CheckSupport(0, edidBase64)
+	res, err := helper.CheckCfgSupport(0, "ddcci")
 	if err != nil {
 		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
 		return false
+	}
+	if res {
+		res, err = ddcciHelper.CheckSupport(0, edidBase64)
+		if err != nil {
+			logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
+			return false
+		}
 	}
 
 	return res
 }
 
 func setDDCCIBrightness(value float64, edidBase64 string) error {
-
+	res, err := helper.CheckCfgSupport(0, "ddcci")
+	if err != nil {
+		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
+		return err
+	}
+	if !res {
+		logger.Warning("brightness: check ddc/ci config not support")
+		return nil
+	}
 	percent := int32(value * 100)
 	logger.Debugf("brightness: ddcci set brightness %d", percent)
 	return ddcciHelper.SetBrightness(0, edidBase64, percent)
