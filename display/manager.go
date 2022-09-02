@@ -1809,7 +1809,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 
 	monitorsId := monitors.getMonitorsId()
 	options := getSwitchModeOptions(mode, name)
-	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
+	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, false, options)
 	if err != nil {
 		applyErr, ok := err.(*applyFailed)
 		if ok && applyErr.reason == reasonNumChanged {
