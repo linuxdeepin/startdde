@@ -56,7 +56,7 @@ $ sudo dpkg -i ../startdde-*deb
 
 ## Usage
 
-Run Startdde with the command below
+Run Startdde with the command below.
 
 ```
 Usage of /usr/bin/startdde:
