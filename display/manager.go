@@ -342,7 +342,6 @@ func newManager(service *dbusutil.Service) *Manager {
 			m.newSysCfg = nil
 		}
 
-		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 
 		// 监听用户的session Active属性改变信号，当切换到当前已经登录的用户时
