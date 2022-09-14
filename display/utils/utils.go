@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package utils
 
 //func GetOutputEDID(conn *x.Conn, output randr.Output) ([]byte, error) {
