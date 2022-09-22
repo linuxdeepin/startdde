@@ -104,4 +104,4 @@ We encourage you to report issues and contribute changes
 
 ## License
 
-Startdde is licensed under [GPLv3](LICENSE).
+Startdde is licensed under [GPL-3.0-or-later](LICENSE).
