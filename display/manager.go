@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2022 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package display
 
 import (
@@ -342,7 +346,6 @@ func newManager(service *dbusutil.Service) *Manager {
 			m.newSysCfg = nil
 		}
 
-		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 
 		// 监听用户的session Active属性改变信号，当切换到当前已经登录的用户时
@@ -1809,7 +1812,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 
 	monitorsId := monitors.getMonitorsId()
 	options := getSwitchModeOptions(mode, name)
-	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
+	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, false, options)
 	if err != nil {
 		applyErr, ok := err.(*applyFailed)
 		if ok && applyErr.reason == reasonNumChanged {
