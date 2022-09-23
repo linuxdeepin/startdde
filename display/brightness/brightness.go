@@ -271,6 +271,28 @@ func supportDDCCIBrightness(edidBase64 string) bool {
 	return res
 }
 
+// 如果有屏幕的增加，刷新一下DDCCI的display
+// ddcciHelper的RefreshDisplays 重新读取显示列表，所以屏幕拔出不需要触发此刷新
+// 由于RefreshDisplays 较慢，使用携程处理。
+func ReflashDDCCIDisplay() {
+	if helper == nil {
+		return
+	}
+	res, err := helper.CheckCfgSupport(0, "ddcci")
+	if err != nil {
+		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
+		return
+	}
+	if res {
+		logger.Debug("refresh ddcci display")
+		err = ddcciHelper.RefreshDisplays(0)
+		if err != nil {
+			logger.Warningf("brightness: failed to refresh ddc/ci display list: %v", err)
+			return
+		}
+	}
+}
+
 func setDDCCIBrightness(value float64, edidBase64 string) error {
 	res, err := helper.CheckCfgSupport(0, "ddcci")
 	if err != nil {
