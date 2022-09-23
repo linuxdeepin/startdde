@@ -1268,7 +1268,8 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 		logger.Warning("call SetWriteCallback err:", err)
 		return err
 	}
-
+	// 如果屏幕添加，刷新一下ddcci的display列表
+	go brightness.ReflashDDCCIDisplay()
 	return nil
 }
 
