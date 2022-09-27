@@ -1533,8 +1533,11 @@ func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
-	m.setPropPrimary(pmi.Name)
-	m.setPropPrimaryRect(pmi.getRect())
+	// 复制模式不用设置主屏
+	if m.DisplayMode != DisplayModeMirror {
+		m.setPropPrimary(pmi.Name)
+		m.setPropPrimaryRect(pmi.getRect())
+	}
 }
 
 func (m *Manager) setPrimary(name string) error {
