@@ -26,6 +26,7 @@ import (
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
+	xeventmonitor "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.xeventmonitor"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -626,6 +627,7 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	// 如果其它进程读取了非法的属性值， dbus连接会被关闭，导致startdde启动失败
 	m.initSession()
 	m.init()
+	go initXEventMonitor()
 
 	return m
 }
@@ -1373,4 +1375,18 @@ func setDpmsModeByKwin(mode int32) {
 	}
 
 	return
+}
+
+func initXEventMonitor() {
+	bus, _ := dbus.SessionBus()
+	xEvent := xeventmonitor.NewXEventMonitor(bus)
+	sigLoop := dbusutil.NewSignalLoop(bus, 1)
+	sigLoop.Start()
+	xEvent.InitSignalExt(sigLoop, true)
+	xEvent.ConnectButtonPress(func(button int32, x int32, y int32, id string) {
+		// 5表示鼠标中间
+		if button == 5 {
+			setDPMSMode(true)
+		}
+	})
 }
