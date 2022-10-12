@@ -4,9 +4,7 @@
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 # Translators:
-# Pablo Alejandro Hamann <linkstat@gmail.com>, 2021
-# Isaías Gätjens M <igatjens@gmail.com>, 2021
-# Alvaro Samudio <alvarosamudio@protonmail.com>, 2021
+# Ettore Atalan <atalanttore@googlemail.com>, 2022
 # 
 #, fuzzy
 msgid ""
@@ -15,39 +13,39 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-09-28 10:19+0800\n"
 "PO-Revision-Date: 2021-08-31 07:06+0000\n"
-"Last-Translator: Alvaro Samudio <alvarosamudio@protonmail.com>, 2021\n"
-"Language-Team: Spanish (https://www.transifex.com/linuxdeepin/teams/3617/es/)\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>, 2022\n"
+"Language-Team: German (https://www.transifex.com/linuxdeepin/teams/3617/de/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Language: es\n"
-"Plural-Forms: nplurals=3; plural=n == 1 ? 0 : n != 0 && n % 1000000 == 0 ? 1 : 2;\n"
+"Language: de\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
-msgstr "La contraseña caduracá en %d días"
+msgstr "Ihr Passwort wird in %d Tagen ablaufen"
 
 #: ../../main.go:414 ../../main.go:448
 #, c-format
 msgid "%d login failures since the last successful login"
 msgstr ""
-" %d fallos de inicio de sesión desde el último inicio de sesión con éxito"
+"%d fehlgeschlagene Anmeldungen seit der letzten erfolgreichen Anmeldung"
 
 #: ../../main.go:423
 msgid "Login Reminder"
-msgstr "Recordatorio de inicio de sesión"
+msgstr "Anmeldeerinnerung"
 
 #: ../../main.go:424
 msgid "Details"
-msgstr "Detalles"
+msgstr "Details"
 
 #: ../../main.go:444
 #, c-format
 msgid "Login time: %s"
-msgstr "Hora de inicio de sesión: %s"
+msgstr "Anmeldezeit: %s"
 
 #: ../../main.go:445
 #, c-format
 msgid "Last login: %s"
-msgstr "Último inicio de sesión: %s"
+msgstr "Letzte Anmeldung: %s"
