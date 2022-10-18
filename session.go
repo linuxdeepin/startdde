@@ -1384,8 +1384,8 @@ func initXEventMonitor() {
 	sigLoop.Start()
 	xEvent.InitSignalExt(sigLoop, true)
 	xEvent.ConnectButtonPress(func(button int32, x int32, y int32, id string) {
-		// 4表示鼠标中键上滑，5表示鼠标中键下滑
-		if button == 4 || button == 5 {
+		// 2表示按下鼠标中键，4表示鼠标中键上滑，5表示鼠标中键下滑
+		if button == 2 || button == 4 || button == 5 {
 			setDPMSMode(true)
 		}
 	})
