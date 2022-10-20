@@ -76,7 +76,27 @@ func reapZombies() {
 }
 
 func shouldUseDDEKWin() bool {
-	_, err := os.Stat("/usr/bin/kwin_no_scale")
+	var (
+		wmCmd string
+		err   error
+	)
+
+	// for unit test
+	if _gSettingsConfig == nil {
+		goto end
+	}
+	wmCmd = _gSettingsConfig.wmCmd
+	if len(wmCmd) != 0 {
+		_, err = os.Stat(strings.Split(wmCmd, " ")[0])
+		if err == nil {
+			return false
+		}
+		// fallback
+		_gSettingsConfig.wmCmd = ""
+	}
+
+end:
+	_, err = os.Stat("/usr/bin/kwin_no_scale")
 	return err == nil
 }
 
