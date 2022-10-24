@@ -1533,11 +1533,12 @@ func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
-	// 复制模式不用设置主屏
-	if m.DisplayMode != DisplayModeMirror {
-		m.setPropPrimary(pmi.Name)
-		m.setPropPrimaryRect(pmi.getRect())
+	// 复制模式不用设置主屏，由于单屏和复制模式共用一个配置，因此此处需要判断屏幕个数来确实是否是复制模式
+	if (m.DisplayMode == DisplayModeMirror) && (len(m.monitorMap) > 1) {
+		return
 	}
+	m.setPropPrimary(pmi.Name)
+	m.setPropPrimaryRect(pmi.getRect())
 }
 
 func (m *Manager) setPrimary(name string) error {
