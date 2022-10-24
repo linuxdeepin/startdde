@@ -21,17 +21,14 @@ package main
 
 import "C"
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -43,7 +40,6 @@ import (
 	"github.com/linuxdeepin/startdde/iowait"
 	"github.com/linuxdeepin/startdde/watchdog"
 	wl_display "github.com/linuxdeepin/startdde/wl_display"
-	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xsettings"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gettext"
@@ -53,10 +49,6 @@ import (
 )
 
 var logger = log.NewLogger("startdde")
-
-var _options struct {
-	noXSessionScripts bool
-}
 
 var _gSettingsConfig *GSettingsConfig
 
@@ -75,7 +67,6 @@ var _useKWin bool
 var _homeDir string
 
 func init() {
-	flag.BoolVar(&_options.noXSessionScripts, "no-xsession-scripts", false, "")
 }
 
 func reapZombies() {
@@ -92,14 +83,7 @@ func reapZombies() {
 	}
 }
 
-func shouldUseDDEKWin() bool {
-	_, err := os.Stat("/usr/bin/kwin_no_scale")
-	return err == nil
-}
-
 const (
-	cmdKWin                = "/usr/bin/kwin_no_scale"
-	cmdDdeSessionDaemon    = "/usr/lib/deepin-daemon/dde-session-daemon"
 	cmdDdeDock             = "/usr/bin/dde-dock"
 	cmdDdeDesktop          = "/usr/bin/dde-desktop"
 	cmdLoginReminderHelper = "/usr/libexec/deepin/login-reminder-helper"
@@ -110,127 +94,6 @@ const (
 	secondsPerDay           = 60 * 60 * 24
 	accountUserPath         = "/org/deepin/daemon/Accounts1/User"
 )
-
-func launchCoreComponents(sm *SessionManager) {
-	setupEnvironments1()
-
-	wmChooserLaunched := false
-	if !_useWayland && _inVM {
-		wmChooserLaunched = maybeLaunchWMChooser()
-	}
-
-	const waitDelayDuration = 7 * time.Second
-
-	var wg sync.WaitGroup
-	launch := func(program string, args []string, name string, wait bool, endFn func()) {
-		if wait {
-			wg.Add(1)
-			sm.launchWaitCore(name, program, args, waitDelayDuration, func(launchOk bool) {
-				if endFn != nil {
-					endFn()
-				}
-				wg.Done()
-			})
-			return
-		}
-
-		sm.launchWithoutWait(program, args...)
-	}
-
-	coreStartTime := time.Now()
-	// launch window manager
-	if !_useWayland {
-		_useKWin = shouldUseDDEKWin()
-		if _useKWin {
-			if wmChooserLaunched {
-				wm_kwin.SyncWmChooserChoice()
-			}
-			launch(cmdKWin, nil, "kwin", true, func() {
-				// 等待 kwin 就绪，然后让 dock 显示
-				handleKWinReady(sm)
-			})
-		} else {
-			wmCmd := _gSettingsConfig.wmCmd
-			if wmCmd == "" {
-				wmCmd = "x-window-manager"
-			}
-			launch("env", []string{"GDK_SCALE=1", wmCmd}, "wm", false, nil)
-		}
-	} else {
-		var handleId dbusutil.SignalHandlerId
-		var needDel = true
-		handleId, err := sm.dbusDaemon.ConnectNameOwnerChanged(func(name, newOwner, oldOwner string) {
-			if name == "org.kde.KWin" && newOwner != "" && oldOwner == "" {
-				handleKWinReady(sm)
-				sm.dbusDaemon.RemoveHandler(handleId)
-			}
-		})
-		if err != nil {
-			logger.Warningf("connect to signal err: %s, run handle after timeout", err)
-			time.AfterFunc(time.Second*5, func() {
-				handleKWinReady(sm)
-			})
-			needDel = false
-		}
-
-		hasOwner, err := sm.dbusDaemon.NameHasOwner(0, "org.kde.KWin")
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-
-		if hasOwner {
-			handleKWinReady(sm)
-			if needDel {
-				sm.dbusDaemon.RemoveHandler(handleId)
-			}
-		}
-	}
-
-	// 先启动 dde-session-daemon，再启动 dde-dock
-	// launch(cmdDdeSessionDaemon, nil, "dde-session-daemon", true, func() {
-	// 	var dockArgs []string
-	// 	if _useKWin {
-	// 		dockArgs = []string{"-r"}
-	// 	}
-	// 	launch(cmdDdeDock, dockArgs, "dde-dock", _useKWin, nil)
-	// })
-	// launch(cmdDdeDesktop, nil, "dde-desktop", true, nil)
-
-	wg.Wait()
-	logger.Info("core components cost:", time.Since(coreStartTime))
-}
-
-func handleKWinReady(sm *SessionManager) {
-	sessionBus := sm.service.Conn()
-
-	const dockServiceName = "com.deepin.dde.Dock"
-	callDockShow := func() {
-		logInfoAfter("call com.deepin.dde.Dock callShow")
-		dockObj := sessionBus.Object(dockServiceName, "/com/deepin/dde/Dock")
-		ctx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancelFn()
-		err := dockObj.CallWithContext(ctx, dockServiceName+".callShow", dbus.FlagNoAutoStart).Err
-		if err != nil {
-			logger.Warning("call dde-dock callShow failed:", err)
-		}
-	}
-
-	var sigHandleId dbusutil.SignalHandlerId
-	sigHandleId, err := sm.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
-		if name == dockServiceName && oldOwner == "" && newOwner != "" {
-			callDockShow()
-			sm.dbusDaemon.RemoveHandler(sigHandleId)
-		}
-	})
-	has, err := sm.dbusDaemon.NameHasOwner(0, dockServiceName)
-	if err != nil {
-		logger.Warning(err)
-	} else if has {
-		callDockShow()
-		sm.dbusDaemon.RemoveHandler(sigHandleId)
-	}
-}
 
 var _mainBeginTime time.Time
 
@@ -294,13 +157,6 @@ func main() {
 		os.Exit(1)
 	}
 	_xConn = xConn
-	if _options.noXSessionScripts {
-		runXSessionScriptsFaster(xConn)
-	}
-	_inVM, err = isInVM()
-	if err != nil {
-		logger.Warning("detect VM failed:", err)
-	}
 	var recommendedScaleFactor float64
 	if os.Getenv("WAYLAND_DISPLAY") != "" {
 		logger.Info("in wayland mode")
@@ -324,22 +180,11 @@ func main() {
 	}
 
 	sessionManager := newSessionManager(service)
-	err = service.Export(sessionManagerPath, sessionManager)
-	if err != nil {
-		logger.Warning("export session sessionManager failed:", err)
-	}
-	err = service.RequestName(sessionManagerServiceName)
-	if err != nil {
-		logger.Warningf("request name %q failed: %v", sessionManagerServiceName, err)
-	}
-	logDebugAfter("before launchCoreComponents")
 
 	err = display.Start(service)
 	if err != nil {
 		logger.Warning("start display part1 failed:", err)
 	}
-
-	launchCoreComponents(sessionManager)
 
 	// 启动 display 模块的后一部分
 	go func() {
@@ -359,14 +204,6 @@ func main() {
 		logger.Warning("gsettings start monitor failed:", err)
 	}
 	proxy.SetupProxy()
-
-	if _inVM {
-		time.AfterFunc(10*time.Second, func() {
-			logger.Debug("try to correct vm resolution")
-			correctVMResolution()
-		})
-	}
-
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
@@ -388,28 +225,9 @@ func main() {
 	cmd := exec.Command("systemd-notify", "--ready")
 	cmd.Start()
 
-	go handleOSSignal(sessionManager)
-
 	loginReminder()
 
 	service.Wait()
-}
-
-func handleOSSignal(m *SessionManager) {
-	var sigChan = make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV)
-
-loop:
-	for sig := range sigChan {
-		switch sig {
-		case syscall.SIGINT, syscall.SIGABRT, syscall.SIGTERM, syscall.SIGSEGV:
-			logger.Info("received signal:", sig)
-			break loop
-		}
-	}
-
-	logger.Info("received unexpected signal, force logout")
-	m.doLogout(true)
 }
 
 func doSetLogLevel(level log.Priority) {

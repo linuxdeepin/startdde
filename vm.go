@@ -21,7 +21,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -35,19 +34,6 @@ import (
 const (
 	versionFile = "/etc/os-version"
 )
-
-func maybeLaunchWMChooser() (launched bool) {
-	logger.Debug("launch WMChooser in VM")
-	cfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin", "deepin-wm-switcher", "config.json")
-	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		err := exec.Command("dde-wm-chooser", "-c", cfgFile).Run()
-		launched = true
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-	return
-}
 
 func isServer() bool {
 	t := strings.ToLower(getProductType())

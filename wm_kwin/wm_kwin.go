@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	"github.com/godbus/dbus"
 	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
 	wm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
 	"github.com/linuxdeepin/go-lib/dbusutil"
-	"github.com/linuxdeepin/go-lib/keyfile"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
@@ -55,22 +53,6 @@ func Start(l *log.Logger) error {
 
 	s.listenDBusSignal()
 	return nil
-}
-
-func SyncWmChooserChoice() {
-	lastWm, err := getWMSwitchLastWm()
-	if err == nil {
-		enabled := false
-		if lastWm == "deepin-wm" {
-			enabled = true
-		}
-		err = setCompositingEnabledInKWinRc(enabled)
-		if err != nil {
-			logger.Warning("failed to set compositing enabled in KWinRc:", err)
-		}
-	} else if !os.IsNotExist(err) {
-		logger.Warning("failed to get last wm:", err)
-	}
 }
 
 type Switcher struct {
@@ -208,22 +190,4 @@ func getWMSwitchLastWm() (lastWm string, err error) {
 		return
 	}
 	return v.LastWm, nil
-}
-
-func setCompositingEnabledInKWinRc(enabled bool) error {
-	dir := basedir.GetUserConfigDir()
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		return err
-	}
-	filename := filepath.Join(dir, "kwinrc")
-	kf := keyfile.NewKeyFile()
-	err = kf.LoadFromFile(filename)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
-	kf.SetBool("Compositing", "Enabled", enabled)
-	err = kf.SaveToFile(filename)
-	return err
 }

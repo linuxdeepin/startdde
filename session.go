@@ -20,14 +20,12 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -58,7 +56,6 @@ import (
 	"github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xcursor"
-	"github.com/linuxdeepin/startdde/xsettings"
 )
 
 const (
@@ -780,36 +777,6 @@ func (m *SessionManager) startWMSwitcher() {
 }
 
 func (m *SessionManager) launchDDE() {
-	versionChanged, err := isDeepinVersionChanged()
-	if err != nil {
-		logger.Warning("failed to get deepin version changed:", err)
-	}
-	if versionChanged {
-		err := showDDEWelcome()
-		if err != nil {
-			logger.Warning("failed to start dde-welcome:", err)
-		}
-	}
-
-	// osdRunning, err := isOSDRunning()
-	// if err != nil {
-	// 	logger.Warning(err)
-	// } else {
-	// 	if osdRunning {
-	// 		if globalXSManager.NeedRestartOSD() {
-	// 			logger.Info("Restart dde-osd")
-	// 			m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-	// 		}
-	// 	} else {
-	// 		notificationsOwned, err := isNotificationsOwned()
-	// 		if err != nil {
-	// 			logger.Warning("failed to get org.freedesktop.Notifications status:", err)
-	// 		} else if !notificationsOwned {
-	// 			m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-	// 		}
-	// 	}
-	// }
-
 	groups, err := loadGroupFile()
 	if err != nil {
 		logger.Error("Failed to load launch group file:", err)
@@ -853,27 +820,6 @@ func (m *SessionManager) launchAutostart() {
 	m.setPropStage(SessionStageAppsEnd)
 }
 
-var _envVars = make(map[string]string, 17)
-
-// 在启动核心组件之前设置一些环境变量
-func setupEnvironments1() {
-	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
-	_envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
-	_envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
-
-	scaleFactor := xsettings.GetScaleFactor()
-	_envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
-	_envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
-
-	// set scale factor for deepin wine apps
-	if scaleFactor != 1.0 {
-		_envVars[xsettings.EnvDeepinWineScale] = strconv.FormatFloat(
-			scaleFactor, 'f', 2, 64)
-	}
-
-	setEnvWithMap(_envVars)
-}
-
 func setEnvWithMap(envVars map[string]string) {
 	for key, value := range envVars {
 		logger.Debugf("set env %s = %q", key, value)
@@ -884,167 +830,6 @@ func setEnvWithMap(envVars map[string]string) {
 	}
 }
 
-func setupEnvironments2() {
-	// man gnome-keyring-daemon:
-	// The daemon will print out various environment variables which should be set
-	// in the user's environment, in order to interact with the daemon.
-	gnomeKeyringOutput, err := exec.Command("/usr/bin/gnome-keyring-daemon", "--start",
-		"--components=secrets,pkcs11,ssh").Output()
-	if err == nil {
-		lines := bytes.Split(gnomeKeyringOutput, []byte{'\n'})
-		for _, line := range lines {
-			keyValuePair := bytes.SplitN(line, []byte{'='}, 2)
-			if len(keyValuePair) != 2 {
-				continue
-			}
-
-			key := string(keyValuePair[0])
-			value := string(keyValuePair[1])
-			_envVars[key] = value
-
-			logger.Debugf("set env %s = %q", key, value)
-			err := os.Setenv(key, value)
-			if err != nil {
-				logger.Warning(err)
-			}
-		}
-	} else {
-		logger.Warning("exec gnome-keyring-daemon err:", err)
-	}
-
-	for _, envName := range []string{
-		"LANG",
-		"LANGUAGE",
-	} {
-		envValue, ok := os.LookupEnv(envName)
-		if ok {
-			_envVars[envName] = envValue
-		}
-	}
-
-	updateDBusEnv()
-	updateSystemdUserEnv()
-}
-
-func updateDBusEnv() {
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	err = sessionBus.BusObject().Call("org.freedesktop.DBus."+
-		"UpdateActivationEnvironment", 0, _envVars).Err
-	if err != nil {
-		logger.Warning("update dbus env failed:", err)
-	}
-}
-
-func updateSystemdUserEnv() {
-	systemctlArgs := make([]string, 0, len(_envVars)+2)
-	systemctlArgs = append(systemctlArgs, "--user", "set-environment")
-
-	for key, value := range _envVars {
-		systemctlArgs = append(systemctlArgs, key+"="+value)
-	}
-
-	err := exec.Command("systemctl", systemctlArgs...).Run()
-	if err != nil {
-		logger.Warning("failed to set env for systemd-user:", err)
-	}
-}
-
-func initQtThemeConfig() error {
-	appearanceGs := gio.NewSettings("com.deepin.dde.appearance")
-	defer appearanceGs.Unref()
-	var needSave bool
-
-	var defaultFont, defaultMonoFont string
-	loadDefaultFontCfg := func() {
-		filename := "/usr/share/deepin-default-settings/fontconfig.json"
-		defaultFontCfg, err := loadDefaultFontConfig(filename)
-		if err != nil {
-			logger.Warning("failed to load default font config:", err)
-		}
-		defaultFont, defaultMonoFont = defaultFontCfg.Get()
-		if defaultFont == "" {
-			defaultFont = "Noto Sans"
-		}
-		if defaultMonoFont == "" {
-			defaultMonoFont = "Noto Mono"
-		}
-	}
-
-	xsQtFontName, err := globalXSManager.GetStringInternal(xsKeyQtFontName)
-	if err != nil {
-		logger.Warning(err)
-	} else if xsQtFontName == "" {
-		loadDefaultFontCfg()
-		err = globalXSManager.SetStringInternal(xsKeyQtFontName, defaultFont)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-
-	xsQtMonoFontName, err := globalXSManager.GetStringInternal(xsKeyQtMonoFontName)
-	if err != nil {
-		logger.Warning(err)
-	} else if xsQtMonoFontName == "" {
-		loadDefaultFontCfg()
-		err = globalXSManager.SetStringInternal(xsKeyQtMonoFontName, defaultMonoFont)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-
-	kf := keyfile.NewKeyFile()
-	qtThemeCfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/qt-theme.ini")
-	err = kf.LoadFromFile(qtThemeCfgFile)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Warning("failed to load qt-theme.ini:", err)
-	}
-	iconTheme, _ := kf.GetString(sectionTheme, keyIconThemeName)
-	if iconTheme == "" {
-		iconTheme = appearanceGs.GetString("icon-theme")
-		kf.SetString(sectionTheme, keyIconThemeName, iconTheme)
-		needSave = true
-	}
-
-	fontSize, _ := kf.GetFloat64(sectionTheme, keyFontSize)
-	if fontSize == 0 {
-		fontSize = appearanceGs.GetDouble("font-size")
-		kf.SetFloat64(sectionTheme, keyFontSize, fontSize)
-		needSave = true
-	}
-
-	font, _ := kf.GetString(sectionTheme, keyFont)
-	if font == "" {
-		if defaultFont == "" {
-			loadDefaultFontCfg()
-		}
-		kf.SetString(sectionTheme, keyFont, defaultFont)
-		needSave = true
-	}
-
-	monoFont, _ := kf.GetString(sectionTheme, keyMonoFont)
-	if monoFont == "" {
-		if defaultMonoFont == "" {
-			loadDefaultFontCfg()
-		}
-		kf.SetString(sectionTheme, keyMonoFont, defaultMonoFont)
-		needSave = true
-	}
-
-	if needSave {
-		err = os.MkdirAll(filepath.Dir(qtThemeCfgFile), 0755)
-		if err != nil {
-			return err
-		}
-		return kf.SaveToFile(qtThemeCfgFile)
-	}
-	return nil
-}
-
 func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
@@ -1053,29 +838,11 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 		}
 	}()
 
-	if _options.noXSessionScripts {
-		runScript01DeepinProfileFaster()
-		runScript30X11CommonXResourcesFaster()
-		runScript90GpgAgentFaster()
-	}
-	setupEnvironments2()
-
-	err := initQtThemeConfig()
-	if err != nil {
-		logger.Warning("failed to init qt-theme.ini", err)
-	}
 	m.setPropStage(SessionStageCoreBegin)
 	startStartManager(xConn, service)
 
 	m.startWMSwitcher()
 
-	if _options.noXSessionScripts {
-		startIMFcitx()
-	}
-
-	go startAtSpiService()
-	// start obex.service
-	go startObexService()
 	m.launchDDE()
 
 	go func() {
@@ -1090,7 +857,7 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 
 	if m.loginSession != nil {
 		m.loginSession.InitSignalExt(sysSignalLoop, true)
-		_, err = m.loginSession.ConnectLock(m.handleLoginSessionLock)
+		_, err := m.loginSession.ConnectLock(m.handleLoginSessionLock)
 		if err != nil {
 			logger.Warning("failed to connect signal Lock:", err)
 		}
@@ -1102,19 +869,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	}
 
 	return m
-}
-
-func startIMFcitx() {
-	fcitxPath, err := exec.LookPath("fcitx")
-	if err == nil {
-		cmd := exec.Command(fcitxPath, "-d")
-		go func() {
-			err := cmd.Run()
-			if err != nil {
-				logger.Warning("fcitx exit with error:", err)
-			}
-		}()
-	}
 }
 
 func isDeepinVersionChanged() (changed bool, err error) {
@@ -1352,36 +1106,6 @@ const (
 	atSpiService = "at-spi-dbus-bus.service"
 	obexService  = "obex.service"
 )
-
-// start at-spi-dbus-bus.service
-func startAtSpiService() {
-	time.Sleep(3 * time.Second)
-	logger.Debugf("starting %s...", atSpiService)
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", atSpiService).Run()
-	if err != nil {
-		logger.Warningf("unmask %s failed, err: %v", atSpiService, err)
-		return
-	}
-	err = exec.Command("systemctl", "--user", "--runtime", "start", atSpiService).Run()
-	if err != nil {
-		logger.Warningf("start %s failed, err: %v", atSpiService, err)
-		return
-	}
-}
-
-func startObexService() {
-	logger.Debugf("starting %s...", obexService)
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", obexService).Run()
-	if err != nil {
-		logger.Warningf("unmask %s failed, err: %v", obexService, err)
-		return
-	}
-	err = exec.Command("systemctl", "--user", "--runtime", "start", obexService).Run()
-	if err != nil {
-		logger.Warningf("start %s failed, err: %v", obexService, err)
-		return
-	}
-}
 
 func quitAtSpiService() {
 	logger.Debugf("quitting %s...", atSpiService)
