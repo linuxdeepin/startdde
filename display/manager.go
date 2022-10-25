@@ -217,6 +217,7 @@ type Manager struct {
 	// 不支持调节色温的显卡型号
 	unsupportGammaDrmList []string
 	drmSupportGamma       bool
+	initPrimary           bool
 }
 
 type monitorSizeInfo struct {
@@ -236,6 +237,7 @@ func newManager(service *dbusutil.Service) *Manager {
 			"Loongson",
 		},
 	}
+	m.initPrimary = false
 	m.redshiftRunner.cb = func(value int) {
 		m.setColorTempOneShot()
 	}
@@ -1534,7 +1536,7 @@ func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
 	defer m.PropsMu.Unlock()
 
 	// 复制模式不用设置主屏，由于单屏和复制模式共用一个配置，因此此处需要判断屏幕个数来确实是否是复制模式
-	if (m.DisplayMode == DisplayModeMirror) && (len(m.monitorMap) > 1) {
+	if (m.DisplayMode == DisplayModeMirror) && (len(m.monitorMap) > 1) && m.initPrimary {
 		return
 	}
 	m.setPropPrimary(pmi.Name)
@@ -2130,6 +2132,7 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	if err != nil {
 		logger.Warning(err)
 	}
+	m.initPrimary = true
 
 	return nil
 }
