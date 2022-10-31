@@ -45,8 +45,6 @@
             <summary>Screen refresh rate filter</summary>
             <description>
                 Screen refresh rate filter in JSON.
-                You could config this conveniently by
-                https://gitlabwh.uniontech.com/ut001384/display-rate-filter
             </description>
         </key>
         <key type="s" name="primary">
