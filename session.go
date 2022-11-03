@@ -54,7 +54,6 @@ import (
 	"github.com/linuxdeepin/startdde/memchecker"
 	"github.com/linuxdeepin/startdde/swapsched"
 	"github.com/linuxdeepin/startdde/watchdog"
-	"github.com/linuxdeepin/startdde/wm_kwin"
 	"github.com/linuxdeepin/startdde/xcursor"
 )
 
@@ -763,18 +762,6 @@ func (manager *SessionManager) listenDBusSignals() {
 	}
 }
 
-func (m *SessionManager) startWMSwitcher() {
-	if _useWayland {
-		return
-	}
-	if _useKWin {
-		err := wm_kwin.Start(logger)
-		if err != nil {
-			logger.Warning(err)
-		}
-		return
-	}
-}
 
 func (m *SessionManager) launchDDE() {
 	groups, err := loadGroupFile()
@@ -840,8 +827,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 
 	m.setPropStage(SessionStageCoreBegin)
 	startStartManager(xConn, service)
-
-	m.startWMSwitcher()
 
 	m.launchDDE()
 
