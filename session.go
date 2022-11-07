@@ -26,7 +26,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -82,7 +81,6 @@ type SessionManager struct {
 	loginSession          login1.Session
 	dbusDaemon            ofdbus.DBus          // session bus daemon
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
-	inhibitManager        InhibitManager
 	powerManager          powermanager.PowerManager
 	sysBt                 sysbt.Bluetooth
 
@@ -732,36 +730,7 @@ func (m *SessionManager) init() {
 		// 要保证 CurrentSessionPath 属性值的合法性
 		m.CurrentSessionPath = "/"
 	}
-
-	m.initInhibitManager()
-	m.listenDBusSignals()
 }
-
-func (manager *SessionManager) listenDBusSignals() {
-	_, err := manager.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
-		if newOwner == "" && oldOwner != "" && name == oldOwner &&
-			strings.HasPrefix(name, ":") {
-			// uniq name lost
-			ih := manager.inhibitManager.handleNameLost(name)
-			if ih != nil {
-				err := manager.service.StopExport(ih)
-				if err != nil {
-					logger.Warning(err)
-					return
-				}
-
-				err = manager.service.Emit(manager, signalInhibitorRemoved, ih.getPath())
-				if err != nil {
-					logger.Warning(err)
-				}
-			}
-		}
-	})
-	if err != nil {
-		logger.Warning(err)
-	}
-}
-
 
 func (m *SessionManager) launchDDE() {
 	groups, err := loadGroupFile()

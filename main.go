@@ -33,7 +33,7 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
-	"github.com/linuxdeepin/startdde/watchdog"
+	// "github.com/linuxdeepin/startdde/watchdog"
 	wl_display "github.com/linuxdeepin/startdde/wl_display"
 	"github.com/linuxdeepin/startdde/xsettings"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -55,11 +55,7 @@ var _xConn *x.Conn
 
 var _useWayland bool
 
-var _inVM bool
-
 var _useKWin bool
-
-var _homeDir string
 
 func init() {
 }
@@ -196,7 +192,7 @@ func main() {
 	sysSignalLoop.Start()
 
 	sessionManager.start(xConn, sysSignalLoop, service)
-	watchdog.Start(sessionManager.getLocked, _useKWin)
+	// watchdog.Start(sessionManager.getLocked, _useKWin)
 
 	if _gSettingsConfig.iowaitEnabled {
 		go iowait.Start(logger)
@@ -218,5 +214,5 @@ func doSetLogLevel(level log.Priority) {
 	} else {
 		wl_display.SetLogLevel(level)
 	}
-	watchdog.SetLogLevel(level)
+	// watchdog.SetLogLevel(level)
 }

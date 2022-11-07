@@ -6,35 +6,6 @@ import (
 	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
-func (v *Inhibitor) GetExportedMethods() dbusutil.ExportedMethods {
-	return dbusutil.ExportedMethods{
-		{
-			Name:    "GetAppId",
-			Fn:      v.GetAppId,
-			OutArgs: []string{"outArg0"},
-		},
-		{
-			Name:    "GetClientId",
-			Fn:      v.GetClientId,
-			OutArgs: []string{"outArg0"},
-		},
-		{
-			Name:    "GetFlags",
-			Fn:      v.GetFlags,
-			OutArgs: []string{"outArg0"},
-		},
-		{
-			Name:    "GetReason",
-			Fn:      v.GetReason,
-			OutArgs: []string{"outArg0"},
-		},
-		{
-			Name:    "GetToplevelXid",
-			Fn:      v.GetToplevelXid,
-			OutArgs: []string{"outArg0"},
-		},
-	}
-}
 func (v *SessionManager) GetExportedMethods() dbusutil.ExportedMethods {
 	return dbusutil.ExportedMethods{
 		{
@@ -78,23 +49,6 @@ func (v *SessionManager) GetExportedMethods() dbusutil.ExportedMethods {
 		{
 			Name: "ForceShutdown",
 			Fn:   v.ForceShutdown,
-		},
-		{
-			Name:    "GetInhibitors",
-			Fn:      v.GetInhibitors,
-			OutArgs: []string{"outArg0"},
-		},
-		{
-			Name:    "Inhibit",
-			Fn:      v.Inhibit,
-			InArgs:  []string{"appId", "toplevelXid", "reason", "flags"},
-			OutArgs: []string{"inhibitCookie"},
-		},
-		{
-			Name:    "IsInhibited",
-			Fn:      v.IsInhibited,
-			InArgs:  []string{"flags"},
-			OutArgs: []string{"outArg0"},
 		},
 		{
 			Name: "Logout",
@@ -150,11 +104,6 @@ func (v *SessionManager) GetExportedMethods() dbusutil.ExportedMethods {
 		{
 			Name: "ToggleDebug",
 			Fn:   v.ToggleDebug,
-		},
-		{
-			Name:   "Uninhibit",
-			Fn:     v.Uninhibit,
-			InArgs: []string{"inhibitCookie"},
 		},
 	}
 }

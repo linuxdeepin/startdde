@@ -67,11 +67,11 @@ func Start(getLockedFn func() bool, useKwin bool) {
 	// _manager.AddDBusTask(deepinidDaemonServiceName, newDeepinidDaemonTask())
 	go _manager.StartLoop()
 
-	if useKwin {
-		_manager.AddDBusTask(kWinServiceName, newDdeKWinTask())
-	} else {
-		_manager.AddDBusTask(wmServiceName, newWMTask())
-	}
+	// if useKwin {
+	// 	_manager.AddDBusTask(kWinServiceName, newDdeKWinTask())
+	// } else {
+	// 	_manager.AddDBusTask(wmServiceName, newWMTask())
+	// }
 
 	// if getLockedFn != nil {
 	// 	ddeLockTask := newDdeLock(getLockedFn)
