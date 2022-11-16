@@ -22,19 +22,14 @@ package main
 import "C"
 import (
 	"flag"
-	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	dbus "github.com/godbus/dbus"
-	accounts "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.accounts1"
-	notifications "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.notifications"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
@@ -82,18 +77,6 @@ func reapZombies() {
 		}
 	}
 }
-
-const (
-	cmdDdeDock             = "/usr/bin/dde-dock"
-	cmdDdeDesktop          = "/usr/bin/dde-desktop"
-	cmdLoginReminderHelper = "/usr/libexec/deepin/login-reminder-helper"
-	cmdDdeHintsDialog      = "/usr/bin/dde-hints-dialog"
-
-	loginReminderTimeout    = 5 * time.Second
-	loginReminderTimeFormat = "2006-01-02 15:04:05"
-	secondsPerDay           = 60 * 60 * 24
-	accountUserPath         = "/org/deepin/daemon/Accounts1/User"
-)
 
 var _mainBeginTime time.Time
 
@@ -225,8 +208,6 @@ func main() {
 	cmd := exec.Command("systemd-notify", "--ready")
 	cmd.Start()
 
-	loginReminder()
-
 	service.Wait()
 }
 
@@ -238,138 +219,4 @@ func doSetLogLevel(level log.Priority) {
 		wl_display.SetLogLevel(level)
 	}
 	watchdog.SetLogLevel(level)
-}
-
-func loginReminder() {
-	if !_gSettingsConfig.loginReminder {
-		return
-	}
-
-	sysBus, _ := dbus.SystemBus()
-
-	uid := os.Getuid()
-	userPath := accountUserPath + strconv.Itoa(uid)
-
-	user, err := accounts.NewUser(sysBus, dbus.ObjectPath(userPath))
-	if err != nil {
-		logger.Warning("failed to get user:", err)
-	}
-
-	res, err := user.GetReminderInfo(0)
-	if err != nil {
-		logger.Warning("failed to get reminder info:", err)
-	}
-
-	currentLoginTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", res.CurrentLogin.Time)
-	if err != nil {
-		logger.Warning("wrong time format:", err)
-	}
-	currentLoginTimeStr := currentLoginTime.Format(loginReminderTimeFormat)
-
-	address := res.CurrentLogin.Address
-	if address == "0.0.0.0" {
-		// 若 IP 是「0.0.0.0」，获取当前设备的 IP
-		address = getFirstIPAddress()
-	}
-
-	body := fmt.Sprintf("%s %s %s", res.Username, address, currentLoginTimeStr)
-
-	// pam_unix/passverify.c
-	curDays := int(time.Now().Unix() / secondsPerDay)
-	daysLeft := res.Spent.LastChange + res.Spent.Max - curDays
-	if res.Spent.Max != -1 && res.Spent.Warn != -1 {
-		if res.Spent.Warn > daysLeft {
-			body += " " + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft)
-		}
-	}
-
-	body += "\n" + fmt.Sprintf(gettext.Tr("%d login failures since the last successful login"), res.FailCountSinceLastLogin)
-
-	bus, _ := dbus.SessionBus()
-	notifi := notifications.NewNotifications(bus)
-	sigLoop := dbusutil.NewSignalLoop(bus, 10)
-	sigLoop.Start()
-	notifi.InitSignalExt(sigLoop, true)
-
-	// TODO: icon
-	title := gettext.Tr("Login Reminder")
-	actions := []string{"details", gettext.Tr("Details")}
-	notifyId, err := notifi.Notify(0, "dde-control-center", 0, "preferences-system", title, body, actions, nil, 0)
-	if err != nil {
-		logger.Warningf("failed to send notify: %s", err)
-		return
-	}
-
-	_, err = notifi.ConnectActionInvoked(func(id uint32, actionKey string) {
-		if id != notifyId || actionKey != "details" {
-			return
-		}
-
-		lastLoginTime, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", res.LastLogin.Time)
-		if err != nil {
-			logger.Warning("wrong time format:", err)
-		}
-		lastLoginTimeStr := lastLoginTime.Format(loginReminderTimeFormat)
-
-		content := fmt.Sprintf("<p>%s</p>", res.Username)
-		content += fmt.Sprintf("<p>%s</p>", address)
-		content += "<p>" + fmt.Sprintf(gettext.Tr("Login time: %s"), currentLoginTimeStr) + "</p>"
-		content += "<p>" + fmt.Sprintf(gettext.Tr("Last login: %s"), lastLoginTimeStr) + "</p>"
-		content += "<p><b>" + fmt.Sprintf(gettext.Tr("Your password will expire in %d days"), daysLeft) + "</b></p>"
-		content += "<br>"
-		content += "<p>" + fmt.Sprintf(gettext.Tr("%d login failures since the last successful login"), res.FailCountSinceLastLogin) + "</p>"
-
-		cmd := exec.Command(cmdDdeHintsDialog, title, content)
-		err = cmd.Start()
-		if err != nil {
-			logger.Warning("failed to start dde-hints-dialog:", err)
-			return
-		}
-
-		go func() {
-			err = cmd.Wait()
-			if err != nil {
-				logger.Warning("failed to run dde-hints-dialog", err)
-				return
-			}
-		}()
-	})
-	if err != nil {
-		logger.Warning("connect to ActionInvoked failed:", err)
-	}
-
-	// 通知不显示在通知中心面板，故在时间到了后，关闭通知
-	time.AfterFunc(loginReminderTimeout, func() {
-		notifi.CloseNotification(0, notifyId)
-
-		notifi.RemoveAllHandlers()
-
-		sigLoop.Stop()
-	})
-}
-
-func getFirstIPAddress() string {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		panic(err)
-	}
-
-	for _, iface := range ifaces {
-		if iface.Name == "lo" {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			logger.Warningf("failed to get address of %s: %s", iface.Name, err)
-			continue
-		}
-
-		for _, addr := range addrs {
-			// remove the netmask
-			return strings.Split(addr.String(), "/")[0]
-		}
-	}
-
-	return "127.0.0.1"
 }
