@@ -284,6 +284,11 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeString,
 		xsKey:  "Gdk/PrimaryMonitorName",
 	},
+	{
+		gsKey:  "primary-monitor-rect",
+		gsType: gsKeyTypeString,
+		xsKey:  "DDE/PrimaryMonitorRect",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
