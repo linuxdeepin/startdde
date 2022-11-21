@@ -73,6 +73,7 @@ const (
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
 	gsXSettingsPrimaryName       = "primary-monitor-name"
+	gsXSettingsPrimaryRect       = "primary-monitor-rect"
 	gsKeyCustomMode              = "current-custom-mode"
 	gsKeyColorTemperatureMode    = "color-temperature-mode"
 	gsKeyColorTemperatureManual  = "color-temperature-manual"
@@ -1002,43 +1003,73 @@ func (m *Manager) init() {
 	}
 
 	go func() {
-		// 每次设置过主屏后，都将此值同步到xsettings
+		// 每次设置过主屏和其rect区域后，都将此值同步到xsettings
 		bus, _ := dbus.SessionBus()
 		display := sessiondisplay.NewDisplay(bus)
 		sigLoop := dbusutil.NewSignalLoop(bus, 10)
 		sigLoop.Start()
 		display.InitSignalExt(sigLoop, true)
+		
 		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
 			if !hasValue {
 				return
 			}
 
-			// 保持主屏数据和xsettings同步
-			for _, key := range m.xSettingsGs.ListKeys() {
-				if gsXSettingsPrimaryName == key {
-					oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
-					if oldPrimary != primary {
-						m.xSettingsGs.SetString(gsXSettingsPrimaryName, primary)
-					}
-					return
+			// 保持主屏Name和xsettings同步
+			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryName) {
+				oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
+				if oldPrimary != primary {
+					m.xSettingsGs.SetString(gsXSettingsPrimaryName, primary)
 				}
+				return
 			}
 		})
 		if err != nil {
 			logger.Warning("connect to `Primary` property changed failed:", err)
 		}
 
-		// 启动后先同步一次
-		for _, key := range m.xSettingsGs.ListKeys() {
-			if gsXSettingsPrimaryName == key {
-				oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
-				if oldPrimary != m.Primary {
-					m.xSettingsGs.SetString(gsXSettingsPrimaryName, m.Primary)
+		err = display.PrimaryRect().ConnectChanged(func(hasValue bool, rect sessiondisplay.Rectangle) {
+			if !hasValue {
+				return
+			}
+
+			// 保持主屏Rect和xsettings同步
+			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
+				oldRect:= m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
+				if oldRect != rect2String(rect) {
+					m.xSettingsGs.SetString(gsXSettingsPrimaryRect, rect2String(rect))
 				}
 				return
 			}
+		})
+		if err != nil {
+			logger.Warning("connect to `PrimaryRect` property changed failed:", err)
+		}
+
+		// 启动后先同步一次
+		if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryName) {
+			oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
+			if oldPrimary != m.Primary {
+				m.xSettingsGs.SetString(gsXSettingsPrimaryName, m.Primary)
+			}
+			return
+		}
+		if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
+			oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
+			if oldRect != xrect2String(m.PrimaryRect) {
+				m.xSettingsGs.SetString(gsXSettingsPrimaryRect, xrect2String(m.PrimaryRect))
+			}
+			return
 		}
 	}()
+}
+
+func xrect2String(rect x.Rectangle) string {
+	return fmt.Sprintf("%d-%d-%d-%d", rect.X, rect.Y, rect.Width, rect.Height)
+}
+
+func rect2String(rect sessiondisplay.Rectangle) string {
+	return fmt.Sprintf("%d-%d-%d-%d", rect.X, rect.Y, rect.Width, rect.Height)
 }
 
 // calcRecommendedScaleFactor 计算推荐的缩放比
