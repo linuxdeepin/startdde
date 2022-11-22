@@ -14,13 +14,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	dbus "github.com/godbus/dbus"
-	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+	kwayland "github.com/linuxdeepin/go-dbus-factory/session/org.deepin.dde.kwayland1"
+	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/startdde/wl_display/brightness"
-	"github.com/linuxdeepin/go-gir/gio-2.0"
-	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 const (
@@ -54,12 +54,11 @@ const (
 )
 
 const (
-	gsSchemaxsettings = "com.deepin.xsettings" //"com.deepin.xsettings"
+	gsSchemaxsettings = "com.deepin.xsettings"
 )
 
 const (
-	gsSchemaClCenter = "com.deepin.dde.control-center"
-	gsKeyClCenter    = "effect-load"
+	gsKeyClCenter = "effect-load"
 )
 
 //go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client -type Manager,Monitor manager.go monitor.go

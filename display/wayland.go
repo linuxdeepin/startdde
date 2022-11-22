@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/godbus/dbus"
 	"github.com/davecgh/go-spew/spew"
-	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	"github.com/godbus/dbus"
+	kwayland "github.com/linuxdeepin/go-dbus-factory/session/org.deepin.dde.kwayland1"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 )
 
 type monitorIdGenerator struct {
@@ -111,8 +111,8 @@ const (
 )
 
 const (
-	gsSchemaXSettings            = "com.deepin.xsettings"
-	gsXSettingsPrimaryName       = "primary-monitor-name"
+	gsSchemaXSettings      = "com.deepin.xsettings"
+	gsXSettingsPrimaryName = "primary-monitor-name"
 )
 
 func (oi *KOutputInfo) getBestMode() ModeInfo {
@@ -326,9 +326,9 @@ type kMonitorManager struct {
 	monitorMap     map[uint32]*MonitorInfo
 	primary        uint32
 	// 键是 wayland 原始数据 model 字段处理过后的显示器名称，值是标准名。
-	stdNamesCache  map[string]string
+	stdNamesCache map[string]string
 
-	xSettingsGs    *gio.Settings
+	xSettingsGs *gio.Settings
 }
 
 func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
@@ -348,7 +348,7 @@ func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
 	return kmm
 }
 
-func (mm *kMonitorManager)syncPrimary() error {
+func (mm *kMonitorManager) syncPrimary() error {
 	logger.Info("syncPrimary", mm.primary)
 	monitor := mm.getMonitor(mm.primary)
 	if monitor == nil {
@@ -372,8 +372,8 @@ func (mm *kMonitorManager)syncPrimary() error {
 	if err != nil {
 		return err
 	}
-	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/Output")
-	err = sessionObj.Call("com.deepin.daemon.KWayland.Output.setPrimary", 0, monitor.Name).Store()
+	sessionObj := sessionBus.Object("org.deepin.dde.KWayland1", "/org/deepin/dde/KWayland1/Output")
+	err = sessionObj.Call("org.deepin.dde.KWayland1.Output.setPrimary", 0, monitor.Name).Store()
 	if err != nil {
 		logger.Warning(err)
 		return err

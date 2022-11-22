@@ -2,7 +2,7 @@ package watchdog
 
 const (
 	ddeLockTaskName    = "dde-lock"
-	ddeLockServiceName = "com.deepin.dde.lockFront"
+	ddeLockServiceName = "org.deepin.dde.LockFront1"
 )
 
 func launchDdeLock() error {

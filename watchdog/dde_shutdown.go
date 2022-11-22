@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	ddeShutdownServiceName = "com.deepin.dde.shutdownFront"
+	ddeShutdownServiceName = "org.deepin.dde.ShutdownFront1"
 	ddeShutdownCommand     = "dde-shutdown"
 	ddeShutdownTaskName    = ddeShutdownCommand
 )

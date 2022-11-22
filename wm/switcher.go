@@ -27,17 +27,17 @@ import (
 	"sync"
 
 	dbus "github.com/godbus/dbus"
-	osd "github.com/linuxdeepin/go-dbus-factory/com.deepin.dde.osd"
-	libwm "github.com/linuxdeepin/go-dbus-factory/com.deepin.wm"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
+	libwm "github.com/linuxdeepin/go-dbus-factory/session/com.deepin.wm"
+	osd "github.com/linuxdeepin/go-dbus-factory/session/org.deepin.dde.osd1"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/util/wm/ewmh"
 )
 
 const (
-	swDBusDest = "com.deepin.WMSwitcher"
-	swDBusPath = "/com/deepin/WMSwitcher"
+	swDBusDest = "org.deepin.dde.WMSwitcher1"
+	swDBusPath = "/org/deepin/dde/WMSwitcher1"
 	swDBusIFC  = swDBusDest
 
 	deepin3DWM = "deepin-wm"
@@ -391,8 +391,8 @@ func (s *Switcher) runWM(wm string, replace bool) error {
 	if replace {
 		args = append(args, "--replace")
 	}
-	obj := conn.Object("com.deepin.SessionManager", "/com/deepin/StartManager")
-	err = obj.Call("com.deepin.StartManager.RunCommand", 0,
+	obj := conn.Object("org.deepin.dde.SessionManager1", "/org/deepin/dde/StartManager1")
+	err = obj.Call("org.deepin.dde.StartManager1.RunCommand", 0,
 		"env", args).Store()
 	if err != nil {
 		return err

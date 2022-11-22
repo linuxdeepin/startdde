@@ -24,11 +24,11 @@ import (
 	"fmt"
 
 	"github.com/godbus/dbus"
-	backlight "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.helper.backlight1"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	backlight "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.backlighthelper1"
 	displayBl "github.com/linuxdeepin/go-lib/backlight/display"
 	"github.com/linuxdeepin/go-lib/log"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 const (
@@ -118,8 +118,8 @@ func setBrigntnessByKwin(output string, value float64) error {
 	if err != nil {
 		return err
 	}
-	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/Output")
-	err = sessionObj.Call("com.deepin.daemon.KWayland.Output.setBrightness", 0, output, int32(value*100)).Store()
+	sessionObj := sessionBus.Object("org.deepin.dde.KWayland1", "/org/deepin/dde/KWayland1/Output")
+	err = sessionObj.Call("org.deepin.dde.KWayland1.Output.setBrightness", 0, output, int32(value*100)).Store()
 	if err != nil {
 		logger.Warning(err)
 		return err

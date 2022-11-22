@@ -21,7 +21,7 @@ package watchdog
 
 const (
 	ddeDockTaskName    = "dde-dock"
-	ddeDockServiceName = "com.deepin.dde.Dock"
+	ddeDockServiceName = "org.deepin.dde.Dock1"
 	ddeDockCommand     = "dde-dock"
 )
 

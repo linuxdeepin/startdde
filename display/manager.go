@@ -19,11 +19,11 @@ import (
 	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/dxinput"
 	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
-	dgesture "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.gesture"
-	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
-	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
-	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.display1"
+	dgesture "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.gesture1"
+	inputdevices "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.inputdevices1"
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
@@ -54,6 +54,7 @@ const (
 )
 
 const (
+	// "com.deepin.SensorProxy" 内核提供的服务
 	sensorProxyInterface       = "com.deepin.SensorProxy"
 	sensorProxyPath            = "/com/deepin/SensorProxy"
 	sensorProxySignalName      = "RotationValueChanged"

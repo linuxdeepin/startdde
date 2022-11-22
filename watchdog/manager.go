@@ -22,7 +22,7 @@ package watchdog
 import (
 	"time"
 
-	"github.com/linuxdeepin/go-gir/gio-2.0"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	dutils "github.com/linuxdeepin/go-lib/utils"
 )

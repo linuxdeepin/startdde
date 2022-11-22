@@ -9,9 +9,9 @@ import (
 var logger = log.NewLogger("daemon/wl_display")
 
 const (
-	dbusServiceName = "com.deepin.daemon.Display"
-	dbusInterface   = "com.deepin.daemon.Display"
-	dbusPath        = "/com/deepin/daemon/Display"
+	dbusServiceName = "org.deepin.dde.Display1"
+	dbusInterface   = "org.deepin.dde.Display1"
+	dbusPath        = "/org/deepin/dde/Display1"
 )
 
 var _dpy *Manager

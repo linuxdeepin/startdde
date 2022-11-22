@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/godbus/dbus"
-	hostname1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.hostname1"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	hostname1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.hostname1"
 	"github.com/linuxdeepin/go-gir/gudev-1.0"
 	"github.com/linuxdeepin/go-lib/utils"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 func getRotations(origin uint16) []uint16 {
@@ -144,7 +144,7 @@ func getMonitorsCommonSizes(monitors []*Monitor) []Size {
 
 	var commonSizes []Size
 	if !notUseBestMode {
-		return []Size{ {bestMode.Width,bestMode.Height} }
+		return []Size{{bestMode.Width, bestMode.Height}}
 	}
 
 	for size, value := range count {

@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/godbus/dbus"
-	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.display1"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"
 )
@@ -13,9 +13,9 @@ import (
 var logger = log.NewLogger("daemon/display")
 
 const (
-	dbusServiceName = "com.deepin.daemon.Display"
-	dbusInterface   = "com.deepin.daemon.Display"
-	dbusPath        = "/com/deepin/daemon/Display"
+	dbusServiceName = "org.deepin.dde.Display1"
+	dbusInterface   = "org.deepin.dde.Display1"
+	dbusPath        = "/org/deepin/dde/Display1"
 )
 
 var _dpy *Manager

@@ -29,8 +29,8 @@ import (
 	"path/filepath"
 
 	dbus1 "github.com/godbus/dbus"
-	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
 	"github.com/linuxdeepin/dde-api/soundutils"
+	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.soundthemeplayer1"
 	"github.com/linuxdeepin/go-lib/pulse"
 )
 
@@ -137,9 +137,9 @@ func initSoundThemePlayer() {
 }
 
 const (
-	audioInterface   = "org.deepin.daemon.Audio1"
+	audioInterface   = "org.deepin.dde.Audio1"
 	audioServiceName = audioInterface
-	audioPath        = "/org/deepin/daemon/Audio1"
+	audioPath        = "/org/deepin/dde/Audio1"
 )
 
 func startPulseAudio() error {

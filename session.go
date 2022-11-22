@@ -32,12 +32,12 @@ import (
 
 	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
-	daemon "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.daemon1"
-	powermanager "github.com/linuxdeepin/go-dbus-factory/org.deepin.daemon.powermanager1"
-	sysbt "github.com/linuxdeepin/go-dbus-factory/org.deepin.system.bluetooth1"
-	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
-	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
+	sysbt "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.bluetooth1"
+	daemon "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.daemon1"
+	powermanager "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.powermanager1"
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
+	systemd1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.systemd1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/cgroup"
@@ -102,9 +102,9 @@ type SessionManager struct {
 
 const (
 	cmdShutdown      = "/usr/bin/dde-shutdown"
-	lockFrontDest    = "com.deepin.dde.lockFront"
+	lockFrontDest    = "org.deepin.dde.LockFront1"
 	lockFrontIfc     = lockFrontDest
-	lockFrontObjPath = "/com/deepin/dde/lockFront"
+	lockFrontObjPath = "/org/deepin/dde/LockFront1"
 )
 
 const (
@@ -545,8 +545,8 @@ func callSwapSchedHelperPrepare(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	const dest = "org.deepin.daemon.SwapSchedHelper1"
-	obj := sysBus.Object(dest, "/org/deepin/daemon/SwapSchedHelper1")
+	const dest = "org.deepin.dde.SwapSchedHelper1"
+	obj := sysBus.Object(dest, "/org/deepin/dde/SwapSchedHelper1")
 	return obj.Call(dest+".Prepare", 0, sessionID).Store()
 }
 
@@ -999,7 +999,7 @@ func (m *SessionManager) emitSignalUnlock() {
 func (m *SessionManager) killLockFront() error {
 	sessionBus := m.service.Conn()
 	dbusDaemon := ofdbus.NewDBus(sessionBus)
-	owner, err := dbusDaemon.GetNameOwner(0, "com.deepin.dde.lockFront")
+	owner, err := dbusDaemon.GetNameOwner(0, "org.deepin.dde.LockFront1")
 	if err != nil {
 		return err
 	}

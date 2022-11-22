@@ -106,7 +106,7 @@ func (m *Manager) listenDBusSignals() error {
 		return err
 	}
 
-	rule = "type='signal',interface='com.deepin.WMSwitcher',member='WMChanged'"
+	rule = "type='signal',interface='org.deepin.dde.WMSwitcher1',member='WMChanged'"
 	err = bus.BusObject().Call(orgFreedesktopDBus+".AddMatch", 0, rule).Err
 	if err != nil {
 		return err
@@ -163,8 +163,8 @@ func (m *Manager) listenDBusSignals() error {
 					}
 					logger.Debugf("exe: %q", exe)
 				}
-			} else if signal.Name == "com.deepin.WMSwitcher.WMChanged" &&
-				signal.Path == "/com/deepin/WMSwitcher" && len(signal.Body) == 1 {
+			} else if signal.Name == "org.deepin.dde.WMSwitcher1.WMChanged" &&
+				signal.Path == "/org/deepindde/WMSwitcher1" && len(signal.Body) == 1 {
 				name, ok := signal.Body[0].(string)
 				if !ok {
 					continue

@@ -30,8 +30,8 @@ func launchWM() error {
 		return err
 	}
 
-	obj := conn.Object("com.deepin.WMSwitcher", "/com/deepin/WMSwitcher")
-	err = obj.Call("com.deepin.WMSwitcher.Start2DWM", 0).Store()
+	obj := conn.Object("org.deepin.dde.WMSwitcher1", "/org/deepin/dde/WMSwitcher1")
+	err = obj.Call("org.deepin.dde.WMSwitcher1.Start2DWM", 0).Store()
 	if err != nil {
 		return err
 	}
