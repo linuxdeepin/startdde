@@ -33,14 +33,15 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
+
 	// "github.com/linuxdeepin/startdde/watchdog"
-	wl_display "github.com/linuxdeepin/startdde/wl_display"
-	"github.com/linuxdeepin/startdde/xsettings"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gettext"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/proxy"
+	wl_display "github.com/linuxdeepin/startdde/wl_display"
+	"github.com/linuxdeepin/startdde/xsettings"
 )
 
 var logger = log.NewLogger("startdde")
@@ -200,9 +201,11 @@ func main() {
 		logger.Info("iowait disabled")
 	}
 
-	logger.Info("systemd-notify --ready")
-	cmd := exec.Command("systemd-notify", "--ready")
-	cmd.Start()
+	go func() {
+		logger.Info("systemd-notify --ready")
+		cmd := exec.Command("systemd-notify", "--ready")
+		cmd.Run()
+	}()
 
 	service.Wait()
 }
