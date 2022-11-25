@@ -268,6 +268,19 @@ func (oi *OutputInfo) PreferredMode() randr.Mode {
 	return (*randr.GetOutputInfoReply)(oi).GetPreferredMode()
 }
 
+// 屏蔽Interlace, DoubleScan等
+func (m *xMonitorManager) getModeInfos(modes []randr.ModeInfo) []randr.ModeInfo {
+	var result []randr.ModeInfo
+	for _, mode := range modes {
+		if (mode.ModeFlags & randr.ModeFlagDoubleScan) != 0 ||
+			(mode.ModeFlags & randr.ModeFlagInterlace) != 0 {
+			logger.Info("tip randr getModeInfo ModeFlagDoubleScan or ModeFlagDoubleScan")
+		} else {
+			result = append(result, mode)
+		}
+	}
+	return result
+}
 func (mm *xMonitorManager) init() error {
 	if !mm.hasRandr1d2 {
 		return nil
@@ -278,7 +291,7 @@ func (mm *xMonitorManager) init() error {
 		return err
 	}
 	mm.cfgTs = resources.ConfigTimestamp
-	mm.modes = resources.Modes
+	mm.modes = mm.getModeInfos(resources.Modes)
 
 	for _, outputId := range resources.Outputs {
 		reply, err := mm.getOutputInfo(outputId)
@@ -1262,7 +1275,7 @@ func (mm *xMonitorManager) handleScreenChanged(e *randr.ScreenChangeNotifyEvent)
 		return
 	}
 	mm.cfgTs = resources.ConfigTimestamp
-	mm.modes = resources.Modes
+	mm.modes = mm.getModeInfos(resources.Modes)
 
 	mm.outputs = make(map[randr.Output]*OutputInfo)
 	for _, outputId := range resources.Outputs {
