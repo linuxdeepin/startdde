@@ -20,13 +20,13 @@ import (
 
 	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
+	xeventmonitor "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.xeventmonitor"
 	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
 	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
 	sysbt "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.bluetooth"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
-	xeventmonitor "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.xeventmonitor"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -690,7 +690,7 @@ func (m *SessionManager) startWMSwitcher() {
 }
 
 func (m *SessionManager) launchDDE() {
-	versionChanged, err := isDeepinVersionChanged()
+	versionChanged, err := isOSVersionChanged()
 	if err != nil {
 		logger.Warning("failed to get deepin version changed:", err)
 	}
@@ -1027,14 +1027,14 @@ func startIMFcitx() {
 	}
 }
 
-func isDeepinVersionChanged() (changed bool, err error) {
+func isOSVersionChanged() (changed bool, err error) {
 	kfDeepinVersion := keyfile.NewKeyFile()
-	err = kfDeepinVersion.LoadFromFile("/etc/deepin-version")
+	err = kfDeepinVersion.LoadFromFile("/etc/os-version")
 	if err != nil {
 		return
 	}
 
-	v0, err := kfDeepinVersion.GetString("Release", "Version")
+	v0, err := kfDeepinVersion.GetString("Version", "MinorVersion")
 	if err != nil {
 		return
 	}
