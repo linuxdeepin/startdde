@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/linuxdeepin/go-lib/strv"
 	"github.com/linuxdeepin/startdde/display/brightness"
 )
 
@@ -158,8 +159,10 @@ func (m *Manager) isBuiltinMonitor(name string) bool {
 	case strings.HasPrefix(name, "vga"):
 		return false
 	case strings.HasPrefix(name, "hdmi"):
+		if strv.Strv(m.dsHDMIIsBuiltinConfig).Contains(m.dmiInfo.ProductName) {
+			return true
+		}
 		return false
-
 	case strings.HasPrefix(name, "dvi"):
 		return true
 	case strings.HasPrefix(name, "lvds"):
