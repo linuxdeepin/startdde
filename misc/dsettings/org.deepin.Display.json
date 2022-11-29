@@ -1,0 +1,28 @@
+{
+  "magic": "dsg.config.meta",
+  "version": "1.0",
+  "contents": {
+    "HDMI-is-builtin": {
+      "value": ["PN100F3"],
+      "serial": 0,
+      "flags": [
+        "global"
+      ],
+      "name": "HDMI screen is builtin screen",
+      "description": "",
+      "permissions": "readwrite",
+      "visibility": "private"
+    },
+    "backLight-max-brightness-choose-big": {
+      "value": ["PN100F3"],
+      "serial": 0,
+      "flags": [
+        "global"
+      ],
+      "name": "backLight max brightness choose big",
+      "description": "",
+      "permissions": "readwrite",
+      "visibility": "private"
+    }
+  }
+}

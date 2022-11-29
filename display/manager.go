@@ -23,15 +23,19 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
+	"github.com/jouyouyun/hardware/graphic"
 	sessiondisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
 	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
+	systeminfo "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.systeminfo"
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
+	"github.com/linuxdeepin/go-lib/strv"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -97,6 +101,13 @@ const (
 	priorityDVI
 	priorityVGA
 	priorityOther
+)
+
+const (
+	DSettingsAppID                                    = "org.deepin.startdde"
+	DSettingsDisplayName                              = "org.deepin.Display"
+	DSettingsKeyHDMIIsBuiltinConfig                   = "HDMI-is-builtin"
+	DSettingsKeyBackLightMaxBrightnessChooseBigConfig = "backLight-max-brightness-choose-big"
 )
 
 var (
@@ -219,6 +230,11 @@ type Manager struct {
 	unsupportGammaDrmList []string
 	drmSupportGamma       bool
 	initPrimary           bool
+
+	DsHDMIIsBuiltinConfig                   []string           `prop:"-"`
+	DsBackLightMaxBrightnessChooseBigConfig []string           `prop:"-"`
+	DmiInfo                                 systeminfo.DMIInfo `prop:"-"`
+	PciVendor                               []string           `prop:"-"`
 }
 
 type monitorSizeInfo struct {
@@ -285,7 +301,7 @@ func newManager(service *dbusutil.Service) *Manager {
 
 	m.mm.setHooks(m)
 
-	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
+	m.setPropMaxBacklightBrightness(uint32(m.GetMaxBacklightBrightness()))
 
 	sysSigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
 	m.sysSigLoop = sysSigLoop
@@ -1001,7 +1017,8 @@ func (m *Manager) init() {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
 	}
-
+	m.initDSettings(m.sysBus)
+	m.initHardwareInfo(m.sysBus)
 	go func() {
 		// 每次设置过主屏和其rect区域后，都将此值同步到xsettings
 		bus, _ := dbus.SessionBus()
@@ -1009,7 +1026,7 @@ func (m *Manager) init() {
 		sigLoop := dbusutil.NewSignalLoop(bus, 10)
 		sigLoop.Start()
 		display.InitSignalExt(sigLoop, true)
-		
+
 		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
 			if !hasValue {
 				return
@@ -1035,7 +1052,7 @@ func (m *Manager) init() {
 
 			// 保持主屏Rect和xsettings同步
 			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
-				oldRect:= m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
+				oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
 				if oldRect != rect2String(rect) {
 					m.xSettingsGs.SetString(gsXSettingsPrimaryRect, rect2String(rect))
 				}
@@ -2938,4 +2955,98 @@ func (m *Manager) detectDrmSupportGamma() (bool, error) {
 		}
 	}
 	return vgaSupportGamma, nil
+}
+
+func (m *Manager) initDSettings(sysBus *dbus.Conn) {
+	ds := configManager.NewConfigManager(sysBus)
+
+	displayPath, err := ds.AcquireManager(0, DSettingsAppID, DSettingsDisplayName, "")
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	dsDisplay, err := configManager.NewManager(sysBus, displayPath)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	getHDMIIsBuiltinConfig := func() {
+		v, err := dsDisplay.Value(0, DSettingsKeyHDMIIsBuiltinConfig)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		itemList := v.Value().([]dbus.Variant)
+		for _, i := range itemList {
+			m.DsHDMIIsBuiltinConfig = append(m.DsHDMIIsBuiltinConfig, i.Value().(string))
+		}
+	}
+	getBackLightMaxBrightnessChooseBigConfig := func() {
+		v, err := dsDisplay.Value(0, DSettingsKeyBackLightMaxBrightnessChooseBigConfig)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		itemList := v.Value().([]dbus.Variant)
+		for _, i := range itemList {
+			m.DsBackLightMaxBrightnessChooseBigConfig = append(m.DsBackLightMaxBrightnessChooseBigConfig, i.Value().(string))
+		}
+	}
+	getHDMIIsBuiltinConfig()
+	getBackLightMaxBrightnessChooseBigConfig()
+
+	dsDisplay.InitSignalExt(m.sysSigLoop, true)
+	_, err = dsDisplay.ConnectValueChanged(func(key string) {
+		switch key {
+		case DSettingsKeyHDMIIsBuiltinConfig:
+			getHDMIIsBuiltinConfig()
+		case DSettingsKeyBackLightMaxBrightnessChooseBigConfig:
+			getBackLightMaxBrightnessChooseBigConfig()
+		}
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
+func (m *Manager) initHardwareInfo(sysBus *dbus.Conn) {
+	info := systeminfo.NewSystemInfo(sysBus)
+	dmi, err := info.DMIInfo().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	m.DmiInfo = dmi
+	graphicList, err := graphic.GetGraphicList()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	for _, graphicInfo := range graphicList {
+		m.PciVendor = append(m.PciVendor, graphicInfo.Vendor)
+	}
+}
+
+func (m *Manager) GetMaxBacklightBrightness() int {
+	controllers := brightness.Controllers
+	if len(controllers) == 0 {
+		return 0
+	}
+	maxBrightness := controllers[0].MaxBrightness
+	if strv.Strv(m.DsBackLightMaxBrightnessChooseBigConfig).Contains(m.DmiInfo.ProductName) {
+		for _, controller := range controllers {
+			if maxBrightness < controller.MaxBrightness {
+				maxBrightness = controller.MaxBrightness
+			}
+		}
+	} else {
+		for _, controller := range controllers {
+			if maxBrightness > controller.MaxBrightness {
+				maxBrightness = controller.MaxBrightness
+			}
+		}
+	}
+	return maxBrightness
 }
