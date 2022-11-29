@@ -33,6 +33,7 @@ prepare() {
   go get -v gopkg.in/yaml.v3
   go get -v github.com/davecgh/go-spew/spew
   go get -v github.com/stretchr/testify
+  go get -v github.com/jouyouyun/hardware
   sed -i 's/sbin/bin/' Makefile
 }
 
