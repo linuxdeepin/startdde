@@ -123,19 +123,6 @@ func Set(brightness float64, temperature int, setter string, isBuiltin bool, out
 //	return 1, nil
 //}
 
-func GetMaxBacklightBrightness() int {
-	if len(controllers) == 0 {
-		return 0
-	}
-	maxBrightness := controllers[0].MaxBrightness
-	for _, controller := range controllers {
-		if maxBrightness > controller.MaxBrightness {
-			maxBrightness = controller.MaxBrightness
-		}
-	}
-	return maxBrightness
-}
-
 func GetBacklightController(outputId uint32, conn *x.Conn) (*displayBl.Controller, error) {
 	// TODO
 	//output := randr.Output(outputId)
@@ -147,7 +134,7 @@ func supportBacklight() bool {
 	if helper == nil {
 		return false
 	}
-	return len(controllers) > 0
+	return len(Controllers) > 0
 }
 
 func setOutputCrtcGamma(setting gammaSetting, output randr.Output, conn *x.Conn) error {
@@ -210,18 +197,18 @@ func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {
 	return
 }
 
-var controllers displayBl.Controllers
+var Controllers displayBl.Controllers
 
 func init() {
 	var err error
-	controllers, err = displayBl.List()
+	Controllers, err = displayBl.List()
 	if err != nil {
 		fmt.Println("failed to list backlight controller:", err)
 	}
 }
 
 func setBacklight(value float64, output randr.Output, conn *x.Conn) error {
-	for _, controller := range controllers {
+	for _, controller := range Controllers {
 		err := _setBacklight(value, controller)
 		if err != nil {
 			fmt.Printf("WARN: failed to set backlight %s: %v", controller.Name, err)
