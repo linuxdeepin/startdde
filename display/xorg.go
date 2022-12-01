@@ -392,15 +392,14 @@ func (mm *xMonitorManager) doDiff() {
 		}
 	}
 	newMap := toMonitorInfoMap(newMonitors)
-	if len(newMonitors) < len(oldMonitors) {
-		for k, monitor := range oldMonitors {
-			_, ok := newMap[k]
-			if !ok {
-				// 需要移除的monitor
-				mm.mu.Unlock()
-				mm.hooks.handleMonitorRemoved(monitor.ID)
-				mm.mu.Lock()
-			}
+	for k, monitor := range oldMonitors {
+		_, ok := newMap[k]
+		if !ok {
+			// 需要移除的monitor
+			mm.mu.Unlock()
+			logger.Info("remove monitor:", monitor.ID)
+			mm.hooks.handleMonitorRemoved(monitor.ID)
+			mm.mu.Lock()
 		}
 	}
 }
