@@ -1009,7 +1009,7 @@ func (m *Manager) init() {
 		sigLoop := dbusutil.NewSignalLoop(bus, 10)
 		sigLoop.Start()
 		display.InitSignalExt(sigLoop, true)
-		
+
 		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
 			if !hasValue {
 				return
@@ -1035,7 +1035,7 @@ func (m *Manager) init() {
 
 			// 保持主屏Rect和xsettings同步
 			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
-				oldRect:= m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
+				oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
 				if oldRect != rect2String(rect) {
 					m.xSettingsGs.SetString(gsXSettingsPrimaryRect, rect2String(rect))
 				}
@@ -1570,8 +1570,10 @@ func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
 	if (m.DisplayMode == DisplayModeMirror) && (len(m.monitorMap) > 1) && m.initPrimary {
 		return
 	}
-	m.setPropPrimary(pmi.Name)
-	m.setPropPrimaryRect(pmi.getRect())
+	if pmi != nil {
+		m.setPropPrimary(pmi.Name)
+		m.setPropPrimaryRect(pmi.getRect())
+	}
 }
 
 func (m *Manager) setPrimary(name string) error {
