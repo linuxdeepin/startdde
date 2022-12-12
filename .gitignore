@@ -36,3 +36,4 @@ coverage.csv
 cover_report
 
 .idea
+out/
