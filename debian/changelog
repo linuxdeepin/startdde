@@ -1,3 +1,17 @@
+startdde (6.0.3.1) unstable; urgency=medium
+
+  [ TagBuilder ]
+  * feat: 迁移sessionManager服务接口(Task: 203055)(Influence: 关机注销登录重启等功能)
+  * feat: 迁移WMSwitcher服务接口(Task: 203055)(Influence: 特效的开启关闭)
+  * feat: 迁移LoginReminder功能(Task: 203055)(Influence: 登录后弹窗通知登录信息，例如密码有效天数)
+  * chore: 删除已经迁移的功能(Task: 203055)(Influence: 无)
+  * chore: 优化避免产生僵尸进程(Task: 219131)(Influence: 优化)
+  * feat: 接口更变，增加V23接口(Task: 207483)(Influence: 接口更变)
+  * chore: 添加依赖，预装DDE接口代理服务(Task: 207483)(Influence: 预装DDE接口代理服务)
+  * fix: 笔记本亮度无法调节问题修复(Task: 225039)(Influence: 笔记本亮度设置)
+
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Tue, 13 Dec 2022 20:31:49 +0800
+
 startdde (6.0.2) unstable; urgency=medium
 
   [ Deepin Packages Builder ]
