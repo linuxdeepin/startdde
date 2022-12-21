@@ -108,6 +108,9 @@ const (
 	DSettingsDisplayName                              = "org.deepin.Display"
 	DSettingsKeyHDMIIsBuiltinConfig                   = "HDMI-is-builtin"
 	DSettingsKeyBackLightMaxBrightnessChooseBigConfig = "backLight-max-brightness-choose-big"
+	DSettingsGreeterConfID                            = "org.deepin.dde.lightdm-deepin-greeter"
+	DSettingsGreeterConfName                          = "org.deepin.dde.lightdm-deepin-greeter"
+	DSettingsGreeterScaleFactor                       = "defaultScaleFactors"
 )
 
 var (
@@ -1089,10 +1092,37 @@ func rect2String(rect sessiondisplay.Rectangle) string {
 	return fmt.Sprintf("%d-%d-%d-%d", rect.X, rect.Y, rect.Width, rect.Height)
 }
 
+// 获取org.deepin.dde.lightdm-deepin-greeter的默认缩放比
+func getGreeterScaleFactor() float64 {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return 1.0
+	}
+	ds := configManager.NewConfigManager(sysBus)
+	greeterConfPath, err := ds.AcquireManager(0, DSettingsGreeterConfID, DSettingsGreeterConfName, "")
+	if err != nil {
+		logger.Warning(err)
+		return 1.0
+	}
+	dsManager, err := configManager.NewManager(sysBus, greeterConfPath)
+	if err != nil {
+		logger.Warning(err)
+		return 1.0
+	}
+	v, err := dsManager.Value(0, DSettingsGreeterScaleFactor)
+	if err != nil {
+		logger.Warning(err)
+		return 1.0
+	}
+	logger.Debug("greeter scaleFactor:", v.Value().(float64))
+	return v.Value().(float64)
+}
+
 // calcRecommendedScaleFactor 计算推荐的缩放比
 func calcRecommendedScaleFactor(widthPx, heightPx, widthMm, heightMm float64) float64 {
 	if widthMm == 0 || heightMm == 0 {
-		return 1
+		return getGreeterScaleFactor()
 	}
 
 	lenPx := math.Hypot(widthPx, heightPx)
