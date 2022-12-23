@@ -49,10 +49,8 @@ import (
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
 	"github.com/linuxdeepin/startdde/autostop"
-	"github.com/linuxdeepin/startdde/keyring"
 	"github.com/linuxdeepin/startdde/memchecker"
 	"github.com/linuxdeepin/startdde/swapsched"
-	"github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/startdde/xcursor"
 )
 
@@ -513,24 +511,6 @@ func (m *SessionManager) setLocked(value bool) {
 		}
 	}
 	m.mu.Unlock()
-
-	watchdogManager := watchdog.GetManager()
-	if watchdogManager != nil {
-		task := watchdogManager.GetTask("dde-lock")
-		if task != nil {
-			if value {
-				if task.GetFailed() {
-					task.Reset()
-				}
-			} else {
-				task.Reset()
-			}
-		} else {
-			logger.Warning("not found task dde-lock")
-		}
-	} else {
-		logger.Warning("watchdogManager is nil")
-	}
 }
 
 func (m *SessionManager) getLocked() bool {
@@ -801,10 +781,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 
 	go func() {
 		setLeftPtrCursor()
-		err := keyring.CheckLogin()
-		if err != nil {
-			logger.Warning("Failed to init keyring:", err)
-		}
 	}()
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
 	go m.launchAutostart()
