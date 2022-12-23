@@ -68,6 +68,10 @@ install:
 	mkdir -pv ${DESTDIR}${PREFIX}/share/locale
 	cp -r out/locale/* ${DESTDIR}${PREFIX}/share/locale
 
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-session-daemon.target.wants/
+	install -v -m0644 misc/systemd_task/dde-display-task-refresh-brightness.service $(DESTDIR)$(PREFIX)/lib/systemd/user/
+	ln -s $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-display-task-refresh-brightness.service $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-session-daemon.target.wants/dde-display-task-refresh-brightness.service
+
 
 clean:
 	rm -rf ${GOPATH_DIR}
