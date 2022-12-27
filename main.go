@@ -32,7 +32,6 @@ import (
 	dbus "github.com/godbus/dbus"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
-	"github.com/linuxdeepin/startdde/iowait"
 
 	// "github.com/linuxdeepin/startdde/watchdog"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -194,12 +193,6 @@ func main() {
 
 	sessionManager.start(xConn, sysSignalLoop, service)
 	// watchdog.Start(sessionManager.getLocked, _useKWin)
-
-	if _gSettingsConfig.iowaitEnabled {
-		go iowait.Start(logger)
-	} else {
-		logger.Info("iowait disabled")
-	}
 
 	go func() {
 		logger.Info("systemd-notify --ready")

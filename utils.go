@@ -211,7 +211,6 @@ func getAppIdByFilePath(file string, appDirs []string) string {
 
 type GSettingsConfig struct {
 	autoStartDelay       int32
-	iowaitEnabled        bool
 	memcheckerEnabled    bool
 	swapSchedEnabled     bool
 	wmCmd                string
@@ -223,7 +222,6 @@ func getGSettingsConfig() *GSettingsConfig {
 	gs := gio.NewSettings("com.deepin.dde.startdde")
 	cfg := &GSettingsConfig{
 		autoStartDelay:       gs.GetInt("autostart-delay"),
-		iowaitEnabled:        gs.GetBoolean("iowait-enabled"),
 		memcheckerEnabled:    gs.GetBoolean("memchecker-enabled"),
 		swapSchedEnabled:     gs.GetBoolean("swap-sched-enabled"),
 		wmCmd:                gs.GetString("wm-cmd"),
