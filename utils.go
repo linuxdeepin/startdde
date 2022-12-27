@@ -215,7 +215,6 @@ type GSettingsConfig struct {
 	swapSchedEnabled     bool
 	wmCmd                string
 	needQuickBlackScreen bool
-	loginReminder        bool
 }
 
 func getGSettingsConfig() *GSettingsConfig {
@@ -226,7 +225,6 @@ func getGSettingsConfig() *GSettingsConfig {
 		swapSchedEnabled:     gs.GetBoolean("swap-sched-enabled"),
 		wmCmd:                gs.GetString("wm-cmd"),
 		needQuickBlackScreen: gs.GetBoolean("quick-black-screen"),
-		loginReminder:        gs.GetBoolean("login-reminder"),
 	}
 	gs.Unref()
 	return cfg

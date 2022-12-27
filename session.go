@@ -38,7 +38,6 @@ import (
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.systemd1"
-	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/cgroup"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -48,10 +47,8 @@ import (
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
-	"github.com/linuxdeepin/startdde/autostop"
 	"github.com/linuxdeepin/startdde/memchecker"
 	"github.com/linuxdeepin/startdde/swapsched"
-	"github.com/linuxdeepin/startdde/xcursor"
 )
 
 const (
@@ -160,12 +157,12 @@ func stopRedshift() {
 }
 
 func (m *SessionManager) prepareLogout(force bool) {
-	if !force {
-		err := autostop.LaunchAutostopScripts(logger)
-		if err != nil {
-			logger.Warning("failed to run auto script:", err)
-		}
-	}
+	// if !force {
+	// 	err := autostop.LaunchAutostopScripts(logger)
+	// 	if err != nil {
+	// 		logger.Warning("failed to run auto script:", err)
+	// 	}
+	// }
 
 	killSogouImeWatchdog()
 	// kill process LangSelector ,because LangSelector will not be kill by common logout
@@ -779,9 +776,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 
 	m.launchDDE()
 
-	go func() {
-		setLeftPtrCursor()
-	}()
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
 	go m.launchAutostart()
 
@@ -862,19 +856,6 @@ func isDeepinVersionChanged() (changed bool, err error) {
 		saveConfig()
 	}
 	return
-}
-
-func setLeftPtrCursor() {
-	gs := gio.NewSettings("com.deepin.xsettings")
-	defer gs.Unref()
-
-	theme := gs.GetString("gtk-cursor-theme-name")
-	size := gs.GetInt("gtk-cursor-theme-size")
-
-	err := xcursor.LoadAndApply(theme, "left_ptr", int(size))
-	if err != nil {
-		logger.Warning(err)
-	}
 }
 
 func getLoginSession() (login1.Session, error) {

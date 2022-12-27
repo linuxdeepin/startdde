@@ -192,7 +192,6 @@ func main() {
 	sysSignalLoop.Start()
 
 	sessionManager.start(xConn, sysSignalLoop, service)
-	// watchdog.Start(sessionManager.getLocked, _useKWin)
 
 	go func() {
 		logger.Info("systemd-notify --ready")
