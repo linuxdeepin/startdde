@@ -23,6 +23,17 @@
       "description": "",
       "permissions": "readwrite",
       "visibility": "private"
+    },
+    "special-gpu-vendor-list": {
+      "value": ["1ed5:","1db7:"],
+      "serial": 0,
+      "flags": [
+        "global"
+      ],
+      "name": "special gpu vendor list",
+      "description": "",
+      "permissions": "readwrite",
+      "visibility": "private"
     }
   }
 }
