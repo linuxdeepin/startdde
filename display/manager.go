@@ -108,6 +108,7 @@ const (
 	DSettingsDisplayName                              = "org.deepin.Display"
 	DSettingsKeyHDMIIsBuiltinConfig                   = "HDMI-is-builtin"
 	DSettingsKeyBackLightMaxBrightnessChooseBigConfig = "backLight-max-brightness-choose-big"
+	DSettingsKeySpecialGPUVendorListConfig            = "special-gpu-vendor-list"
 )
 
 var (
@@ -235,6 +236,7 @@ type Manager struct {
 	dsBackLightMaxBrightnessChooseBigConfig []string
 	dmiInfo                                 systeminfo.DMIInfo
 	pciVendor                               []string
+	dsSpecialGPUVendorList                  []string
 }
 
 type monitorSizeInfo struct {
@@ -1026,7 +1028,7 @@ func (m *Manager) init() {
 		sigLoop := dbusutil.NewSignalLoop(bus, 10)
 		sigLoop.Start()
 		display.InitSignalExt(sigLoop, true)
-		
+
 		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
 			if !hasValue {
 				return
@@ -1052,7 +1054,7 @@ func (m *Manager) init() {
 
 			// 保持主屏Rect和xsettings同步
 			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
-				oldRect:= m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
+				oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
 				if oldRect != rect2String(rect) {
 					m.xSettingsGs.SetString(gsXSettingsPrimaryRect, rect2String(rect))
 				}
@@ -2944,14 +2946,20 @@ func (m *Manager) detectDrmSupportGamma() (bool, error) {
 		}
 	}
 	if !vgaSupportGamma {
-		args := []string{"-d 1ed5:"}
-		specifiedVendorInfo, err := getLspci(args)
-		if err != nil {
-			logger.Warning(err)
-			return false, err
-		}
-		if specifiedVendorInfo != "" {
-			vgaSupportGamma = true
+		// 部分显卡lspci没有VGA compatible controller相关数据，需要特殊处理
+		specialGPUVendorList := m.dsSpecialGPUVendorList
+		for _, vendor := range specialGPUVendorList {
+			args := []string{fmt.Sprintf("-d %s", vendor)}
+			specifiedVendorInfo, err := getLspci(args)
+			if err != nil {
+				logger.Warning(err)
+				vgaSupportGamma = false
+				continue
+			}
+			if specifiedVendorInfo != "" {
+				vgaSupportGamma = true
+				break
+			}
 		}
 	}
 	return vgaSupportGamma, nil
@@ -2994,8 +3002,20 @@ func (m *Manager) initDSettings(sysBus *dbus.Conn) {
 			m.dsBackLightMaxBrightnessChooseBigConfig = append(m.dsBackLightMaxBrightnessChooseBigConfig, i.Value().(string))
 		}
 	}
+	getSpecialGPUVendorList := func() {
+		v, err := dsDisplay.Value(0, DSettingsKeySpecialGPUVendorListConfig)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		itemList := v.Value().([]dbus.Variant)
+		for _, i := range itemList {
+			m.dsSpecialGPUVendorList = append(m.dsSpecialGPUVendorList, i.Value().(string))
+		}
+	}
 	getHDMIIsBuiltinConfig()
 	getBackLightMaxBrightnessChooseBigConfig()
+	getSpecialGPUVendorList()
 
 	dsDisplay.InitSignalExt(m.sysSigLoop, true)
 	_, err = dsDisplay.ConnectValueChanged(func(key string) {
@@ -3004,6 +3024,8 @@ func (m *Manager) initDSettings(sysBus *dbus.Conn) {
 			getHDMIIsBuiltinConfig()
 		case DSettingsKeyBackLightMaxBrightnessChooseBigConfig:
 			getBackLightMaxBrightnessChooseBigConfig()
+		case DSettingsKeySpecialGPUVendorListConfig:
+			getSpecialGPUVendorList()
 		}
 	})
 	if err != nil {
