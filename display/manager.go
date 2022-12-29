@@ -1443,6 +1443,14 @@ func (m *Manager) applyModeMirror(monitorsId monitorsId, monitorMap map[uint32]*
 			return
 		}
 	}
+	for _, config := range configs {
+		if config.X != 0 || config.Y != 0 {
+			logger.Warning("mirror config is wrong, correct the config")
+			needSaveCfg = true
+			config.X = 0
+			config.Y = 0
+		}
+	}
 
 	err = m.applySysMonitorConfigs(DisplayModeMirror, monitorsId, monitorMap, configs, options)
 	if err != nil {
