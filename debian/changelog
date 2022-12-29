@@ -1,3 +1,12 @@
+startdde (6.0.4) unstable; urgency=medium
+
+  [ TagBuilder ]
+  * chore: delete unused(Task: 230459)(Influence: null)
+  * chore: delete iowait(Task: 230459)(Influence: null)
+  * chore: delete autostop/wm/proxychains/xcursor(Task: 230459)(Influence: null)
+
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Thu, 29 Dec 2022 18:38:22 +0800
+
 startdde (6.0.3.1) unstable; urgency=medium
 
   [ TagBuilder ]
