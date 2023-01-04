@@ -1748,7 +1748,6 @@ func (m *Manager) buildConfigForModeOnlyOne(monitors Monitors, uuid string) (mon
 			//cfg.Reflect = 0
 			cfg.Brightness = 1
 			monitorCfgs = append(monitorCfgs, cfg)
-			return
 		}
 	}
 	return
@@ -1803,6 +1802,13 @@ func (m *Manager) applyModeOnlyOne(monitorsId monitorsId, monitorMap map[uint32]
 		configs, err = m.buildConfigForModeOnlyOne(monitors, uuid)
 		if err != nil {
 			return
+		}
+	}
+
+	if len(m.Monitors) > 1 && len(configs) > 1 && name != "" {
+		for _, config := range configs {
+			config.Enabled = config.Name == name
+			logger.Debug("update OnlyOneConfig", config)
 		}
 	}
 
