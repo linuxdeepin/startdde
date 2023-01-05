@@ -1,3 +1,9 @@
+startdde (5.9.62) UNRELEASED; urgency=medium
+
+  * update changelog for tag 5.9.62
+
+ -- Deepin Packages Builder <packages@deepin.com>  Mon, 01 Jan 2023 15:26:28 +0800
+
 startdde (3.0.7) stable; urgency=low
 
   * Autobuild Tag 3.0.7 
