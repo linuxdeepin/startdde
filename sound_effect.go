@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"sync"
 
 	dbus1 "github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
@@ -121,17 +122,21 @@ const (
 	audioPath        = "/com/deepin/daemon/Audio"
 )
 
-func startPulseAudio() error {
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", "pulseaudio.service").Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("systemctl", "--user", "start", "pulseaudio.service").Run()
-	if err != nil {
-		return err
-	}
+var startPulseAudioOnce sync.Once
 
-	return nil
+func startPulseAudio() {
+	startPulseAudioOnce.Do(func() {
+		err := exec.Command("systemctl", "--user", "--runtime", "unmask", "pulseaudio.service").Run()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		err = exec.Command("systemctl", "--user", "start", "pulseaudio.service").Run()
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+	})
 }
 
 func quitPulseAudio() {
