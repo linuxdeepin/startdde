@@ -294,6 +294,11 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeInt,
 		xsKey:  "Qt/ScrollBarPolicy",
 	},
+	{
+		gsKey:  "dtk-size-mode",
+		gsType: gsKeyTypeInt,
+		xsKey:  "DTK/SizeMode",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
