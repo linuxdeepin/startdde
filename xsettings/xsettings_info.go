@@ -289,6 +289,11 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeString,
 		xsKey:  "DDE/PrimaryMonitorRect",
 	},
+	{
+		gsKey:  "qt-scrollbar-policy",
+		gsType: gsKeyTypeInt,
+		xsKey:  "Qt/ScrollBarPolicy",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
