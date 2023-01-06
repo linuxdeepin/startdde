@@ -131,6 +131,7 @@ func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	if bin == "dde-session-daemon-part2" {
+		startPulseAudio()
 		return m.startSessionDaemonPart2()
 	}
 
