@@ -30,6 +30,7 @@ import (
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-lib/proxy"
 	x "github.com/linuxdeepin/go-x11-client"
+
 	"github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/iowait"
 	"github.com/linuxdeepin/startdde/watchdog"
@@ -374,13 +375,6 @@ func main() {
 	if err != nil {
 		logger.Warning("start display part1 failed:", err)
 	}
-
-	// NOTE: always start pulseaudio
-	err = startPulseAudio()
-	if err != nil {
-		logger.Warning("failed to start pulseaudio:", err)
-	}
-
 	launchCoreComponents(sessionManager)
 
 	// 启动 display 模块的后一部分
@@ -392,6 +386,8 @@ func main() {
 	}()
 
 	go func() {
+		// NOTE: always start pulseaudio
+		startPulseAudio()
 		initSoundThemePlayer()
 		playLoginSound()
 	}()
