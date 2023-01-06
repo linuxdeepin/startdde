@@ -39,6 +39,7 @@ import (
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+
 	"github.com/linuxdeepin/startdde/display/brightness"
 )
 
@@ -383,11 +384,12 @@ func newManager(service *dbusutil.Service) *Manager {
 	if err != nil {
 		logger.Warning(err)
 	}
-
-	m.drmSupportGamma, _ = m.detectDrmSupportGamma()
-	if m.drmSupportGamma {
-		m.setColorTempModeReal(ColorTemperatureModeNone)
-	}
+	go func() {
+		m.drmSupportGamma, _ = m.detectDrmSupportGamma()
+		if m.drmSupportGamma {
+			m.setColorTempModeReal(ColorTemperatureModeNone)
+		}
+	}()
 	return m
 }
 
