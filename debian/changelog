@@ -1,3 +1,9 @@
+startdde (5.10.2) unstable; urgency=low
+
+  * bump version to 5.10.2
+
+ -- lichangze <lichangze@uniontech.com>  Mon, 9 Jan 2023 16:20:17 +0000
+
 startdde (3.0.7) stable; urgency=low
 
   * Autobuild Tag 3.0.7 
