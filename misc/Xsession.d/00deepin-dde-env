@@ -22,6 +22,11 @@ if [ "$1" = "/usr/bin/startdde" ]; then
             export QT_LOGGING_RULES="*.debug=false"
         fi
     fi
+    # set DSG_DATA_DIRS
+    if [[ -d "/persistent/linglong/entries/share/dsg" ]];
+    then
+        export DSG_DATA_DIRS="$DSG_DATA_DIRS:/usr/share/dsg:/persistent/linglong/entries/share/dsg"
+    fi
     # set qt qpa platform type
     export QT_QPA_PLATFORM=xcb
     # control qml softwarecontext in loongson-drm
