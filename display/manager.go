@@ -1022,7 +1022,7 @@ func (m *Manager) init() {
 		logger.Info("built-in screen does not exist")
 	}
 	m.initDSettings(m.sysBus)
-	m.initHardwareInfo(m.sysBus)
+	go m.initHardwareInfo(m.sysBus)
 	go func() {
 		// 每次设置过主屏和其rect区域后，都将此值同步到xsettings
 		bus, _ := dbus.SessionBus()
