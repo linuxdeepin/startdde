@@ -1,3 +1,9 @@
+startdde (5.9.64) unstable; urgency=low
+
+  * bump version to 5.9.64
+
+ -- lichangze <lichangze@uniontech.com>  Wed, 11 Jan 2023 16:12:29 +0800
+
 startdde (5.9.63) unstable; urgency=low
 
   * bump version to 5.9.63
