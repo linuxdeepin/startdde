@@ -50,8 +50,6 @@ print_gopath: prepare
 
 install:
 	install -Dm755 startdde ${DESTDIR}${PREFIX}/bin/startdde
-	mkdir -p ${DESTDIR}${PREFIX}/share/xsessions
-	@for i in $(shell ls misc/xsessions/ | grep -E '*.in$$' );do sed 's|@PREFIX@|$(PREFIX)|g' misc/xsessions/$$i > ${DESTDIR}${PREFIX}/share/xsessions/$${i%.in}; done
 	install -Dm755 fix-xauthority-perm ${DESTDIR}${PREFIX}/sbin/deepin-fix-xauthority-perm
 	install -d -m755 ${DESTDIR}${PREFIX}/lib/deepin-daemon/
 	ln -sfv ../../bin/startdde ${DESTDIR}${PREFIX}/lib/deepin-daemon/greeter-display-daemon
@@ -71,6 +69,10 @@ install:
 
 	mkdir -pv ${DESTDIR}${PREFIX}/share/locale
 	cp -r out/locale/* ${DESTDIR}${PREFIX}/share/locale
+
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-session-daemon.target.wants/
+	install -v -m0644 misc/systemd_task/dde-display-task-refresh-brightness.service $(DESTDIR)$(PREFIX)/lib/systemd/user/
+	ln -s $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-display-task-refresh-brightness.service $(DESTDIR)$(PREFIX)/lib/systemd/user/dde-session-daemon.target.wants/dde-display-task-refresh-brightness.service
 
 
 clean:

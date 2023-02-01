@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	sessionManagerServiceName = "com.deepin.SessionManager"
-	sessionManagerPath        = "/com/deepin/SessionManager"
+	sessionManagerServiceName = "org.deepin.dde.SessionManager1"
+	sessionManagerPath        = "/org/deepin/dde/SessionManager1"
 	sessionManagerIfc         = sessionManagerServiceName
 )
 

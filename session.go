@@ -5,29 +5,24 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
-	daemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
-	powermanager "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.powermanager"
-	sysbt "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.bluetooth"
-	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
-	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
-	xeventmonitor "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.xeventmonitor"
-	gio "github.com/linuxdeepin/go-gir/gio-2.0"
+	sysbt "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.bluetooth1"
+	daemon "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.daemon1"
+	powermanager "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.powermanager1"
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
+	systemd1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.systemd1"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/keyfile"
@@ -36,12 +31,8 @@ import (
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/dpms"
-	"github.com/linuxdeepin/startdde/autostop"
-	"github.com/linuxdeepin/startdde/keyring"
-	"github.com/linuxdeepin/startdde/watchdog"
-	"github.com/linuxdeepin/startdde/wm_kwin"
-	"github.com/linuxdeepin/startdde/xcursor"
-	"github.com/linuxdeepin/startdde/xsettings"
+	"github.com/linuxdeepin/startdde/memchecker"
+	"github.com/linuxdeepin/startdde/swapsched"
 )
 
 const (
@@ -69,7 +60,6 @@ type SessionManager struct {
 	loginSession          login1.Session
 	dbusDaemon            ofdbus.DBus          // session bus daemon
 	sigLoop               *dbusutil.SignalLoop // session bus signal loop
-	inhibitManager        InhibitManager
 	powerManager          powermanager.PowerManager
 	sysBt                 sysbt.Bluetooth
 
@@ -91,9 +81,9 @@ type SessionManager struct {
 
 const (
 	cmdShutdown      = "/usr/bin/dde-shutdown"
-	lockFrontDest    = "com.deepin.dde.lockFront"
+	lockFrontDest    = "org.deepin.dde.LockFront1"
 	lockFrontIfc     = lockFrontDest
-	lockFrontObjPath = "/com/deepin/dde/lockFront"
+	lockFrontObjPath = "/org/deepin/dde/LockFront1"
 )
 
 const (
@@ -154,12 +144,12 @@ func stopRedshift() {
 }
 
 func (m *SessionManager) prepareLogout(force bool) {
-	if !force {
-		err := autostop.LaunchAutostopScripts(logger)
-		if err != nil {
-			logger.Warning("failed to run auto script:", err)
-		}
-	}
+	// if !force {
+	// 	err := autostop.LaunchAutostopScripts(logger)
+	// 	if err != nil {
+	// 		logger.Warning("failed to run auto script:", err)
+	// 	}
+	// }
 
 	killSogouImeWatchdog()
 	// kill process LangSelector ,because LangSelector will not be kill by common logout
@@ -510,24 +500,6 @@ func (m *SessionManager) setLocked(value bool) {
 		}
 	}
 	m.mu.Unlock()
-
-	watchdogManager := watchdog.GetManager()
-	if watchdogManager != nil {
-		task := watchdogManager.GetTask("dde-lock")
-		if task != nil {
-			if value {
-				if task.GetFailed() {
-					task.Reset()
-				}
-			} else {
-				task.Reset()
-			}
-		} else {
-			logger.Warning("not found task dde-lock")
-		}
-	} else {
-		logger.Warning("watchdogManager is nil")
-	}
 }
 
 func (m *SessionManager) getLocked() bool {
@@ -535,6 +507,16 @@ func (m *SessionManager) getLocked() bool {
 	v := m.Locked
 	m.mu.Unlock()
 	return v
+}
+
+func callSwapSchedHelperPrepare(sessionID string) error {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		return err
+	}
+	const dest = "org.deepin.dde.SwapSchedHelper1"
+	obj := sysBus.Object(dest, "/org/deepin/dde/SwapSchedHelper1")
+	return obj.Call(dest+".Prepare", 0, sessionID).Store()
 }
 
 func (m *SessionManager) initSession() {
@@ -600,12 +582,12 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	powerManager := powermanager.NewPowerManager(sysBus)
 	sysBt := sysbt.NewBluetooth(sysBus)
 	var objLoginSessionSelf login1.Session
-	sessionPath, err := objLogin.GetSessionByPID(0, 0)
+	sessionPath, err := getCurSessionPath()
 	if err != nil {
 		logger.Warning("failed to get current session path:", err)
 	} else {
 		logger.Info("session path:", sessionPath)
-		objLoginSessionSelf, err = login1.NewSession(sysBus, sessionPath)
+		objLoginSessionSelf, err = login1.NewSession(sysBus, dbus.ObjectPath(sessionPath))
 		if err != nil {
 			logger.Warning("login1.NewSession err:", err)
 		}
@@ -646,80 +628,9 @@ func (m *SessionManager) init() {
 		// 要保证 CurrentSessionPath 属性值的合法性
 		m.CurrentSessionPath = "/"
 	}
-
-	m.initInhibitManager()
-	m.listenDBusSignals()
-}
-
-func (manager *SessionManager) listenDBusSignals() {
-	_, err := manager.dbusDaemon.ConnectNameOwnerChanged(func(name string, oldOwner string, newOwner string) {
-		if newOwner == "" && oldOwner != "" && name == oldOwner &&
-			strings.HasPrefix(name, ":") {
-			// uniq name lost
-			ih := manager.inhibitManager.handleNameLost(name)
-			if ih != nil {
-				err := manager.service.StopExport(ih)
-				if err != nil {
-					logger.Warning(err)
-					return
-				}
-
-				err = manager.service.Emit(manager, signalInhibitorRemoved, ih.getPath())
-				if err != nil {
-					logger.Warning(err)
-				}
-			}
-		}
-	})
-	if err != nil {
-		logger.Warning(err)
-	}
-}
-
-func (m *SessionManager) startWMSwitcher() {
-	if _useWayland {
-		return
-	}
-	if _useKWin {
-		err := wm_kwin.Start(logger)
-		if err != nil {
-			logger.Warning(err)
-		}
-		return
-	}
 }
 
 func (m *SessionManager) launchDDE() {
-	versionChanged, err := isDeepinVersionChanged()
-	if err != nil {
-		logger.Warning("failed to get deepin version changed:", err)
-	}
-	if versionChanged {
-		err := showDDEWelcome()
-		if err != nil {
-			logger.Warning("failed to start dde-welcome:", err)
-		}
-	}
-
-	osdRunning, err := isOSDRunning()
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		if osdRunning {
-			if globalXSManager.NeedRestartOSD() {
-				logger.Info("Restart dde-osd")
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-			}
-		} else {
-			notificationsOwned, err := isNotificationsOwned()
-			if err != nil {
-				logger.Warning("failed to get org.freedesktop.Notifications status:", err)
-			} else if !notificationsOwned {
-				m.launch("/usr/lib/deepin-daemon/dde-osd", false)
-			}
-		}
-	}
-
 	groups, err := loadGroupFile()
 	if err != nil {
 		logger.Error("Failed to load launch group file:", err)
@@ -763,27 +674,6 @@ func (m *SessionManager) launchAutostart() {
 	m.setPropStage(SessionStageAppsEnd)
 }
 
-var _envVars = make(map[string]string, 17)
-
-// 在启动核心组件之前设置一些环境变量
-func setupEnvironments1() {
-	// Fixed: Set `GNOME_DESKTOP_SESSION_ID` to cheat `xdg-open`
-	_envVars["GNOME_DESKTOP_SESSION_ID"] = "this-is-deprecated"
-	_envVars["XDG_CURRENT_DESKTOP"] = "Deepin"
-
-	scaleFactor := xsettings.GetScaleFactor()
-	_envVars["QT_DBL_CLICK_DIST"] = strconv.Itoa(int(15 * scaleFactor))
-	_envVars["QT_LINUX_ACCESSIBILITY_ALWAYS_ON"] = "1"
-
-	// set scale factor for deepin wine apps
-	if scaleFactor != 1.0 {
-		_envVars[xsettings.EnvDeepinWineScale] = strconv.FormatFloat(
-			scaleFactor, 'f', 2, 64)
-	}
-
-	setEnvWithMap(_envVars)
-}
-
 func setEnvWithMap(envVars map[string]string) {
 	for key, value := range envVars {
 		logger.Debugf("set env %s = %q", key, value)
@@ -794,167 +684,6 @@ func setEnvWithMap(envVars map[string]string) {
 	}
 }
 
-func setupEnvironments2() {
-	// man gnome-keyring-daemon:
-	// The daemon will print out various environment variables which should be set
-	// in the user's environment, in order to interact with the daemon.
-	gnomeKeyringOutput, err := exec.Command("/usr/bin/gnome-keyring-daemon", "--start",
-		"--components=secrets,pkcs11,ssh").Output()
-	if err == nil {
-		lines := bytes.Split(gnomeKeyringOutput, []byte{'\n'})
-		for _, line := range lines {
-			keyValuePair := bytes.SplitN(line, []byte{'='}, 2)
-			if len(keyValuePair) != 2 {
-				continue
-			}
-
-			key := string(keyValuePair[0])
-			value := string(keyValuePair[1])
-			_envVars[key] = value
-
-			logger.Debugf("set env %s = %q", key, value)
-			err := os.Setenv(key, value)
-			if err != nil {
-				logger.Warning(err)
-			}
-		}
-	} else {
-		logger.Warning("exec gnome-keyring-daemon err:", err)
-	}
-
-	for _, envName := range []string{
-		"LANG",
-		"LANGUAGE",
-	} {
-		envValue, ok := os.LookupEnv(envName)
-		if ok {
-			_envVars[envName] = envValue
-		}
-	}
-
-	updateDBusEnv()
-	updateSystemdUserEnv()
-}
-
-func updateDBusEnv() {
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	err = sessionBus.BusObject().Call("org.freedesktop.DBus."+
-		"UpdateActivationEnvironment", 0, _envVars).Err
-	if err != nil {
-		logger.Warning("update dbus env failed:", err)
-	}
-}
-
-func updateSystemdUserEnv() {
-	systemctlArgs := make([]string, 0, len(_envVars)+2)
-	systemctlArgs = append(systemctlArgs, "--user", "set-environment")
-
-	for key, value := range _envVars {
-		systemctlArgs = append(systemctlArgs, key+"="+value)
-	}
-
-	err := exec.Command("systemctl", systemctlArgs...).Run()
-	if err != nil {
-		logger.Warning("failed to set env for systemd-user:", err)
-	}
-}
-
-func initQtThemeConfig() error {
-	appearanceGs := gio.NewSettings("com.deepin.dde.appearance")
-	defer appearanceGs.Unref()
-	var needSave bool
-
-	var defaultFont, defaultMonoFont string
-	loadDefaultFontCfg := func() {
-		filename := "/usr/share/deepin-default-settings/fontconfig.json"
-		defaultFontCfg, err := loadDefaultFontConfig(filename)
-		if err != nil {
-			logger.Warning("failed to load default font config:", err)
-		}
-		defaultFont, defaultMonoFont = defaultFontCfg.Get()
-		if defaultFont == "" {
-			defaultFont = "Noto Sans"
-		}
-		if defaultMonoFont == "" {
-			defaultMonoFont = "Noto Mono"
-		}
-	}
-
-	xsQtFontName, err := globalXSManager.GetStringInternal(xsKeyQtFontName)
-	if err != nil {
-		logger.Warning(err)
-	} else if xsQtFontName == "" {
-		loadDefaultFontCfg()
-		err = globalXSManager.SetStringInternal(xsKeyQtFontName, defaultFont)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-
-	xsQtMonoFontName, err := globalXSManager.GetStringInternal(xsKeyQtMonoFontName)
-	if err != nil {
-		logger.Warning(err)
-	} else if xsQtMonoFontName == "" {
-		loadDefaultFontCfg()
-		err = globalXSManager.SetStringInternal(xsKeyQtMonoFontName, defaultMonoFont)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-
-	kf := keyfile.NewKeyFile()
-	qtThemeCfgFile := filepath.Join(basedir.GetUserConfigDir(), "deepin/qt-theme.ini")
-	err = kf.LoadFromFile(qtThemeCfgFile)
-	if err != nil && !os.IsNotExist(err) {
-		logger.Warning("failed to load qt-theme.ini:", err)
-	}
-	iconTheme, _ := kf.GetString(sectionTheme, keyIconThemeName)
-	if iconTheme == "" {
-		iconTheme = appearanceGs.GetString("icon-theme")
-		kf.SetString(sectionTheme, keyIconThemeName, iconTheme)
-		needSave = true
-	}
-
-	fontSize, _ := kf.GetFloat64(sectionTheme, keyFontSize)
-	if fontSize == 0 {
-		fontSize = appearanceGs.GetDouble("font-size")
-		kf.SetFloat64(sectionTheme, keyFontSize, fontSize)
-		needSave = true
-	}
-
-	font, _ := kf.GetString(sectionTheme, keyFont)
-	if font == "" {
-		if defaultFont == "" {
-			loadDefaultFontCfg()
-		}
-		kf.SetString(sectionTheme, keyFont, defaultFont)
-		needSave = true
-	}
-
-	monoFont, _ := kf.GetString(sectionTheme, keyMonoFont)
-	if monoFont == "" {
-		if defaultMonoFont == "" {
-			loadDefaultFontCfg()
-		}
-		kf.SetString(sectionTheme, keyMonoFont, defaultMonoFont)
-		needSave = true
-	}
-
-	if needSave {
-		err = os.MkdirAll(filepath.Dir(qtThemeCfgFile), 0755)
-		if err != nil {
-			return err
-		}
-		return kf.SaveToFile(qtThemeCfgFile)
-	}
-	return nil
-}
-
 func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
@@ -963,44 +692,17 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 		}
 	}()
 
-	if _options.noXSessionScripts {
-		runScript01DeepinProfileFaster()
-		runScript30X11CommonXResourcesFaster()
-		runScript90GpgAgentFaster()
-	}
-	setupEnvironments2()
-
-	err := initQtThemeConfig()
-	if err != nil {
-		logger.Warning("failed to init qt-theme.ini", err)
-	}
 	m.setPropStage(SessionStageCoreBegin)
 	startStartManager(xConn, service)
 
-	m.startWMSwitcher()
-
-	if _options.noXSessionScripts {
-		startIMFcitx()
-	}
-
-	go startAtSpiService()
-	// start obex.service
-	go startObexService()
 	m.launchDDE()
 
-	go func() {
-		setLeftPtrCursor()
-		err := keyring.CheckLogin()
-		if err != nil {
-			logger.Warning("Failed to init keyring:", err)
-		}
-	}()
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
 	go m.launchAutostart()
 
 	if m.loginSession != nil {
 		m.loginSession.InitSignalExt(sysSignalLoop, true)
-		_, err = m.loginSession.ConnectLock(m.handleLoginSessionLock)
+		_, err := m.loginSession.ConnectLock(m.handleLoginSessionLock)
 		if err != nil {
 			logger.Warning("failed to connect signal Lock:", err)
 		}
@@ -1012,19 +714,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	}
 
 	return m
-}
-
-func startIMFcitx() {
-	fcitxPath, err := exec.LookPath("fcitx")
-	if err == nil {
-		cmd := exec.Command(fcitxPath, "-d")
-		go func() {
-			err := cmd.Run()
-			if err != nil {
-				logger.Warning("fcitx exit with error:", err)
-			}
-		}()
-	}
 }
 
 func isDeepinVersionChanged() (changed bool, err error) {
@@ -1090,31 +779,17 @@ func isDeepinVersionChanged() (changed bool, err error) {
 	return
 }
 
-func setLeftPtrCursor() {
-	gs := gio.NewSettings("com.deepin.xsettings")
-	defer gs.Unref()
-
-	theme := gs.GetString("gtk-cursor-theme-name")
-	size := gs.GetInt("gtk-cursor-theme-size")
-
-	err := xcursor.LoadAndApply(theme, "left_ptr", int(size))
-	if err != nil {
-		logger.Warning(err)
-	}
-}
-
 func getLoginSession() (login1.Session, error) {
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		return nil, err
 	}
-
-	loginManager := login1.NewManager(sysBus)
-	sessionPath, err := loginManager.GetSession(0, "")
+	sessionPath, err := getCurSessionPath()
 	if err != nil {
 		return nil, err
 	}
-	session, err := login1.NewSession(sysBus, sessionPath)
+
+	session, err := login1.NewSession(sysBus, dbus.ObjectPath(sessionPath))
 	if err != nil {
 		return nil, err
 	}
@@ -1202,7 +877,7 @@ func (m *SessionManager) emitSignalUnlock() {
 func (m *SessionManager) killLockFront() error {
 	sessionBus := m.service.Conn()
 	dbusDaemon := ofdbus.NewDBus(sessionBus)
-	owner, err := dbusDaemon.GetNameOwner(0, "com.deepin.dde.lockFront")
+	owner, err := dbusDaemon.GetNameOwner(0, "org.deepin.dde.LockFront1")
 	if err != nil {
 		return err
 	}
@@ -1264,36 +939,6 @@ const (
 	obexService  = "obex.service"
 )
 
-// start at-spi-dbus-bus.service
-func startAtSpiService() {
-	time.Sleep(3 * time.Second)
-	logger.Debugf("starting %s...", atSpiService)
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", atSpiService).Run()
-	if err != nil {
-		logger.Warningf("unmask %s failed, err: %v", atSpiService, err)
-		return
-	}
-	err = exec.Command("systemctl", "--user", "--runtime", "start", atSpiService).Run()
-	if err != nil {
-		logger.Warningf("start %s failed, err: %v", atSpiService, err)
-		return
-	}
-}
-
-func startObexService() {
-	logger.Debugf("starting %s...", obexService)
-	err := exec.Command("systemctl", "--user", "--runtime", "unmask", obexService).Run()
-	if err != nil {
-		logger.Warningf("unmask %s failed, err: %v", obexService, err)
-		return
-	}
-	err = exec.Command("systemctl", "--user", "--runtime", "start", obexService).Run()
-	if err != nil {
-		logger.Warningf("start %s failed, err: %v", obexService, err)
-		return
-	}
-}
-
 func quitAtSpiService() {
 	logger.Debugf("quitting %s...", atSpiService)
 	// mask at-spi-dbus-bus.service
@@ -1332,20 +977,28 @@ func quitObexService() {
 
 func getCurSessionPath() (dbus.ObjectPath, error) {
 	var err error
-
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
 		return "", err
 	}
-
 	loginManager := login1.NewManager(sysBus)
-	sessionPath, err := loginManager.GetSessionByPID(0, 0)
+	userPath, err := loginManager.GetUser(0, uint32(os.Getuid()))
 	if err != nil {
-		logger.Warning(err)
 		return "", err
 	}
-	return sessionPath, nil
+
+	userDBus, err := login1.NewUser(sysBus, userPath)
+	if err != nil {
+		logger.Warningf("new user failed: %v", err)
+		return "", err
+	}
+	sessionPath, err := userDBus.Display().Get(0)
+	if err != nil {
+		logger.Warningf("fail to get display session info: %v", err)
+		return "", err
+	}
+	return sessionPath.Path, nil
 }
 
 func setDpmsModeByKwin(mode int32) {

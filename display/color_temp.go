@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus"
-	geoclue2 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.geoclue2"
+	geoclue2 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.geoclue2"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 

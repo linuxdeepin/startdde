@@ -11,13 +11,13 @@ import (
 	"sync"
 
 	dbus "github.com/godbus/dbus"
-	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.daemon"
-	greeter "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.greeter"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-gir/gio-2.0"
+	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.daemon1"
+	greeter "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.greeter1"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
+	x "github.com/linuxdeepin/go-x11-client"
 )
 
 //go:generate dbusutil-gen em -type XSManager
@@ -26,8 +26,9 @@ const (
 	xsSchema           = "com.deepin.xsettings"
 	defaultScaleFactor = 1.0
 
-	xsDBusPath = "/com/deepin/XSettings"
-	xsDBusIFC  = "com.deepin.XSettings"
+	xsDBusService = "org.deepin.dde.XSettings1"
+	xsDBusPath    = "/org/deepin/dde/XSettings1"
+	xsDBusIFC     = xsDBusService
 )
 
 type displayScaleFactorsHelper interface {
@@ -342,6 +343,11 @@ func Start(conn *x.Conn, recommendedScaleFactor float64, service *dbusutil.Servi
 	err = service.Export(xsDBusPath, m)
 	if err != nil {
 		logger.Warning("export XSManager failed:", err)
+		return nil, err
+	}
+
+	err = service.RequestName(xsDBusService)
+	if err != nil {
 		return nil, err
 	}
 

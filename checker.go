@@ -13,9 +13,9 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
+	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/startdde/memanalyzer"
 	"github.com/linuxdeepin/startdde/memchecker"
-	"github.com/linuxdeepin/go-lib/dbusutil"
 )
 
 const (
@@ -173,9 +173,9 @@ func showWarningDialog(action string) {
 		return
 	}
 
-	dialog := conn.Object("com.deepin.dde.MemoryWarningDialog",
-		"/com/deepin/dde/MemoryWarningDialog")
-	err = dialog.Call("com.deepin.dde.MemoryWarningDialog.Show",
+	dialog := conn.Object("org.deepin.dde.MemoryWarningDialog1",
+		"/org/deepin/dde/MemoryWarningDialog1")
+	err = dialog.Call("org.deepin.dde.MemoryWarningDialog1.Show",
 		0, action).Store()
 	if err != nil {
 		logger.Warning("Failed to show memory warning dialog:", err)

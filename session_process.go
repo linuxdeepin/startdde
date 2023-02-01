@@ -39,8 +39,8 @@ func (m *SessionManager) startSessionDaemonPart2() bool {
 	}
 
 	timeStart := time.Now()
-	sessionDaemonObj := sessionBus.Object("com.deepin.daemon.Daemon", "/com/deepin/daemon/Daemon")
-	err = sessionDaemonObj.Call("com.deepin.daemon.Daemon.StartPart2",
+	sessionDaemonObj := sessionBus.Object("org.deepin.dde.Daemon1", "/org/deepin/dde/Daemon1")
+	err = sessionDaemonObj.Call("org.deepin.dde.Daemon1.StartPart2",
 		dbus.FlagNoAutoStart).Err
 	logger.Info("start dde-session-daemon part2 cost:", time.Since(timeStart))
 	m.allowSessionDaemonRun = true

@@ -23,14 +23,13 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus"
-	"github.com/jouyouyun/hardware/graphic"
-	sessiondisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.display"
-	sysdisplay "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.display"
-	inputdevices "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.inputdevices"
-	systeminfo "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.systeminfo"
-	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
-	ofdbus "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.dbus"
-	login1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.login1"
+	"github.com/linuxdeepin/dde-api/dxinput"
+	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
+	sysdisplay "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.display1"
+	dgesture "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.gesture1"
+	inputdevices "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.inputdevices1"
+	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
+	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
@@ -62,6 +61,7 @@ const (
 )
 
 const (
+	// "com.deepin.SensorProxy" 内核提供的服务
 	sensorProxyInterface       = "com.deepin.SensorProxy"
 	sensorProxyPath            = "/com/deepin/SensorProxy"
 	sensorProxySignalName      = "RotationValueChanged"
@@ -90,9 +90,6 @@ const (
 	defaultRotateScreenTimeDelay = 500
 
 	cmdTouchscreenDialogBin = "/usr/lib/deepin-daemon/dde-touchscreen-dialog"
-
-	gsSchemaXSettings = "com.deepin.xsettings"
-	gsKeyScaleFactor  = "scale-factor"
 )
 
 const (
@@ -173,7 +170,6 @@ type Manager struct {
 
 	// gsettings com.deepin.dde.display
 	settings                 *gio.Settings
-	xSettingsGs              *gio.Settings
 	monitorsId               monitorsId
 	monitorsIdMu             sync.Mutex
 	hasBuiltinMonitor        bool
@@ -203,6 +199,8 @@ type Manager struct {
 	Touchscreens dxTouchscreens
 	tm           touchscreenManager
 
+	// dbusutil-gen: equal=nil
+	TouchscreensV2 dxTouchscreens
 	// dbusutil-gen: equal=nil
 	TouchscreensV2 dxTouchscreens
 	// dbusutil-gen: equal=nil
@@ -276,8 +274,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.ColorTemperatureManual = defaultTemperatureManual
 	m.ColorTemperatureMode = defaultTemperatureMode
 
-	m.xSettingsGs = gio.NewSettings(gsSchemaXSettings)
-
 	m.xConn = _xConn
 
 	screen := m.xConn.GetDefaultScreen()
@@ -339,14 +335,26 @@ func newManager(service *dbusutil.Service) *Manager {
 		logger.Warning("failed to connect signal PrepareForSleep:", err)
 	}
 
-	selfSessionPath, err := loginManager.GetSessionByPID(0, uint32(os.Getpid()))
+	userPath, err := loginManager.GetUser(0, uint32(os.Getuid()))
 	if err != nil {
-		logger.Warningf("get session path failed: %v", err)
-		// 允许在不能获取 session path 时提早结束
+		logger.Warning(err)
 		return m
 	}
-	logger.Debug("self session path:", selfSessionPath)
-	selfSession, err := login1.NewSession(m.sysBus, selfSessionPath)
+
+	userDBus, err := login1.NewUser(m.sysBus, userPath)
+	if err != nil {
+		logger.Warningf("new user failed: %v", err)
+		return m
+	}
+
+	sessionPath, err := userDBus.Display().Get(0)
+	if err != nil {
+		logger.Warningf("fail to get display session info: %v", err)
+		return m
+	}
+
+	logger.Debug("self session path:", sessionPath)
+	selfSession, err := login1.NewSession(m.sysBus, sessionPath.Path)
 	if err != nil {
 		logger.Warning(err)
 		return m
@@ -688,16 +696,6 @@ func (m *Manager) applyDisplayConfig(mode byte, monitorsId monitorsId, monitorMa
 			m.updateScreenSize()
 		}
 	}()
-
-	os.Setenv("D_DXCB_FORCE_OVERRIDE_HIDPI", "1")
-	scale := strconv.FormatFloat(m.xSettingsGs.GetDouble(gsKeyScaleFactor), 'f', -1, 64)
-	var value string
-	for i := 0; i < len(monitors); i++ {
-		value += scale + ";"
-	}
-	value = strings.TrimRight(value, ";")
-	os.Setenv("QT_SCREEN_SCALE_FACTORS", value)
-
 	var err error
 	if len(monitors) == 1 {
 		// 单屏情况
@@ -2288,6 +2286,96 @@ func (m *Manager) updatePropMonitors() {
 	m.PropsMu.Unlock()
 }
 
+func (m *Manager) newTouchscreen(path dbus.ObjectPath) (*Touchscreen, error) {
+	t, err := inputdevices.NewTouchscreen(m.sysBus, path)
+	if err != nil {
+		return nil, err
+	}
+
+	touchscreen := &Touchscreen{
+		path: path,
+	}
+	touchscreen.Name, _ = t.Name().Get(0)
+	touchscreen.DeviceNode, _ = t.DevNode().Get(0)
+	touchscreen.Serial, _ = t.Serial().Get(0)
+	touchscreen.UUID, _ = t.UUID().Get(0)
+	touchscreen.outputName, _ = t.OutputName().Get(0)
+	touchscreen.width, _ = t.Width().Get(0)
+	touchscreen.height, _ = t.Height().Get(0)
+
+	touchscreen.busType = BusTypeUnknown
+	busType, _ := t.BusType().Get(0)
+	if strings.ToLower(busType) == "usb" {
+		touchscreen.busType = BusTypeUSB
+	}
+
+	getXTouchscreenInfo(touchscreen)
+	if touchscreen.Id == 0 {
+		return nil, xerrors.New("no matched touchscreen ID")
+	}
+
+	return touchscreen, nil
+}
+
+func (m *Manager) removeTouchscreenByIdx(i int) {
+	if len(m.Touchscreens) > i {
+		// see https://github.com/golang/go/wiki/SliceTricks
+		m.Touchscreens[i] = m.Touchscreens[len(m.Touchscreens)-1]
+		m.Touchscreens[len(m.Touchscreens)-1] = nil
+		m.Touchscreens = m.Touchscreens[:len(m.Touchscreens)-1]
+	}
+
+	m.TouchscreensV2 = m.Touchscreens
+}
+
+func (m *Manager) removeTouchscreenByPath(path dbus.ObjectPath) {
+	touchScreenUUID := ""
+	i := -1
+	for index, v := range m.Touchscreens {
+		if v.path == path {
+			i = index
+			touchScreenUUID = v.UUID
+		}
+	}
+
+	if i == -1 {
+		return
+	}
+
+	if touchScreenUUID != "" {
+		m.touchScreenDialogMutex.RLock()
+		existCmd, ok := m.touchScreenDialogMap[touchScreenUUID]
+		m.touchScreenDialogMutex.RUnlock()
+		if ok && existCmd != nil && existCmd.Process != nil {
+			if existCmd.ProcessState == nil {
+				logger.Debug("to kill process of touchScreenDialog.")
+				err := existCmd.Process.Kill()
+				if err != nil {
+					logger.Warning("failed to kill process of touchScreenDialog, error:", err)
+				}
+			}
+		}
+	}
+
+	m.removeTouchscreenByIdx(i)
+}
+
+func (m *Manager) removeTouchscreenByDeviceNode(deviceNode string) {
+	i := -1
+	for idx, v := range m.Touchscreens {
+		if v.DeviceNode == deviceNode {
+			i = idx
+			break
+		}
+	}
+
+	if i == -1 {
+		return
+	}
+
+	m.removeTouchscreenByIdx(i)
+}
+
 func (m *Manager) initTouchscreens() {
 	_, err := m.dbusDaemon.ConnectNameOwnerChanged(func(name, oldOwner, newOwner string) {
 		if name == m.inputDevices.ServiceName_() && newOwner == "" {
@@ -2306,8 +2394,15 @@ func (m *Manager) initTouchscreens() {
 			logger.Warning(err)
 		}
 
-		m.setPropTouchscreens(m.tm.touchscreenList())
-		m.setPropTouchscreensV2(m.Touchscreens)
+		// 若设备已存在，删除并重新添加
+		m.removeTouchscreenByDeviceNode(touchscreen.DeviceNode)
+
+		m.Touchscreens = append(m.Touchscreens, touchscreen)
+		m.TouchscreensV2 = m.Touchscreens
+
+		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.emitPropChangedTouchscreensV2(m.Touchscreens)
+
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 	})
@@ -2316,10 +2411,9 @@ func (m *Manager) initTouchscreens() {
 	}
 
 	_, err = m.inputDevices.ConnectTouchscreenRemoved(func(path dbus.ObjectPath) {
-		m.tm.removeTouchscreen(path)
-
-		m.setPropTouchscreens(m.tm.touchscreenList())
-		m.setPropTouchscreensV2(m.Touchscreens)
+		m.removeTouchscreenByPath(path)
+		m.emitPropChangedTouchscreens(m.Touchscreens)
+		m.emitPropChangedTouchscreensV2(m.Touchscreens)
 		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 	})
@@ -2341,8 +2435,10 @@ func (m *Manager) initTouchscreens() {
 			continue
 		}
 	}
-	m.setPropTouchscreens(m.tm.touchscreenList())
-	m.setPropTouchscreensV2(m.Touchscreens)
+	m.TouchscreensV2 = m.Touchscreens
+
+	m.emitPropChangedTouchscreens(m.Touchscreens)
+	m.emitPropChangedTouchscreensV2(m.Touchscreens)
 
 	m.initTouchMap()
 	m.handleTouchscreenChanged()

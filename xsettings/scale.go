@@ -16,12 +16,12 @@ import (
 	"strings"
 
 	dbus "github.com/godbus/dbus"
-	x "github.com/linuxdeepin/go-x11-client"
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/dde-api/userenv"
-	"github.com/linuxdeepin/go-gir/gio-2.0"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/keyfile"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
+	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 const (
@@ -199,8 +199,8 @@ func getPrimaryScreenFromBus() (string, error) {
 		_sessionConn = conn
 	}
 
-	variant, err := _sessionConn.Object("com.deepin.daemon.Display",
-		"/com/deepin/daemon/Display").GetProperty("com.deepin.daemon.Display.Primary")
+	variant, err := _sessionConn.Object("org.deepin.dde.Display1",
+		"/org/deepin/dde/Display1").GetProperty("org.deepin.dde.Display1.Primary")
 	if err != nil {
 		return "", err
 	}

@@ -20,12 +20,10 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	dbus "github.com/godbus/dbus"
-	daemonApps "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.apps"
-	systemPower "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.power"
-	proxy "github.com/linuxdeepin/go-dbus-factory/com.deepin.system.proxy"
-	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
-	systemd1 "github.com/linuxdeepin/go-dbus-factory/org.freedesktop.systemd1"
-	"github.com/linuxdeepin/go-gir/gio-2.0"
+	daemonApps "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.apps1"
+	proxy "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.networkproxy1"
+	systemPower "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.power1"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/dbusutil"
@@ -34,13 +32,15 @@ import (
 	"github.com/linuxdeepin/go-lib/strv"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
+	"github.com/linuxdeepin/startdde/swapsched"
 )
 
 //go:generate dbusutil-gen em -type StartManager,SessionManager,Inhibitor
 
 const (
-	startManagerObjPath   = "/com/deepin/StartManager"
-	startManagerInterface = "com.deepin.StartManager"
+	startManagerService   = "org.deepin.dde.StartManager1"
+	startManagerObjPath   = "/org/deepin/dde/StartManager1"
+	startManagerInterface = "org.deepin.dde.StartManager1"
 
 	autostartDir      = "autostart"
 	proxychainsBinary = "proxychains4"
@@ -1046,6 +1046,10 @@ func startStartManager(xConn *x.Conn, service *dbusutil.Service) {
 	err := service.Export(startManagerObjPath, _startManager)
 	if err != nil {
 		logger.Warning("export StartManager failed:", err)
+	}
+	err = service.RequestName(startManagerService)
+	if err != nil {
+		logger.Warning("export StartManager service failed:", err)
 	}
 }
 

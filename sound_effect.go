@@ -16,7 +16,7 @@ import (
 
 	dbus1 "github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
-	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/com.deepin.api.soundthemeplayer"
+	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.soundthemeplayer1"
 	"github.com/linuxdeepin/go-lib/pulse"
 )
 
@@ -117,9 +117,9 @@ func initSoundThemePlayer() {
 }
 
 const (
-	audioInterface   = "com.deepin.daemon.Audio"
+	audioInterface   = "org.deepin.dde.Audio1"
 	audioServiceName = audioInterface
-	audioPath        = "/com/deepin/daemon/Audio"
+	audioPath        = "/org/deepin/dde/Audio1"
 )
 
 var startPulseAudioOnce sync.Once

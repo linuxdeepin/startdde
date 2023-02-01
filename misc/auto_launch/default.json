@@ -13,10 +13,6 @@
     "Priority": 7,
     "Group": [
       {
-        "Command": "/usr/lib/polkit-1-dde/dde-polkit-agent",
-        "Wait": false
-      },
-      {
         "Command": "dde-session-daemon-part2",
         "Wait": true,
         "Args": []

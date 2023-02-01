@@ -1,14 +1,50 @@
-startdde (5.10.2) unstable; urgency=low
+startdde (6.0.4) unstable; urgency=medium
 
-  * bump version to 5.10.2
+  [ TagBuilder ]
+  * chore: delete unused(Task: 230459)(Influence: null)
+  * chore: delete iowait(Task: 230459)(Influence: null)
+  * chore: delete autostop/wm/proxychains/xcursor(Task: 230459)(Influence: null)
 
- -- lichangze <lichangze@uniontech.com>  Mon, 9 Jan 2023 16:20:17 +0000
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Thu, 29 Dec 2022 18:38:22 +0800
 
-startdde (3.0.7) stable; urgency=low
+startdde (6.0.3.1) unstable; urgency=medium
 
-  * Autobuild Tag 3.0.7 
+  [ TagBuilder ]
+  * feat: 迁移sessionManager服务接口(Task: 203055)(Influence: 关机注销登录重启等功能)
+  * feat: 迁移WMSwitcher服务接口(Task: 203055)(Influence: 特效的开启关闭)
+  * feat: 迁移LoginReminder功能(Task: 203055)(Influence: 登录后弹窗通知登录信息，例如密码有效天数)
+  * chore: 删除已经迁移的功能(Task: 203055)(Influence: 无)
+  * chore: 优化避免产生僵尸进程(Task: 219131)(Influence: 优化)
+  * feat: 接口更变，增加V23接口(Task: 207483)(Influence: 接口更变)
+  * chore: 添加依赖，预装DDE接口代理服务(Task: 207483)(Influence: 预装DDE接口代理服务)
+  * fix: 笔记本亮度无法调节问题修复(Task: 225039)(Influence: 笔记本亮度设置)
 
- -- 范朋程 <fanpengcheng@uniontech.com>  Tue, 2 Aug 2022 14:41:16 +0800
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Tue, 13 Dec 2022 20:31:49 +0800
+
+startdde (6.0.2) unstable; urgency=medium
+
+  [ Deepin Packages Builder ]
+  * chore: 添加重构的个性化服务依赖(Task: 118089)(Influence: 无)
+  * feat: 兼容V20接口(Task: 169315)(Influence: 无)
+  * fix: 当主屏发生变化后，及时更新到xsetting和窗管(Bug: 149111)(Influence: 当主屏发生变化后，及时更新到xsettings和窗管)
+  * feat: 去掉autostart中的dde-polkit-agent(Task: 184775)(Influence: 服务自启方式)
+  * fix: 修复系统语言切换失败问题(Bug: 146727)(Influence: 控制中心-键盘和语言-系统语言切换)
+  * chore: 触发编译(Task: 160471)(Influence: 无)
+
+ -- baodi <baodi@uniontech.com>  Wed, 19 Oct 2022 10:59:56 +0800
+
+startdde (6.0.1) unstable; urgency=medium
+
+  [ TagBuilder ]
+  * fix(display): 获取sessionPath方式错误，阻塞了display设置(Bug: 141713)(Influence: display)
+
+ -- caixiangrong <caixiangrong@uniontech.com>  Mon, 25 Jul 2022 11:47:42 +0800
+
+startdde (6.0.0.0) unstable; urgency=low
+
+  * release 6.0.0.0
+
+ --  <fanpengcheng@uniontech.com>  Tue, 14 June 2022 17:13:13 +0800
 
 startdde (3.0.7-1) stable; urgency=low
 

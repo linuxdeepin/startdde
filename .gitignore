@@ -35,6 +35,5 @@ install_manifest.txt
 coverage.csv
 cover_report
 
-out/locale
-fix-xauthority-perm
-misc/config/auto_launch.json
+.idea
+out/

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	dbus "github.com/godbus/dbus"
-	"github.com/linuxdeepin/go-gir/gio-2.0"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
 	"github.com/linuxdeepin/go-lib/keyfile"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
@@ -196,24 +196,20 @@ func getAppIdByFilePath(file string, appDirs []string) string {
 
 type GSettingsConfig struct {
 	autoStartDelay       int32
-	iowaitEnabled        bool
 	memcheckerEnabled    bool
 	swapSchedEnabled     bool
 	wmCmd                string
 	needQuickBlackScreen bool
-	loginReminder        bool
 }
 
 func getGSettingsConfig() *GSettingsConfig {
 	gs := gio.NewSettings("com.deepin.dde.startdde")
 	cfg := &GSettingsConfig{
 		autoStartDelay:       gs.GetInt("autostart-delay"),
-		iowaitEnabled:        gs.GetBoolean("iowait-enabled"),
 		memcheckerEnabled:    gs.GetBoolean("memchecker-enabled"),
 		swapSchedEnabled:     gs.GetBoolean("swap-sched-enabled"),
 		wmCmd:                gs.GetString("wm-cmd"),
 		needQuickBlackScreen: gs.GetBoolean("quick-black-screen"),
-		loginReminder:        gs.GetBoolean("login-reminder"),
 	}
 	gs.Unref()
 	return cfg
@@ -225,36 +221,6 @@ func initGSettingsConfig() {
 	}
 }
 
-func isOSDRunning() (bool, error) {
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return false, err
-	}
-
-	var has bool
-	err = sessionBus.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0,
-		"com.deepin.dde.osd").Store(&has)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
-}
-
-func isNotificationsOwned() (bool, error) {
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return false, err
-	}
-
-	var has bool
-	err = sessionBus.BusObject().Call("org.freedesktop.DBus.NameHasOwner", 0,
-		"org.freedesktop.Notifications").Store(&has)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
-}
-
 func getLightDMAutoLoginUser() (string, error) {
 	kf := keyfile.NewKeyFile()
 	err := kf.LoadFromFile("/etc/lightdm/lightdm.conf")
@@ -264,22 +230,4 @@ func getLightDMAutoLoginUser() (string, error) {
 
 	v, err := kf.GetString("Seat:*", "autologin-user")
 	return v, err
-}
-
-// dont collect experience message if edition is community
-func isCommunity() bool {
-	kf := keyfile.NewKeyFile()
-	err := kf.LoadFromFile("/etc/os-version")
-	// 为避免收集数据的风险，读不到此文件，或者Edition文件不存在也不收集数据
-	if err != nil {
-		return true
-	}
-	edition, err := kf.GetString("Version", "EditionName")
-	if err != nil {
-		return true
-	}
-	if edition == "Community" {
-		return true
-	}
-	return false
 }

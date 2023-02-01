@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	kwayland "github.com/linuxdeepin/go-dbus-factory/com.deepin.daemon.kwayland"
+	"github.com/godbus/dbus"
+	kwayland "github.com/linuxdeepin/go-dbus-factory/session/org.deepin.dde.kwayland1"
+	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
@@ -67,6 +69,7 @@ type KOutputInfo struct {
 	// json 中不提供 id
 	id           uint32
 	UUID         string      `json:"uuid"`
+	Name         string      `json:"name"`
 	EdidBase64   string      `json:"edid_base64"`
 	Enabled      int32       `json:"enabled"`
 	X            int32       `json:"x"`
@@ -109,6 +112,11 @@ const (
 const (
 	OutputDeviceModeCurrent   = 1 << 0
 	OutputDeviceModePreferred = 1 << 1
+)
+
+const (
+	gsSchemaXSettings      = "com.deepin.xsettings"
+	gsXSettingsPrimaryName = "primary-monitor-name"
 )
 
 func (oi *KOutputInfo) getBestMode() ModeInfo {
@@ -190,15 +198,11 @@ func (oi *KOutputInfo) getEnabled() bool {
 	return int32ToBool(oi.Enabled)
 }
 
-func (oi *KOutputInfo) getName() string {
-	return getOutputDeviceName(oi.Model, oi.Manufacturer)
-}
-
 func (oi *KOutputInfo) toMonitorInfo(mm *kMonitorManager) *MonitorInfo {
 	mi := &MonitorInfo{
 		Enabled:          oi.Enabled != 0,
 		ID:               oi.id,
-		Name:             oi.getName(),
+		Name:             oi.Name,
 		Connected:        true,
 		VirtualConnected: true,
 		Modes:            oi.getModes(),
@@ -299,58 +303,6 @@ type outputInfoWrap struct {
 	OutputInfo []*KOutputInfo
 }
 
-// 根据 model 和 make/Manufacturer 获取显示器的名字
-// 比如 model 'eDP-1-未知', make 'LP140WH8-TPD' => eDP-1
-// 'eDP-1-dell', 'dell' => eDP-1   这个例子可能目前不真实
-// 'HDMI-A-2-VA2430-H-3/W72211325199', 'VSC' => HDMI-A-2
-func getOutputDeviceName(model, make string) string {
-	logger.Debugf("[DEBUG] get name: '%s', '%s'", model, make)
-	name := getNameFromModelAndMake(model, make)
-	if name != model {
-		return name
-	}
-	names := strings.Split(model, "-")
-	if len(names) <= 2 {
-		return getNameFromModel(model)
-	}
-
-	// 找到第一个纯数字部分
-	for idx, name := range names {
-		_, err := strconv.Atoi(name)
-		if err == nil && idx >= 1 {
-			// name 是数字
-			// 比如 model 为 HDMI-A-2-VA2430-H-3/W72211325199
-			// 可以得到 HDMI-A-2 这个名字
-			return strings.Join(names[:idx+1], "-")
-		}
-	}
-
-	idx := len(names) - 1
-	for ; idx > 1; idx-- {
-		if len(names[idx]) > 1 {
-			continue
-		}
-		break
-	}
-	// 比如 model 为 HDMI-A-2-VA2430-H-3/W72211325199
-	// 可以得到 HDMI-A-2-VA2430-H 这个名字
-	return strings.Join(names[:idx+1], "-")
-}
-
-func getNameFromModel(model string) string {
-	idx := strings.IndexByte(model, ' ')
-	if idx == -1 {
-		return model
-	}
-	return model[:idx]
-}
-
-func getNameFromModelAndMake(model, make string) string {
-	preMake := strings.Split(make, " ")[0]
-	name := strings.Split(model, preMake)[0]
-	return strings.TrimRight(name, "-")
-}
-
 func int32ToBool(v int32) bool {
 	return v != 0
 }
@@ -383,6 +335,8 @@ type kMonitorManager struct {
 	primary        uint32
 	// 键是 wayland 原始数据 model 字段处理过后的显示器名称，值是标准名。
 	stdNamesCache map[string]string
+
+	xSettingsGs *gio.Settings
 }
 
 func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
@@ -400,6 +354,39 @@ func newKMonitorManager(sessionSigLoop *dbusutil.SignalLoop) *kMonitorManager {
 		logger.Warning(err)
 	}
 	return kmm
+}
+
+func (mm *kMonitorManager) syncPrimary() error {
+	logger.Info("syncPrimary", mm.primary)
+	monitor := mm.getMonitor(mm.primary)
+	if monitor == nil {
+		return errors.New("cannot match primary, sync primary failed")
+	}
+
+	// 启动后先同步一次,将主屏幕名称同步到xsettings
+	mm.xSettingsGs = gio.NewSettings(gsSchemaXSettings)
+	for _, key := range mm.xSettingsGs.ListKeys() {
+		if gsXSettingsPrimaryName == key {
+			oldPrimary := mm.xSettingsGs.GetString(gsXSettingsPrimaryName)
+			if oldPrimary != monitor.Name {
+				mm.xSettingsGs.SetString(gsXSettingsPrimaryName, monitor.Name)
+				break
+			}
+		}
+	}
+
+	// 同步设置到窗管
+	sessionBus, err := dbus.SessionBus()
+	if err != nil {
+		return err
+	}
+	sessionObj := sessionBus.Object("org.deepin.dde.KWayland1", "/org/deepin/dde/KWayland1/Output")
+	err = sessionObj.Call("org.deepin.dde.KWayland1.Output.setPrimary", 0, monitor.Name).Store()
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	return nil
 }
 
 func (mm *kMonitorManager) init() error {
@@ -703,6 +690,8 @@ func (mm *kMonitorManager) setMonitorPrimary(monitorId uint32) error {
 
 	mm.primary = monitorId
 	mm.mu.Unlock()
+
+	mm.syncPrimary()
 
 	mm.invokePrimaryRectChangedCb(monitor)
 	return nil
