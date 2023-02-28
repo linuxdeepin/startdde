@@ -35,7 +35,6 @@ type Monitor struct {
 	m       *Manager
 	service *dbusutil.Service
 	uuid    string // uuid v1
-	edid    []byte
 	uuidV0  string
 	PropsMu sync.RWMutex
 
@@ -136,7 +135,6 @@ func (m *Monitor) clone() *Monitor {
 		m:                  m.m,
 		service:            m.service,
 		uuid:               m.uuid,
-		edid:               m.edid,
 		uuidV0:             m.uuidV0,
 		ID:                 m.ID,
 		Name:               m.Name,
@@ -320,16 +318,6 @@ func (m *Monitor) SetPosition(X, y int16) *dbus.Error {
 
 	if _dpy.getInApply() {
 		logger.Debug("reject set position, in apply")
-		return nil
-	}
-
-	if _dpy.DisplayMode == DisplayModeMirror {
-		logger.Debug("refuse to set position, because invalid display mode")
-		return nil
-	}
-
-	if _dpy.DisplayMode == DisplayModeMirror {
-		logger.Debug("refuse to set position, because invalid display mode")
 		return nil
 	}
 
@@ -549,15 +537,6 @@ func (monitors Monitors) GetById(id uint32) *Monitor {
 func (monitors Monitors) GetByUuid(uuid string) *Monitor {
 	for _, monitor := range monitors {
 		if monitor.getUuids().Contains(uuid) {
-			return monitor
-		}
-	}
-	return nil
-}
-
-func (monitors Monitors) GetByUuidAndName(uuid, name string) *Monitor {
-	for _, monitor := range monitors {
-		if monitor.Name == name && monitor.getUuids().Contains(uuid) {
 			return monitor
 		}
 	}

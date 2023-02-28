@@ -24,6 +24,7 @@ import (
 	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
 	systemd1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.systemd1"
 	"github.com/linuxdeepin/go-lib/appinfo/desktopappinfo"
+	"github.com/linuxdeepin/go-lib/cgroup"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/keyfile"
 	"github.com/linuxdeepin/go-lib/log"
@@ -95,11 +96,8 @@ const (
 	SessionStageAppsEnd
 )
 
-const (
-	dpmsStateOn int32 = iota
-	dpmsStateStandBy
-	dpmsStateSuspend
-	dpmsStateOff
+var (
+	swapSchedDispatcher *swapsched.Dispatcher
 )
 
 func (m *SessionManager) CanLogout() (bool, *dbus.Error) {
@@ -372,16 +370,11 @@ func (m *SessionManager) RequestSuspend() *dbus.Error {
 	// 使用窗管接口进行黑屏处理
 	if _gSettingsConfig.needQuickBlackScreen {
 		logger.Info("request wm blackscreen effect")
-		if _useWayland {
-			setDpmsModeByKwin(dpmsStateOff)
-		} else {
-			cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:true")
-			error := cmd.Run()
-			if error != nil {
-				logger.Warning("wm blackscreen failed")
-			}
+		cmd := exec.Command("/bin/bash", "-c", "dbus-send --print-reply --dest=org.kde.KWin /BlackScreen org.kde.kwin.BlackScreen.setActive boolean:true")
+		error := cmd.Run()
+		if error != nil {
+			logger.Warning("wm blackscreen failed")
 		}
-
 	}
 
 	logger.Info("login1 start suspend")
@@ -557,6 +550,78 @@ func (m *SessionManager) initSession() {
 			logger.Warning("failed to connect Active changed:", err)
 		}
 	}
+	if _gSettingsConfig.swapSchedEnabled {
+		m.initSwapSched()
+	} else {
+		logger.Info("swap sched disabled")
+	}
+}
+
+func (m *SessionManager) initSwapSched() {
+	err := cgroup.Init()
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+
+	globalCgExecBin, err = exec.LookPath("cgexec")
+	if err != nil {
+		logger.Warning("cgexec not found:", err)
+		return
+	}
+
+	if m.objLoginSessionSelf == nil {
+		return
+	}
+	sessionID, err := m.objLoginSessionSelf.Id().Get(0)
+	if err != nil {
+		logger.Warning(err)
+	}
+
+	err = callSwapSchedHelperPrepare(sessionID)
+	if err != nil {
+		logger.Warning("call SwapSchedHelper.Prepare error:", err)
+	}
+
+	swapsched.SetLogger(logger)
+
+	memCheckerCfg := memchecker.GetConfig()
+
+	logger.Debugf("mem checker cfg min mem avail: %d KB", memCheckerCfg.MinMemAvail)
+	var enableMemAvailMax int64 // unit is byte
+	enableMemAvailMax = int64(memCheckerCfg.MinMemAvail*1024) - 100*swapsched.MB
+	if enableMemAvailMax < 0 {
+		enableMemAvailMax = 100 * swapsched.MB
+	}
+
+	swapSchedCfg := swapsched.Config{
+		UIAppsCGroup:       sessionID + "@dde/uiapps",
+		DECGroup:           sessionID + "@dde/DE",
+		EnableMemAvailMax:  uint64(enableMemAvailMax),
+		DisableMemAvailMin: uint64(enableMemAvailMax) + 200*swapsched.MB,
+	}
+	swapSchedDispatcher, err = swapsched.NewDispatcher(swapSchedCfg)
+	logger.Debugf("swap sched config: %+v", swapSchedCfg)
+
+	if err == nil {
+		// add self to DE cgroup
+		deCg := cgroup.NewCgroup(swapSchedDispatcher.GetDECGroup())
+		deCg.AddController(cgroup.Memory)
+		err = deCg.AttachCurrentProcess()
+		if err != nil {
+			logger.Warning("failed to add self to DE cgroup:", err)
+		}
+
+		go func() {
+			err = swapsched.ActiveWindowHandler(swapSchedDispatcher.ActiveWindowHandler).Monitor()
+			if err != nil {
+				logger.Warning(err)
+			}
+		}()
+		go swapSchedDispatcher.Balance()
+	} else {
+		logger.Warning("failed to new swap sched dispatcher:", err)
+	}
 }
 
 func newSessionManager(service *dbusutil.Service) *SessionManager {
@@ -609,7 +674,6 @@ func newSessionManager(service *dbusutil.Service) *SessionManager {
 	// 如果其它进程读取了非法的属性值， dbus连接会被关闭，导致startdde启动失败
 	m.initSession()
 	m.init()
-	go initXEventMonitor()
 
 	return m
 }
@@ -907,9 +971,9 @@ func setDPMSMode(on bool) {
 	var err error
 	if _useWayland {
 		if !on {
-			setDpmsModeByKwin(dpmsStateOff)
+			_, err = exec.Command("dde_wldpms", "-s", "Off").Output()
 		} else {
-			setDpmsModeByKwin(dpmsStateOn)
+			_, err = exec.Command("dde_wldpms", "-s", "On").Output()
 		}
 	} else {
 		var mode = uint16(dpms.DPMSModeOn)
@@ -999,47 +1063,4 @@ func getCurSessionPath() (dbus.ObjectPath, error) {
 		return "", err
 	}
 	return sessionPath.Path, nil
-}
-
-func setDpmsModeByKwin(mode int32) {
-	logger.Debug("[startdde] Set DPMS State", mode)
-
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/DpmsManager")
-	var ret []dbus.Variant
-	err = sessionObj.Call("com.deepin.daemon.KWayland.DpmsManager.dpmsList", 0).Store(&ret)
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	for i := 0; i < len(ret); i++ {
-		v := ret[i].Value().(string)
-		sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", dbus.ObjectPath(v))
-		err = sessionObj.Call("com.deepin.daemon.KWayland.Dpms.setDpmsMode", 0, int32(mode)).Err
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-	}
-
-	return
-}
-
-func initXEventMonitor() {
-	bus, _ := dbus.SessionBus()
-	xEvent := xeventmonitor.NewXEventMonitor(bus)
-	sigLoop := dbusutil.NewSignalLoop(bus, 1)
-	sigLoop.Start()
-	xEvent.InitSignalExt(sigLoop, true)
-	xEvent.ConnectButtonPress(func(button int32, x int32, y int32, id string) {
-		// 2表示按下鼠标中键，4表示鼠标中键上滑，5表示鼠标中键下滑
-		if button == 2 || button == 4 || button == 5 {
-			setDPMSMode(true)
-		}
-	})
 }

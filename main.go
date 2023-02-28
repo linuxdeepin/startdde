@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2018 - 2022 UnionTech Software Technology Co., Ltd.
+// SPDX-FileCopyrightText: 2014 - 2022 UnionTech Software Technology Co., Ltd.
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -31,6 +31,8 @@ import (
 var logger = log.NewLogger("startdde")
 
 var _gSettingsConfig *GSettingsConfig
+
+var globalCgExecBin string
 
 var globalXSManager *xsettings.XSManager
 
@@ -69,8 +71,6 @@ func logInfoAfter(msg string) {
 	logger.Infof("after %s, %s", elapsed, msg)
 }
 
-var _inhibitFd dbus.UnixFD = -1
-
 func greeterDisplayMain() {
 	display.SetGreeterMode(true)
 	// init x conn
@@ -80,7 +80,7 @@ func greeterDisplayMain() {
 		os.Exit(1)
 	}
 	// TODO
-	display.Init(xConn, false, false)
+	display.Init(xConn, false)
 	logger.Debug("greeter mode")
 	service, err := dbusutil.NewSessionService()
 	if err != nil {
@@ -94,37 +94,7 @@ func greeterDisplayMain() {
 	if err != nil {
 		logger.Warning(err)
 	}
-	inhibitLogind()
 	service.Wait()
-}
-
-func inhibitLogind() {
-	sysBus, err := dbus.SystemBus()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	loginObj := login1.NewManager(sysBus)
-	fd, err := loginObj.Inhibit(0,
-		"handle-suspend-key", "greeter-display-daemon",
-		"handling key press and suspend", "block")
-	logger.Info("inhibitLogind fd:", fd)
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-	_inhibitFd = fd
-}
-
-func permitLogind() {
-	if _inhibitFd != -1 {
-		err := syscall.Close(int(_inhibitFd))
-		if err != nil {
-			logger.Warning("failed to close inhibitFd:", err)
-		}
-		_inhibitFd = -1
-	}
 }
 
 func main() {
@@ -132,7 +102,6 @@ func main() {
 	if len(os.Args) > 0 && strings.HasPrefix(filepath.Base(os.Args[0]), "greeter") {
 		// os.Args[0] 应该一般是 greeter-display-daemon
 		greeterDisplayMain()
-		permitLogind()
 		return
 	}
 
@@ -157,7 +126,7 @@ func main() {
 		logger.Info("in wayland mode")
 		_useWayland = true
 	}
-	display.Init(xConn, _useWayland, _inVM)
+	display.Init(xConn, _useWayland)
 	// TODO
 	recommendedScaleFactor = display.GetRecommendedScaleFactor()
 
@@ -190,8 +159,6 @@ func main() {
 	}()
 
 	go func() {
-		// NOTE: always start pulseaudio
-		startPulseAudio()
 		initSoundThemePlayer()
 		playLoginSound()
 	}()

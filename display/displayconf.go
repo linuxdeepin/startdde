@@ -700,15 +700,6 @@ func (cfgs SysMonitorConfigs) getByUuid(uuid string) *SysMonitorConfig {
 	return nil
 }
 
-func (cfgs SysMonitorConfigs) getByUuidAndName(uuid, name string) *SysMonitorConfig {
-	for _, mc := range cfgs {
-		if uuid == mc.UUID && name == mc.Name {
-			return mc
-		}
-	}
-	return nil
-}
-
 func (cfgs SysMonitorConfigs) setPrimary(uuid string) {
 	for _, mc := range cfgs {
 		if mc.UUID == uuid {

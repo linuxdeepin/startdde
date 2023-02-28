@@ -14,17 +14,8 @@ if [ "$1" = "/usr/bin/dde-session" ]; then
         unset QT_SCALE_FACTOR
         export STARTDDE_MIGRATE_SCALE_FACTOR=1
     fi
-    # control qt program infos level, set it only on uos
-    if [ -f "/etc/os-version" ];then
-        if [ ! `grep Community /etc/os-version` ];then
-            export QT_LOGGING_RULES="*.debug=false"
-        fi
-    fi
-    # set DSG_DATA_DIRS
-    if [[ -d "/persistent/linglong/entries/share/dsg" ]];
-    then
-        export DSG_DATA_DIRS="$DSG_DATA_DIRS:/usr/share/dsg:/persistent/linglong/entries/share/dsg"
-    fi
+    # control qt program infos level
+    export QT_LOGGING_RULES="*.debug=false"
     # set qt qpa platform type
     export QT_QPA_PLATFORM=xcb
     # control qml softwarecontext in loongson-drm
@@ -32,16 +23,4 @@ if [ "$1" = "/usr/bin/dde-session" ]; then
     if [ $? -eq 0 ];then
         export QMLSCENE_DEVICE=softwarecontext
     fi
-
-    # https://man7.org/linux/man-pages/man7/systemd.environment-generator.7.html
-    # set the default value
-    XDG_DATA_DIRS="${XDG_DATA_DIRS:-/usr/local/share/:/usr/share}"
-
-    if [[ -d $HOME/.local/share/icons/ ]];
-    then
-        export XDG_DATA_DIRS="$HOME/.local/share/icons/:${XDG_DATA_DIRS}"
-    fi
-    export XDG_DATA_HOME="$HOME/.local/share"
-    export XDG_CONFIG_HOME="$HOME/.config"
-    export XDG_CACHE_HOME="$HOME/.cache"
 fi

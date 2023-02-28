@@ -23,10 +23,10 @@ endif
 	jq . misc/config/auto_launch.json >/dev/null
 
 startdde:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde ${GOBUILD_OPTIONS}
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
 
 fix-xauthority-perm:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOBUILD_OPTIONS} ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
 
 out/locale/%/LC_MESSAGES/startdde.mo: misc/po/%.po
 	mkdir -p $(@D)
@@ -64,8 +64,6 @@ install:
 	install -v -m0644 misc/profile.d/* ${DESTDIR}/etc/profile.d/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas
 	install -v -m0644 misc/schemas/*.xml $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas/
-	mkdir -p $(DESTDIR)$(PREFIX)/share/dsg/configs/org.deepin.startdde/
-	install -v -m0644 misc/dsettings/*.json $(DESTDIR)$(PREFIX)/share/dsg/configs/org.deepin.startdde/
 
 	mkdir -pv ${DESTDIR}${PREFIX}/share/locale
 	cp -r out/locale/* ${DESTDIR}${PREFIX}/share/locale

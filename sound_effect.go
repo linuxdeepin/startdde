@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"os/user"
 	"path/filepath"
-	"sync"
 
 	dbus1 "github.com/godbus/dbus"
 	"github.com/linuxdeepin/dde-api/soundutils"
@@ -23,8 +22,14 @@ import (
 var soundThemePlayer soundthemeplayer.SoundThemePlayer
 
 func playLoginSound() {
+	// NOTE: always start pulseaudio
+	err := startPulseAudio()
+	if err != nil {
+		logger.Warning("failed to start pulseaudio:", err)
+	}
+
 	markFile := filepath.Join(os.TempDir(), "startdde-login-sound-mark")
-	_, err := os.Stat(markFile)
+	_, err = os.Stat(markFile)
 	if err == nil {
 		// already played
 		return
@@ -122,21 +127,17 @@ const (
 	audioPath        = "/org/deepin/dde/Audio1"
 )
 
-var startPulseAudioOnce sync.Once
+func startPulseAudio() error {
+	err := exec.Command("systemctl", "--user", "--runtime", "unmask", "pulseaudio.service").Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("systemctl", "--user", "start", "pulseaudio.service").Run()
+	if err != nil {
+		return err
+	}
 
-func startPulseAudio() {
-	startPulseAudioOnce.Do(func() {
-		err := exec.Command("systemctl", "--user", "--runtime", "unmask", "pulseaudio.service").Run()
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-		err = exec.Command("systemctl", "--user", "start", "pulseaudio.service").Run()
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-	})
+	return nil
 }
 
 func quitPulseAudio() {

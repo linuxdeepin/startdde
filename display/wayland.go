@@ -248,10 +248,6 @@ func decodeEdidBase64(edidB64 string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(edidB64)
 }
 
-func encodeEdidBase64(edid []byte) string {
-	return base64.StdEncoding.EncodeToString(edid)
-}
-
 type KModeInfo struct {
 	Id          int32 `json:"id"`
 	Width       int32 `json:"width"`
@@ -401,9 +397,6 @@ func (mm *kMonitorManager) init() error {
 	for _, monitor := range monitors {
 		mm.monitorMap[monitor.ID] = monitor
 	}
-	if len(monitors) != 0 {
-		mm.primary = monitors[0].ID
-	}
 	mm.mu.Unlock()
 	return nil
 }
@@ -470,24 +463,12 @@ func (mm *kMonitorManager) getMonitors() []*MonitorInfo {
 func (mm *kMonitorManager) getMonitor(id uint32) *MonitorInfo {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-
-	return mm.getMonitorNoLock(id)
-}
-
-func (mm *kMonitorManager) getMonitorNoLock(id uint32) *MonitorInfo {
 	monitorInfo, ok := mm.monitorMap[id]
 	if !ok {
 		return nil
 	}
 	monitor := *monitorInfo
 	return &monitor
-}
-
-func (mm *kMonitorManager) getPrimaryMonitor() *MonitorInfo {
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
-
-	return mm.getMonitorNoLock(mm.primary)
 }
 
 func (mm *kMonitorManager) getStdMonitorName(name string, edid []byte) (string, error) {
@@ -511,10 +492,14 @@ func (mm *kMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 }
 
 func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error {
-	var args_enable []string
-	var args_disable []string
+	var disabledMonitors []*Monitor
+	var args []string
 	for _, monitor := range monitorMap {
 		trans := int32(randrRotationToTransform(int(monitor.Rotation)))
+		if !monitor.Enabled {
+			disabledMonitors = append(disabledMonitors, monitor)
+			continue
+		}
 		uuid := mm.mig.getUuidById(monitor.ID)
 		if uuid == "" {
 			logger.Warningf("get monitor %d uuid failed", monitor.ID)
@@ -523,29 +508,19 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 		logger.Debugf("apply name: %q, uuid: %q, enabled: %v, x: %v, y: %v, mode: %+v, trans:%v",
 			monitor.Name, uuid, monitor.Enabled, monitor.X, monitor.Y, monitor.CurrentMode, trans)
 
-		if !monitor.Enabled {
-			args_disable = append(args_disable, uuid, "0",
-				strconv.Itoa(int(monitor.X)), strconv.Itoa(int(monitor.Y)),
-				strconv.Itoa(int(monitor.CurrentMode.Width)),
-				strconv.Itoa(int(monitor.CurrentMode.Height)),
-				strconv.Itoa(int(monitor.CurrentMode.Rate*1000)),
-				strconv.Itoa(int(trans)))
-		} else {
-			args_enable = append(args_enable, uuid, "1",
-				strconv.Itoa(int(monitor.X)), strconv.Itoa(int(monitor.Y)),
-				strconv.Itoa(int(monitor.CurrentMode.Width)),
-				strconv.Itoa(int(monitor.CurrentMode.Height)),
-				strconv.Itoa(int(monitor.CurrentMode.Rate*1000)),
-				strconv.Itoa(int(trans)))
-
-		}
+		args = append(args, uuid, "1",
+			strconv.Itoa(int(monitor.X)), strconv.Itoa(int(monitor.Y)),
+			strconv.Itoa(int(monitor.CurrentMode.Width)),
+			strconv.Itoa(int(monitor.CurrentMode.Height)),
+			strconv.Itoa(int(monitor.CurrentMode.Rate*1000)),
+			strconv.Itoa(int(trans)))
 	}
-	
-	if len(args_enable) > 0 {
+
+	if len(args) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
-		cmdline.Args = append(cmdline.Args, args_enable...)
-		logger.Info("cmd line args_enable:", cmdline.Args)
+		cmdline.Args = append(cmdline.Args, args...)
+		logger.Info("cmd line args:", cmdline.Args)
 
 		data, err := cmdline.CombinedOutput()
 		cancel()
@@ -557,13 +532,18 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 		// wait request done
 		//time.Sleep(time.Millisecond * 500)
 	}
-	if len(args_disable) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
-		cmdline.Args = append(cmdline.Args, args_disable...)
-		logger.Info("cmd line args_disable:", cmdline.Args)
 
-		data, err := cmdline.CombinedOutput()
+	// TODO 为什么 enabled 和 disabled 需要分开？
+	for _, monitor := range disabledMonitors {
+		logger.Debug("-----------Will disable output:", monitor.Name)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		uuid := mm.mig.getUuidById(monitor.ID)
+		if uuid == "" {
+			logger.Warningf("get monitor %d uuid failed", monitor.ID)
+			cancel()
+			return fmt.Errorf("get monitor %d uuid failed", monitor.ID)
+		}
+		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {
@@ -673,21 +653,24 @@ func (mm *kMonitorManager) listenDBusSignals() {
 }
 
 func (mm *kMonitorManager) invokePrimaryRectChangedCb(monitorInfo *MonitorInfo) {
+	pmi := primaryMonitorInfo{
+		Name: monitorInfo.Name,
+		Rect: monitorInfo.getRect(),
+	}
+
 	if mm.hooks != nil {
-		mm.hooks.handlePrimaryRectChanged(monitorInfo)
+		mm.hooks.handlePrimaryRectChanged(pmi)
 	}
 }
 
 func (mm *kMonitorManager) setMonitorPrimary(monitorId uint32) error {
 	logger.Debug("mm.setMonitorPrimary", monitorId)
-
-	mm.mu.Lock()
-	monitor := mm.getMonitorNoLock(monitorId)
+	monitor := mm.getMonitor(monitorId)
 	if monitor == nil {
-		mm.mu.Unlock()
 		return fmt.Errorf("invalid monitor id %v", monitorId)
 	}
 
+	mm.mu.Lock()
 	mm.primary = monitorId
 	mm.mu.Unlock()
 

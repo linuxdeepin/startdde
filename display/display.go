@@ -117,6 +117,7 @@ func StartPart2() error {
 	m := _dpy
 	m.initSysDisplay()
 	m.initTouchscreens()
+
 	if !_greeterMode {
 		controlRedshift("disable")
 		m.applyColorTempConfig(m.DisplayMode)

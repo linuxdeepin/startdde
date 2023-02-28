@@ -284,21 +284,6 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeString,
 		xsKey:  "Gdk/PrimaryMonitorName",
 	},
-	{
-		gsKey:  "primary-monitor-rect",
-		gsType: gsKeyTypeString,
-		xsKey:  "DDE/PrimaryMonitorRect",
-	},
-	{
-		gsKey:  "qt-scrollbar-policy",
-		gsType: gsKeyTypeInt,
-		xsKey:  "Qt/ScrollBarPolicy",
-	},
-	{
-		gsKey:  "dtk-size-mode",
-		gsType: gsKeyTypeInt,
-		xsKey:  "DTK/SizeMode",
-	},
 }
 
 var settingTypeColorVar = settingTypeColor

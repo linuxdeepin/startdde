@@ -54,20 +54,18 @@ const (
 	KeyXDeepinCreatedBy     = "X-Deepin-CreatedBy"
 	KeyXDeepinAppID         = "X-Deepin-AppID"
 
+	uiAppSchedHooksDir = "/usr/lib/UIAppSched.hooks"
+	launchedHookDir    = uiAppSchedHooksDir + "/launched"
+
 	cpuFreqAdjustFile   = "/usr/share/startdde/app_startup.conf"
 	performanceGovernor = "performance"
 
 	restartRateLimitSeconds = 60
-
-	dsettingsAppID                            = "org.deepin.startdde"
-	dsettingsStartManagerName                 = "org.deepin.startdde.StartManager"
-	dsettingsEnableSystemdApplicationUnitsKey = "enable-systemd-application-units"
 )
 
 type StartManager struct {
 	xConn               *x.Conn
 	service             *dbusutil.Service
-	sysSigLoop          *dbusutil.SignalLoop
 	userAutostartPath   string
 	delayHandler        *mapDelayHandler
 	daemonApps          daemonApps.Apps
@@ -81,14 +79,11 @@ type StartManager struct {
 	appsDisableScaling  strv.Strv
 	mu                  sync.Mutex
 	appProxy            proxy.App
+	launchedHooks       []string
 
 	NeededMemory     uint64
 	systemPower      systemPower.Power
 	cpuFreqAdjustMap map[string]int32
-
-	userSystemd systemd1.Manager
-
-	enableSystemdApplicationUnit bool
 
 	//nolint
 	signals *struct {
@@ -162,6 +157,16 @@ func (m *StartManager) enableCpuFreqLock(desktopFile string) error {
 	return nil
 }
 
+func (m *StartManager) execLaunchedHooks(desktopFile, cGroupName string) {
+	for _, name := range m.launchedHooks {
+		p := filepath.Join(launchedHookDir, name)
+		err := exec.Command(p, desktopFile, cGroupName).Run()
+		if err != nil {
+			logger.Warning("run cmd failed:", err)
+		}
+	}
+}
+
 func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	m := &StartManager{
 		service: service,
@@ -172,7 +177,6 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	m.settings = gio.NewSettings(gSchemaLauncher)
 	m.appsUseProxy = m.settings.GetStrv(gKeyAppsUseProxy)
 	m.appsDisableScaling = m.settings.GetStrv(gKeyAppsDisableScaling)
-	m.userSystemd = systemd1.NewManager(service.Conn())
 
 	gsettings.ConnectChanged(gSchemaLauncher, "*", func(key string) {
 		switch key {
@@ -195,6 +199,7 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	logger.Debugf("startManager proxychain confFile %q, bin: %q", m.proxyChainsConfFile, m.proxyChainsBin)
 
 	m.restartTimeMap = make(map[string]time.Time)
+	m.launchedHooks = getLaunchedHooks(launchedHookDir)
 	m.delayHandler = newMapDelayHandler(100*time.Millisecond,
 		m.emitSignalAutostartChanged)
 	sysBus, err := dbus.SystemBus()
@@ -202,53 +207,11 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 		logger.Warning(err)
 	}
 
-	m.sysSigLoop = dbusutil.NewSignalLoop(sysBus, 10)
-	m.sysSigLoop.Start()
-
 	m.daemonApps = daemonApps.NewApps(sysBus)
 	m.systemPower = systemPower.NewPower(sysBus)
 	m.appProxy = proxy.NewApp(sysBus)
 	m.cpuFreqAdjustMap = m.getCpuFreqAdjustMap(cpuFreqAdjustFile)
-	m.initDSettings(sysBus)
 	return m
-}
-
-func (m *StartManager) initDSettings(sysBus *dbus.Conn) {
-	ds := configManager.NewConfigManager(sysBus)
-
-	startManagerPath, err := ds.AcquireManager(0, dsettingsAppID, dsettingsStartManagerName, "")
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	dsStartManager, err := configManager.NewManager(sysBus, startManagerPath)
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	getEnableSystemdApplicationUnit := func() {
-		v, err := dsStartManager.Value(0, dsettingsEnableSystemdApplicationUnitsKey)
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-
-		m.enableSystemdApplicationUnit = v.Value().(bool)
-	}
-
-	getEnableSystemdApplicationUnit()
-
-	dsStartManager.InitSignalExt(m.sysSigLoop, true)
-	_, err = dsStartManager.ConnectValueChanged(func(key string) {
-		if key == dsettingsEnableSystemdApplicationUnitsKey {
-			getEnableSystemdApplicationUnit()
-		}
-	})
-	if err != nil {
-		logger.Warning(err)
-	}
 }
 
 var _startManager *StartManager
@@ -273,7 +236,11 @@ func (m *StartManager) setRestartTime(appInfo *desktopappinfo.DesktopAppInfo, t 
 }
 
 func (m *StartManager) GetApps() (map[uint32]string, *dbus.Error) {
-	return nil, dbusutil.ToError(errors.New("swap-sched disabled"))
+	if swapSchedDispatcher == nil {
+		return nil, dbusutil.ToError(errors.New("swap-sched disabled"))
+	}
+
+	return swapSchedDispatcher.GetAppsSeqDescMap(), nil
 }
 
 // deprecated
@@ -454,7 +421,22 @@ func (m *StartManager) runCommandWithOptions(exe string, args []string,
 		return nil
 	}
 
-	cmd := exec.Command(exe, args...)
+	var uiApp *swapsched.UIApp
+	if swapSchedDispatcher != nil {
+		desc := getCmdDesc(exe, args)
+		uiApp, err = swapSchedDispatcher.NewApp(desc, nil)
+		if err != nil {
+			logger.Warning("dispatcher.NewApp error:", err)
+		}
+	}
+
+	var cmd *exec.Cmd
+	if uiApp != nil {
+		args = append([]string{"-g", "memory:" + uiApp.GetCGroup(), exe}, args...)
+		cmd = exec.Command(globalCgExecBin, args...)
+	} else {
+		cmd = exec.Command(exe, args...)
+	}
 
 	if dirVar, ok := options["dir"]; ok {
 		if dirStr, ok := dirVar.Value().(string); ok {
@@ -465,7 +447,7 @@ func (m *StartManager) runCommandWithOptions(exe string, args []string,
 	}
 
 	err = cmd.Start()
-	return m.waitCmd(nil, cmd, err, _name)
+	return m.waitCmd(nil, cmd, err, uiApp, _name)
 }
 
 func (m *StartManager) getAppIdByFilePath(file string) string {
@@ -473,11 +455,6 @@ func (m *StartManager) getAppIdByFilePath(file string) string {
 }
 
 func (m *StartManager) shouldUseProxy(id string) bool {
-	// TODO: add support for application proxy
-	if m.enableSystemdApplicationUnit {
-		return false
-	}
-
 	m.mu.Lock()
 	if !m.appsUseProxy.Contains(id) {
 		m.mu.Unlock()
@@ -509,41 +486,44 @@ type IStartCommand interface {
 	StartCommand(files []string, ctx *appinfo.AppLaunchContext) (*exec.Cmd, error)
 }
 
-func (m *StartManager) createSystemdUnitForPID(appID string, desktopFile string, pid uint) {
-	if appID == "" {
-		appID = strings.TrimSuffix(filepath.Base(desktopFile), ".desktop")
-	}
-
-	unitName := fmt.Sprintf("app-dde-%s-%d.scope", appID, pid)
-
-	properties := []systemd1.Property{
-		{
-			Name:  "Description",
-			Value: dbus.MakeVariant("Launched by DDE"),
-		},
-		{
-			Name:  "PIDs",
-			Value: dbus.MakeVariant([]uint{pid}),
-		},
-		{
-			Name:  "CollectMode",
-			Value: dbus.MakeVariant("inactive-or-failed"),
-		},
-	}
-
-	m.userSystemd.StartTransientUnit(0, unitName, "fail", properties, nil)
-}
-
 func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp uint32,
 	files []string, iStartCmd IStartCommand, cmdName string) error {
+	// maximum RAM unit is MB
+	maxRAM, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-MaximumRAM")
+	// unit is MB/s
+	blkioReadMBPS, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-BlkioReadMBPS")
+	blkioWriteMBPS, _ := appInfo.GetUint64(desktopappinfo.MainSection, "X-Deepin-BlkioWriteMBPS")
+
 	desktopFile := appInfo.GetFileName()
 	logger.Debug("launch: desktopFile is", desktopFile)
 	var err error
 	var cmdPrefixes []string
+	var uiApp *swapsched.UIApp
 
 	err = m.enableCpuFreqLock(desktopFile)
 	if err != nil {
 		logger.Debug("cpu freq lock failed:", err)
+	}
+
+	if swapSchedDispatcher != nil {
+		if isDEComponent(appInfo) {
+			cmdPrefixes = []string{globalCgExecBin, "-g", "memory:" + swapSchedDispatcher.GetDECGroup()}
+		} else {
+			limit := &swapsched.AppResourcesLimit{
+				MemHardLimit:  maxRAM * 1e6,
+				BlkioReadBPS:  blkioReadMBPS * 1e6,
+				BlkioWriteBPS: blkioWriteMBPS * 1e6,
+			}
+			logger.Debugf("launch limit: %#v", limit)
+			uiApp, err = swapSchedDispatcher.NewApp(desktopFile, limit)
+			if err != nil {
+				logger.Warning("dispatcher.NewApp error:", err)
+			} else {
+				logger.Debug("launch: use cgexec")
+				cmdPrefixes = []string{globalCgExecBin, "-g",
+					"memory,freezer,blkio:" + uiApp.GetCGroup()}
+			}
+		}
 	}
 
 	appId := m.getAppIdByFilePath(desktopFile)
@@ -583,11 +563,14 @@ func (m *StartManager) launch(appInfo *desktopappinfo.DesktopAppInfo, timestamp 
 
 	cmd, err := iStartCmd.StartCommand(files, ctx)
 
-	if m.enableSystemdApplicationUnit {
-		m.createSystemdUnitForPID(appId, desktopFile, uint(cmd.Process.Pid))
+	// exec launched hooks
+	cGroupName := ""
+	if uiApp != nil {
+		cGroupName = uiApp.GetCGroup()
 	}
+	go m.execLaunchedHooks(desktopFile, cGroupName)
 
-	return m.waitCmd(appInfo, cmd, err, cmdName)
+	return m.waitCmd(appInfo, cmd, err, uiApp, cmdName)
 }
 
 func newDesktopAppInfoFromFile(filename string) (*desktopappinfo.DesktopAppInfo, error) {
@@ -655,7 +638,11 @@ func (m *StartManager) launchAppActionAux(desktopFile, actionSection string, tim
 	return m.launch(appInfo, timestamp, nil, &targetAction, desktopFile+actionSection)
 }
 
-func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec.Cmd, err error, cmdName string) error {
+func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec.Cmd, err error,
+	uiApp *swapsched.UIApp, cmdName string) error {
+	if uiApp != nil {
+		swapSchedDispatcher.AddApp(uiApp)
+	}
 	if err != nil {
 		return err
 	}
@@ -703,7 +690,18 @@ func (m *StartManager) waitCmd(appInfo *desktopappinfo.DesktopAppInfo, cmd *exec
 				}
 			}
 		}
+		if uiApp != nil {
+			uiApp.SetStateEnd()
+		}
 	}()
+	if uiApp != nil {
+		go func() {
+			err := saveNeededMemory(cmdName, uiApp.GetCGroup())
+			if err != nil {
+				logger.Warning(err)
+			}
+		}()
+	}
 
 	return nil
 }

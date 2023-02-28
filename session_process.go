@@ -131,10 +131,15 @@ func (m *SessionManager) launchWithoutWait(bin string, args ...string) {
 
 func (m *SessionManager) launch(bin string, wait bool, args ...string) bool {
 	if bin == "dde-session-daemon-part2" {
-		startPulseAudio()
 		return m.startSessionDaemonPart2()
 	}
 
+	if swapSchedDispatcher != nil {
+		cgroupPath := swapSchedDispatcher.GetDECGroup()
+		argsTemp := []string{"-g", "memory:" + cgroupPath, bin}
+		args = append(argsTemp, args...)
+		bin = globalCgExecBin
+	}
 	logger.Debugf("sessionManager.launch %q %v", bin, args)
 
 	if wait {

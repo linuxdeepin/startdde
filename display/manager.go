@@ -5,7 +5,6 @@
 package display
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +15,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,12 +32,11 @@ import (
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
-	"github.com/linuxdeepin/go-lib/strv"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
-
 	"github.com/linuxdeepin/startdde/display/brightness"
+	"golang.org/x/xerrors"
 )
 
 const (
@@ -77,8 +74,6 @@ const (
 	gsKeyMapOutput   = "map-output"
 	gsKeyRateFilter  = "rate-filter"
 	//gsKeyPrimary     = "primary"
-	gsXSettingsPrimaryName       = "primary-monitor-name"
-	gsXSettingsPrimaryRect       = "primary-monitor-rect"
 	gsKeyCustomMode              = "current-custom-mode"
 	gsKeyColorTemperatureMode    = "color-temperature-mode"
 	gsKeyColorTemperatureManual  = "color-temperature-manual"
@@ -99,14 +94,6 @@ const (
 	priorityDVI
 	priorityVGA
 	priorityOther
-)
-
-const (
-	DSettingsAppID                                    = "org.deepin.startdde"
-	DSettingsDisplayName                              = "org.deepin.Display"
-	DSettingsKeyHDMIIsBuiltinConfig                   = "HDMI-is-builtin"
-	DSettingsKeyBackLightMaxBrightnessChooseBigConfig = "backLight-max-brightness-choose-big"
-	DSettingsKeySpecialGPUVendorListConfig            = "special-gpu-vendor-list"
 )
 
 var (
@@ -194,13 +181,8 @@ type Manager struct {
 	DisplayMode  byte
 	// dbusutil-gen: equal=nil
 	Brightness map[string]float64
-
 	// dbusutil-gen: equal=nil
 	Touchscreens dxTouchscreens
-	tm           touchscreenManager
-
-	// dbusutil-gen: equal=nil
-	TouchscreensV2 dxTouchscreens
 	// dbusutil-gen: equal=nil
 	TouchscreensV2 dxTouchscreens
 	// dbusutil-gen: equal=nil
@@ -226,16 +208,6 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
-	// 不支持调节色温的显卡型号
-	unsupportGammaDrmList []string
-	drmSupportGamma       bool
-	initPrimary           bool
-
-	dsHDMIIsBuiltinConfig                   []string
-	dsBackLightMaxBrightnessChooseBigConfig []string
-	dmiInfo                                 systeminfo.DMIInfo
-	pciVendor                               []string
-	dsSpecialGPUVendorList                  []string
 }
 
 type monitorSizeInfo struct {
@@ -251,11 +223,7 @@ func newManager(service *dbusutil.Service) *Manager {
 		monitorMap:     make(map[uint32]*Monitor),
 		Brightness:     make(map[string]float64),
 		redshiftRunner: newRedshiftRunner(),
-		unsupportGammaDrmList: []string{
-			"Loongson",
-		},
 	}
-	m.initPrimary = false
 	m.redshiftRunner.cb = func(value int) {
 		m.setColorTempOneShot()
 	}
@@ -277,30 +245,27 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.xConn = _xConn
 
 	screen := m.xConn.GetDefaultScreen()
-	if screen != nil {
-		m.ScreenWidth = screen.WidthInPixels
-		m.ScreenHeight = screen.HeightInPixels
-	}
+	m.ScreenWidth = screen.WidthInPixels
+	m.ScreenHeight = screen.HeightInPixels
+
 	sessionSigLoop := dbusutil.NewSignalLoop(m.service.Conn(), 10)
 	m.sessionSigLoop = sessionSigLoop
 	sessionSigLoop.Start()
+
+	if _useWayland {
+		m.mm = newKMonitorManager(sessionSigLoop)
+	} else {
+		m.mm = newXMonitorManager(m.xConn, _hasRandr1d2)
+	}
+
+	m.mm.setHooks(m)
+
+	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 
 	m.sysBus, err = dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
 	}
-
-	if _useWayland {
-		m.mm = newKMonitorManager(sessionSigLoop)
-		m.tm = newWaylandTouchscreenManager(service.Conn(), m.sysBus)
-	} else {
-		m.mm = newXMonitorManager(m.xConn, _hasRandr1d2)
-		m.tm = newXTouchscreenManager(m.sysBus)
-	}
-
-	m.mm.setHooks(m)
-
-	m.setPropMaxBacklightBrightness(uint32(m.GetMaxBacklightBrightness()))
 
 	sysSigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
 	m.sysSigLoop = sysSigLoop
@@ -376,6 +341,7 @@ func newManager(service *dbusutil.Service) *Manager {
 			m.newSysCfg = nil
 		}
 
+		m.handleTouchscreenChanged()
 		m.showTouchscreenDialogs()
 
 		// 监听用户的session Active属性改变信号，当切换到当前已经登录的用户时
@@ -392,12 +358,7 @@ func newManager(service *dbusutil.Service) *Manager {
 	if err != nil {
 		logger.Warning(err)
 	}
-	go func() {
-		m.drmSupportGamma, _ = m.detectDrmSupportGamma()
-		if m.drmSupportGamma {
-			m.setColorTempModeReal(ColorTemperatureModeNone)
-		}
-	}()
+
 	return m
 }
 
@@ -752,7 +713,7 @@ func (m *Manager) updateMonitorsId(options applyOptions) (changed bool) {
 	oldMonitorsId := m.monitorsId
 	monitorMap := m.cloneMonitorMap()
 	newMonitorsId := getConnectedMonitors(monitorMap).getMonitorsId()
-	if newMonitorsId != oldMonitorsId && (newMonitorsId.v1 != "" || _useWayland) {
+	if newMonitorsId != oldMonitorsId && newMonitorsId.v1 != "" {
 		m.monitorsId = newMonitorsId
 		logger.Debugf("monitors id changed, old monitors id: %v, new monitors id: %v", oldMonitorsId.v1, newMonitorsId.v1)
 		m.markClean()
@@ -971,12 +932,6 @@ func (m *Manager) init() {
 		m.monitorsId = m.getMonitorsId()
 		m.updatePropMonitors()
 
-		pmi := m.mm.getPrimaryMonitor()
-		if pmi != nil {
-			m.setPropPrimary(pmi.Name)
-			m.setPropPrimaryRect(pmi.getRect())
-		}
-
 	} else {
 		// randr 版本低于 1.2
 		screen := m.xConn.GetDefaultScreen()
@@ -1019,76 +974,6 @@ func (m *Manager) init() {
 		// 没有内建屏,不监听内核信号
 		logger.Info("built-in screen does not exist")
 	}
-	m.initDSettings(m.sysBus)
-	m.initHardwareInfo(m.sysBus)
-	go func() {
-		// 每次设置过主屏和其rect区域后，都将此值同步到xsettings
-		bus, _ := dbus.SessionBus()
-		display := sessiondisplay.NewDisplay(bus)
-		sigLoop := dbusutil.NewSignalLoop(bus, 10)
-		sigLoop.Start()
-		display.InitSignalExt(sigLoop, true)
-
-		err = display.Primary().ConnectChanged(func(hasValue bool, primary string) {
-			if !hasValue {
-				return
-			}
-
-			// 保持主屏Name和xsettings同步
-			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryName) {
-				oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
-				if oldPrimary != primary {
-					m.xSettingsGs.SetString(gsXSettingsPrimaryName, primary)
-				}
-				return
-			}
-		})
-		if err != nil {
-			logger.Warning("connect to `Primary` property changed failed:", err)
-		}
-
-		err = display.PrimaryRect().ConnectChanged(func(hasValue bool, rect sessiondisplay.Rectangle) {
-			if !hasValue {
-				return
-			}
-
-			// 保持主屏Rect和xsettings同步
-			if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
-				oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
-				if oldRect != rect2String(rect) {
-					m.xSettingsGs.SetString(gsXSettingsPrimaryRect, rect2String(rect))
-				}
-				return
-			}
-		})
-		if err != nil {
-			logger.Warning("connect to `PrimaryRect` property changed failed:", err)
-		}
-
-		// 启动后先同步一次
-		if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryName) {
-			oldPrimary := m.xSettingsGs.GetString(gsXSettingsPrimaryName)
-			if oldPrimary != m.Primary {
-				m.xSettingsGs.SetString(gsXSettingsPrimaryName, m.Primary)
-			}
-			return
-		}
-		if m.xSettingsGs.GetSchema().HasKey(gsXSettingsPrimaryRect) {
-			oldRect := m.xSettingsGs.GetString(gsXSettingsPrimaryRect)
-			if oldRect != xrect2String(m.PrimaryRect) {
-				m.xSettingsGs.SetString(gsXSettingsPrimaryRect, xrect2String(m.PrimaryRect))
-			}
-			return
-		}
-	}()
-}
-
-func xrect2String(rect x.Rectangle) string {
-	return fmt.Sprintf("%d-%d-%d-%d", rect.X, rect.Y, rect.Width, rect.Height)
-}
-
-func rect2String(rect sessiondisplay.Rectangle) string {
-	return fmt.Sprintf("%d-%d-%d-%d", rect.X, rect.Y, rect.Width, rect.Height)
 }
 
 // calcRecommendedScaleFactor 计算推荐的缩放比
@@ -1264,7 +1149,6 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 	}
 
 	logger.Debug("addMonitor", monitorInfo.Name)
-	monitorInfo.dumpForDebug()
 
 	monitor := &Monitor{
 		service:            m.service,
@@ -1277,7 +1161,6 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 		MmHeight:           monitorInfo.MmHeight,
 		Enabled:            monitorInfo.Enabled,
 		uuid:               monitorInfo.UUID,
-		edid:               monitorInfo.EDID,
 		uuidV0:             monitorInfo.UuidV0,
 		Manufacturer:       monitorInfo.Manufacturer,
 		Model:              monitorInfo.Model,
@@ -1293,7 +1176,6 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 	monitor.Y = monitorInfo.Y
 	monitor.Width = monitorInfo.Width
 	monitor.Height = monitorInfo.Height
-	monitor.Brightness = 1
 
 	monitor.Reflects = getReflects(monitorInfo.Rotations)
 	monitor.Rotations = getRotations(monitorInfo.Rotations)
@@ -1320,8 +1202,7 @@ func (m *Manager) addMonitor(monitorInfo *MonitorInfo) error {
 		logger.Warning("call SetWriteCallback err:", err)
 		return err
 	}
-	// 如果屏幕添加，刷新一下ddcci的display列表
-	go brightness.ReflashDDCCIDisplay()
+
 	return nil
 }
 
@@ -1443,14 +1324,6 @@ func (m *Manager) applyModeMirror(monitorsId monitorsId, monitorMap map[uint32]*
 			return
 		}
 	}
-	for _, config := range configs {
-		if config.X != 0 || config.Y != 0 {
-			logger.Warning("mirror config is wrong, correct the config")
-			needSaveCfg = true
-			config.X = 0
-			config.Y = 0
-		}
-	}
 
 	err = m.applySysMonitorConfigs(DisplayModeMirror, monitorsId, monitorMap, configs, options)
 	if err != nil {
@@ -1569,10 +1442,6 @@ func (m *Manager) apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, o
 	m.applyMu.Unlock()
 
 	m.setInApply(false)
-
-	logger.Info("redo map touch screen")
-	m.handleTouchscreenChanged()
-
 	return err
 }
 
@@ -1588,18 +1457,14 @@ func (m *Manager) setInApply(value bool) {
 	m.PropsMu.Unlock()
 }
 
-func (m *Manager) handlePrimaryRectChanged(pmi *MonitorInfo) {
+func (m *Manager) handlePrimaryRectChanged(pmi primaryMonitorInfo) {
 	logger.Debug("handlePrimaryRectChanged", pmi)
 	m.PropsMu.Lock()
 	defer m.PropsMu.Unlock()
 
-	// 复制模式不用设置主屏，由于单屏和复制模式共用一个配置，因此此处需要判断屏幕个数来确实是否是复制模式
-	if (m.DisplayMode == DisplayModeMirror) && (len(m.monitorMap) > 1) && m.initPrimary {
-		return
-	}
-	if pmi != nil {
-		m.setPropPrimary(pmi.Name)
-		m.setPropPrimaryRect(pmi.getRect())
+	m.setPropPrimary(pmi.Name)
+	if !pmi.IsRectEmpty() {
+		m.setPropPrimaryRect(pmi.Rect)
 	}
 }
 
@@ -1879,7 +1744,7 @@ func (m *Manager) switchMode(mode byte, name string) (err error) {
 
 	monitorsId := monitors.getMonitorsId()
 	options := getSwitchModeOptions(mode, name)
-	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, false, options)
+	err = m.switchModeAux(mode, oldMode, monitorsId, monitorMap, true, options)
 	if err != nil {
 		applyErr, ok := err.(*applyFailed)
 		if ok && applyErr.reason == reasonNumChanged {
@@ -2026,10 +1891,7 @@ func (m *Manager) applyChanges() error {
 
 	configs := m.getSuitableSysMonitorConfigs(m.DisplayMode, monitorsId, monitors)
 	for _, config := range configs {
-		monitor := monitors.GetByUuidAndName(config.UUID, config.Name)
-		if monitor == nil {
-			monitor = monitors.GetByUuid(config.UUID)
-		}
+		monitor := monitors.GetByUuid(config.UUID)
 		if monitor == nil {
 			continue
 		}
@@ -2102,10 +1964,7 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	var primaryMonitorID uint32
 	var enabledMonitors []*Monitor
 	for _, monitor := range monitorMap {
-		monitorCfg := configs.getByUuidAndName(monitor.uuid, monitor.Name)
-		if monitorCfg == nil {
-			monitorCfg = configs.getByUuid(monitor.uuid)
-		}
+		monitorCfg := configs.getByUuid(monitor.uuid)
 		if monitorCfg == nil {
 			logger.Debug("disable monitor", monitor)
 			monitor.Enabled = false
@@ -2165,7 +2024,7 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	// 异步处理亮度设置
 	go func() {
 		for _, config := range configs {
-			if config.Enabled && m.canSetBrightness(config.Name) {
+			if config.Enabled {
 				err := m.setBrightness(config.Name, config.Brightness)
 				if err != nil {
 					logger.Warningf("call setBrightness err: %v, config.Name: %s", err, config.Name)
@@ -2192,7 +2051,6 @@ func (m *Manager) applySysMonitorConfigs(mode byte, monitorsId monitorsId, monit
 	if err != nil {
 		logger.Warning(err)
 	}
-	m.initPrimary = true
 
 	return nil
 }
@@ -2388,10 +2246,15 @@ func (m *Manager) initTouchscreens() {
 	}
 
 	_, err = m.inputDevices.ConnectTouchscreenAdded(func(path dbus.ObjectPath) {
-		m.tm.refreshDevicesFromDisplayServer()
-		err := m.tm.addTouchscreen(path)
+		getDeviceInfos(true)
+
+		// 通过 path 删除重复设备
+		m.removeTouchscreenByPath(path)
+
+		touchscreen, err := m.newTouchscreen(path)
 		if err != nil {
 			logger.Warning(err)
+			return
 		}
 
 		// 若设备已存在，删除并重新添加
@@ -2427,13 +2290,15 @@ func (m *Manager) initTouchscreens() {
 		return
 	}
 
-	m.tm.refreshDevicesFromDisplayServer()
+	getDeviceInfos(true)
 	for _, p := range touchscreens {
-		err := m.tm.addTouchscreen(p)
+		touchscreen, err := m.newTouchscreen(p)
 		if err != nil {
 			logger.Warning(err)
 			continue
 		}
+
+		m.Touchscreens = append(m.Touchscreens, touchscreen)
 	}
 	m.TouchscreensV2 = m.Touchscreens
 
@@ -2470,6 +2335,74 @@ func (m *Manager) initTouchMap() {
 			}
 		}
 	}
+}
+
+func (m *Manager) doSetTouchMap(monitor0 *Monitor, touchUUID string) error {
+	touchIDs := make([]int32, 0)
+	for _, touchscreen := range m.Touchscreens {
+		if touchscreen.UUID != touchUUID {
+			continue
+		}
+
+		touchIDs = append(touchIDs, touchscreen.Id)
+	}
+	if len(touchIDs) == 0 {
+		return fmt.Errorf("invalid touchscreen: %s", touchUUID)
+	}
+
+	ignoreGestureFunc := func(id int32, ignore bool) {
+		hasNode := dxutil.IsPropertyExist(id, "Device Node")
+		if hasNode {
+			data, item := dxutil.GetProperty(id, "Device Node")
+			node := string(data[:item])
+
+			gestureObj := dgesture.NewGesture(m.sysBus)
+			gestureObj.SetInputIgnore(0, node, ignore)
+		}
+	}
+
+	if monitor0.Enabled {
+		matrix := genTransformationMatrix(monitor0.X, monitor0.Y, monitor0.Width, monitor0.Height, monitor0.Rotation|monitor0.Reflect)
+
+		for _, touchID := range touchIDs {
+			dxTouchscreen, err := dxinput.NewTouchscreen(touchID)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			logger.Debugf("matrix: %v, touchscreen: %s(%d)", matrix, touchUUID, touchID)
+
+			err = dxTouchscreen.Enable(true)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			ignoreGestureFunc(dxTouchscreen.Id, false)
+
+			err = dxTouchscreen.SetTransformationMatrix(matrix)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+		}
+	} else {
+		for _, touchID := range touchIDs {
+			dxTouchscreen, err := dxinput.NewTouchscreen(touchID)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+			logger.Debugf("touchscreen %s(%d) disabled", touchUUID, touchID)
+			ignoreGestureFunc(dxTouchscreen.Id, true)
+			err = dxTouchscreen.Enable(false)
+			if err != nil {
+				logger.Warning(err)
+				continue
+			}
+		}
+	}
+
+	return nil
 }
 
 func (m *Manager) updateTouchscreenMap(outputName string, touchUUID string, auto bool) {
@@ -2509,7 +2442,7 @@ func (m *Manager) associateTouch(monitor *Monitor, touchUUID string, auto bool) 
 		return nil
 	}
 
-	err := m.tm.associateTouchscreen(monitor, touchUUID)
+	err := m.doSetTouchMap(monitor, touchUUID)
 	if err != nil {
 		logger.Warning("[AssociateTouch] set failed:", err)
 		return err
@@ -2600,12 +2533,12 @@ func (c *SysRootConfig) fix() {
 
 // 无需对结果再次地调用 fix 方法
 func (m *Manager) getSysConfig() (*SysRootConfig, error) {
-	cfgJSON, err := m.sysDisplay.GetConfig(0)
+	cfgJson, err := m.sysDisplay.GetConfig(0)
 	if err != nil {
 		return nil, err
 	}
 	var rootCfg SysRootConfig
-	err = jsonUnmarshal(cfgJSON, &rootCfg)
+	err = jsonUnmarshal(cfgJson, &rootCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -2635,10 +2568,6 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 		return nil
 	}
 
-	if !m.sessionActive {
-		return nil
-	}
-
 	m.sysConfig.UpdateAt = time.Now().Format(time.RFC3339Nano)
 	m.sysConfig.Version = sysConfigVersion
 
@@ -2650,8 +2579,8 @@ func (m *Manager) saveSysConfigNoLock(reason string) error {
 		}
 	}
 
-	cfgJSON := jsonMarshal(&m.sysConfig)
-	err := m.sysDisplay.SetConfig(0, cfgJSON)
+	cfgJson := jsonMarshal(&m.sysConfig)
+	err := m.sysDisplay.SetConfig(0, cfgJson)
 	return err
 }
 
@@ -2756,7 +2685,7 @@ func (m *Manager) handleTouchscreenChanged() {
 			monitor := monitors.GetByName(v.OutputName)
 			if monitor != nil {
 				logger.Debugf("assigned %s to %s, cfg", touch.UUID, v.OutputName)
-				err := m.tm.associateTouchscreen(monitor, touch.UUID)
+				err := m.doSetTouchMap(monitor, touch.UUID)
 				if err != nil {
 					logger.Warning("failed to map touchscreen:", err)
 				}
@@ -2804,7 +2733,7 @@ func (m *Manager) handleTouchscreenChanged() {
 
 		// 有内置显示器，且触摸屏不是通过 USB 连接，关联内置显示器
 		if m.builtinMonitor != nil {
-			if touch.busType != busTypeUSB {
+			if touch.busType != BusTypeUSB {
 				logger.Debugf("assigned %s to %s, builtin", touch.UUID, m.builtinMonitor.Name)
 				err := m.associateTouch(m.builtinMonitor, touch.UUID, true)
 				if err != nil {
@@ -2819,7 +2748,7 @@ func (m *Manager) handleTouchscreenChanged() {
 		if monitor == nil {
 			logger.Warningf("primary output %s not found", m.Primary)
 		} else {
-			err := m.tm.associateTouchscreen(monitor, touch.UUID)
+			err := m.doSetTouchMap(monitor, touch.UUID)
 			if err != nil {
 				logger.Warning("failed to map touchscreen:", err)
 			}
@@ -3010,173 +2939,4 @@ func (m *Manager) updateScreenSize() {
 	m.setPropScreenWidth(screenWidth)
 	m.setPropScreenHeight(screenHeight)
 	m.PropsMu.Unlock()
-}
-
-func getLspci(args []string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	cmd := exec.CommandContext(ctx, "lspci", args...)
-	cmd.Env = []string{
-		"LC_ALL=C",
-	}
-	out, err := cmd.CombinedOutput()
-	cancel()
-	if err != nil {
-		logger.Warning(err)
-		return "", err
-	} else {
-		return string(out), nil
-	}
-}
-
-func (m *Manager) detectDrmSupportGamma() (bool, error) {
-	args := []string{}
-	pciInfo, err := getLspci(args)
-	if err != nil {
-		logger.Warning(err)
-		return false, err
-	}
-	pciInfos := strings.Split(pciInfo, "\n")
-	vgaSupportGamma := false
-	for _, info := range pciInfos {
-		if strings.Contains(info, "VGA") {
-			vgaSupportGamma = true
-			for _, drm := range m.unsupportGammaDrmList {
-				lowDrm := strings.ToLower(drm)
-				lowInfo := strings.ToLower(info)
-				if strings.Contains(lowInfo, lowDrm) {
-					vgaSupportGamma = false
-					break
-				}
-			}
-			if vgaSupportGamma {
-				return true, nil
-			}
-		}
-	}
-	if !vgaSupportGamma {
-		// 部分显卡lspci没有VGA compatible controller相关数据，需要特殊处理
-		specialGPUVendorList := m.dsSpecialGPUVendorList
-		for _, vendor := range specialGPUVendorList {
-			args := []string{fmt.Sprintf("-d %s", vendor)}
-			specifiedVendorInfo, err := getLspci(args)
-			if err != nil {
-				logger.Warning(err)
-				vgaSupportGamma = false
-				continue
-			}
-			if specifiedVendorInfo != "" {
-				vgaSupportGamma = true
-				break
-			}
-		}
-	}
-	return vgaSupportGamma, nil
-}
-
-func (m *Manager) initDSettings(sysBus *dbus.Conn) {
-	ds := configManager.NewConfigManager(sysBus)
-
-	displayPath, err := ds.AcquireManager(0, DSettingsAppID, DSettingsDisplayName, "")
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	dsDisplay, err := configManager.NewManager(sysBus, displayPath)
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-
-	getHDMIIsBuiltinConfig := func() {
-		v, err := dsDisplay.Value(0, DSettingsKeyHDMIIsBuiltinConfig)
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-		itemList := v.Value().([]dbus.Variant)
-		for _, i := range itemList {
-			m.dsHDMIIsBuiltinConfig = append(m.dsHDMIIsBuiltinConfig, i.Value().(string))
-		}
-	}
-	getBackLightMaxBrightnessChooseBigConfig := func() {
-		v, err := dsDisplay.Value(0, DSettingsKeyBackLightMaxBrightnessChooseBigConfig)
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-		itemList := v.Value().([]dbus.Variant)
-		for _, i := range itemList {
-			m.dsBackLightMaxBrightnessChooseBigConfig = append(m.dsBackLightMaxBrightnessChooseBigConfig, i.Value().(string))
-		}
-	}
-	getSpecialGPUVendorList := func() {
-		v, err := dsDisplay.Value(0, DSettingsKeySpecialGPUVendorListConfig)
-		if err != nil {
-			logger.Warning(err)
-			return
-		}
-		itemList := v.Value().([]dbus.Variant)
-		for _, i := range itemList {
-			m.dsSpecialGPUVendorList = append(m.dsSpecialGPUVendorList, i.Value().(string))
-		}
-	}
-	getHDMIIsBuiltinConfig()
-	getBackLightMaxBrightnessChooseBigConfig()
-	getSpecialGPUVendorList()
-
-	dsDisplay.InitSignalExt(m.sysSigLoop, true)
-	_, err = dsDisplay.ConnectValueChanged(func(key string) {
-		switch key {
-		case DSettingsKeyHDMIIsBuiltinConfig:
-			getHDMIIsBuiltinConfig()
-		case DSettingsKeyBackLightMaxBrightnessChooseBigConfig:
-			getBackLightMaxBrightnessChooseBigConfig()
-		case DSettingsKeySpecialGPUVendorListConfig:
-			getSpecialGPUVendorList()
-		}
-	})
-	if err != nil {
-		logger.Warning(err)
-	}
-}
-
-func (m *Manager) initHardwareInfo(sysBus *dbus.Conn) {
-	info := systeminfo.NewSystemInfo(sysBus)
-	dmi, err := info.DMIInfo().Get(0)
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-	m.dmiInfo = dmi
-	graphicList, err := graphic.GetGraphicList()
-	if err != nil {
-		logger.Warning(err)
-		return
-	}
-	for _, graphicInfo := range graphicList {
-		m.pciVendor = append(m.pciVendor, graphicInfo.Vendor)
-	}
-}
-
-func (m *Manager) GetMaxBacklightBrightness() int {
-	controllers := brightness.Controllers
-	if len(controllers) == 0 {
-		return 0
-	}
-	maxBrightness := controllers[0].MaxBrightness
-	if strv.Strv(m.dsBackLightMaxBrightnessChooseBigConfig).Contains(m.dmiInfo.ProductName) {
-		for _, controller := range controllers {
-			if maxBrightness < controller.MaxBrightness {
-				maxBrightness = controller.MaxBrightness
-			}
-		}
-	} else {
-		for _, controller := range controllers {
-			if maxBrightness > controller.MaxBrightness {
-				maxBrightness = controller.MaxBrightness
-			}
-		}
-	}
-	return maxBrightness
 }

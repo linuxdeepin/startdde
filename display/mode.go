@@ -255,7 +255,7 @@ func getFirstModeBySize(modes []ModeInfo, width, height uint16) ModeInfo {
 func getFirstModeBySizeRate(modes []ModeInfo, width, height uint16, rate float64) ModeInfo {
 	for _, modeInfo := range modes {
 		if modeInfo.Width == width && modeInfo.Height == height &&
-			math.Abs(modeInfo.Rate-rate) <= 0.001 {
+			math.Abs(modeInfo.Rate-rate) <= 0.01 {
 			return modeInfo
 		}
 	}

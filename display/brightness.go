@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/linuxdeepin/go-lib/strv"
 	"github.com/linuxdeepin/startdde/display/brightness"
 )
 
@@ -46,11 +45,6 @@ func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
 					}
 
 					if config.UUID == monitor.uuid {
-						other := monitors.GetByUuidAndName(config.UUID, config.Name)
-						if other != nil && other != monitor {
-							// 存在其他的名字和UUID都对应配置的显示器，不要改该配置
-							continue
-						}
 						config.Name = name
 						config.Brightness = v
 					}
@@ -152,17 +146,16 @@ func (m *Manager) getBrightnessSetter() string {
 }
 
 // see also: gnome-desktop/libgnome-desktop/gnome-rr.c
-//           '_gnome_rr_output_name_is_builtin_display'
+//
+//	'_gnome_rr_output_name_is_builtin_display'
 func (m *Manager) isBuiltinMonitor(name string) bool {
 	name = strings.ToLower(name)
 	switch {
 	case strings.HasPrefix(name, "vga"):
 		return false
 	case strings.HasPrefix(name, "hdmi"):
-		if strv.Strv(m.dsHDMIIsBuiltinConfig).Contains(m.dmiInfo.ProductName) {
-			return true
-		}
 		return false
+
 	case strings.HasPrefix(name, "dvi"):
 		return true
 	case strings.HasPrefix(name, "lvds"):
@@ -188,9 +181,8 @@ func (m *Manager) setMonitorBrightness(monitor *Monitor, brightnessValue float64
 	}
 
 	isBuiltin := m.isBuiltinMonitor(monitor.Name)
-	edid := encodeEdidBase64(monitor.edid)
 	err := brightness.Set(brightnessValue, temperature, m.getBrightnessSetter(), isBuiltin,
-		monitor.ID, m.xConn, monitor.uuid, edid)
+		monitor.ID, m.xConn)
 	return err
 }
 

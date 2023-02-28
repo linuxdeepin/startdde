@@ -2,19 +2,16 @@
 # -*- makefile -*-
 export GOPATH := /usr/share/gocode
 export GOCACHE=/tmp/gocache
-
 ifeq ($(DEB_BUILD_ARCH),sw_64)
 	export AUTO_LAUNCH_CHINESE=1
 endif
 
 ifeq ($(DEB_BUILD_ARCH),mips64el)
 	export AUTO_LAUNCH_CHINESE=1
-else
-    export GOBUILD_OPTIONS=-ldflags '-linkmode=external -extldflags "-pie"'
 endif
 
 %:
-	dh $@
+	dh $@ 
 
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info

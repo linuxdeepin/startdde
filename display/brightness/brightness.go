@@ -27,14 +27,11 @@ const (
 	SetterAuto      = "auto"
 	SetterGamma     = "gamma"
 	SetterBacklight = "backlight"
-	SetterDDCCI     = "ddcci"
-	SetterDRM       = "drm"
 )
 
 var logger = log.NewLogger("daemon/display/brightness")
 
 var helper backlight.Backlight
-var ddcciHelper backlight.DDCCI
 
 func InitBacklightHelper() {
 	var err error
@@ -43,10 +40,9 @@ func InitBacklightHelper() {
 		return
 	}
 	helper = backlight.NewBacklight(sysBus)
-	ddcciHelper = backlight.NewDDCCI(sysBus)
 }
 
-func Set(brightness float64, temperature int, setter string, isBuiltin bool, outputId uint32, conn *x.Conn, uuid string, edidBase64 string) error {
+func Set(brightness float64, temperature int, setter string, isBuiltin bool, outputId uint32, conn *x.Conn) error {
 	if brightness < 0 {
 		brightness = 0
 	} else if brightness > 1 {
@@ -86,19 +82,9 @@ func Set(brightness float64, temperature int, setter string, isBuiltin bool, out
 	case SetterBacklight:
 		setFn = setBlGamma
 	case SetterAuto:
-		// 自动检测仅自适应backlight和ddcci亮度调节
-		// 若两种都不支持，使用gamma调节
 		if isBuiltin && supportBacklight() {
 			setFn = setBlGamma
-		} else if supportDDCCIBrightness(edidBase64) {
-			return setDDCCIBrightness(brightness, edidBase64)
 		}
-	case SetterDDCCI:
-		return setDDCCIBrightness(brightness, edidBase64)
-	/* DRM 目前暂无检查是否支持接口，根据硬件驱动进行gsetting配置调节 */
-	case SetterDRM:
-		err := setBrigntnessByKwin(uuid, brightness)
-		return err
 		//case SetterGamma
 	}
 	return setFn()
@@ -123,6 +109,19 @@ func Set(brightness float64, temperature int, setter string, isBuiltin bool, out
 //	return 1, nil
 //}
 
+func GetMaxBacklightBrightness() int {
+	if len(controllers) == 0 {
+		return 0
+	}
+	maxBrightness := controllers[0].MaxBrightness
+	for _, controller := range controllers {
+		if maxBrightness > controller.MaxBrightness {
+			maxBrightness = controller.MaxBrightness
+		}
+	}
+	return maxBrightness
+}
+
 func GetBacklightController(outputId uint32, conn *x.Conn) (*displayBl.Controller, error) {
 	// TODO
 	//output := randr.Output(outputId)
@@ -134,7 +133,7 @@ func supportBacklight() bool {
 	if helper == nil {
 		return false
 	}
-	return len(Controllers) > 0
+	return len(controllers) > 0
 }
 
 func setOutputCrtcGamma(setting gammaSetting, output randr.Output, conn *x.Conn) error {
@@ -197,18 +196,18 @@ func genGammaRamp(size uint16, brightness float64) (red, green, blue []uint16) {
 	return
 }
 
-var Controllers displayBl.Controllers
+var controllers displayBl.Controllers
 
 func init() {
 	var err error
-	Controllers, err = displayBl.List()
+	controllers, err = displayBl.List()
 	if err != nil {
 		fmt.Println("failed to list backlight controller:", err)
 	}
 }
 
 func setBacklight(value float64, output randr.Output, conn *x.Conn) error {
-	for _, controller := range Controllers {
+	for _, controller := range controllers {
 		err := _setBacklight(value, controller)
 		if err != nil {
 			fmt.Printf("WARN: failed to set backlight %s: %v", controller.Name, err)
@@ -223,83 +222,4 @@ func _setBacklight(value float64, controller *displayBl.Controller) error {
 	fmt.Printf("help set brightness %q max %v value %v br %v\n",
 		controller.Name, controller.MaxBrightness, value, br)
 	return helper.SetBrightness(0, backlightTypeDisplay, controller.Name, br)
-}
-
-//String outputs, const int brightness
-func setBrigntnessByKwin(output string, value float64) error {
-	logger.Info("setBrigntnessByKwin")
-	sessionBus, err := dbus.SessionBus()
-	if err != nil {
-		return err
-	}
-	sessionObj := sessionBus.Object("com.deepin.daemon.KWayland", "/com/deepin/daemon/KWayland/Output")
-	err = sessionObj.Call("com.deepin.daemon.KWayland.Output.setBrightness", 0, output, int32(value*100)).Store()
-	if err != nil {
-		logger.Warning(err)
-		return err
-	}
-	return nil
-}
-
-func supportDDCCIBrightness(edidBase64 string) bool {
-	res, err := helper.CheckCfgSupport(0, "ddcci")
-	if err != nil {
-		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
-		return false
-	}
-	if res {
-		res, err = ddcciHelper.CheckSupport(0, edidBase64)
-		if err != nil {
-			logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
-			return false
-		}
-	}
-
-	return res
-}
-
-// 如果有屏幕的增加，刷新一下DDCCI的display
-// ddcciHelper的RefreshDisplays 重新读取显示列表，所以屏幕拔出不需要触发此刷新
-// 由于RefreshDisplays 较慢，使用携程处理。
-func ReflashDDCCIDisplay() {
-	if helper == nil {
-		return
-	}
-	res, err := helper.CheckCfgSupport(0, "ddcci")
-	if err != nil {
-		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
-		return
-	}
-	if res {
-		logger.Debug("refresh ddcci display")
-		err = ddcciHelper.RefreshDisplays(0)
-		if err != nil {
-			logger.Warningf("brightness: failed to refresh ddc/ci display list: %v", err)
-			return
-		}
-	}
-}
-
-func setDDCCIBrightness(value float64, edidBase64 string) error {
-	res, err := helper.CheckCfgSupport(0, "ddcci")
-	if err != nil {
-		logger.Warningf("brightness: failed to check ddc/ci support: %v", err)
-		return err
-	}
-	if !res {
-		logger.Warning("brightness: check ddc/ci config not support")
-		return nil
-	}
-	percent := int32(value * 100)
-	logger.Debugf("brightness: ddcci set brightness %d", percent)
-	return ddcciHelper.SetBrightness(0, edidBase64, percent)
-}
-
-func getDDCCIBrightness(edidBase64 string) (float64, error) {
-	br, err := ddcciHelper.GetBrightness(0, edidBase64)
-	if err != nil {
-		return 1, err
-	} else {
-		return (float64(br) / 100.0), err
-	}
 }

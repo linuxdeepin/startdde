@@ -26,7 +26,7 @@ msgstr ""
 #: ../../main.go:410 ../../main.go:446
 #, c-format
 msgid "Your password will expire in %d days"
-msgstr "Twoje hasło wygaśnie za %d dni"
+msgstr "Twoje hasło wygaśnie za 1%d dni"
 
 #: ../../main.go:414 ../../main.go:448
 #, c-format

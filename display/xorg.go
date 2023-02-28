@@ -25,12 +25,9 @@ var _hasRandr1d2 bool // 是否 randr 版本大于等于 1.2
 
 var _useWayland bool
 
-var _inVM bool
-
-func Init(xConn *x.Conn, useWayland bool, inVM bool) {
+func Init(xConn *x.Conn, useWayland bool) {
 	_xConn = xConn
 	_useWayland = useWayland
-	_inVM = inVM
 	randrVersion, err := randr.QueryVersion(xConn, randr.MajorVersion, randr.MinorVersion).Reply(xConn)
 	if err != nil {
 		logger.Warning(err)
@@ -196,7 +193,7 @@ type monitorManagerHooks interface {
 	handleMonitorAdded(monitorInfo *MonitorInfo)
 	handleMonitorRemoved(monitorId uint32)
 	handleMonitorChanged(monitorInfo *MonitorInfo)
-	handlePrimaryRectChanged(monitorInfo *MonitorInfo)
+	handlePrimaryRectChanged(pmi primaryMonitorInfo)
 	getMonitorsId() monitorsId
 }
 
@@ -204,7 +201,6 @@ type monitorManager interface {
 	setHooks(hooks monitorManagerHooks)
 	getMonitors() []*MonitorInfo
 	getMonitor(id uint32) *MonitorInfo
-	getPrimaryMonitor() *MonitorInfo
 	apply(monitorsId monitorsId, monitorMap map[uint32]*Monitor, prevScreenSize screenSize, options applyOptions, fillModes map[string]string, primaryMonitorID uint32, displayMode byte) error
 	setMonitorPrimary(monitorId uint32) error
 	setMonitorFillMode(monitor *Monitor, fillMode string) error
@@ -231,12 +227,11 @@ type xMonitorManager struct {
 
 func newXMonitorManager(xConn *x.Conn, hasRandr1d2 bool) *xMonitorManager {
 	xmm := &xMonitorManager{
-		xConn:                   xConn,
-		hasRandr1d2:             hasRandr1d2,
-		crtcs:                   make(map[randr.Crtc]*CrtcInfo),
-		outputs:                 make(map[randr.Output]*OutputInfo),
-		stdNamesCache:           make(map[string]string),
-		monitorChangedCbEnabled: true,
+		xConn:         xConn,
+		hasRandr1d2:   hasRandr1d2,
+		crtcs:         make(map[randr.Crtc]*CrtcInfo),
+		outputs:       make(map[randr.Output]*OutputInfo),
+		stdNamesCache: make(map[string]string),
 	}
 	err := xmm.init()
 	if err != nil {
@@ -268,6 +263,15 @@ func (oi *OutputInfo) PreferredMode() randr.Mode {
 	return (*randr.GetOutputInfoReply)(oi).GetPreferredMode()
 }
 
+type primaryMonitorInfo struct {
+	Name string
+	Rect x.Rectangle
+}
+
+func (pmi primaryMonitorInfo) IsRectEmpty() bool {
+	return pmi.Rect == x.Rectangle{}
+}
+
 func (mm *xMonitorManager) init() error {
 	if !mm.hasRandr1d2 {
 		return nil
@@ -297,12 +301,6 @@ func (mm *xMonitorManager) init() error {
 	}
 
 	mm.refreshMonitorsCache()
-
-	mm.primary, err = mm.GetOutputPrimary()
-	if err != nil {
-		logger.Warning(err)
-	}
-
 	return nil
 }
 
@@ -322,11 +320,6 @@ func (mm *xMonitorManager) getCrtcs() map[randr.Crtc]*CrtcInfo {
 func (mm *xMonitorManager) getMonitor(id uint32) *MonitorInfo {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
-
-	return mm.getMonitorNoLock(id)
-}
-
-func (mm *xMonitorManager) getMonitorNoLock(id uint32) *MonitorInfo {
 	for _, monitor := range mm.monitorsCache {
 		if monitor.ID == id {
 			monitorCp := *monitor
@@ -347,13 +340,6 @@ func (mm *xMonitorManager) getMonitors() []*MonitorInfo {
 	return monitors
 }
 
-func (mm *xMonitorManager) getPrimaryMonitor() *MonitorInfo {
-	mm.mu.Lock()
-	defer mm.mu.Unlock()
-
-	return mm.getMonitorNoLock(uint32(mm.primary))
-}
-
 func (mm *xMonitorManager) doDiff() {
 	logger.Debug("mm.doDiff")
 	// NOTE: 不要加锁
@@ -367,6 +353,7 @@ func (mm *xMonitorManager) doDiff() {
 				if mm.monitorChangedCbEnabled {
 					if mm.hooks != nil {
 						logger.Debug("call manager handleMonitorChanged", monitor.ID)
+						// NOTE: mm.mu 已经上锁了
 						mm.mu.Unlock()
 						mm.hooks.handleMonitorChanged(monitor)
 						mm.mu.Lock()
@@ -375,31 +362,14 @@ func (mm *xMonitorManager) doDiff() {
 					logger.Debug("monitorChangedCb disabled")
 				}
 				if monitor.outputId() == mm.primary {
+					// NOTE: mm.mu 已经上锁了
+					mm.mu.Unlock()
 					mm.invokePrimaryRectChangedCb(mm.primary)
+					mm.mu.Lock()
 				}
 			}
 		} else {
-			logger.Info("need add new monitor")
-			if mm.monitorChangedCbEnabled {
-				if mm.hooks != nil {
-					mm.mu.Unlock()
-					mm.hooks.handleMonitorChanged(monitor)
-					mm.mu.Lock()
-				}
-			} else {
-				logger.Debug("monitorChangedCb disabled")
-			}
-		}
-	}
-	newMap := toMonitorInfoMap(newMonitors)
-	for k, monitor := range oldMonitors {
-		_, ok := newMap[k]
-		if !ok {
-			// 需要移除的monitor
-			mm.mu.Unlock()
-			logger.Info("remove monitor:", monitor.ID)
-			mm.hooks.handleMonitorRemoved(monitor.ID)
-			mm.mu.Lock()
+			logger.Warning("can not handle new monitor")
 		}
 	}
 }
@@ -562,9 +532,9 @@ func (mm *xMonitorManager) refreshMonitorsCache() {
 			}
 		}
 
-		if monitor.Connected && len(monitor.Modes) != 0 {
+		if monitor.Connected && monitor.Width != 0 && monitor.Height != 0 {
 			monitor.VirtualConnected = true
-			monitor.Enabled = monitor.Width != 0 && monitor.Height != 0
+			monitor.Enabled = true
 		} else {
 			monitor.VirtualConnected = false
 			monitor.Enabled = false
@@ -597,8 +567,6 @@ func (mm *xMonitorManager) findFreeCrtc(output randr.Output, freeCrtcs map[randr
 		isFree := freeCrtcs[crtc]
 		if isFree && outputSliceContains(crtcInfo.PossibleOutputs, output) {
 			freeCrtcs[crtc] = false
-			return crtc
-		} else if outputSliceContains(crtcInfo.Outputs, output) {
 			return crtc
 		}
 	}
@@ -734,7 +702,7 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		logger.Debug("apply return", monitorsId)
 	}()
 
-	var disableCrtcs []randr.Crtc
+	var shouldDelayDisableCrtc = false
 	for crtc, crtcInfo := range mm.getCrtcs() {
 		rect := crtcInfo.getRect()
 		logger.Debugf("crtc %v, crtcInfo: %+v", crtc, crtcInfo)
@@ -773,44 +741,18 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 
 		if shouldDisable && len(crtcInfo.Outputs) > 0 {
 			logger.Debugf("disable crtc %v, it's outputs: %v", crtc, crtcInfo.Outputs)
+			shouldDelayDisableCrtc = true
 			err := mm.disableCrtc(crtc)
 			if err != nil {
 				return err
 			}
-			disableCrtcs = append(disableCrtcs, crtc)
 		}
 	}
 
-	// 等待disable crtcs的事件结束
+	// disableCrtc后等待1秒，防止多个屏幕反复disabled导致屏幕提示 频率超出范围 黑屏现象
 	// NOTE：此处延时是为了修复BUG 107874  104595 107865
-	if len(disableCrtcs) > 0 {
-		// 等待disable 事件与期望的一致
-		checker := func() bool {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-
-			for _, crtc := range disableCrtcs {
-				crtcInfo := mm.crtcs[crtc]
-				if len(crtcInfo.Outputs) != 0 || crtcInfo.Mode != 0 || crtcInfo.Width != 0 || crtcInfo.Height != 0 {
-					logger.Debugf("crtcInfo(actual): %v", spew.Sdump(crtcInfo))
-					return false
-				}
-			}
-			return true
-		}
-
-		count := 6
-		for count > 0 {
-			if checker() {
-				logger.Debug("wait disable crtcs success")
-				break
-			}
-			time.Sleep(200 * time.Millisecond)
-			count--
-		}
-		if count == 0 {
-			logger.Warning("wait disable crtcs timeout")
-		}
+	if shouldDelayDisableCrtc {
+		time.Sleep(1 * time.Second)
 	}
 
 	err := mm.setScreenSize(screenSize)
@@ -839,19 +781,11 @@ func (mm *xMonitorManager) apply(monitorsId monitorsId, monitorMap map[uint32]*M
 		}
 	}
 
-	bad := false
 	for _, crtcCfg := range crtcCfgs {
 		err := mm.setCrtcConfig(crtcCfg)
 		if err != nil {
 			logger.Warning("set crtcConfig failed:", crtcCfg, err)
-			if len(crtcCfg.outputs) > 0 {
-				bad = true
-			}
 		}
-	}
-	if bad {
-		// 防止出错使事情变得更糟糕
-		return fmt.Errorf("set crtcConfig failed")
 	}
 
 	ungrabServer()
@@ -902,15 +836,6 @@ func (mm *xMonitorManager) setMonitorFillMode(monitor *Monitor, fillMode string)
 	if len(monitor.AvailableFillModes) == 0 {
 		return nil
 	}
-	if !monitor.AvailableFillModes.Contains(fillMode) {
-		// 如果选择的是非可行的填充模式，按default, full, center, full aspect 进行选择合适的。
-		for _, mode := range []string{fillModeDefault, fillModeFull, fillModeCenter, fillModeFullaspect} {
-			if monitor.AvailableFillModes.Contains(mode) {
-				fillMode = mode
-				break
-			}
-		}
-	}
 	if fillMode == "" {
 		fillMode = fillModeDefault
 	}
@@ -928,7 +853,7 @@ func getConnectedMonitors(monitorMap map[uint32]*Monitor) Monitors {
 	var monitors Monitors
 	for _, monitor := range monitorMap {
 		monitor.PropsMu.RLock()
-		connected := monitor.Connected
+		connected := monitor.realConnected
 		monitor.PropsMu.RUnlock()
 		if connected {
 			monitors = append(monitors, monitor)
@@ -1088,16 +1013,27 @@ func (mm *xMonitorManager) setOutputScalingMode(output randr.Output, fillMode st
 
 func (mm *xMonitorManager) setMonitorPrimary(monitorId uint32) error {
 	logger.Debug("mm.setMonitorPrimary", monitorId)
+	mm.mu.Lock()
+	mm.primary = randr.Output(monitorId)
+	mm.mu.Unlock()
 	err := mm.setOutputPrimary(randr.Output(monitorId))
 	if err != nil {
 		return err
 	}
+
+	// 设置之后处理一次更新回调
+	pOut, err := mm.GetOutputPrimary()
+	if err != nil {
+		return err
+	}
+	mm.invokePrimaryRectChangedCb(pOut)
 	return nil
 }
 
 func (mm *xMonitorManager) invokePrimaryRectChangedCb(pOut randr.Output) {
+	// NOTE: 需要处于不加锁 mm.mu 的环境
+	pmi := mm.getPrimaryMonitorInfo(pOut)
 	if mm.hooks != nil {
-		pmi := mm.getMonitorNoLock(uint32(pOut))
 		mm.hooks.handlePrimaryRectChanged(pmi)
 	}
 }
@@ -1115,6 +1051,34 @@ func (mm *xMonitorManager) GetOutputPrimary() (randr.Output, error) {
 		return 0, err
 	}
 	return reply.Output, nil
+}
+
+func (mm *xMonitorManager) getPrimaryMonitorInfo(pOutput randr.Output) (pmi primaryMonitorInfo) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	if pOutput != 0 {
+		for output, outputInfo := range mm.outputs {
+			if pOutput != output {
+				continue
+			}
+
+			pmi.Name = outputInfo.Name
+
+			if outputInfo.Crtc == 0 {
+				logger.Warning("new primary output crtc is 0")
+			} else {
+				crtcInfo := mm.crtcs[outputInfo.Crtc]
+				if crtcInfo == nil {
+					logger.Warning("crtcInfo is nil")
+				} else {
+					pmi.Rect = crtcInfo.getRect()
+				}
+			}
+			break
+		}
+	}
+	return
 }
 
 func (mm *xMonitorManager) getCrtcInfo(crtc randr.Crtc) (*randr.GetCrtcInfoReply, error) {
@@ -1191,7 +1155,6 @@ func (mm *xMonitorManager) handleOutputChanged(e *randr.OutputChangeNotifyEvent)
 		reply, err := mm.getOutputInfo(e.Output)
 		if err != nil {
 			logger.Warningf("get output %v info failed: %v", e.Output, err)
-			delete(mm.outputs, e.Output)
 			return
 		}
 		mm.outputs[e.Output] = (*OutputInfo)(reply)
@@ -1227,25 +1190,11 @@ func (mm *xMonitorManager) HandleEvent(ev interface{}) {
 
 func (mm *xMonitorManager) HandleScreenChanged(e *randr.ScreenChangeNotifyEvent) (cfgTsChanged bool) {
 	mm.mu.Lock()
+	defer mm.mu.Unlock()
 	logger.Debugf("mm.HandleScreenChanged %#v", e)
 	defer logger.Debugf("mm.HandleScreenChanged return %#v", e)
 	cfgTsChanged = mm.handleScreenChanged(e)
-
 	mm.doDiff()
-
-	// update primary
-	primary, err := mm.GetOutputPrimary()
-	if err != nil {
-		logger.Warning(err)
-	} else {
-		if mm.primary != primary {
-			mm.primary = primary
-			mm.invokePrimaryRectChangedCb(primary)
-		}
-	}
-
-	mm.mu.Unlock()
-
 	return
 }
 
