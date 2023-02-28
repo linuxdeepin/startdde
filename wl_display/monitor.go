@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package display
 
 import (
@@ -55,7 +59,7 @@ type Monitor struct {
 
 	// dbusutil-gen: equal=nil
 	CurrentMode ModeInfo
-	modeSetFlag  uint8 // 自定义单屏模式保存
+	modeSetFlag uint8 // 自定义单屏模式保存
 
 	model        string
 	manufacturer string
@@ -157,7 +161,6 @@ func (m *Monitor) SetMode(mode uint32) *dbus.Error {
 	m.setModeNoProp(newMode)
 	return nil
 }
-
 
 func (m *Monitor) setModeNoProp(mode ModeInfo) {
 	m.PropsMu.Lock()

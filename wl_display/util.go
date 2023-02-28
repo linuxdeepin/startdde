@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package display
 
 import (
@@ -11,8 +15,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/linuxdeepin/go-x11-client/ext/randr"
 	"github.com/linuxdeepin/go-lib/strv"
+	"github.com/linuxdeepin/go-x11-client/ext/randr"
 )
 
 var regMode = regexp.MustCompile(`^(\d+)x(\d+)(\D+)$`)
@@ -179,7 +183,8 @@ func jsonUnmarshal(data string, ret interface{}) error {
 }
 
 // see also: gnome-desktop/libgnome-desktop/gnome-rr.c
-//           '_gnome_rr_output_name_is_builtin_display'
+//
+//	'_gnome_rr_output_name_is_builtin_display'
 func isBuiltinOutput(name string) bool {
 	name = strings.ToLower(name)
 	switch {

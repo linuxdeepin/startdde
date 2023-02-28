@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2023 UnionTech Software Technology Co., Ltd.
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package display
 
 import (
@@ -1758,7 +1762,7 @@ func (m *Manager) setPrimarySettings(name string) error {
 	return nil
 }
 
-//update Monitors and monitorMap
+// update Monitors and monitorMap
 func (m *Manager) AdjustPositonAfterSetMode() Monitors {
 	monitors := m.getConnectedMonitors()
 	var SecondRect x.Rectangle
