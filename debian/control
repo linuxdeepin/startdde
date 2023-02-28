@@ -46,7 +46,6 @@ Depends:
  dde-wldpms,
  redshift,
  dde-appearance,
- dde-api-proxy,
  ${misc:Depends},
  ${shlibs:Depends},
 Recommends:
