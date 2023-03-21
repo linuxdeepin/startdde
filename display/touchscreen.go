@@ -7,7 +7,7 @@ package display
 import (
 	"sync"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	"github.com/linuxdeepin/dde-api/dxinput"
 	"github.com/linuxdeepin/dde-api/dxinput/common"
 	dxutils "github.com/linuxdeepin/dde-api/dxinput/utils"

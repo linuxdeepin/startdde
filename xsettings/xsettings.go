@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"sync"
 
-	dbus "github.com/godbus/dbus"
+	dbus "github.com/godbus/dbus/v5"
 	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.daemon1"
 	greeter "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.greeter1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
