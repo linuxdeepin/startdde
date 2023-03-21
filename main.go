@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	dbus "github.com/godbus/dbus"
+	dbus "github.com/godbus/dbus/v5"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/startdde/display"
 

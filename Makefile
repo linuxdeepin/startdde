@@ -1,5 +1,6 @@
 PREFIX = /usr
 GOPATH_DIR = gopath
+GODEP_DIR = godep
 GOPKG_PREFIX = github.com/linuxdeepin/startdde
 GOBUILD = go build -v $(GO_BUILD_FLAGS)
 export GO111MODULE=off
@@ -10,6 +11,8 @@ LANGUAGES = $(basename $(notdir $(wildcard misc/po/*.po)))
 all: build
 
 prepare:
+	@mkdir -p ${GODEP_DIR}/src/github.com/godbus/dbus/v5
+	@cp -r /usr/share/gocode/src/github.com/godbus/dbus/* ${GODEP_DIR}/src/github.com/godbus/dbus/v5
 	@mkdir -p ${GOPATH_DIR}/src/$(dir ${GOPKG_PREFIX});
 	@ln -snf ../../../.. ${GOPATH_DIR}/src/${GOPKG_PREFIX};
 
@@ -23,10 +26,10 @@ endif
 	jq . misc/config/auto_launch.json >/dev/null
 
 startdde:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${CURDIR}/${GODEP_DIR}:${GOPATH}" ${GOBUILD} -o startdde
 
 fix-xauthority-perm:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${CURDIR}/${GODEP_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
 
 out/locale/%/LC_MESSAGES/startdde.mo: misc/po/%.po
 	mkdir -p $(@D)
@@ -40,7 +43,7 @@ pot:
 build: prepare startdde auto_launch_json fix-xauthority-perm translate
 
 test: prepare
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${CURDIR}/${GODEP_DIR}:${GOPATH}" go test -v ./...
 
 test-coverage: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -cover -v ./... | awk '$$1 ~ "(ok|\\?)" {print $$2","$$5}' | sed "s:${CURDIR}::g" | sed 's/files\]/0\.0%/g' > coverage.csv

@@ -13,7 +13,7 @@ import (
 	"os/user"
 	"path/filepath"
 
-	dbus1 "github.com/godbus/dbus"
+	dbus1 "github.com/godbus/dbus/v5"
 	"github.com/linuxdeepin/dde-api/soundutils"
 	soundthemeplayer "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.soundthemeplayer1"
 	"github.com/linuxdeepin/go-lib/pulse"
