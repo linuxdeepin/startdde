@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"time"
 
-	dbus "github.com/godbus/dbus"
+	dbus "github.com/godbus/dbus/v5"
 )
 
 var launchTimeout = 30 * time.Second

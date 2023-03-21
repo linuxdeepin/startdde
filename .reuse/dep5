@@ -68,3 +68,7 @@ Files: *_methods_auto.go *_dbusutil.go *_gen.go
 Copyright: UnionTech Software Technology Co., Ltd.
 License: GPL-3.0-or-later
 
+# gomod files
+Files: go.mod go.sum
+Copyright: None
+License: CC0-1.0

@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	dbus "github.com/godbus/dbus"
+	dbus "github.com/godbus/dbus/v5"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.apps1"
 	proxy "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.networkproxy1"
 	systemPower "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.power1"

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	backlight "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.backlighthelper1"
 	displayBl "github.com/linuxdeepin/go-lib/backlight/display"
 	"github.com/linuxdeepin/go-lib/log"

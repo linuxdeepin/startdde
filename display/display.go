@@ -8,7 +8,7 @@ import (
 	"errors"
 	"reflect"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	sysdisplay "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.display1"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/log"

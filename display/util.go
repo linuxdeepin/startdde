@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	hostname1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.hostname1"
 	"github.com/linuxdeepin/go-gir/gudev-1.0"
 	"github.com/linuxdeepin/go-lib/utils"

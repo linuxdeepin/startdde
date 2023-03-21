@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/godbus/dbus"
+	"github.com/godbus/dbus/v5"
 	"github.com/linuxdeepin/dde-api/dxinput"
 	dxutil "github.com/linuxdeepin/dde-api/dxinput/utils"
 	sysdisplay "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.display1"
@@ -120,7 +120,7 @@ type touchscreenMapValue struct {
 	Auto       bool
 }
 
-//go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus,github.com/linuxdeepin/go-x11-client,github.com/linuxdeepin/go-lib/strv -type Manager,Monitor manager.go monitor.go
+//go:generate dbusutil-gen -output display_dbusutil.go -import github.com/godbus/dbus/v5,github.com/linuxdeepin/go-x11-client,github.com/linuxdeepin/go-lib/strv -type Manager,Monitor manager.go monitor.go
 //go:generate dbusutil-gen em -type Manager,Monitor
 
 type Manager struct {
