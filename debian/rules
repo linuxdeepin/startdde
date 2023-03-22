@@ -19,8 +19,10 @@ override_dh_shlibdeps:
 override_dh_auto_install:
 	dh_auto_install --destdir=debian/tmp
 
+ifeq ($(DEB_BUILD_ARCH),sw_64)
+override_dh_strip:
+	true
 override_dh_auto_test:
 	true
+endif
 
-override_dh_auto_build:
-	make "INSTALL=install --strip-program=true"
