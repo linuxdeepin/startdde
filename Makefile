@@ -22,7 +22,7 @@ endif
 	jq . misc/config/auto_launch.json >/dev/null
 
 startdde:
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde ${GOPKG_PREFIX}
 
 fix-xauthority-perm:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o fix-xauthority-perm ${GOPKG_PREFIX}/cmd/fix-xauthority-perm
@@ -39,10 +39,10 @@ pot:
 build: prepare startdde auto_launch_json fix-xauthority-perm translate
 
 test: prepare
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ./...
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ${GOPKG_PREFIX}
 
 test-coverage: prepare
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -cover -v ./... | awk '$$1 ~ "(ok|\\?)" {print $$2","$$5}' | sed "s:${CURDIR}::g" | sed 's/files\]/0\.0%/g' > coverage.csv
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -cover -v ${GOPKG_PREFIX} | awk '$$1 ~ "(ok|\\?)" {print $$2","$$5}' | sed "s:${CURDIR}::g" | sed 's/files\]/0\.0%/g' > coverage.csv
 
 print_gopath: prepare
 	GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}"
@@ -80,6 +80,6 @@ clean:
 rebuild: clean build
 
 check_code_quality: prepare
-	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go vet ./...
+	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go vet ${GOPKG_PREFIX}
 
 .PHONY: startdde
