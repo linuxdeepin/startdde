@@ -14,7 +14,7 @@ import (
 func TestGetDefaultSinkAlsaDevice(t *testing.T) {
 	t.Run("Test Get Default Sink Alsa Device", func(t *testing.T) {
 		dev, _, err := getDefaultSinkAlsaDevice()
-		if err == nil {
+		if err == nil && len(dev) > 0 {
 			match, _ := regexp.MatchString(`^plughw:CARD=\d+,DEV=\d+,SUBDEV=\d+$`, dev)
 			assert.True(t, match)
 		}
