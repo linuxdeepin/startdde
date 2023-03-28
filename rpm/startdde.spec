@@ -32,7 +32,6 @@ Requires:       dde-daemon
 Requires:       procps
 Requires:       gocode
 Requires:       deepin-desktop-schemas
-Requires:       dde-kwin
 Requires:       libXfixes
 Requires:       libXcursor
 Recommends:     dde-qt5integration

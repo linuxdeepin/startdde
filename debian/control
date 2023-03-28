@@ -33,7 +33,6 @@ Depends:
  deepin-desktop-schemas (>> 5.2.0+),
  deepin-turbo,
  deepin-turbo-booster,
- deepin-wm | deepin-metacity | dde-kwin,
  deepin-proxy,
  gnome-keyring,
  gvfs-bin,
