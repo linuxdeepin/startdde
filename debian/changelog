@@ -1,3 +1,10 @@
+startdde (6.0.5) unstable; urgency=medium
+
+  * remove dde-kwin runtime dependencies
+  * remove dde-api-proxy from dependencies list
+
+ -- zsien <quezhiyong@uniontech.com>  Tue, 28 Mar 2023 15:28:48 +0800
+
 startdde (6.0.4) unstable; urgency=medium
 
   [ TagBuilder ]
