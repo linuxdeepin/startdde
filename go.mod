@@ -2,11 +2,11 @@ module github.com/linuxdeepin/startdde
 
 go 1.20
 
-replace github.com/linuxdeepin/go-lib => github.com/Decodetalkers/go-lib v0.0.0-20230207102150-285b65f72371
+replace github.com/linuxdeepin/go-lib => github.com/Decodetalkers/go-lib v0.0.0-20230404025406-a17a10117d09
 
-replace github.com/linuxdeepin/go-dbus-factory => github.com/Decodetalkers/go-dbus-factory v0.0.0-20230214081229-2794c96a723b
+replace github.com/linuxdeepin/go-dbus-factory => github.com/Decodetalkers/go-dbus-factory v0.0.0-20230404030011-0eb743393708
 
-replace github.com/linuxdeepin/dde-api => github.com/Decodetalkers/dde-api v0.0.0-20230216032407-ff35edb6934e
+replace github.com/linuxdeepin/dde-api => github.com/Decodetalkers/dde-api v0.0.0-20230404030416-afbfa3d5be94
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -14,7 +14,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/linuxdeepin/dde-api v0.0.0-20230131030236-862dfbfc7b4e
 	github.com/linuxdeepin/go-dbus-factory v0.0.0-20230208033821-bda82fd6525e
-	github.com/linuxdeepin/go-gir v0.0.0-20211207134948-479a42104c80
+	github.com/linuxdeepin/go-gir v0.0.0-20230331033513-a8d7a9e89f9b
 	github.com/linuxdeepin/go-lib v0.0.0-00010101000000-000000000000
 	github.com/linuxdeepin/go-x11-client v0.0.0-20230131052004-7503e2337ee1
 	github.com/stretchr/testify v1.8.2
