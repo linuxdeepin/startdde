@@ -31,8 +31,6 @@ Depends:
  dde-api,
  dde-daemon (>> 3.24.1+),
  deepin-desktop-schemas (>> 5.2.0+),
- deepin-turbo,
- deepin-turbo-booster,
  deepin-proxy,
  gnome-keyring,
  gvfs-bin,
