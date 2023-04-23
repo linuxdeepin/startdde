@@ -24,6 +24,7 @@ import (
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	x "github.com/linuxdeepin/go-x11-client"
 	"github.com/linuxdeepin/go-x11-client/ext/randr"
+	display "github.com/linuxdeepin/startdde/display"
 	"github.com/linuxdeepin/startdde/wl_display/brightness"
 )
 
@@ -487,6 +488,13 @@ func (m *Manager) calcRecommendedScaleFactor() float64 {
 	if len(monitors) == 0 {
 		return 1.0
 	}
+
+	// 允许用户通过 force-scale-factor.ini 强制设置全局缩放
+	forceScaleFactor, err := display.GetForceScaleFactor()
+	if err == nil {
+		return forceScaleFactor
+	}
+
 	for _, monitor := range monitors {
 		scaleFactor := calcRecommendedScaleFactor(float64(monitor.Width), float64(monitor.Height),
 			float64(monitor.MmWidth), float64(monitor.MmHeight))

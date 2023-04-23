@@ -98,6 +98,12 @@ func GetRecommendedScaleFactor() float64 {
 		return 1.0
 	}
 
+	// 允许用户通过 force-scale-factor.ini 强制设置全局缩放
+	forceScaleFactor, err := GetForceScaleFactor()
+	if err == nil {
+		return forceScaleFactor
+	}
+
 	minScaleFactor := 3.0
 	for _, monitor := range monitors {
 		scaleFactor := calcRecommendedScaleFactor(float64(monitor.width), float64(monitor.height),

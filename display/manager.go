@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/linuxdeepin/go-lib/keyfile"
 	"io/ioutil"
 	"math"
 	"os"
@@ -2939,4 +2940,29 @@ func (m *Manager) updateScreenSize() {
 	m.setPropScreenWidth(screenWidth)
 	m.setPropScreenHeight(screenHeight)
 	m.PropsMu.Unlock()
+}
+
+func getForceScaleFactorFile() string {
+	return filepath.Join(basedir.GetUserConfigDir(), "deepin/force-scale-factor.ini")
+}
+
+// GetForceScaleFactor 允许用户通过 force-scale-factor.ini 强制设置全局缩放
+func GetForceScaleFactor() (float64, error) {
+	fileName := getForceScaleFactorFile()
+	_, err := os.Stat(fileName)
+	if err == nil {
+		kf := keyfile.NewKeyFile()
+		err := kf.LoadFromFile(fileName)
+		if err != nil && !os.IsNotExist(err) {
+			logger.Warning("failed to load force-scale-factor.ini:", err)
+		} else {
+			forceScaleFactor, err := kf.GetFloat64("ForceScaleFactor", "scale")
+			if err == nil && forceScaleFactor >= 1.0 && forceScaleFactor <= 3.0 {
+				return forceScaleFactor, nil
+			} else {
+				logger.Warning("invalid forceScaleFactor:", forceScaleFactor, err)
+			}
+		}
+	}
+	return 1.0, fmt.Errorf("no valid force-scale-factor")
 }
