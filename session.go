@@ -724,30 +724,6 @@ func (m *SessionManager) launchDDE() {
 	}
 }
 
-func (m *SessionManager) launchAutostart() {
-	m.setPropStage(SessionStageAppsBegin)
-	delay := _gSettingsConfig.autoStartDelay
-	logger.Debug("autostart delay seconds:", delay)
-	if delay > 0 {
-		time.AfterFunc(time.Second*time.Duration(delay), func() {
-			startAutostartProgram()
-		})
-	} else {
-		startAutostartProgram()
-	}
-	m.setPropStage(SessionStageAppsEnd)
-}
-
-func setEnvWithMap(envVars map[string]string) {
-	for key, value := range envVars {
-		logger.Debugf("set env %s = %q", key, value)
-		err := os.Setenv(key, value)
-		if err != nil {
-			logger.Warning(err)
-		}
-	}
-}
-
 func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop, service *dbusutil.Service) *SessionManager {
 	defer func() {
 		if err := recover(); err != nil {
@@ -762,7 +738,6 @@ func (m *SessionManager) start(xConn *x.Conn, sysSignalLoop *dbusutil.SignalLoop
 	m.launchDDE()
 
 	time.AfterFunc(3*time.Second, _startManager.listenAutostartFileEvents)
-	go m.launchAutostart()
 
 	if m.loginSession != nil {
 		m.loginSession.InitSignalExt(sysSignalLoop, true)
