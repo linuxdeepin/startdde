@@ -39,7 +39,6 @@ Depends:
  xinput,
  dde-wloutput,
  dde-wloutput-daemon,
- dde-wayland-config,
  dde-wldpms,
  redshift,
  dde-appearance,
