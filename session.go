@@ -267,7 +267,7 @@ func (m *SessionManager) shutdown(force bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.prepareShutdown(force)
+	// m.prepareShutdown(force)
 	m.clearCurrentTty()
 
 	err := m.objLogin.PowerOff(0, false)
@@ -317,7 +317,7 @@ func (m *SessionManager) reboot(force bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.prepareShutdown(force)
+	// m.prepareShutdown(force)
 	m.clearCurrentTty()
 
 	err := m.objLogin.Reboot(0, false)
