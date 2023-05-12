@@ -1,3 +1,9 @@
+startdde (6.0.8) unstable; urgency=medium
+
+  * fix: 关机音效存在杂音
+
+ -- dengbo <dengbo@uniontech.com>  Fri, 12 May 2023 18:33:25 +0800
+
 startdde (6.0.7) unstable; urgency=medium
 
   * chore: remove unused file
