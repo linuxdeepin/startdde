@@ -2,49 +2,45 @@
 pkgname=startdde-git
 pkgver=5.9.15.1.r24.g9684bb4
 pkgrel=1
+sourcename=startdde
+sourcetars=("$sourcename"_"$pkgver".tar.xz vendor.tar.gz)
+sourcedir="$sourcename"
+useforobs=1
 pkgdesc="starter of deepin desktop environment"
 arch=('x86_64' 'aarch64')
 url="https://github.com/linuxdeepin/startdde"
 license=('GPL3')
 depends=('libgnome-keyring')
-makedepends=('cmake' 'coffeescript' 'golang-github-linuxdeepin-go-dbus-factory-git' 'golang-deepin-gir-git'
-             'golang-deepin-lib-git' 'deepin-api-git' 'go' 'git' 'jq'
-             'golang-golang-x-net' 'golang-github-linuxdeepin-go-x11-client-git')
+makedepends=('cmake' 'coffeescript' 'deepin-api-git' 'go' 'git' 'jq')
 optdepends=('deepin-wm: Legacy 3D window manager'
             'deepin-metacity: Legacy 2D window manager'
             'deepin-kwin: Preferred window manager')
 provides=('startdde')
 conflicts=('startdde')
 groups=('deepin-git')
-source=('source.tar.gz')
-sha512sums=('SKIP')
+source=("${sourcetars[@]}")
+sha512sums=('SKIP' 'SKIP')
 
 prepare() {
-    cd $deepin_source_name
+  cd $sourcedir
   export GOPATH="$srcdir/build:/usr/share/gocode"
-  export GO111MODULE=off
-  go get -v github.com/cryptix/wav
-  go get -v github.com/youpy/go-wav
-  go get -v golang.org/x/xerrors
-  go get -v github.com/fsnotify/fsnotify
-  go get -v github.com/godbus/dbus
-  go get -v github.com/godbus/dbus/introspect
-  go get -v github.com/godbus/dbus/prop
-  go get -v gopkg.in/yaml.v3
-  go get -v github.com/davecgh/go-spew/spew
-  go get -v github.com/stretchr/testify
-  go get -v github.com/jouyouyun/hardware
   sed -i 's/sbin/bin/' Makefile
 }
 
 build() {
-  export GOFLAGS="-mod=readonly -modcacherw"
-  cd $deepin_source_name
+  if [[ ! -n "$useforobs" ]];then
+    export GOFLAGS="-buildmode=pie -trimpath -modcacherw -mod=readonly"
+    go mod tidy
+  else
+    export GOFLAGS="-buildmode=pie -trimpath -modcacherw -mod=vendor"
+    mv "$srcdir"/vendor "$srcdir"/"$sourcedir"/vendor
+  fi
+  cd $sourcedir
   make
 }
 
 package() {
-  cd $deepin_source_name
+  cd $sourcedir
   make DESTDIR="$pkgdir" install
   # Fix env file permission
   chmod +x "$pkgdir"/etc/X11/Xsession.d/*
