@@ -518,7 +518,7 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 
 	if len(args) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
+		cmdline := exec.CommandContext(ctx, "dde_wloutput", "set")
 		cmdline.Args = append(cmdline.Args, args...)
 		logger.Info("cmd line args:", cmdline.Args)
 
@@ -543,7 +543,7 @@ func (mm *kMonitorManager) applyByWLOutput(monitorMap map[uint32]*Monitor) error
 			cancel()
 			return fmt.Errorf("get monitor %d uuid failed", monitor.ID)
 		}
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
+		data, err := exec.CommandContext(ctx, "dde_wloutput", "set", uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {

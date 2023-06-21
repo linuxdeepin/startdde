@@ -132,7 +132,7 @@ func (m *Manager) applyByWLOutput() error {
 	}
 
 	if len(args) > 0 {
-		cmdline := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set")
+		cmdline := exec.CommandContext(ctx, "dde_wloutput", "set")
 		cmdline.Args = append(cmdline.Args, args...)
 		logger.Info("cmd line args:", cmdline.Args)
 
@@ -150,7 +150,7 @@ func (m *Manager) applyByWLOutput() error {
 	for _, monitor := range disabledMonitors {
 		logger.Debug("-----------Will disable output:", monitor.Name)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		data, err := exec.CommandContext(ctx, "/usr/bin/dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
+		data, err := exec.CommandContext(ctx, "dde_wloutput", "set", monitor.uuid, "0", "0", "0", "0", "0", "0", "0").CombinedOutput()
 		cancel()
 		// ignore timeout signal
 		if err != nil && !strings.Contains(err.Error(), "killed") {
