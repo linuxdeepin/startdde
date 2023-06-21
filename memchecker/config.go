@@ -9,13 +9,17 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
+	"github.com/adrg/xdg"
 )
 
 const (
-	sysConfigFile = "/usr/share/startdde/memchecker.json"
 
 	defaultMinMemAvail = 300  // 300M
 	defaultMaxSwapUsed = 1200 // 1200M
+)
+
+var (
+	sysConfigFile, _ = xdg.SearchDataFile("startdde/memchecker.json")
 )
 
 type configInfo struct {

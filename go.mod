@@ -3,6 +3,7 @@ module github.com/linuxdeepin/startdde
 go 1.20
 
 require (
+	github.com/adrg/xdg v0.4.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/godbus/dbus/v5 v5.1.0

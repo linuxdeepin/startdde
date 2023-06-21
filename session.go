@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/godbus/dbus/v5"
 	"github.com/linuxdeepin/dde-api/soundutils"
 	sysbt "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.bluetooth1"
@@ -46,7 +47,10 @@ const (
 	xsKeyQtFontName     = "Qt/FontName"
 	xsKeyQtMonoFontName = "Qt/MonoFontName"
 
-	ddeLockDesktopFile = "/usr/share/applications/dde-lock.desktop"
+)
+
+var (
+	ddeLockDesktopFile, _ = xdg.SearchDataFile("applications/dde-lock.desktop");
 )
 
 type SessionManager struct {
