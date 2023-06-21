@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/adrg/xdg"
 	"github.com/linuxdeepin/go-lib/xdg/basedir"
 )
 
@@ -26,8 +27,11 @@ type launchGroup struct {
 type launchGroups []*launchGroup
 
 const (
-	sysLaunchGroupFile  = "/usr/share/startdde/auto_launch.json"
 	userLaunchGroupFile = "startdde/auto_launch.json"
+)
+
+var (
+	sysLaunchGroupFile, _  = xdg.SearchDataFile("startdde/auto_launch.json")
 )
 
 func (infos launchGroups) Len() int {

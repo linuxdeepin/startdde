@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adrg/xdg"
 	"github.com/fsnotify/fsnotify"
 	dbus "github.com/godbus/dbus/v5"
 	daemonApps "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.apps1"
@@ -57,10 +58,14 @@ const (
 	uiAppSchedHooksDir = "/usr/lib/UIAppSched.hooks"
 	launchedHookDir    = uiAppSchedHooksDir + "/launched"
 
-	cpuFreqAdjustFile   = "/usr/share/startdde/app_startup.conf"
 	performanceGovernor = "performance"
 
 	restartRateLimitSeconds = 60
+)
+
+var (
+
+	cpuFreqAdjustFile, _   = xdg.SearchDataFile("startdde/app_startup.conf")
 )
 
 type StartManager struct {
