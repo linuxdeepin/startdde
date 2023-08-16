@@ -4,6 +4,6 @@ case $XDG_SESSION_TYPE in
         ;;
     wayland)
         export QT_QPA_PLATFORM=wayland
-        export QT_WAYLAND_SHELL_INTEGRATION=kwayland-shell
+        export QT_WAYLAND_SHELL_INTEGRATION="kwayland-shell;xdg-shell;wl-shell;ivi-shell;qt-shell;"
         ;;
 esac
