@@ -1,3 +1,12 @@
+startdde (6.0.9) unstable; urgency=medium
+
+  * chore: remove gvfs-bin dependency from control file
+  * feat: search config file in xdg dir
+  * feat: aviod use hardcode path
+  * fix: systemd target service link to temporary build dir
+
+ -- dengbo <dengbo@deepin.org>  Tue, 22 Aug 2023 10:53:50 +0800
+
 startdde (6.0.8) unstable; urgency=medium
 
   * fix: 关机音效存在杂音
