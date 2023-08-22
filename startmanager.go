@@ -64,8 +64,7 @@ const (
 )
 
 var (
-
-	cpuFreqAdjustFile, _   = xdg.SearchDataFile("startdde/app_startup.conf")
+	cpuFreqAdjustFile, _ = xdg.SearchDataFile("startdde/app_startup.conf")
 )
 
 type StartManager struct {
@@ -179,25 +178,34 @@ func newStartManager(xConn *x.Conn, service *dbusutil.Service) *StartManager {
 	}
 
 	m.appsDir = getAppDirs()
-	m.settings = gio.NewSettings(gSchemaLauncher)
-	m.appsUseProxy = m.settings.GetStrv(gKeyAppsUseProxy)
-	m.appsDisableScaling = m.settings.GetStrv(gKeyAppsDisableScaling)
-
-	gsettings.ConnectChanged(gSchemaLauncher, "*", func(key string) {
-		switch key {
-		case gKeyAppsUseProxy:
-			m.mu.Lock()
-			m.appsUseProxy = strv.Strv(m.settings.GetStrv(key))
-			m.mu.Unlock()
-		case gKeyAppsDisableScaling:
-			m.mu.Lock()
-			m.appsDisableScaling = strv.Strv(m.settings.GetStrv(key))
-			m.mu.Unlock()
-		default:
-			return
+	installed := false
+	for _, schema := range gio.SettingsListSchemas() {
+		if schema == gSchemaLauncher {
+			installed = true
+			break
 		}
-		logger.Debug("update ", key)
-	})
+	}
+	if installed {
+		m.settings = gio.NewSettings(gSchemaLauncher)
+		m.appsUseProxy = m.settings.GetStrv(gKeyAppsUseProxy)
+		m.appsDisableScaling = m.settings.GetStrv(gKeyAppsDisableScaling)
+
+		gsettings.ConnectChanged(gSchemaLauncher, "*", func(key string) {
+			switch key {
+			case gKeyAppsUseProxy:
+				m.mu.Lock()
+				m.appsUseProxy = strv.Strv(m.settings.GetStrv(key))
+				m.mu.Unlock()
+			case gKeyAppsDisableScaling:
+				m.mu.Lock()
+				m.appsDisableScaling = strv.Strv(m.settings.GetStrv(key))
+				m.mu.Unlock()
+			default:
+				return
+			}
+			logger.Debug("update ", key)
+		})
+	}
 
 	m.proxyChainsConfFile = filepath.Join(basedir.GetUserConfigDir(), "deepin", "proxychains.conf")
 	m.proxyChainsBin, _ = exec.LookPath(proxychainsBinary)
