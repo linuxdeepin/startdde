@@ -40,7 +40,7 @@ const (
 
 // 设置单个缩放值的关键方法
 func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
-	logger.Debug("setScaleFactor", scale)
+	logger.Warning("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
 
 	// if 1.7 < scale < 2, window scale = 2
@@ -59,8 +59,9 @@ func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	gsWrapGDI := gio.NewSettings("com.deepin.wrap.gnome.desktop.interface")
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
 	gsWrapGDI.Unref()
-
+	logger.Warning("Suck here?")
 	m.setScaleFactorForPlymouth(int(windowScale), emitSignal)
+	logger.Warning("Suck end?")
 }
 
 func parseScreenFactors(str string) map[string]float64 {
@@ -240,7 +241,7 @@ func singleToMapSF(value float64) map[string]float64 {
 
 // 设置多屏的缩放比例的关键方法，factors 中必须含有主屏的数据。
 func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal bool) error {
-	logger.Debug("setScreenScaleFactors", factors)
+	logger.Warning("setScreenScaleFactors", factors, emitSignal)
 	for _, f := range factors {
 		if f <= 0 {
 			return errors.New("invalid value")
@@ -257,8 +258,9 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 
 	// 同时要设置单值的
 	singleFactor := getSingleScaleFactor(factors)
+	logger.Warning("Emit here");
 	m.setScaleFactor(singleFactor, emitSignal)
-
+	logger.Warning("End");
 	// 关键保存位置
 	factorsJoined := joinScreenScaleFactors(factors)
 	m.gs.SetString(gsKeyIndividualScaling, factorsJoined)
@@ -298,10 +300,13 @@ func (m *XSManager) setScaleFactorForPlymouthReal(factor int, emitSignal bool) {
 		m.emitSignalSetScaleFactor(true, emitSignal)
 		return
 	}
-
+	logger.Warning("Start Notify SetScaleFactorStarted")
 	m.emitSignalSetScaleFactor(false, emitSignal)
-	err = m.sysDaemon.ScalePlymouth(0, uint32(factor))
+	logger.Warning("Start to set plymouth")
+	//err = m.sysDaemon.ScalePlymouth(0, uint32(factor))
+	logger.Warning("Start to set plymouth done")
 	m.emitSignalSetScaleFactor(true, emitSignal)
+	logger.Warning("End")
 
 	logger.Debug("end scalePlymouth", factor)
 	if err != nil {
@@ -352,6 +357,7 @@ func (m *XSManager) setScaleFactorForPlymouth(factor int, emitSignal bool) {
 	}
 	m.plymouthScalingMu.Lock()
 
+	logger.Warning("Enter Plymouth")
 	if m.plymouthScaling {
 		m.plymouthScalingTasks = append(m.plymouthScalingTasks, factor)
 		logger.Debug("add to tasks", factor)
