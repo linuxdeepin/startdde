@@ -1065,24 +1065,164 @@ func startStartManager(xConn *x.Conn, service *dbusutil.Service) {
 }
 
 func startAutostartProgram() {
-	// may be start N programs, like 5, at the same time is better than starting all programs at the same time.
-	autoStartList, _ := _startManager.AutostartList()
-	for _, desktopFile := range autoStartList {
-		go func(desktopFile string) {
-			delay, err := getDelayTime(desktopFile)
-			if err != nil {
-				logger.Warning(err)
-			}
 
-			if delay != 0 {
-				time.Sleep(delay)
-			}
-			err = _startManager.launchAppWithOptions(desktopFile, 0, nil, nil)
-			if err != nil {
-				logger.Warning(err)
-			}
-		}(desktopFile)
+	logger.Info("startAutostartProgram: start")
+
+	autoStartList, _ := _startManager.AutostartList()
+
+	// lauch desktopFile
+	runDesktop := func(desktopFile string) {
+		delay, err := getDelayTime(desktopFile)
+		if err != nil {
+			logger.Warning(err)
+		}
+
+		if delay != 0 {
+			time.Sleep(delay)
+		}
+		err = _startManager.launchAppWithOptions(desktopFile, 0, nil, nil)
+		if err != nil {
+			logger.Warning(err)
+		}
 	}
+
+	getDesktopPackage := func(desktopFile string) string{
+		appInfo, err := newDesktopAppInfoFromFile(desktopFile)
+		if err != nil {
+			return ""
+		}
+
+		pakgs := ""
+		cmdOut := appInfo.GetCommandline()
+		arr := strings.Split(cmdOut, "package=")
+		if len(arr) > 1 {
+			ppp := arr[1]
+			parr := strings.Split(ppp, " ")
+			pakgs = parr[0]
+		}
+		if pakgs == "com.tencent.mm" {
+			pakgs = "com.tencent.mm:push"
+		}
+		return pakgs
+	}
+
+	isPackageRuning := func(pack string) bool{
+		if pack == "" {
+			return true
+		}
+		cmd := exec.Command("ps", "-eao", "cmd")
+		buf, _ := cmd.Output()
+		cmdOut := string(buf)
+		arr := strings.Split(cmdOut, "\n")
+		for _, cc := range arr {
+			if cc == pack {
+				logger.Info("runDesktop, packageRuning,", pack)
+				return true
+			}
+		}
+		return false
+	}
+
+	isDesktopRuning := func(desktopFile string) bool{
+		return isPackageRuning(getDesktopPackage(desktopFile))
+	}
+
+	waitDesktopRunning := func(desktopFile string) {
+		counts := 0
+		for {
+			if isDesktopRuning (desktopFile) {
+				break
+			}
+			time.Sleep(1000* time.Millisecond)
+			if counts > 60 {
+				logger.Warning("runDesktop, timeout,", desktopFile)
+				break
+			}
+			counts += 1
+		}
+	}
+
+	waitUengineRunning := func() float64 {
+		logger.Info("runDesktop, waitUengineRunning, start")
+		waitStartTime := time.Now()
+		for {
+			err := exec.Command("uengine"," wait-ready").Run()
+			logger.Info("runDesktop, waitUengineRunning,", time.Since(waitStartTime).Seconds(), err)
+
+			time.Sleep(1000 * time.Millisecond)
+
+			if isPackageRuning("com.android.settings") {
+				break
+			}
+		}
+		logger.Info("runDesktop, waitUengineRunning, end")
+		return time.Since(waitStartTime).Seconds() / 10
+	}
+
+	isFirstRun := false
+	for _, desktopFile := range autoStartList {
+		if strings.Contains(desktopFile,"dde-first-run") {
+			isFirstRun = true
+			break
+		}
+	}
+
+	if isFirstRun {
+		// 账号首次登录，不做任何延时处理
+		for _, desktopFile := range autoStartList {
+			go runDesktop(desktopFile)
+		}
+	} else {
+		// 账号非首次登录，需做延时处理
+		var usrAutoWaitNo []string
+		var usrAutoWaitShort []string
+		var usrAutoWaitLong []string
+
+		for _, desktopFile := range autoStartList {
+			if strings.Contains(desktopFile,"/etc/xdg/autostart") {			// 系统应用
+				usrAutoWaitNo = append(usrAutoWaitNo, desktopFile)
+			} else if strings.Contains(desktopFile,"uengine."){				// 手机应用
+				usrAutoWaitLong = append(usrAutoWaitLong, desktopFile)
+			} else {																// 其他应用
+				usrAutoWaitShort = append(usrAutoWaitShort, desktopFile)
+			}
+		}
+
+		// 系统应用，不做任何延时处理
+		for _, desktopFile := range usrAutoWaitNo {
+			logger.Info("runDesktop, usrAutoWaitNo,", desktopFile)
+			go runDesktop(desktopFile)
+		}
+
+		// 非手机应用，做短延时处理
+		for _, desktopFile := range usrAutoWaitShort {
+			time.Sleep(1000 * time.Millisecond)
+			logger.Info("runDesktop, usrAutoWaitShort,", desktopFile)
+			go runDesktop(desktopFile)
+		}
+
+		// uengine 容器服务启动比较耗时，等待系统稳定启动后再启动 手机应用
+		var starttime float64 = 0
+		if len(usrAutoWaitLong) > 0 {
+			time.Sleep(2000 * time.Millisecond)
+			starttime = waitUengineRunning()
+		}
+
+		// 手机应用，uengine 容器服务启动比较耗时，需延时处理，提高 手机应用 自启动成功率
+		count := 0
+		for _, desktopFile := range usrAutoWaitLong {
+			count += 1
+			// 手机应用, 需间隔时间长一点启动，否则会启动失败(性能差的机器可能需要更长时间)
+			var ddd time.Duration = time.Duration(4 + starttime)* 1000 * time.Millisecond
+			if count > 1 {
+				time.Sleep(ddd)
+			}
+			logger.Info("runDesktop, usrAutoWaitLong,", count, ddd, desktopFile)
+			go runDesktop(desktopFile)
+			waitDesktopRunning(desktopFile)
+		}
+	}
+	logger.Info("startAutostartProgram: end")
 }
 
 func isAppInList(app string, apps []string) bool {
