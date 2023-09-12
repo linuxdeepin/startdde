@@ -158,11 +158,6 @@ func main() {
 		}
 	}()
 
-	go func() {
-		initSoundThemePlayer()
-		playLoginSound()
-	}()
-
 	err = gsettings.StartMonitor()
 	if err != nil {
 		logger.Warning("gsettings start monitor failed:", err)
