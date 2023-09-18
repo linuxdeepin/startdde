@@ -30,8 +30,6 @@ import (
 
 var logger = log.NewLogger("startdde")
 
-var _gSettingsConfig *GSettingsConfig
-
 var globalCgExecBin string
 
 var globalXSManager *xsettings.XSManager
@@ -105,8 +103,6 @@ func main() {
 		return
 	}
 
-	initGSettingsConfig()
-
 	_mainBeginTime = time.Now()
 
 	gettext.InitI18n()
@@ -143,8 +139,6 @@ func main() {
 		globalXSManager = xsManager
 	}
 
-	sessionManager := newSessionManager(service)
-
 	err = display.Start(service)
 	if err != nil {
 		logger.Warning("start display part1 failed:", err)
@@ -170,8 +164,6 @@ func main() {
 	}
 	sysSignalLoop := dbusutil.NewSignalLoop(sysBus, 10)
 	sysSignalLoop.Start()
-
-	sessionManager.start(xConn, sysSignalLoop, service)
 
 	go func() {
 		logger.Info("systemd-notify --ready")

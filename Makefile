@@ -12,15 +12,6 @@ prepare:
 	@mkdir -p ${GOPATH_DIR}/src/$(dir ${GOPKG_PREFIX});
 	@ln -snf ../../../.. ${GOPATH_DIR}/src/${GOPKG_PREFIX};
 
-auto_launch_json:
-ifdef AUTO_LAUNCH_CHINESE
-	cp misc/auto_launch/chinese.json misc/config/auto_launch.json
-else
-	cp misc/auto_launch/default.json misc/config/auto_launch.json
-endif
-	# check validity
-	jq . misc/config/auto_launch.json >/dev/null
-
 startdde:
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" ${GOBUILD} -o startdde ${GOPKG_PREFIX}
 
@@ -36,7 +27,7 @@ translate: $(addsuffix /LC_MESSAGES/startdde.mo, $(addprefix out/locale/, ${LANG
 pot:
 	deepin-update-pot misc/po/locale_config.ini
 
-build: prepare startdde auto_launch_json fix-xauthority-perm translate
+build: prepare startdde fix-xauthority-perm translate
 
 test: prepare
 	env GOPATH="${CURDIR}/${GOPATH_DIR}:${GOPATH}" go test -v ${GOPKG_PREFIX}
@@ -54,8 +45,6 @@ install:
 	ln -sfv ../../bin/startdde ${DESTDIR}${PREFIX}/lib/deepin-daemon/greeter-display-daemon
 	install -Dm644 misc/lightdm.conf ${DESTDIR}${PREFIX}/share/lightdm/lightdm.conf.d/60-deepin.conf
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
-	install -v -m0644 misc/config/* ${DESTDIR}${PREFIX}/share/startdde/
-	install -v -m0644 misc/app_startup.conf ${DESTDIR}${PREFIX}/share/startdde/
 	install -v -m0644 misc/filter.conf ${DESTDIR}${PREFIX}/share/startdde/
 	mkdir -p ${DESTDIR}/etc/X11/Xsession.d/
 	install -v -m0644 misc/Xsession.d/* ${DESTDIR}/etc/X11/Xsession.d/
