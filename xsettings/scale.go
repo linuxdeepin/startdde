@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -60,7 +59,7 @@ func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
 	gsWrapGDI.Unref()
 
-	m.setScaleFactorForPlymouth(int(windowScale), emitSignal)
+	m.emitSignalSetScaleFactor(true, emitSignal)
 }
 
 func parseScreenFactors(str string) map[string]float64 {
@@ -281,33 +280,6 @@ func (m *XSManager) getScreenScaleFactors() map[string]float64 {
 	return parseScreenFactors(factorsJoined)
 }
 
-const plymouthConfigFile = "/etc/plymouth/plymouthd.conf"
-
-func (m *XSManager) setScaleFactorForPlymouthReal(factor int, emitSignal bool) {
-	logger.Debug("scalePlymouth", factor)
-	currentFactor := 0
-	theme, err := getPlymouthTheme(plymouthConfigFile)
-	if err == nil {
-		currentFactor = getPlymouthThemeScaleFactor(theme)
-	} else {
-		logger.Warning(err)
-	}
-
-	if currentFactor == factor {
-		logger.Debug("quick end scalePlymouth", factor)
-		m.emitSignalSetScaleFactor(true, emitSignal)
-		return
-	}
-
-	m.emitSignalSetScaleFactor(false, emitSignal)
-	err = m.sysDaemon.ScalePlymouth(0, uint32(factor))
-	m.emitSignalSetScaleFactor(true, emitSignal)
-
-	logger.Debug("end scalePlymouth", factor)
-	if err != nil {
-		logger.Warning(err)
-	}
-}
 
 func (m *XSManager) emitSignalSetScaleFactor(done, emitSignal bool) {
 	if !emitSignal {
@@ -323,46 +295,6 @@ func (m *XSManager) emitSignalSetScaleFactor(done, emitSignal bool) {
 	}
 }
 
-func (m *XSManager) startScaleFactorForPlymouth(factor int, emitSignal bool) {
-	logger.Debug("startScaleFactorForPlymouth", factor)
-	go func() {
-		m.setScaleFactorForPlymouthReal(factor, emitSignal)
-		m.endScaleFactorForPlymouth()
-	}()
-}
-
-func (m *XSManager) endScaleFactorForPlymouth() {
-	m.plymouthScalingMu.Lock()
-	defer m.plymouthScalingMu.Unlock()
-
-	if len(m.plymouthScalingTasks) == 0 {
-		// stop
-		m.plymouthScaling = false
-	} else {
-		factor := m.plymouthScalingTasks[len(m.plymouthScalingTasks)-1]
-		logger.Debug("use last in tasks:", factor, m.plymouthScalingTasks)
-		m.plymouthScalingTasks = nil
-		m.startScaleFactorForPlymouth(factor, true)
-	}
-}
-
-func (m *XSManager) setScaleFactorForPlymouth(factor int, emitSignal bool) {
-	if factor > 2 {
-		factor = 2
-	}
-	m.plymouthScalingMu.Lock()
-
-	if m.plymouthScaling {
-		m.plymouthScalingTasks = append(m.plymouthScalingTasks, factor)
-		logger.Debug("add to tasks", factor)
-	} else {
-		m.plymouthScaling = true
-		m.startScaleFactorForPlymouth(factor, emitSignal)
-	}
-
-	m.plymouthScalingMu.Unlock()
-}
-
 func getPlymouthTheme(file string) (string, error) {
 	var kf = keyfile.NewKeyFile()
 	err := kf.LoadFromFile(file)
@@ -373,19 +305,8 @@ func getPlymouthTheme(file string) (string, error) {
 	return kf.GetString("Daemon", "Theme")
 }
 
-func getPlymouthThemeScaleFactor(theme string) int {
-	switch theme {
-	case "deepin-logo", "deepin-ssd-logo", "uos-ssd-logo":
-		return 1
-	case "deepin-hidpi-logo", "deepin-hidpi-ssd-logo", "uos-hidpi-ssd-logo":
-		return 2
-	default:
-		return 0
-	}
-}
-
 func (m *XSManager) updateGreeterQtTheme(kf *keyfile.KeyFile) error {
-	tempFile, err := ioutil.TempFile("", "startdde-qt-theme-")
+	tempFile, err := os.CreateTemp("", "startdde-qt-theme-")
 	if err != nil {
 		return err
 	}

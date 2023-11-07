@@ -14,7 +14,6 @@ Build-Depends:
  golang-go,
  golang-golang-x-xerrors-dev,
  golang-gopkg-check.v1-dev,
- golang-github-adrg-xdg-dev,
  jq,
  libsecret-1-dev,
  libxcursor-dev,
