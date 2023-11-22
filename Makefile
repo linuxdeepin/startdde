@@ -46,10 +46,6 @@ install:
 	install -Dm644 misc/lightdm.conf ${DESTDIR}${PREFIX}/share/lightdm/lightdm.conf.d/60-deepin.conf
 	mkdir -p ${DESTDIR}${PREFIX}/share/startdde/
 	install -v -m0644 misc/filter.conf ${DESTDIR}${PREFIX}/share/startdde/
-	mkdir -p ${DESTDIR}/etc/X11/Xsession.d/
-	install -v -m0644 misc/Xsession.d/* ${DESTDIR}/etc/X11/Xsession.d/
-	mkdir -p ${DESTDIR}/etc/profile.d/
-	install -v -m0644 misc/profile.d/* ${DESTDIR}/etc/profile.d/
 	mkdir -p $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas
 	install -v -m0644 misc/schemas/*.xml $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas/
 
