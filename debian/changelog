@@ -1,3 +1,10 @@
+startdde (6.0.11) unstable; urgency=medium
+
+  * remove env update script to dde-session
+  * clean code
+
+ -- dengbo <dengbo@deepin.org>  Wed, 22 Nov 2023 15:57:50 +0800
+
 startdde (6.0.10) unstable; urgency=medium
 
   * Update obs workflow configuration
