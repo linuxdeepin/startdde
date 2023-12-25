@@ -1,3 +1,9 @@
+startdde (6.0.12) unstable; urgency=medium
+
+  * Not set plymouth when setting scale
+
+ -- chenhongtao <chenhongtao@deepin.org>  Mon, 25 Dec 2023 10:42:34 +0800
+
 startdde (6.0.11) unstable; urgency=medium
 
   * remove env update script to dde-session
