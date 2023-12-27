@@ -1,10 +1,9 @@
 [Unit]
 Description=A task of dde-display service, to refresh brightness
 
-Wants=dde-session-daemon.target
-After=dde-session-daemon.target
-
+Wants=dde-session.target
+After=dde-session.target
 
 [Service]
-Type=simple
+Type=oneshot
 ExecStart=/usr/bin/dbus-send --print-reply --dest=org.deepin.dde.Display1 /org/deepin/dde/Display1 org.deepin.dde.Display1.RefreshBrightness
