@@ -23,7 +23,6 @@ import (
 	"github.com/linuxdeepin/go-lib/gettext"
 	"github.com/linuxdeepin/go-lib/gsettings"
 	"github.com/linuxdeepin/go-lib/log"
-	"github.com/linuxdeepin/go-lib/proxy"
 	wl_display "github.com/linuxdeepin/startdde/wl_display"
 	"github.com/linuxdeepin/startdde/xsettings"
 )
@@ -156,7 +155,7 @@ func main() {
 	if err != nil {
 		logger.Warning("gsettings start monitor failed:", err)
 	}
-	proxy.SetupProxy()
+
 	sysBus, err := dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
