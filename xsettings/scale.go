@@ -59,6 +59,17 @@ func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
 	gsWrapGDI.Unref()
 
+	// set cursor size for deepin-kwin
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		logger.Warning(err)
+	} else {
+		if err := conn.Object("com.deepin.wm",
+			"/com/deepin/wm").SetProperty("com.deepin.wm.cursorSize", dbus.MakeVariant(cursorSize)); err != nil {
+			logger.Warning(err)
+		}
+	}
+
 	m.emitSignalSetScaleFactor(true, emitSignal)
 }
 
@@ -279,7 +290,6 @@ func (m *XSManager) getScreenScaleFactors() map[string]float64 {
 	factorsJoined := m.gs.GetString(gsKeyIndividualScaling)
 	return parseScreenFactors(factorsJoined)
 }
-
 
 func (m *XSManager) emitSignalSetScaleFactor(done, emitSignal bool) {
 	if !emitSignal {
