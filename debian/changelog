@@ -1,3 +1,9 @@
+startdde (6.0.14) unstable; urgency=medium
+
+  * fix: never set cursorSize for deepin-kwin
+
+ -- rewine <luhongxu@deepin.org>  Thu, 07 Mar 2024 10:47:55 +0800
+
 startdde (6.0.13) unstable; urgency=medium
 
   fix: export proxy env error
