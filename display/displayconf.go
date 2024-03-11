@@ -674,17 +674,33 @@ func (s *SysScreenConfig) setMonitorConfigsOnlyOne(uuid string, configs SysMonit
 		s.OnlyOneMap[uuid] = &SysMonitorModeConfig{}
 	}
 
+	logger.Debug("OnlyOneConfig lenth:", len(configs))
+	// 如果多个屏幕的UUID一样，则保存所有配置，根据屏幕名称区分应该点亮哪一个
 	if len(configs) > 1 {
-		// 去除非使能的 monitor
-		var tmpCfg *SysMonitorConfig
+		isRepeat := false
+		mapCfg := make(map[string]bool)
 		for _, config := range configs {
-			if config.Enabled {
-				tmpCfg = config
+			_, ok := mapCfg[config.UUID]
+			if ok {
+				logger.Debug("config uuid is repeat")
+				isRepeat = true
 				break
+			} else {
+				mapCfg[config.UUID] = true
 			}
 		}
-		if tmpCfg != nil {
-			configs = SysMonitorConfigs{tmpCfg}
+		if !isRepeat {
+			// 去除非使能的 monitor
+			var tmpCfg *SysMonitorConfig
+			for _, config := range configs {
+				if config.Enabled {
+					tmpCfg = config
+					break
+				}
+			}
+			if tmpCfg != nil {
+				configs = SysMonitorConfigs{tmpCfg}
+			}
 		}
 	}
 
