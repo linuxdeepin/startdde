@@ -24,33 +24,46 @@ func (err InvalidOutputNameError) Error() string {
 }
 
 func (m *Manager) saveBrightnessInCfg(valueMap map[string]float64) error {
-	if len(valueMap) == 0 {
+	if valueMap == nil {
 		return nil
 	}
 	changed := false
 	m.modifySuitableSysMonitorConfigs(func(configs SysMonitorConfigs) SysMonitorConfigs {
-		for _, config := range configs {
-			v, ok := valueMap[config.Name]
-			if ok {
-				config.Brightness = v
-			} else {
-				// 存在当从wayland切换到x11后，在wayland中设置过显示配置，此时配置文件中Name与切换到x11之后中的Name不匹配
-				// 因此当失败时，在通过uuid查找一次，把Name改写，亮度不变
-				monitors := m.getConnectedMonitors()
-				for name := range valueMap {
-					monitor := monitors.GetByName(name)
-					if monitor == nil {
-						logger.Warning("call GetByName failed: ", name)
-						continue
-					}
+		allCfgMatches := true
 
-					if config.UUID == monitor.uuid {
-						config.Name = name
-						config.Brightness = v
-					}
-				}
+		// modify all config if matches
+		for _, config := range configs {
+			// match with config.Name
+			if v, ok := valueMap[config.Name]; ok {
+				config.Brightness = v
+				changed = true
+			} else {
+				allCfgMatches = false
 			}
-			changed = true
+		}
+
+		// 如果所有都找到，则无需进行下面的wayland切换至x11情况的匹配过程
+		if allCfgMatches {
+			return nil
+		}
+
+		// match with config.UUID
+		// 存在当从wayland切换到x11后，在wayland中设置过显示配置，此时配置文件中Name与切换到x11之后中的Name不匹配
+		// 当出现存在配置没有匹配上的情况，需要通过uuid查找一次，把Name改写，亮度不变
+		monitors := m.getConnectedMonitors()
+		for name := range valueMap {
+			// get monitor by name
+			monitor := monitors.GetByName(name)
+			if monitor == nil {
+				logger.Warning("call GetByName failed: ", name)
+				continue
+			}
+			// match config with monitor.uuid
+			if cfg := configs.getByUuid(monitor.uuid); cfg != nil {
+				cfg.Name = name
+				cfg.Brightness = valueMap[name]
+				changed = true
+			}
 		}
 		return configs
 	})
