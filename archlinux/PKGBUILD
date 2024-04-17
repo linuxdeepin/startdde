@@ -42,10 +42,4 @@ build() {
 package() {
   cd $sourcedir
   make DESTDIR="$pkgdir" install
-  # Fix env file permission
-  chmod +x "$pkgdir"/etc/X11/Xsession.d/*
-  # Don't rely on deepin-session's location
-  install -dm755 "$pkgdir"/etc/X11/xinit/xinitrc.d
-  mv "$pkgdir"/etc/X11/Xsession.d/* "$pkgdir"/etc/X11/xinit/xinitrc.d/
-  rmdir "$pkgdir"/etc/X11/Xsession.d
 }
