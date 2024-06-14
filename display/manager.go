@@ -209,6 +209,13 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
+
+	// 不支持调节色温的显卡型号
+	unsupportGammaDrmList []string
+	drmSupportGamma       bool
+
+	ColorTemperatureEnabled bool `prop:"access:rw"`
+	SupportColorTemperature bool
 }
 
 type monitorSizeInfo struct {
@@ -224,6 +231,9 @@ func newManager(service *dbusutil.Service) *Manager {
 		monitorMap:     make(map[uint32]*Monitor),
 		Brightness:     make(map[string]float64),
 		redshiftRunner: newRedshiftRunner(),
+		unsupportGammaDrmList: []string{
+			"Loongson",
+		},
 	}
 	m.redshiftRunner.cb = func(value int) {
 		m.setColorTempOneShot()
@@ -392,6 +402,15 @@ func (m *Manager) initSysDisplay() {
 	if err != nil {
 		logger.Warning(err)
 	}
+	go func() {
+		// 依赖dsettings数据，需要在initDSettings后执行
+		m.drmSupportGamma = m.detectDrmSupportGamma()
+		if m.drmSupportGamma {
+			logger.Debug("setColorTempModeReal")
+			m.setColorTempModeReal(ColorTemperatureModeNone)
+		}
+		m.setPropSupportColorTemperature(!_inVM && m.drmSupportGamma)
+	}()
 }
 
 // 处理系统级别的配置更新
@@ -2965,4 +2984,35 @@ func GetForceScaleFactor() (float64, error) {
 		}
 	}
 	return 1.0, fmt.Errorf("no valid force-scale-factor")
+}
+
+func getLspci() string {
+	out, err := exec.Command("lspci").Output()
+	if err != nil {
+		logger.Warning(err)
+		return ""
+	} else {
+		return string(out)
+	}
+}
+
+func (m *Manager) detectDrmSupportGamma() bool {
+	pciInfos := strings.Split(getLspci(), "\n")
+	for _, info := range pciInfos {
+		if strings.Contains(info, "VGA") {
+			vgaSupportGamma := true
+			for _, drm := range m.unsupportGammaDrmList {
+				lowDrm := strings.ToLower(drm)
+				lowInfo := strings.ToLower(info)
+				if strings.Contains(lowInfo, lowDrm) {
+					vgaSupportGamma = false
+					break
+				}
+			}
+			if vgaSupportGamma {
+				return true
+			}
+		}
+	}
+	return false
 }
