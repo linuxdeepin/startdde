@@ -115,6 +115,11 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 			InArgs: []string{"outputName"},
 		},
 		{
+			Name:    "SupportSetColorTemperature",
+			Fn:      v.SupportSetColorTemperature,
+			OutArgs: []string{"outArg0"},
+		},
+		{
 			Name:   "SwitchMode",
 			Fn:     v.SwitchMode,
 			InArgs: []string{"mode", "name"},

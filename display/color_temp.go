@@ -38,6 +38,7 @@ func (m *Manager) setColorTempMode(mode int32) error {
 		return errors.New("mode out of range, not 0 or 1 or 2")
 	}
 	m.setPropColorTemperatureMode(mode)
+	m.setPropColorTemperatureEnabled(mode != 0)
 	m.setColorTempModeReal(mode)
 	m.saveColorTempModeInCfg(mode)
 	return nil
@@ -269,6 +270,7 @@ func (m *Manager) applyColorTempConfig(displayMode byte) {
 		cfg = getDefaultUserMonitorModeConfig()
 	}
 	m.setPropColorTemperatureMode(cfg.ColorTemperatureMode)
+	m.setPropColorTemperatureEnabled(cfg.ColorTemperatureMode != 0)
 	m.setPropColorTemperatureManual(cfg.ColorTemperatureManual)
 	m.setColorTempModeReal(m.ColorTemperatureMode)
 }

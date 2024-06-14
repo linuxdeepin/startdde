@@ -25,9 +25,12 @@ var _hasRandr1d2 bool // 是否 randr 版本大于等于 1.2
 
 var _useWayland bool
 
-func Init(xConn *x.Conn, useWayland bool) {
+var _inVM bool
+
+func Init(xConn *x.Conn, useWayland bool, inVM bool) {
 	_xConn = xConn
 	_useWayland = useWayland
+	_inVM = inVM
 	randrVersion, err := randr.QueryVersion(xConn, randr.MajorVersion, randr.MinorVersion).Reply(xConn)
 	if err != nil {
 		logger.Warning(err)
