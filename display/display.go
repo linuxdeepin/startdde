@@ -100,6 +100,33 @@ func Start(service *dbusutil.Service) error {
 		if err != nil {
 			return err
 		}
+		so := service.GetServerObject(m)
+		if so != nil {
+			err = so.SetWriteCallback(m, "ColorTemperatureEnabled", func(write *dbusutil.PropertyWrite) *dbus.Error {
+				value, ok := write.Value.(bool)
+				if !ok {
+					err = errors.New("Type is not bool")
+					logger.Warning(err)
+					return dbusutil.ToError(err)
+				}
+				ok = m.setPropColorTemperatureEnabled(value)
+				if !ok {
+					err = errors.New("Set ColorTemperatureEnabled failed!")
+					logger.Warning(err)
+					return dbusutil.ToError(err)
+				}
+				cfg := m.getSuitableUserMonitorModeConfig(m.DisplayMode)
+				if cfg == nil {
+					cfg = getDefaultUserMonitorModeConfig()
+				}
+				mode := ColorTemperatureModeNone
+				if value {
+					mode = cfg.ColorTemperatureModeOn
+				}
+				err = m.setColorTempMode(mode)
+				return dbusutil.ToError(err)
+			})
+		}
 
 		err = service.RequestName(dbusServiceName)
 		if err != nil {
