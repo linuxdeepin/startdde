@@ -238,6 +238,9 @@ func (m *Manager) saveColorTempValueInCfg(value int32) {
 func (m *Manager) saveColorTempModeInCfg(mode int32) {
 	m.modifySuitableUserMonitorModeConfig(func(cfg *UserMonitorModeConfig) {
 		cfg.ColorTemperatureMode = mode
+		if cfg.ColorTemperatureMode != ColorTemperatureModeNone {
+			cfg.ColorTemperatureModeOn = cfg.ColorTemperatureMode
+		}
 	})
 	err := m.saveUserConfig()
 	if err != nil {
