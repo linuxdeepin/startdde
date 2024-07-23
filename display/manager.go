@@ -263,16 +263,6 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.sessionSigLoop = sessionSigLoop
 	sessionSigLoop.Start()
 
-	if _useWayland {
-		m.mm = newKMonitorManager(sessionSigLoop)
-	} else {
-		m.mm = newXMonitorManager(m.xConn, _hasRandr1d2)
-	}
-
-	m.mm.setHooks(m)
-
-	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
-
 	m.sysBus, err = dbus.SystemBus()
 	if err != nil {
 		logger.Warning(err)
@@ -916,6 +906,16 @@ func (m *Manager) migrateOldConfig() {
 }
 
 func (m *Manager) init() {
+	// 屏幕的初始化应该放在init中
+	if _useWayland {
+		m.mm = newKMonitorManager(m.sessionSigLoop)
+	} else {
+		m.mm = newXMonitorManager(m.xConn, _hasRandr1d2)
+	}
+
+	m.mm.setHooks(m)
+
+	m.setPropMaxBacklightBrightness(uint32(brightness.GetMaxBacklightBrightness()))
 	brightness.InitBacklightHelper()
 	brightness.SetUseWayland(_useWayland)
 	m.initDebugOptions()

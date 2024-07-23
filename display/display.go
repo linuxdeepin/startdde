@@ -92,7 +92,6 @@ func (m *Manager) setScaleFactors(factors map[string]float64) error {
 
 func Start(service *dbusutil.Service) error {
 	m := newManager(service)
-	m.init()
 
 	if !_greeterMode {
 		// 正常 startdde
@@ -133,6 +132,7 @@ func Start(service *dbusutil.Service) error {
 			return err
 		}
 	}
+	m.init()
 	_dpy = m
 	return nil
 }
