@@ -29,6 +29,7 @@ import (
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.inputdevices1"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
+	timedate1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.timedate1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
@@ -224,6 +225,7 @@ type monitorSizeInfo struct {
 }
 
 var _ monitorManagerHooks = (*Manager)(nil)
+var _timeZone string
 
 func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
@@ -289,6 +291,15 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.inputDevices.InitSignalExt(sysSigLoop, true)
 
 	m.sysDisplay = sysdisplay.NewDisplay(m.sysBus)
+	td := timedate1.NewTimedate(m.sysBus)
+	_timeZone, err = td.Timezone().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		_timeZone = "Asia/Beijing"
+	}
+	go func() {
+		m.listenTimezone()
+	}()
 
 	loginManager := login1.NewManager(m.sysBus)
 	loginManager.InitSignalExt(sysSigLoop, true)
