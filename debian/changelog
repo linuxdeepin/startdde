@@ -1,3 +1,9 @@
+startdde (6.0.16) unstable; urgency=medium
+
+  * chore: 解决色温没有自动调节的问题 (#262) 
+
+ -- fuleyi <fuleyi@uniontech.com>  Wed, 28 Aug 2024 17:29:52 +0800
+
 startdde (6.0.15) unstable; urgency=medium
 
   * chore: fix archlinux build
