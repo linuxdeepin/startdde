@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -115,7 +114,7 @@ func newRedshiftRunner() *redshiftRunner {
 		logger.Warning("new sys service failed:", err)
 	}
 	zoneInfoMap := make(map[string]*zoneInfo)
-	contents, err := ioutil.ReadFile(timeZoneFile)
+	contents, err := os.ReadFile(timeZoneFile)
 	if err != nil {
 		logger.Warning("Red timezone file failed:", err)
 	}
