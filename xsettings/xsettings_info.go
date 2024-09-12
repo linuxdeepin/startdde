@@ -284,6 +284,11 @@ var gsInfos = typeGSKeyInfos{
 		gsType: gsKeyTypeString,
 		xsKey:  "Gdk/PrimaryMonitorName",
 	},
+	{
+		gsKey:  "dtk-size-mode",
+		gsType: gsKeyTypeInt,
+		xsKey:  "DTK/SizeMode",
+	},
 }
 
 var settingTypeColorVar = settingTypeColor
