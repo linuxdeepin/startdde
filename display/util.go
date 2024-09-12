@@ -8,8 +8,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"math"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -301,7 +301,7 @@ func swapWidthHeightWithRotationInt32(rotation uint16, pWidth, pHeight *int32) {
 }
 
 func getConfigVersion(filename string) (string, error) {
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
@@ -320,7 +320,7 @@ func getComputeChassis() (string, error) {
 		return "", err
 	}
 	if chassis == "" || chassis == "desktop" {
-		chassisNum, err := ioutil.ReadFile(chassisTypeFilePath)
+		chassisNum, err := os.ReadFile(chassisTypeFilePath)
 		if err != nil {
 			logger.Warning(err)
 			return "", err
@@ -380,7 +380,7 @@ var regCardOutput = regexp.MustCompile(`^card\d+-.+`)
 
 func getStdMonitorName(edid []byte) (string, error) {
 	// /sys/class/drm/card0-HDMI-A-1
-	fileInfos, err := ioutil.ReadDir("/sys/class/drm")
+	fileInfos, err := os.ReadDir("/sys/class/drm")
 	if err != nil {
 		return "", err
 	}
@@ -413,6 +413,6 @@ func edidEqual(edid1, edid2 []byte) bool {
 }
 
 func readSysDrmEdid(name string) ([]byte, error) {
-	content, err := ioutil.ReadFile(filepath.Join("/sys/class/drm", name, "edid"))
+	content, err := os.ReadFile(filepath.Join("/sys/class/drm", name, "edid"))
 	return content, err
 }
