@@ -6,7 +6,7 @@ package display
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -54,7 +54,7 @@ type MonitorConfiV3_3 struct {
 type ConfigV3_3 map[string]*ScreenConfigV3_3
 
 func loadConfigV3_3(filename string) (ConfigV3_3, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

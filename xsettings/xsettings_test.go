@@ -6,12 +6,11 @@ package xsettings
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	C "gopkg.in/check.v1"
 	"github.com/linuxdeepin/go-lib/utils"
+	C "gopkg.in/check.v1"
 )
 
 type testWrapper struct{}
@@ -229,7 +228,7 @@ user_pref("toolkit.telemetry.reportingpolicy.firstRun", false);
 			c.Check(utils.IsFileExist(info.dest), C.Equals, false)
 			continue
 		}
-		contents, err := ioutil.ReadFile(info.dest)
+		contents, err := os.ReadFile(info.dest)
 		if err != nil {
 			fmt.Println("Failed to read file:", err)
 			continue

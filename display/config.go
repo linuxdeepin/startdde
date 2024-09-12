@@ -7,7 +7,6 @@ package display
 import (
 	"encoding/gob"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +52,7 @@ func updateSysMonitorConfigsName(configs SysMonitorConfigs, monitorMap map[uint3
 
 func loadBuiltinMonitorConfig(filename string) (string, error) {
 	// #nosec G304
-	content, err := ioutil.ReadFile(filename)
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return "", err
 	}
@@ -87,7 +86,7 @@ func readConnectInfoCache(file string) (*ConnectInfo, error) {
 // 加载 v5 或 v6 配置，v6 优先
 func loadConfigV5V6(filename string) (*ConfigV6, error) {
 	// #nosec G304
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

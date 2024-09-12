@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/linuxdeepin/go-lib/keyfile"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/exec"
@@ -19,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/linuxdeepin/go-lib/keyfile"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/godbus/dbus/v5"
@@ -2485,7 +2485,7 @@ func (m *Manager) associateTouch(monitor *Monitor, touchUUID string, auto bool) 
 }
 
 func (m *Manager) loadUserConfig() error {
-	content, err := ioutil.ReadFile(userConfigFile)
+	content, err := os.ReadFile(userConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -2532,7 +2532,7 @@ func (m *Manager) saveUserConfigNoLock() error {
 	}
 
 	filename := userConfigFile + ".new"
-	err = ioutil.WriteFile(filename, content, 0644)
+	err = os.WriteFile(filename, content, 0644)
 	if err != nil {
 		return err
 	}

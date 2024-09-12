@@ -7,7 +7,6 @@ package display
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"path/filepath"
@@ -1732,7 +1731,7 @@ func (m *Manager) saveConfig() error {
 	}
 
 	// #nosec G306
-	err = ioutil.WriteFile(configVersionFile, []byte(configVersion), 0644)
+	err = os.WriteFile(configVersionFile, []byte(configVersion), 0644)
 	if err != nil {
 		return err
 	}
