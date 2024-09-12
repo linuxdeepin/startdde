@@ -6,7 +6,6 @@ package xsettings
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strconv"
@@ -115,7 +114,7 @@ func (m *XSManager) updateFirefoxDPI() {
 }
 
 func getFirefoxConfigs(dir string) ([]string, error) {
-	finfos, err := ioutil.ReadDir(dir)
+	finfos, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +130,7 @@ func getFirefoxConfigs(dir string) ([]string, error) {
 }
 
 func setFirefoxDPI(value float64, src, dest string) error {
-	contents, err := ioutil.ReadFile(src)
+	contents, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
@@ -164,5 +163,5 @@ func setFirefoxDPI(value float64, src, dest string) error {
 		lines[len(lines)-1] = target
 		lines = append(lines, tmp)
 	}
-	return ioutil.WriteFile(dest, []byte(strings.Join(lines, "\n")), 0644)
+	return os.WriteFile(dest, []byte(strings.Join(lines, "\n")), 0644)
 }

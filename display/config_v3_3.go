@@ -6,7 +6,7 @@ package display
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"sort"
 	"strings"
 )
@@ -90,7 +90,7 @@ type ConfigV3D3 map[string]*ScreenConfigV3D3
 
 func loadConfigV3D3(filename string) (ConfigV3D3, error) {
 	// #nosec G304
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}

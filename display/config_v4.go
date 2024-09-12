@@ -6,7 +6,7 @@ package display
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 )
 
 type ConfigV4 map[string]*ScreenConfigV4
@@ -38,7 +38,7 @@ type OnlyOneModeConfig struct {
 
 func loadConfigV4(filename string) (ConfigV4, error) {
 	// #nosec G304
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
