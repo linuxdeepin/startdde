@@ -6,7 +6,6 @@ package display
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -191,7 +190,7 @@ type MonitorConfig struct {
 }
 
 func loadConfigV4(filename string) (Config, error) {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +251,7 @@ func (c Config) save(filename string) error {
 		}
 	}
 
-	err = ioutil.WriteFile(filename, data, 0644)
+	err = os.WriteFile(filename, data, 0644)
 	if err != nil {
 		return err
 	}
