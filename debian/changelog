@@ -1,3 +1,10 @@
+startdde (6.0.17) unstable; urgency=medium
+
+  * Release 6.0.17
+  * feat: add qt-scrollbar-policy config
+
+ -- Zhang Kun <zhangkun2@uniontech.com>  Fri, 25 Oct 2024 18:25:39 +0800
+
 startdde (6.0.16) unstable; urgency=medium
 
   * chore: 解决色温没有自动调节的问题 (#262) 
