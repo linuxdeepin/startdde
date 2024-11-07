@@ -257,6 +257,14 @@ var gsInfos = typeGSKeyInfos{
 		convertXsToGs: convertColorToStr,
 	},
 	{
+		gsKey:         "qt-active-color-dark",
+		gsType:        gsKeyTypeString,
+		xsKey:         "Qt/ActiveColorDark",
+		xsType:        &settingTypeColorVar,
+		convertGsToXs: convertStrToColor,
+		convertXsToGs: convertColorToStr,
+	},
+	{
 		gsKey:  "qt-font-name",
 		gsType: gsKeyTypeString,
 		xsKey:  "Qt/FontName",
