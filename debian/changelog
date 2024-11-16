@@ -1,3 +1,9 @@
+startdde (6.0.19) unstable; urgency=medium
+
+  * chore: rename "Qt/ActiveColorDark" to "Qt/DarkActiveColor"
+
+ -- xionglinlin <xionglinlin@uniontech.com>  Wed, 13 Nov 2024 14:58:37 +0800
+
 startdde (6.0.18) unstable; urgency=medium
 
   * No changes in this release. Version bump for internal reasons.
