@@ -1,3 +1,23 @@
+startdde (6.0.17) unstable; urgency=medium
+
+  * chore: 紧凑模式需要设置DTK/SizeMode
+
+ -- fuleyi <fuleyi@uniontech.com>  Thu, 12 Sep 2024 13:29:25 +0800
+
+startdde (6.0.16) unstable; urgency=medium
+
+  * chore: 解决色温没有自动调节的问题 (#262) 
+
+ -- fuleyi <fuleyi@uniontech.com>  Wed, 28 Aug 2024 17:29:52 +0800
+
+startdde (6.0.15) unstable; urgency=medium
+
+  * chore: fix archlinux build
+  * feat: 添加检查是否支持色温的接口
+  * feat: 支持插件设置护眼模式
+
+ -- Wang Fei <wangfei@deepin.org>  Mon, 08 Jul 2024 13:37:56 +0800
+
 startdde (6.0.14) unstable; urgency=medium
 
   * fix: never set cursorSize for deepin-kwin

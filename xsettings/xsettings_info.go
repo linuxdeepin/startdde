@@ -257,6 +257,14 @@ var gsInfos = typeGSKeyInfos{
 		convertXsToGs: convertColorToStr,
 	},
 	{
+		gsKey:         "qt-dark-active-color",
+		gsType:        gsKeyTypeString,
+		xsKey:         "Qt/DarkActiveColor",
+		xsType:        &settingTypeColorVar,
+		convertGsToXs: convertStrToColor,
+		convertXsToGs: convertColorToStr,
+	},
+	{
 		gsKey:  "qt-font-name",
 		gsType: gsKeyTypeString,
 		xsKey:  "Qt/FontName",
@@ -283,6 +291,16 @@ var gsInfos = typeGSKeyInfos{
 		gsKey:  "primary-monitor-name",
 		gsType: gsKeyTypeString,
 		xsKey:  "Gdk/PrimaryMonitorName",
+	},
+	{
+		gsKey:  "dtk-size-mode",
+		gsType: gsKeyTypeInt,
+		xsKey:  "DTK/SizeMode",
+	},
+	{
+		gsKey:  "qt-scrollbar-policy",
+		gsType: gsKeyTypeInt,
+		xsKey:  "Qt/ScrollBarPolicy",
 	},
 }
 

@@ -8,9 +8,12 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +31,10 @@ const (
 	ColorTemperatureModeManual
 )
 
+const (
+	timeZoneFile = "/usr/share/zoneinfo/zone1970.tab"
+)
+
 func isValidColorTempMode(mode int32) bool {
 	return mode >= ColorTemperatureModeNone && mode <= ColorTemperatureModeManual
 }
@@ -38,6 +45,7 @@ func (m *Manager) setColorTempMode(mode int32) error {
 		return errors.New("mode out of range, not 0 or 1 or 2")
 	}
 	m.setPropColorTemperatureMode(mode)
+	m.setPropColorTemperatureEnabled(mode != 0)
 	m.setColorTempModeReal(mode)
 	m.saveColorTempModeInCfg(mode)
 	return nil
@@ -65,6 +73,13 @@ const (
 	redshiftStateStopped
 )
 
+type zoneInfo struct {
+	country   string
+	latitude  float64
+	longitude float64
+	distance  float64
+}
+
 type redshiftRunner struct {
 	mu                 sync.Mutex
 	state              int
@@ -74,6 +89,24 @@ type redshiftRunner struct {
 	cb                 func(value int)
 	sysService         *dbusutil.Service
 	geoAgentRegistered bool
+
+	zoneInfoMap map[string]*zoneInfo
+}
+
+func convertPos(pos string, digits int32) float64 {
+	if len(pos) < 4 || digits > 9 {
+		return 0.0
+	}
+
+	integer := pos[:digits+1]
+	fraction := pos[digits+1:]
+	t1, _ := strconv.ParseFloat(integer, 64)
+	t2, _ := strconv.ParseFloat(fraction, 64)
+	if t1 > 0.0 {
+		return t1 + t2/math.Pow(10.0, float64(len(fraction)))
+	} else {
+		return t1 - t2/math.Pow(10.0, float64(len(fraction)))
+	}
 }
 
 func newRedshiftRunner() *redshiftRunner {
@@ -81,8 +114,37 @@ func newRedshiftRunner() *redshiftRunner {
 	if err != nil {
 		logger.Warning("new sys service failed:", err)
 	}
+	zoneInfoMap := make(map[string]*zoneInfo)
+	contents, err := ioutil.ReadFile(timeZoneFile)
+	if err != nil {
+		logger.Warning("Red timezone file failed:", err)
+	}
+	lines := bytes.Split(contents, []byte{'\n'})
+	for _, line := range lines {
+		if !bytes.HasPrefix(line, []byte{'#'}) {
+			parts := bytes.Split(line, []byte{'\t'})
+			if len(parts) >= 3 {
+				coordinates := string(parts[1])
+				index := strings.Index(coordinates[3:], "+")
+				if index == -1 {
+					index = strings.Index(coordinates[3:], "-")
+				}
+				if index > -1 {
+					latitude := convertPos(coordinates[:index+3], 2)
+					longitude := convertPos(coordinates[index+3:], 3)
+					zone_info := &zoneInfo{
+						country:   string(parts[0]),
+						latitude:  latitude,
+						longitude: longitude,
+					}
+					zoneInfoMap[string(parts[2])] = zone_info
+				}
+			}
+		}
+	}
 	return &redshiftRunner{
-		sysService: sysService,
+		sysService:  sysService,
+		zoneInfoMap: zoneInfoMap,
 	}
 }
 
@@ -96,12 +158,14 @@ func (r *redshiftRunner) start() {
 	}
 	r.state = redshiftStateRunning
 
-	err := r.registerGeoClueAgent()
-	if err != nil {
-		logger.Warning("register geoClue agent failed:", err)
-	}
-
+	latitude := r.zoneInfoMap[_timeZone].latitude
+	longitude := r.zoneInfoMap[_timeZone].longitude
+	geographicalPosition := strconv.FormatFloat(latitude, 'f', -1, 64) + ":" + strconv.FormatFloat(longitude, 'f', -1, 64)
+	logger.Info("Get geographicalPosition:", geographicalPosition)
 	cmd := exec.Command("redshift", "-m", "dummy", "-t", "6500:3500", "-r")
+	if geographicalPosition != "" {
+		cmd.Args = append(cmd.Args, "-l", geographicalPosition)
+	}
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	var errBuf bytes.Buffer
 	cmd.Stderr = &errBuf
@@ -151,6 +215,55 @@ func (r *redshiftRunner) start() {
 	}()
 
 	return
+}
+
+func (m *Manager) listenTimezone() {
+	jobMatchRule := dbusutil.NewMatchRuleBuilder().ExtPropertiesChanged(
+		"/org/freedesktop/timedate1", "org.freedesktop.timedate1").Build()
+	err := jobMatchRule.AddTo(m.sysBus)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	sigChan := make(chan *dbus.Signal, 10)
+	m.sysBus.Signal(sigChan)
+
+	defer func() {
+		m.sysBus.RemoveSignal(sigChan)
+		err := jobMatchRule.RemoveFrom(m.sysBus)
+		if err != nil {
+			logger.Warning(err)
+		}
+	}()
+
+	for sig := range sigChan {
+		if sig.Path == "/org/freedesktop/timedate1" &&
+			sig.Name == "org.freedesktop.DBus.Properties.PropertiesChanged" {
+			if len(sig.Body) != 3 {
+				logger.Warning(err)
+				return
+			}
+
+			props, ok := sig.Body[1].(map[string]dbus.Variant)
+			if !ok {
+				logger.Warning(err)
+				return
+			}
+			v, ok := props["Timezone"]
+			if ok {
+				timezone, _ := v.Value().(string)
+				logger.Info("Timezone change to", timezone)
+				_timeZone = timezone
+				if m.redshiftRunner.state == redshiftStateRunning {
+					logger.Info("Redshift is Running")
+					m.redshiftRunner.stop()
+					time.AfterFunc(50*time.Millisecond, func() {
+						m.redshiftRunner.start()
+					})
+				}
+			}
+		}
+	}
 }
 
 func (r *redshiftRunner) stop() {
@@ -237,6 +350,9 @@ func (m *Manager) saveColorTempValueInCfg(value int32) {
 func (m *Manager) saveColorTempModeInCfg(mode int32) {
 	m.modifySuitableUserMonitorModeConfig(func(cfg *UserMonitorModeConfig) {
 		cfg.ColorTemperatureMode = mode
+		if cfg.ColorTemperatureMode != ColorTemperatureModeNone {
+			cfg.ColorTemperatureModeOn = cfg.ColorTemperatureMode
+		}
 	})
 	err := m.saveUserConfig()
 	if err != nil {
@@ -269,6 +385,7 @@ func (m *Manager) applyColorTempConfig(displayMode byte) {
 		cfg = getDefaultUserMonitorModeConfig()
 	}
 	m.setPropColorTemperatureMode(cfg.ColorTemperatureMode)
+	m.setPropColorTemperatureEnabled(cfg.ColorTemperatureMode != 0)
 	m.setPropColorTemperatureManual(cfg.ColorTemperatureManual)
 	m.setColorTempModeReal(m.ColorTemperatureMode)
 }

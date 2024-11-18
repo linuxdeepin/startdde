@@ -37,6 +37,8 @@ var _xConn *x.Conn
 
 var _useWayland bool
 
+var _inVM bool
+
 var _useKWin bool
 
 func init() {
@@ -77,7 +79,7 @@ func greeterDisplayMain() {
 		os.Exit(1)
 	}
 	// TODO
-	display.Init(xConn, false)
+	display.Init(xConn, false, false)
 	logger.Debug("greeter mode")
 	service, err := dbusutil.NewSessionService()
 	if err != nil {
@@ -121,7 +123,10 @@ func main() {
 		logger.Info("in wayland mode")
 		_useWayland = true
 	}
-	display.Init(xConn, _useWayland)
+
+	_inVM, err = isInVM()
+
+	display.Init(xConn, _useWayland, _inVM)
 	// TODO
 	recommendedScaleFactor = display.GetRecommendedScaleFactor()
 
@@ -181,4 +186,15 @@ func doSetLogLevel(level log.Priority) {
 		wl_display.SetLogLevel(level)
 	}
 	// watchdog.SetLogLevel(level)
+}
+
+func isInVM() (bool, error) {
+	cmd := exec.Command("systemd-detect-virt", "-v", "-q")
+	err := cmd.Start()
+	if err != nil {
+		return false, err
+	}
+
+	err = cmd.Wait()
+	return err == nil, nil
 }

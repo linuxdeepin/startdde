@@ -29,6 +29,7 @@ import (
 	inputdevices "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.inputdevices1"
 	ofdbus "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.dbus"
 	login1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.login1"
+	timedate1 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.timedate1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
 	"github.com/linuxdeepin/go-lib/dbusutil"
 	"github.com/linuxdeepin/go-lib/gsettings"
@@ -209,6 +210,13 @@ type Manager struct {
 	gsColorTemperatureMode int32
 	// 存在gsetting中的色温值
 	gsColorTemperatureManual int32
+
+	// 不支持调节色温的显卡型号
+	unsupportGammaDrmList []string
+	drmSupportGamma       bool
+
+	ColorTemperatureEnabled bool `prop:"access:rw"`
+	SupportColorTemperature bool
 }
 
 type monitorSizeInfo struct {
@@ -217,6 +225,7 @@ type monitorSizeInfo struct {
 }
 
 var _ monitorManagerHooks = (*Manager)(nil)
+var _timeZone string
 
 func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
@@ -224,6 +233,9 @@ func newManager(service *dbusutil.Service) *Manager {
 		monitorMap:     make(map[uint32]*Monitor),
 		Brightness:     make(map[string]float64),
 		redshiftRunner: newRedshiftRunner(),
+		unsupportGammaDrmList: []string{
+			"Loongson",
+		},
 	}
 	m.redshiftRunner.cb = func(value int) {
 		m.setColorTempOneShot()
@@ -279,6 +291,15 @@ func newManager(service *dbusutil.Service) *Manager {
 	m.inputDevices.InitSignalExt(sysSigLoop, true)
 
 	m.sysDisplay = sysdisplay.NewDisplay(m.sysBus)
+	td := timedate1.NewTimedate(m.sysBus)
+	_timeZone, err = td.Timezone().Get(0)
+	if err != nil {
+		logger.Warning(err)
+		_timeZone = "Asia/Beijing"
+	}
+	go func() {
+		m.listenTimezone()
+	}()
 
 	loginManager := login1.NewManager(m.sysBus)
 	loginManager.InitSignalExt(sysSigLoop, true)
@@ -392,6 +413,15 @@ func (m *Manager) initSysDisplay() {
 	if err != nil {
 		logger.Warning(err)
 	}
+	go func() {
+		// 依赖dsettings数据，需要在initDSettings后执行
+		m.drmSupportGamma = m.detectDrmSupportGamma()
+		if m.drmSupportGamma {
+			logger.Debug("setColorTempModeReal")
+			m.setColorTempModeReal(ColorTemperatureModeNone)
+		}
+		m.setPropSupportColorTemperature(!_inVM && m.drmSupportGamma)
+	}()
 }
 
 // 处理系统级别的配置更新
@@ -2965,4 +2995,35 @@ func GetForceScaleFactor() (float64, error) {
 		}
 	}
 	return 1.0, fmt.Errorf("no valid force-scale-factor")
+}
+
+func getLspci() string {
+	out, err := exec.Command("lspci").Output()
+	if err != nil {
+		logger.Warning(err)
+		return ""
+	} else {
+		return string(out)
+	}
+}
+
+func (m *Manager) detectDrmSupportGamma() bool {
+	pciInfos := strings.Split(getLspci(), "\n")
+	for _, info := range pciInfos {
+		if strings.Contains(info, "VGA") {
+			vgaSupportGamma := true
+			for _, drm := range m.unsupportGammaDrmList {
+				lowDrm := strings.ToLower(drm)
+				lowInfo := strings.ToLower(info)
+				if strings.Contains(lowInfo, lowDrm) {
+					vgaSupportGamma = false
+					break
+				}
+			}
+			if vgaSupportGamma {
+				return true
+			}
+		}
+	}
+	return false
 }

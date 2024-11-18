@@ -72,6 +72,7 @@ const (
 type UserMonitorModeConfig struct {
 	ColorTemperatureMode   int32
 	ColorTemperatureManual int32
+	ColorTemperatureModeOn int32 //记录用户开启色温时的模式
 	// 以后如果有必要
 	// Monitors UserMonitorConfigs
 }
@@ -82,6 +83,9 @@ func (c *UserMonitorModeConfig) fix() {
 	}
 	if !isValidColorTempValue(c.ColorTemperatureManual) {
 		c.ColorTemperatureManual = defaultTemperatureManual
+	}
+	if c.ColorTemperatureMode != ColorTemperatureModeNone {
+		c.ColorTemperatureModeOn = c.ColorTemperatureMode
 	}
 }
 
@@ -97,6 +101,8 @@ func getDefaultUserMonitorModeConfig() *UserMonitorModeConfig {
 	return &UserMonitorModeConfig{
 		ColorTemperatureMode:   defaultTemperatureMode,
 		ColorTemperatureManual: defaultTemperatureManual,
+		// TODO: 如果配置缺失，需要一个色温使能的模式
+		ColorTemperatureModeOn: ColorTemperatureModeAuto,
 	}
 }
 
