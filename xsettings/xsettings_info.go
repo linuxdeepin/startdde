@@ -7,6 +7,8 @@ package xsettings
 import (
 	"errors"
 	"fmt"
+	"github.com/godbus/dbus/v5"
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	"math"
 	"strconv"
 	"strings"
@@ -400,21 +402,40 @@ func (info *typeGSKeyInfo) getKeySType() uint8 {
 	return settingTypeInteger
 }
 
-func (info *typeGSKeyInfo) getValue(s *gio.Settings) (result interface{}, err error) {
+func (info *typeGSKeyInfo) getValue(c configManager.Manager) (result interface{}, err error) {
+	value, err := c.Value(0, info.gsKey)
+	if err != nil {
+		logger.Warning("dconfig get value failed", err)
+		return nil, err
+	}
 	switch info.gsType {
 	case gsKeyTypeBool:
-		v := s.GetBoolean(info.gsKey)
-		if v {
+		//var b bool
+		v, ok := value.Value().(bool)
+		if ok && v {
 			result = int32(1)
 		} else {
 			result = int32(0)
 		}
 	case gsKeyTypeInt:
-		result = int32(s.GetInt(info.gsKey))
+		v, ok := value.Value().(int64)
+		if ok {
+			result = int32(v)
+		} else {
+			result = int32(0)
+		}
 	case gsKeyTypeString:
-		result = s.GetString(info.gsKey)
+		var ok bool
+		result, ok = value.Value().(string)
+		if !ok {
+			return "", fmt.Errorf("value is not string")
+		}
 	case gsKeyTypeDouble:
-		result = s.GetDouble(info.gsKey)
+		var ok bool
+		result, ok = value.Value().(float64)
+		if !ok {
+			return float64(0), fmt.Errorf("value is not string")
+		}
 	}
 
 	if info.convertGsToXs != nil {
@@ -423,7 +444,7 @@ func (info *typeGSKeyInfo) getValue(s *gio.Settings) (result interface{}, err er
 	return
 }
 
-func (info *typeGSKeyInfo) setValue(s *gio.Settings, v interface{}) error {
+func (info *typeGSKeyInfo) setValue(s *gio.Settings, d configManager.Manager, v interface{}) error {
 	var err error
 	if info.convertXsToGs != nil {
 		v, err = info.convertXsToGs(v)
@@ -431,20 +452,39 @@ func (info *typeGSKeyInfo) setValue(s *gio.Settings, v interface{}) error {
 			return err
 		}
 	}
-
 	switch info.gsType {
 	case gsKeyTypeBool:
 		tmp := v.(int32)
 		if tmp == 1 {
+			err = d.SetValue(0, info.gsKey, dbus.MakeVariant(true))
+			if err != nil {
+				return err
+			}
 			s.SetBoolean(info.gsKey, true)
 		} else {
+			err = d.SetValue(0, info.gsKey, dbus.MakeVariant(true))
+			if err != nil {
+				return err
+			}
 			s.SetBoolean(info.gsKey, false)
 		}
 	case gsKeyTypeInt:
+		err = d.SetValue(0, info.gsKey, dbus.MakeVariant(v))
+		if err != nil {
+			return err
+		}
 		s.SetInt(info.gsKey, v.(int32))
 	case gsKeyTypeString:
+		err = d.SetValue(0, info.gsKey, dbus.MakeVariant(v))
+		if err != nil {
+			return err
+		}
 		s.SetString(info.gsKey, v.(string))
 	case gsKeyTypeDouble:
+		err = d.SetValue(0, info.gsKey, dbus.MakeVariant(v))
+		if err != nil {
+			return err
+		}
 		s.SetDouble(info.gsKey, v.(float64))
 	}
 	return nil

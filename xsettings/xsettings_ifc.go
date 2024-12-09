@@ -46,7 +46,6 @@ func (m *XSManager) SetInteger(prop string, v int32) *dbus.Error {
 	if err != nil {
 		return dbusutil.ToError(err)
 	}
-
 	return nil
 }
 
@@ -164,12 +163,11 @@ func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) error {
 	if info == nil {
 		return errPropNotFound
 	}
-
-	return info.setValue(m.gs, v)
+	return info.setValue(m.gs, m.dConfigManager, v)
 }
 
 func (m *XSManager) GetScaleFactor() (float64, *dbus.Error) {
-	return getScaleFactor(), nil
+	return m.getScaleFactor(), nil
 }
 
 func (m *XSManager) SetScaleFactor(scale float64) *dbus.Error {

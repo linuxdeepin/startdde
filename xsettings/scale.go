@@ -41,19 +41,24 @@ const (
 func (m *XSManager) setScaleFactor(scale float64, emitSignal bool) {
 	logger.Debug("setScaleFactor", scale)
 	m.gs.SetDouble(gsKeyScaleFactor, scale)
+	m.dconfigSetValue(gsKeyScaleFactor, scale)
 
 	// if 1.7 < scale < 2, window scale = 2
 	windowScale := int32(math.Trunc((scale+0.3)*10) / 10)
 	if windowScale < 1 {
 		windowScale = 1
 	}
-	oldWindowScale := m.gs.GetInt(gsKeyWindowScale)
-	if oldWindowScale != windowScale {
+	//oldWindowScale := m.gs.GetInt(gsKeyWindowScale)
+	var oldWindowScale int32
+	ok := m.dconfigGetValue(gsKeyWindowScale, &oldWindowScale)
+	if !ok || oldWindowScale != windowScale {
 		m.gs.SetInt(gsKeyWindowScale, windowScale)
+		m.dconfigSetValue(gsKeyWindowScale, windowScale)
 	}
 
 	cursorSize := int32(baseCursorSize * scale)
 	m.gs.SetInt(gsKeyGtkCursorThemeSize, cursorSize)
+	m.dconfigSetValue(gsKeyGtkCursorThemeSize, cursorSize)
 	// set cursor size for deepin-metacity
 	gsWrapGDI := gio.NewSettings("com.deepin.wrap.gnome.desktop.interface")
 	gsWrapGDI.SetInt("cursor-size", cursorSize)
@@ -272,6 +277,7 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 	// 关键保存位置
 	factorsJoined := joinScreenScaleFactors(factors)
 	m.gs.SetString(gsKeyIndividualScaling, factorsJoined)
+	m.dconfigSetValue(gsKeyIndividualScaling, factorsJoined)
 
 	err = m.setScreenScaleFactorsForQt(factors)
 	if err != nil {
@@ -287,7 +293,10 @@ func (m *XSManager) setScreenScaleFactors(factors map[string]float64, emitSignal
 }
 
 func (m *XSManager) getScreenScaleFactors() map[string]float64 {
-	factorsJoined := m.gs.GetString(gsKeyIndividualScaling)
+	var factorsJoined string
+	if ok := m.dconfigGetValue(gsKeyIndividualScaling, &factorsJoined); !ok {
+		return make(map[string]float64)
+	}
 	return parseScreenFactors(factorsJoined)
 }
 

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	dbus "github.com/godbus/dbus/v5"
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	ddeSysDaemon "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.daemon1"
 	greeter "github.com/linuxdeepin/go-dbus-factory/system/org.deepin.dde.greeter1"
 	gio "github.com/linuxdeepin/go-gir/gio-2.0"
@@ -26,9 +27,11 @@ const (
 	xsSchema           = "com.deepin.xsettings"
 	defaultScaleFactor = 1.0
 
-	xsDBusService = "org.deepin.dde.XSettings1"
-	xsDBusPath    = "/org/deepin/dde/XSettings1"
-	xsDBusIFC     = xsDBusService
+	xsDBusService          = "org.deepin.dde.XSettings1"
+	xsDBusPath             = "/org/deepin/dde/XSettings1"
+	xsDBusIFC              = xsDBusService
+	dsettingsAppID         = "org.deepin.startdde"
+	dsettingsXSettingsName = "org.deepin.XSettings"
 )
 
 type displayScaleFactorsHelper interface {
@@ -58,6 +61,9 @@ type XSManager struct {
 	// locker for xsettings prop read and write
 	settingsLocker sync.RWMutex
 	dsfHelper      displayScaleFactorsHelper
+
+	// 使用dconfig保存xsettings的配置
+	dConfigManager configManager.Manager
 
 	//nolint
 	signals *struct {
@@ -97,6 +103,17 @@ func NewXSManager(conn *x.Conn, recommendedScaleFactor float64, service *dbusuti
 	}
 	m.greeter = greeter.NewGreeter(systemBus)
 	m.sysDaemon = ddeSysDaemon.NewDaemon(systemBus)
+	dsg := configManager.NewConfigManager(systemBus)
+	XSettingsConfigManagerPath, err := dsg.AcquireManager(0, dsettingsAppID, dsettingsXSettingsName, "")
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
+	m.dConfigManager, err = configManager.NewManager(systemBus, XSettingsConfigManagerPath)
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
 
 	m.handleLocalCenterSF()
 	m.adjustScaleFactor(recommendedScaleFactor)
@@ -114,13 +131,65 @@ func (m *XSManager) GetInterfaceName() string {
 
 var _gs *gio.Settings
 
-func GetScaleFactor() float64 {
-	return getScaleFactor()
+func (m *XSManager) getScaleFactor() float64 {
+	var scale float64
+	if ok := m.dconfigGetValue(gsKeyScaleFactor, &scale); !ok {
+		logger.Warning("dconfig get %v failed", gsKeyScaleFactor)
+		return 1
+	}
+	return scale
 }
 
-func getScaleFactor() float64 {
-	scale := _gs.GetDouble(gsKeyScaleFactor)
-	return scale
+func (m *XSManager) dconfigGetValue(key string, value interface{}) bool {
+	if m.dConfigManager == nil {
+		return false
+	}
+	v, err := m.dConfigManager.Value(0, key)
+	if err != nil {
+		logger.Warning(err)
+		return false
+	}
+
+	switch r := value.(type) {
+	case *string:
+		if strValue, ok := v.Value().(string); ok {
+			*r = strValue
+			return true
+		}
+	case *int:
+		if intValue, ok := v.Value().(int); ok {
+			*r = intValue
+			return true
+		}
+	case *int32:
+		if int32Value, ok := v.Value().(int32); ok {
+			*r = int32Value
+			return true
+		}
+	case *float64:
+		if floatValue, ok := v.Value().(float64); ok {
+			*r = floatValue
+			return true
+		}
+	case *bool:
+		if boolValue, ok := v.Value().(bool); ok {
+			*r = boolValue
+			return true
+		}
+	}
+	logger.Warning("dconfig get %v failed, real value is %v", key, v.Value())
+	return false
+}
+
+func (m *XSManager) dconfigSetValue(key string, value interface{}) {
+	if m.dConfigManager == nil {
+		return
+	}
+	v := dbus.MakeVariant(value)
+	err := m.dConfigManager.SetValue(0, key, v)
+	if err != nil {
+		logger.Warning(err)
+	}
 }
 
 // 处理本地和中心的 scale factors 设置同步
@@ -180,7 +249,8 @@ func (m *XSManager) handleLocalCenterSF() {
 func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 	logger.Debug("recommended scale factor:", recommendedScaleFactor)
 	var err error
-	if m.gs.GetUserValue(gsKeyScaleFactor) == nil &&
+	var scale float64
+	if ok := m.dconfigGetValue(gsKeyScaleFactor, &scale); !ok &&
 		recommendedScaleFactor != defaultScaleFactor {
 		err = m.setScaleFactorWithoutNotify(recommendedScaleFactor)
 		if err != nil {
@@ -191,7 +261,7 @@ func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 
 	// migrate old configuration
 	if os.Getenv("STARTDDE_MIGRATE_SCALE_FACTOR") != "" {
-		scaleFactor := getScaleFactor()
+		scaleFactor := m.getScaleFactor()
 		err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
 		if err != nil {
 			logger.Warning("failed to set scale factor for qt:", err)
@@ -208,7 +278,7 @@ func (m *XSManager) adjustScaleFactor(recommendedScaleFactor float64) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// lightdm-deepin-greeter does not have the qt-theme.ini file yet.
-			scaleFactor := getScaleFactor()
+			scaleFactor := m.getScaleFactor()
 			if scaleFactor != defaultScaleFactor {
 				err = m.setScreenScaleFactorsForQt(map[string]float64{"": scaleFactor})
 				if err != nil {
@@ -262,13 +332,17 @@ func (m *XSManager) setSettings(settings []xsSetting) error {
 
 func (m *XSManager) getSettingsInSchema() []xsSetting {
 	var settings []xsSetting
-	for _, key := range m.gs.ListKeys() {
+	keyList, err := m.dConfigManager.KeyList().Get(0)
+	if err != nil {
+		return nil
+	}
+	for _, key := range keyList {
 		info := gsInfos.getByGSKey(key)
 		if info == nil {
 			continue
 		}
 
-		value, err := info.getValue(m.gs)
+		value, err := info.getValue(m.dConfigManager)
 		if err != nil {
 			logger.Warning(err)
 			continue
@@ -292,12 +366,15 @@ func (m *XSManager) handleGSettingsChanged() {
 			// 删除m.updateDPI()，保证设置屏幕缩放比例不会立刻生效
 			return
 		case "gtk-cursor-theme-name":
-			updateXResources(xresourceInfos{
-				&xresourceInfo{
-					key:   "Xcursor.theme",
-					value: m.gs.GetString("gtk-cursor-theme-name"),
-				},
-			})
+			var val string
+			if m.dconfigGetValue("gtk-cursor-theme-name", &val) {
+				updateXResources(xresourceInfos{
+					&xresourceInfo{
+						key:   "Xcursor.theme",
+						value: val,
+					},
+				})
+			}
 		case gsKeyGtkCursorThemeSize:
 			// 删除updateXResources,阻止设置屏幕缩放后,修改光标大小
 			return
@@ -310,7 +387,7 @@ func (m *XSManager) handleGSettingsChanged() {
 			return
 		}
 
-		value, err := info.getValue(m.gs)
+		value, err := info.getValue(m.dConfigManager)
 		if err == nil {
 			err = m.setSettings([]xsSetting{
 				{
