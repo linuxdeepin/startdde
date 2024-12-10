@@ -49,6 +49,9 @@ install:
 	mkdir -p $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas
 	install -v -m0644 misc/schemas/*.xml $(DESTDIR)$(PREFIX)/share/glib-2.0/schemas/
 
+	mkdir -p $(DESTDIR)$(PREFIX)/share/dsg/configs/org.deepin.startdde/
+	install -v -m0644 misc/dsettings/*.json $(DESTDIR)$(PREFIX)/share/dsg/configs/org.deepin.startdde/
+
 	mkdir -pv ${DESTDIR}${PREFIX}/share/locale
 	cp -r out/locale/* ${DESTDIR}${PREFIX}/share/locale
 
