@@ -20,6 +20,7 @@ Build-Depends:
  libxfixes-dev,
  libxi-dev,
  pkg-config,
+ dh-golang,
 Standards-Version: 4.5.1
 Homepage: http://github.com/linuxdeepin/startdde
 

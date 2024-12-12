@@ -1,8 +1,6 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
-export GOPATH := /usr/share/gocode
-export GOCACHE=/tmp/gocache
-export GO111MODULE = off
+export DH_GOPKG := github.com/linuxdeepin/startdde
 
 ifeq ($(DEB_BUILD_ARCH),sw_64)
 	export AUTO_LAUNCH_CHINESE=1
@@ -13,7 +11,7 @@ ifeq ($(DEB_BUILD_ARCH),mips64el)
 endif
 
 %:
-	dh $@ 
+	dh $@ --buildsystem=golang --with=golang
 
 override_dh_shlibdeps:
 	dh_shlibdeps --dpkg-shlibdeps-params=--ignore-missing-info
