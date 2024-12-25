@@ -1,3 +1,9 @@
+startdde (6.1.1) unstable; urgency=medium
+
+  * feat: 将xsettings的gsetting配置迁移到dconfig中 (#277)
+
+ -- fuleyi <fuleyi@uniontech.com>  Wed, 25 Dec 2024 10:20:38 +0800
+
 startdde (6.1.0) unstable; urgency=medium
 
   * chore: chore: rename "Qt/ActiveColorDark" to "Qt/DarkActiveColor"
