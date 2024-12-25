@@ -165,11 +165,11 @@ func (m *XSManager) setGSettingsByXProp(prop string, v interface{}) error {
 		return errPropNotFound
 	}
 
-	return info.setValue(m.gs, v)
+	return info.setValue(m.cfgHelper, v)
 }
 
 func (m *XSManager) GetScaleFactor() (float64, *dbus.Error) {
-	return getScaleFactor(), nil
+	return m.getScaleFactor(), nil
 }
 
 func (m *XSManager) SetScaleFactor(scale float64) *dbus.Error {
