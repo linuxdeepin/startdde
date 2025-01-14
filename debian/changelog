@@ -1,3 +1,9 @@
+startdde (6.1.2) unstable; urgency=medium
+
+  * fix: 修复第一次安装系统，高分辨屏幕缩放错误 (#281)
+
+ -- Chengqi E <echengqi@uniontech.com>  Tue, 14 Jan 2025 16:33:38 +0800
+
 startdde (6.1.1) unstable; urgency=medium
 
   * feat: 将xsettings的gsetting配置迁移到dconfig中 (#277)
