@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	"math"
 	"os"
 	"os/exec"
@@ -69,6 +70,13 @@ const (
 )
 
 const (
+	DSettingsAppID                       = "org.deepin.startdde"
+	DSettingsDisplayName                 = "org.deepin.Display"
+	DSettingsKeyAutoColorTemperature     = "auto-color-temperature"
+	DSettingsKeyDefaultTemperatureManual = "default-temperature-manual"
+	DSettingsKeyCustomModeTime           = "custom-mode-time"
+	DSettingKeyColorTemperatureModeOn    = "color-temperature-mode-on"
+
 	gsSchemaDisplay  = "com.deepin.dde.display"
 	gsKeyDisplayMode = "display-mode"
 	gsKeyBrightness  = "brightness"
@@ -201,10 +209,6 @@ type Manager struct {
 	ScreenHeight           uint16
 	MaxBacklightBrightness uint32
 
-	// method of adjust color temperature according to time and location
-	ColorTemperatureMode int32
-	// adjust color temperature by manual adjustment
-	ColorTemperatureManual int32
 	// TODO 删除下面 2 个色温相关字段
 	// 存在gsetting中的色温模式
 	gsColorTemperatureMode int32
@@ -215,8 +219,16 @@ type Manager struct {
 	unsupportGammaDrmList []string
 	drmSupportGamma       bool
 
+	customColorTempTimer    *time.Timer
+	customColorTempFlag     bool
 	ColorTemperatureEnabled bool `prop:"access:rw"`
 	SupportColorTemperature bool
+	// 用户设置的模式，用于使能开关时恢复设置
+	colorTemperatureModeOn int32
+	ColorTemperatureMode   int32
+	// adjust color temperature by manual adjustment
+	ColorTemperatureManual    int32
+	CustomColorTempTimePeriod string
 }
 
 type monitorSizeInfo struct {
@@ -226,6 +238,8 @@ type monitorSizeInfo struct {
 
 var _ monitorManagerHooks = (*Manager)(nil)
 var _timeZone string
+var _dsConfigManager configManager.Manager
+var _dsDefaultTemperatureManual int32
 
 func newManager(service *dbusutil.Service) *Manager {
 	m := &Manager{
@@ -283,6 +297,8 @@ func newManager(service *dbusutil.Service) *Manager {
 	sysSigLoop := dbusutil.NewSignalLoop(m.sysBus, 10)
 	m.sysSigLoop = sysSigLoop
 	sysSigLoop.Start()
+
+	m.initDSettings(m.sysBus)
 
 	m.dbusDaemon = ofdbus.NewDBus(m.sysBus)
 	m.dbusDaemon.InitSignalExt(sysSigLoop, true)
@@ -384,6 +400,77 @@ func newManager(service *dbusutil.Service) *Manager {
 	return m
 }
 
+func (m *Manager) initDSettings(sysBus *dbus.Conn) {
+	ds := configManager.NewConfigManager(sysBus)
+	configManagerPath, err := ds.AcquireManager(0, DSettingsAppID, DSettingsDisplayName, "")
+	if err != nil || configManagerPath == "" {
+		logger.Warning(err)
+		return
+	}
+
+	_dsConfigManager, err = configManager.NewManager(sysBus, configManagerPath)
+	if err != nil {
+		logger.Warning(err)
+		return
+	}
+	getDefaultTemperatureManual := func() {
+		v, err := _dsConfigManager.Value(0, DSettingsKeyDefaultTemperatureManual)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		switch vv := v.Value().(type) {
+		case float64:
+			_dsDefaultTemperatureManual = int32(vv)
+		case int64:
+			_dsDefaultTemperatureManual = int32(vv)
+		default:
+			logger.Warning("type is wrong!")
+		}
+		logger.Info("Default temperature manual:", _dsDefaultTemperatureManual)
+	}
+
+	getCustomTemperatureTime := func() {
+		v, err := _dsConfigManager.Value(0, DSettingsKeyCustomModeTime)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		m.CustomColorTempTimePeriod = v.Value().(string)
+		logger.Info("Custom Mode Time:", m.CustomColorTempTimePeriod)
+	}
+
+	getColorTemperatureModeOn := func() {
+		v, err := _dsConfigManager.Value(0, DSettingKeyColorTemperatureModeOn)
+		if err != nil {
+			logger.Warning(err)
+			return
+		}
+		m.colorTemperatureModeOn = int32(v.Value().(int64))
+		logger.Info("Custom Mode on:", m.colorTemperatureModeOn)
+	}
+
+	getDefaultTemperatureManual()
+	getCustomTemperatureTime()
+	getColorTemperatureModeOn()
+	m.ColorTemperatureManual = _dsDefaultTemperatureManual
+
+	_dsConfigManager.InitSignalExt(m.sysSigLoop, true)
+	_, err = _dsConfigManager.ConnectValueChanged(func(key string) {
+		switch key {
+		case DSettingsKeyCustomModeTime:
+			getCustomTemperatureTime()
+		case DSettingKeyColorTemperatureModeOn:
+			getColorTemperatureModeOn()
+		default:
+			break
+		}
+	})
+	if err != nil {
+		logger.Warning(err)
+	}
+}
+
 // 初始化系统级 display 服务的信号处理
 func (m *Manager) initSysDisplay() {
 	m.sysDisplay.InitSignalExt(m.sysSigLoop, true)
@@ -414,7 +501,6 @@ func (m *Manager) initSysDisplay() {
 		logger.Warning(err)
 	}
 	go func() {
-		// 依赖dsettings数据，需要在initDSettings后执行
 		m.drmSupportGamma = m.detectDrmSupportGamma()
 		if m.drmSupportGamma {
 			logger.Debug("setColorTempModeReal")

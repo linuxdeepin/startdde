@@ -121,7 +121,9 @@ func Start(service *dbusutil.Service) error {
 				}
 				mode := ColorTemperatureModeNone
 				if value {
-					mode = cfg.ColorTemperatureModeOn
+					mode = m.colorTemperatureModeOn
+				} else {
+					m.colorTemperatureModeOn = m.ColorTemperatureMode
 				}
 				err = m.setColorTempMode(mode)
 				return dbusutil.ToError(err)
