@@ -1,3 +1,9 @@
+startdde (6.1.4) unstable; urgency=medium
+
+  * feat: 色温调节支持用户自定义 (#285)
+
+ -- fuleyi <fuleyi@uniontech.com>  Wed, 05 Mar 2025 17:32:58 +0800
+
 startdde (6.1.3) unstable; urgency=medium
 
   * fix:修复首次外接双屏，默认应该为扩展模式 (#283)
