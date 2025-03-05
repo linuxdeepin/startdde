@@ -315,3 +315,8 @@ func (m *Manager) GetRealDisplayMode() (uint8, *dbus.Error) {
 func (m *Manager) SupportSetColorTemperature() (bool, *dbus.Error) {
 	return !(_inVM || !m.drmSupportGamma), nil
 }
+
+func (m *Manager) SetCustomColorTempTimePeriod(timePeriod string) *dbus.Error {
+	err := m.setCustomColorTempTimePeriod(timePeriod)
+	return dbusutil.ToError(err)
+}

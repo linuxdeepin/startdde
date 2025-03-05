@@ -105,6 +105,11 @@ func (v *Manager) GetExportedMethods() dbusutil.ExportedMethods {
 			InArgs: []string{"value"},
 		},
 		{
+			Name:   "SetCustomColorTempTimePeriod",
+			Fn:     v.SetCustomColorTempTimePeriod,
+			InArgs: []string{"timePeriod"},
+		},
+		{
 			Name:   "SetMethodAdjustCCT",
 			Fn:     v.SetMethodAdjustCCT,
 			InArgs: []string{"adjustMethod"},

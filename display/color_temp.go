@@ -8,9 +8,11 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	"math"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,20 +30,28 @@ const (
 	ColorTemperatureModeAuto
 	// ColorTemperatureModeManual 手动调整色温
 	ColorTemperatureModeManual
+	ColorTemperatureModeCustom
 )
 
 const (
 	timeZoneFile = "/usr/share/zoneinfo/zone1970.tab"
+
+	defaultAutoColorTemperatureConf = "6500:3500"
+	defaultTemperature              = 6500
 )
 
 func isValidColorTempMode(mode int32) bool {
-	return mode >= ColorTemperatureModeNone && mode <= ColorTemperatureModeManual
+	return mode >= ColorTemperatureModeNone && mode <= ColorTemperatureModeCustom
 }
 
 // dbus 上导出的方法
 func (m *Manager) setColorTempMode(mode int32) error {
 	if !isValidColorTempMode(mode) {
-		return errors.New("mode out of range, not 0 or 1 or 2")
+		return errors.New("mode out of range, not 0 or 1 or 3")
+	}
+
+	if mode != ColorTemperatureModeNone {
+		m.setCustomColorTempModeOn(mode)
 	}
 	m.setPropColorTemperatureMode(mode)
 	m.setPropColorTemperatureEnabled(mode != 0)
@@ -57,11 +67,15 @@ func (m *Manager) setColorTempModeReal(mode int32) {
 	switch mode {
 	case ColorTemperatureModeAuto: // 自动模式调节色温 启动服务
 		m.redshiftRunner.start()
-
+		m.stopCustomColorTempMode()
 	case ColorTemperatureModeManual, ColorTemperatureModeNone:
 		// manual 手动调节色温
 		// none 恢复正常色温
 		m.redshiftRunner.stop()
+		m.stopCustomColorTempMode()
+	case ColorTemperatureModeCustom:
+		m.redshiftRunner.stop()
+		m.listenCustomColorTempTime()
 	}
 	// 对于自动模式，也要先把色温设置为正常。
 	m.setColorTempOneShot()
@@ -156,12 +170,19 @@ func (r *redshiftRunner) start() {
 		return
 	}
 	r.state = redshiftStateRunning
-
+	var colorConf string
+	val, err := getGlobalDconfValue(DSettingsAppID, DSettingsDisplayName, "", DSettingsKeyAutoColorTemperature)
+	if err != nil {
+		colorConf = defaultAutoColorTemperatureConf
+		logger.Warning(err)
+	} else {
+		colorConf = val.(string)
+	}
 	latitude := r.zoneInfoMap[_timeZone].latitude
 	longitude := r.zoneInfoMap[_timeZone].longitude
 	geographicalPosition := strconv.FormatFloat(latitude, 'f', -1, 64) + ":" + strconv.FormatFloat(longitude, 'f', -1, 64)
 	logger.Info("Get geographicalPosition:", geographicalPosition)
-	cmd := exec.Command("redshift", "-m", "dummy", "-t", "6500:3500", "-r")
+	cmd := exec.Command("redshift", "-m", "dummy", "-t", colorConf, "-r")
 	if geographicalPosition != "" {
 		cmd.Args = append(cmd.Args, "-l", geographicalPosition)
 	}
@@ -372,6 +393,12 @@ func (m *Manager) getColorTemperatureValue() int {
 		return int(manual)
 	case ColorTemperatureModeAuto:
 		return m.redshiftRunner.getValue()
+	case ColorTemperatureModeCustom:
+		value := defaultTemperature
+		if m.customColorTempFlag {
+			value = int(manual)
+		}
+		return value
 	}
 
 	return defaultTemperatureManual
@@ -483,4 +510,153 @@ func (r *redshiftRunner) registerGeoClueAgent() error {
 
 	r.geoAgentRegistered = true
 	return nil
+}
+
+func setGlobalDconfValue(appID string, name string, subPath string, key string, value dbus.Variant) error {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	ds := configManager.NewConfigManager(sysBus)
+	managerPath, err := ds.AcquireManager(0, appID, name, subPath)
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+
+	dsManager, err := configManager.NewManager(sysBus, managerPath)
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+
+	err = dsManager.SetValue(0, key, value)
+	if err != nil {
+		logger.Warning(err)
+		return err
+	}
+	return nil
+}
+
+func (m *Manager) setCustomColorTempTimePeriod(timePeriod string) error {
+	pattern := `^(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d$`
+	re := regexp.MustCompile(pattern)
+	var err error
+	if re.MatchString(timePeriod) {
+		m.CustomColorTempTimePeriod = timePeriod
+		err = setGlobalDconfValue(DSettingsAppID, DSettingsDisplayName, "", DSettingsKeyCustomModeTime, dbus.MakeVariant(timePeriod))
+	} else {
+		err = errors.New("The timeperiod parameter is invalid")
+	}
+	return err
+}
+
+func (m *Manager) setCustomColorTempModeOn(modeOn int32) error {
+	var err error
+	err = setGlobalDconfValue(DSettingsAppID, DSettingsDisplayName, "", DSettingKeyColorTemperatureModeOn, dbus.MakeVariant(modeOn))
+	if err != nil {
+		logger.Warning("try set modeOn failed")
+	}
+
+	return err
+}
+
+func (m *Manager) listenCustomColorTempTime() {
+	if m.customColorTempTimer == nil {
+		m.customColorTempTimer = time.NewTimer(5 * time.Second)
+	} else {
+		m.customColorTempTimer.Reset(5 * time.Second)
+	}
+	go func() {
+		for {
+			select {
+			case <-m.customColorTempTimer.C:
+				if m.ColorTemperatureMode == ColorTemperatureModeCustom {
+					m.customColorTempFlag = m.checkCustomModeTime()
+					m.setColorTempOneShot()
+				}
+			}
+			if m.customColorTempTimer == nil {
+				m.customColorTempTimer = time.NewTimer(5 * time.Second)
+			} else {
+				m.customColorTempTimer.Reset(5 * time.Second)
+			}
+		}
+	}()
+}
+
+func (m *Manager) checkCustomModeTime() bool {
+	parts := strings.Split(m.CustomColorTempTimePeriod, "-")
+	if len(parts) == 2 {
+		// 获取当前日期
+		timeLocation, err := time.LoadLocation(_timeZone)
+		if err != nil {
+			logger.Warning(err)
+			return false
+		}
+		currentTime := time.Now().In(timeLocation)
+		year, month, day := currentTime.Date()
+
+		// 构建目标时间
+		targetTimeLayout := "15:04"
+		targetTimeStart, err := time.Parse(targetTimeLayout, parts[0])
+		if err != nil {
+			logger.Warning("Failed to get start time:", err)
+			return false
+		}
+		targetTimeEnd, err := time.Parse(targetTimeLayout, parts[1])
+		if err != nil {
+			logger.Warning("Failed to get start time:", err)
+			return false
+		}
+		// 需要考虑凌晨，因为不是同一天
+		targetTimeStart = time.Date(year, month, day, targetTimeStart.Hour(), targetTimeStart.Minute(), 0, 0, currentTime.Location())
+		targetTimeEnd = time.Date(year, month, day, targetTimeEnd.Hour(), targetTimeEnd.Minute(), 0, 0, currentTime.Location())
+		// 计算时间间隔
+		currentToStart := targetTimeStart.Sub(currentTime)
+		currentToEnd := targetTimeEnd.Sub(currentTime)
+		startToEnd := targetTimeEnd.Sub(targetTimeStart)
+		// 如果设定的时间段小于0，表示结束时间为第二天
+		if startToEnd < 0 {
+			return (currentToStart < 0 && currentToEnd < 0) || (currentToStart > 0 && currentToEnd > 0)
+		} else {
+			return (currentToStart < 0) && (currentToEnd > 0)
+		}
+	}
+	return false
+}
+
+func (m *Manager) stopCustomColorTempMode() {
+	if m.customColorTempTimer != nil {
+		m.customColorTempTimer.Stop()
+		m.customColorTempTimer = nil
+	}
+}
+
+func getGlobalDconfValue(appID string, name string, subPath string, key string) (interface{}, error) {
+	sysBus, err := dbus.SystemBus()
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
+	ds := configManager.NewConfigManager(sysBus)
+	managerPath, err := ds.AcquireManager(0, appID, name, subPath)
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
+
+	dsManager, err := configManager.NewManager(sysBus, managerPath)
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
+
+	val, err := dsManager.Value(0, key)
+	if err != nil {
+		logger.Warning(err)
+		return nil, err
+	}
+	return val.Value(), nil
 }
