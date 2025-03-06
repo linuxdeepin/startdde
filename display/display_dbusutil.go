@@ -170,6 +170,32 @@ func (v *Manager) emitPropChangedMaxBacklightBrightness(value uint32) error {
 	return v.service.EmitPropertyChanged(v, "MaxBacklightBrightness", value)
 }
 
+func (v *Manager) setPropColorTemperatureEnabled(value bool) (changed bool) {
+	if v.ColorTemperatureEnabled != value {
+		v.ColorTemperatureEnabled = value
+		v.emitPropChangedColorTemperatureEnabled(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedColorTemperatureEnabled(value bool) error {
+	return v.service.EmitPropertyChanged(v, "ColorTemperatureEnabled", value)
+}
+
+func (v *Manager) setPropSupportColorTemperature(value bool) (changed bool) {
+	if v.SupportColorTemperature != value {
+		v.SupportColorTemperature = value
+		v.emitPropChangedSupportColorTemperature(value)
+		return true
+	}
+	return false
+}
+
+func (v *Manager) emitPropChangedSupportColorTemperature(value bool) error {
+	return v.service.EmitPropertyChanged(v, "SupportColorTemperature", value)
+}
+
 func (v *Manager) setPropColorTemperatureMode(value int32) (changed bool) {
 	if v.ColorTemperatureMode != value {
 		v.ColorTemperatureMode = value
@@ -196,30 +222,17 @@ func (v *Manager) emitPropChangedColorTemperatureManual(value int32) error {
 	return v.service.EmitPropertyChanged(v, "ColorTemperatureManual", value)
 }
 
-func (v *Manager) setPropColorTemperatureEnabled(value bool) (changed bool) {
-	if v.ColorTemperatureEnabled != value {
-		v.ColorTemperatureEnabled = value
-		v.emitPropChangedColorTemperatureEnabled(value)
+func (v *Manager) setPropCustomColorTempTimePeriod(value string) (changed bool) {
+	if v.CustomColorTempTimePeriod != value {
+		v.CustomColorTempTimePeriod = value
+		v.emitPropChangedCustomColorTempTimePeriod(value)
 		return true
 	}
 	return false
 }
 
-func (v *Manager) emitPropChangedColorTemperatureEnabled(value bool) error {
-	return v.service.EmitPropertyChanged(v, "ColorTemperatureEnabled", value)
-}
-
-func (v *Manager) setPropSupportColorTemperature(value bool) (changed bool) {
-	if v.SupportColorTemperature != value {
-		v.SupportColorTemperature = value
-		v.emitPropChangedSupportColorTemperature(value)
-		return true
-	}
-	return false
-}
-
-func (v *Manager) emitPropChangedSupportColorTemperature(value bool) error {
-	return v.service.EmitPropertyChanged(v, "SupportColorTemperature", value)
+func (v *Manager) emitPropChangedCustomColorTempTimePeriod(value string) error {
+	return v.service.EmitPropertyChanged(v, "CustomColorTempTimePeriod", value)
 }
 
 func (v *Monitor) setPropID(value uint32) (changed bool) {
