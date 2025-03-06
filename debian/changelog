@@ -1,3 +1,9 @@
+startdde (6.1.5) unstable; urgency=medium
+
+  * feat: 色温调节支持用户自定义 (#287)
+
+ -- ChengqiE <echengqi@uniontech.com>  Thu, 06 Mar 2025 19:32:58 +0800
+
 startdde (6.1.4) unstable; urgency=medium
 
   * feat: 色温调节支持用户自定义 (#285)
