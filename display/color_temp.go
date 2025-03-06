@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 	"math"
 	"os"
 	"os/exec"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	configManager "github.com/linuxdeepin/go-dbus-factory/org.desktopspec.ConfigManager"
 
 	"github.com/godbus/dbus/v5"
 	geoclue2 "github.com/linuxdeepin/go-dbus-factory/system/org.freedesktop.geoclue2"
@@ -544,8 +545,10 @@ func (m *Manager) setCustomColorTempTimePeriod(timePeriod string) error {
 	re := regexp.MustCompile(pattern)
 	var err error
 	if re.MatchString(timePeriod) {
-		m.CustomColorTempTimePeriod = timePeriod
 		err = setGlobalDconfValue(DSettingsAppID, DSettingsDisplayName, "", DSettingsKeyCustomModeTime, dbus.MakeVariant(timePeriod))
+		if err == nil {
+			m.setPropCustomColorTempTimePeriod(timePeriod)
+		}
 	} else {
 		err = errors.New("The timeperiod parameter is invalid")
 	}

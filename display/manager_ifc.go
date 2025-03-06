@@ -318,5 +318,9 @@ func (m *Manager) SupportSetColorTemperature() (bool, *dbus.Error) {
 
 func (m *Manager) SetCustomColorTempTimePeriod(timePeriod string) *dbus.Error {
 	err := m.setCustomColorTempTimePeriod(timePeriod)
-	return dbusutil.ToError(err)
+	if err != nil {
+		logger.Warning(err)
+		return dbusutil.ToError(err)
+	}
+	return nil
 }
