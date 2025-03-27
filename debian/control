@@ -36,15 +36,10 @@ Depends:
  libpam-gnome-keyring,
  procps,
  xinput,
- dde-wloutput,
- dde-wloutput-daemon,
- dde-wldpms,
  redshift,
  dde-appearance,
  ${misc:Depends},
  ${shlibs:Depends},
-Recommends:
- dde-qt5integration,
 Conflicts:
  deepin-session,
  deepin-wm-switcher,
