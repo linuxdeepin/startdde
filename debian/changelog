@@ -1,3 +1,9 @@
+startdde (6.1.6) unstable; urgency=medium
+
+  * feat: 去掉qt5相关依赖
+
+ -- fuleyi <fuleyi@uniontech.com>  Thu, 27 Mar 2025 14:31:55 +0800
+
 startdde (6.1.5) unstable; urgency=medium
 
   * feat: 色温调节支持用户自定义 (#287)
